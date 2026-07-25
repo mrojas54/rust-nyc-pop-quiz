@@ -36,6 +36,19 @@ A Val Town application is the participant-facing host and durable system of
 record. A separate Modal application performs candidate generation and isolated
 Rust verification.
 
+## Prior art
+
+[`dtolnay/rust-quiz`](https://github.com/dtolnay/rust-quiz)
+([play it](https://dtolnay.github.io/rust-quiz/)) is the original Rust quiz and
+the format this project borrows: a short, legal Rust program, and the question
+is what it prints. Its questions turn on the language's genuinely subtle
+corners — trait resolution, `Drop` order, autoref, macro hygiene.
+
+The difference is the question bank. Rust Quiz is a fixed, published set, so a
+repeat attendee can recognize a question they have already seen. This project
+generates every question fresh per session and verifies the expected output
+with a pinned toolchain instead of curating answers by hand.
+
 ## Reference implementation
 
 [`colelawrence/rust-nyc-talk-submissions`](https://github.com/colelawrence/rust-nyc-talk-submissions)
