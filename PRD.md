@@ -1,4 +1,4 @@
-# Rust NYC Fresh Quiz
+# Rust NYC Pop Quiz
 
 **Status:** Draft - blocked on feasibility evidence\
 **Platform:** Val Town application with Pydantic AI generation and Modal Rust
@@ -6,7 +6,7 @@ verification
 
 ## Product Summary
 
-Rust NYC Fresh Quiz is a host-led meetup quiz that generates original Rust
+Rust NYC Pop Quiz is a host-led meetup quiz that generates original Rust
 program-output questions for every session. Participants join anonymously from
 their phones. Hosts sign in through Discord and must currently hold the
 `nyc-organizers` role in the Rust East Coast Discord server.
@@ -91,6 +91,75 @@ verifier, Pydantic AI Gateway project, secrets, and pinned Rust toolchain.
    totals.
 10. The host advances through the quiz and receives a final aggregate summary.
 
+## User Experience Flow
+
+```mermaid
+flowchart TB
+  subgraph organizer[Organizer lane]
+    direction LR
+    O1[Sign in with Discord] --> O2[Configure quiz]
+    O2 --> O3[Answer-free generation progress]
+    O3 -->|All slots verified| O4[Open lobby and share room code]
+    O4 --> O5[Start question]
+    O5 --> O6[Watch timer and response count]
+    O6 --> O7[Optionally publish hint]
+    O7 --> O8[Close or wait for deadline]
+    O8 --> O9[Reveal answer and receipt]
+    O9 -->|More questions| O5
+    O9 -->|Final question| O10[Aggregate summary]
+    O3 -->|Generation fails| OF[Try again with prefilled configuration]
+    OF --> O2
+  end
+
+  subgraph participant[Participant lane]
+    direction LR
+    P1[Enter room code] --> P2[Join anonymously]
+    P1 -->|Invalid or expired| PE[Actionable room-code error]
+    PE --> P1
+    P1 -->|Room full| PF[Capacity message; no session created]
+    P2 --> P3[Wait in lobby]
+    P3 --> P4[Read source and five choices]
+    P4 --> P5[Submit or change answer]
+    P5 --> P6[Answer locked at server close]
+    P6 --> P7[See answer, explanation, receipt, and totals]
+    P7 -->|More questions| P4
+    P7 -->|Final question| P8[Aggregate room summary]
+  end
+
+  O4 -. Room becomes joinable .-> P1
+  O5 -. Synchronized public state .-> P4
+  O7 -. Same published hint .-> P4
+  O8 -. Server deadline or early close .-> P6
+  O9 -. Atomic reveal .-> P7
+```
+
+### Experience State Contract
+
+- Give every organizer and participant view a named phase, one clear primary
+  action or waiting message, and the room code when returning to the room is
+  still possible.
+- Derive the visible countdown from the server deadline and periodically
+  resynchronize it. Announce the final countdown, close, hint, reveal, and
+  reconnection state without relying on color or motion alone.
+- Mark an answer **Submitted** only after the per-response-versioned `PUT`
+  succeeds. While an update is pending, preserve the prior confirmed answer;
+  after an error, explain whether the question is still open and allow a safe
+  retry.
+- In `closed`, disable answer controls and show **Answer locked — waiting for
+  the host to reveal**. Do not expose correctness, the answer distribution, or a
+  category-specific verification state.
+- On polling interruption, keep the last confirmed view, show **Reconnecting**,
+  and fetch the latest full room view before enabling another action. A restored
+  signed participant session keeps its capacity place and confirmed responses.
+- Let the room owner recover control after a refresh or a second sign-in as the
+  same Discord user. Reject non-owners without exposing private room state.
+- Treat `failed` as terminal. **Try again** and **Edit configuration** create a
+  new room with prefilled settings and new room and generation IDs; they do not
+  transition the failed room back to `generating`.
+- Map join failures to distinct, plain-language states for malformed code,
+  unknown code, expired or completed room, not-yet-open room, abandoned room,
+  and `room_full`.
+
 ## Discord Authorization
 
 - Use Discord's server-side OAuth2 authorization-code flow with only the
@@ -108,10 +177,15 @@ verifier, Pydantic AI Gateway project, secrets, and pinned Rust toolchain.
 - Protect OAuth initiation with a single-use state value stored in a secure
   cookie and expiring after ten minutes.
 - Require an exact registered callback URL.
-- Store Discord access and refresh tokens encrypted with AES-256-GCM in the
-  server-side session record. Never expose or log them.
+- Store Discord access and refresh tokens encrypted with AES-256-GCM using
+  `OAUTH_TOKEN_ENCRYPTION_KEY` in the server-side session record. Never expose
+  or log them.
 - Issue an eight-hour application session using a `Secure`, `HttpOnly`,
-  `SameSite=Lax` cookie.
+  `SameSite=Lax` cookie containing only a cryptographically random opaque
+  session ID.
+- Require an exact allowed `Origin`, a per-session CSRF token, and a JSON
+  content type on every cookie-authenticated browser mutation. Reject missing,
+  malformed, or cross-origin requests before reading a mutation body.
 - Before every privileged mutation, revalidate the Discord role when the last
   successful check is more than 60 seconds old.
 - Refresh expired Discord OAuth tokens when possible.
@@ -192,8 +266,12 @@ Each room must support:
 
 - Present three plausible output choices plus **does not compile** and
   **exhibits undefined behavior**.
-- Permit one response per participant and question.
-- Allow a participant to replace that response until the question closes.
+- Model one response resource per participant and question. Allow a participant
+  to replace it until the question closes.
+- Give each response its own monotonically increasing version. Require `PUT`
+  requests to match that per-response version, return the new version with the
+  confirmed choice, and make an identical retry idempotent. Do not require a
+  participant response to match the global `RoomView` version.
 - Store no participant name, email address, or Discord identity.
 - Display only aggregate response totals after reveal.
 - Admit at most 200 active participant sessions using a transactional capacity
@@ -203,11 +281,17 @@ Each room must support:
   cookies or changing devices creates a new participant and may consume another
   place; preventing that would require participant identity and remains a
   non-goal.
+- Sign participant sessions with `PARTICIPANT_SESSION_SIGNING_KEY` and store
+  them in a `Secure`, `HttpOnly`, `SameSite=Lax` cookie scoped to the
+  application. Include only an opaque membership ID, room ID, issuance time, and
+  expiry in the signed claims; validate the retained membership record before
+  restoring a capacity place or response.
 
 ### Pre-Reveal Answer Isolation
 
-- Before reveal, show the host source code, timer, participant count, aggregate
-  response counts, topic, difficulty, and a category-neutral **Verified** badge.
+- Before reveal, show the host source code, timer, participant count, total
+  number of submitted responses, topic, difficulty, and a category-neutral
+  **Verified** badge. Do not show per-choice totals until reveal.
 - Do not include the correct choice ID or index, explanation, unpublished hint,
   private verification evidence, or any relationship that identifies the correct
   public choice in HTML, client JavaScript, API responses, polling payloads,
@@ -236,6 +320,9 @@ Each room must support:
   detailed rejection reasons in platform-owner telemetry only.
 - When retries are exhausted, enter the `failed` state and offer a retry or
   configuration change.
+- Implement those recovery choices by creating a new room with prefilled
+  configuration. A failed room remains terminal and its generation ID is never
+  reused.
 - Never substitute an unverified question.
 - Enforce a five-minute room-generation deadline. Do not begin another candidate
   attempt when its remaining stage budget cannot fit before the deadline; fail
@@ -280,12 +367,12 @@ Each room must support:
 - Populate the three output choices by answer category. A deterministic-output
   question presents its verified output plus two distinct plausible output
   distractors. A compiler-error or undefined-behavior question presents three
-  distinct plausible output distractors, each an output that a reader who
-  misses the trap could accept as the program's result. Then shuffle all five
-  choices with a cryptographically secure RNG. Apart from the deliberately
-  nonuniform semantic-label priors above, no position, markup, wording variant,
-  distractor style, receipt field, or timing behavior may reveal additional
-  information about the correct option or target category.
+  distinct plausible output distractors, each an output that a reader who misses
+  the trap could accept as the program's result. Then shuffle all five choices
+  with a cryptographically secure RNG. Apart from the deliberately nonuniform
+  semantic-label priors above, no position, markup, wording variant, distractor
+  style, receipt field, or timing behavior may reveal additional information
+  about the correct option or target category.
 
 ### Deterministic Output
 
@@ -368,6 +455,86 @@ Each room must support:
 
 ## Platform Architecture
 
+### Data Flow And Trust Boundaries
+
+```mermaid
+flowchart LR
+  subgraph clients[Browser clients — untrusted]
+    H[Organizer browser]
+    P[Participant browser]
+  end
+
+  D[Discord OAuth and member API]
+
+  subgraph valtown[Val Town — public app and durable system of record]
+    API[React and Hono API]
+    SESS[(Organizer and participant sessions)]
+    PUB[(PUBLIC: rooms, questions, hints, reveals)]
+    RESP[(PRIVATE: anonymous response rows)]
+    SECRET[(SECRET: correct choice, unpublished hint, explanation, evidence)]
+    HISTORY[(PRIVATE HISTORY: source, fingerprints, descriptors, embeddings)]
+  end
+
+  subgraph modal[Modal — generation and verification boundary]
+    ORCH[Generation orchestrator]
+    AGENT[Pydantic AI generator]
+    JUDGE[Semantic and quality judges]
+    RUST[Fresh network-blocked Rust Sandbox: rustc and Miri]
+  end
+
+  GW[Pydantic AI Gateway]
+  MODELS[Approved model providers]
+  LOG[Logfire: metadata only; include_content false]
+
+  H <-->|Host actions and sanitized RoomView| API
+  P <-->|Join, responses, and sanitized RoomView| API
+  API <-->|OAuth and current role check| D
+  API <--> SESS
+  API <--> PUB
+  API <--> RESP
+
+  API -->|HMAC and TLS: config, private targets, job attempt| ORCH
+  ORCH --> AGENT
+  AGENT --> GW
+  ORCH -->|Signed uniqueness query| API
+  API -->|Top-K history and snapshot version| ORCH
+  ORCH --> JUDGE
+  JUDGE --> GW
+  GW --> MODELS
+  GW -. Timing, tokens, cost, model, and status only .-> LOG
+
+  ORCH -->|Candidate source and pinned manifest only| RUST
+  RUST -->|Authoritative verdict and receipt| ORCH
+  ORCH -->|HMAC and TLS callbacks: progress or verified candidate| API
+
+  API -->|Accepted public fields| PUB
+  API -->|Accepted answer-bearing fields| SECRET
+  API -->|Accepted uniqueness artifacts| HISTORY
+  HISTORY -->|Bounded indexed lookup| API
+  RESP -->|Aggregate totals at reveal only| PUB
+  SECRET -->|show_hint or reveal transaction only| PUB
+```
+
+The diagram is normative in these respects:
+
+- Browser state is assembled only from public room data, published hints, and
+  committed reveals, plus the requesting participant's own confirmed response.
+  No client receives another participant's response row, and there is no
+  browser-facing edge from `question_secrets`.
+- The only cross-service edge carrying a current unrevealed answer is the
+  verified-candidate callback from Modal to Val Town. It uses TLS plus request
+  authentication and writes answer-bearing fields directly to `question_secrets`
+  inside candidate acceptance.
+- Modal has no database, Discord, organizer-session, or participant-session
+  access. A uniqueness query returns only the bounded historical artifacts
+  needed for comparison plus an optimistic snapshot version.
+- Only `show_hint` and `reveal` transactions read `question_secrets`; each
+  copies an explicit allowlist of fields into a public table before clients can
+  observe it.
+- Pydantic AI Gateway and Logfire may observe operational metadata, but prompts,
+  completions, tool arguments, Rust source, choices, answers, and explanations
+  remain excluded from telemetry.
+
 ### Val Town Application
 
 - Host the participant and organizer application using React and Hono in a Val
@@ -386,14 +553,18 @@ Each room must support:
 ### Data Separation
 
 - Store public question data and private answer data in separate tables.
-- Make every organizer and participant state query read only public question
-  tables, `question_hints`, and `question_reveals`. State-query code must never
+- Build the common room view only from public question tables, `question_hints`,
+  and `question_reveals`. The organizer view may add participant and total
+  response counts; the participant view may add only the response row matching
+  its authenticated membership and the current question. Neither view may expose
+  individual response rows from another membership. No state-query code may
   query or join `question_secrets`.
 - On a successful version-checked `show_hint` transition, use one transaction to
   copy only the current question's hint into `question_hints`. Public state
   queries may return it after that transaction commits.
 - On a successful version-checked reveal transition, use one transaction to read
-  the current question's secret and copy only its releasable fields into
+  the current question's secret, aggregate the closed question's anonymous
+  responses, and copy only releasable fields and aggregate totals into
   `question_reveals`. Public state queries may return that copied record after
   the transaction commits.
 - Limit `question_secrets` writes to candidate acceptance and reads to the hint
@@ -408,6 +579,11 @@ Each room must support:
 - Delete raw talk titles, abstracts, and key takeaways with room state after 30
   days. Permanent uniqueness records may retain derived Rust concept tags but
   not the supplied talk text.
+- Maintain a monotonically increasing uniqueness-index version. A signed
+  uniqueness query returns the bounded top-K historical source and descriptor
+  records plus the version read. Candidate acceptance must include that snapshot
+  version and may commit only if it is still current, incrementing the version
+  in the same transaction.
 
 ### External Generation And Verification
 
@@ -415,9 +591,9 @@ Each room must support:
   remains the participant-facing application and durable system of record.
 - Assign each quiz a persistent generation ID and a monotonically increasing
   job-attempt number, then submit it through a proxy-token-protected Modal Web
-  Function using a timestamped HMAC-signed request over HTTPS. The endpoint
-  must validate the request, spawn a background generation Function, and
-  immediately return its Modal Function Call ID. See Modal's Web Function and job-processing
+  Function using a timestamped HMAC-signed request over HTTPS. The endpoint must
+  validate the request, spawn a background generation Function, and immediately
+  return its Modal Function Call ID. See Modal's Web Function and job-processing
   documentation: <https://modal.com/docs/guide/webhooks> and
   <https://modal.com/docs/guide/job-queue>.
 - Deduplicate only the same `(generation ID, job attempt)` using a durable Modal
@@ -430,8 +606,15 @@ Each room must support:
   the Rust Sandbox. The Sandbox receives only the candidate source and verifier
   manifest.
 - Generate semantic vectors through Pydantic AI Gateway using the configured
-  embedding model. Use the configured judge model for both near-duplicate and
-  quality decisions, but keep separate prompts, schemas, and retry budgets.
+  embedding model. Before judging uniqueness, send the candidate fingerprints,
+  descriptor, and embedding to Val Town's signed uniqueness-query endpoint. Val
+  Town performs the bounded indexed lookup and returns at most 20 historical
+  sources and descriptors plus the uniqueness-index snapshot version.
+- Run near-duplicate and quality decisions in Modal with the configured judge
+  model, keeping separate prompts, schemas, and retry budgets. Submit a passing
+  candidate with its judged neighbor IDs and snapshot version. A stale snapshot
+  triggers another bounded lookup and semantic judgment without consuming a
+  candidate attempt; an actual duplicate rejection consumes an attempt.
 - Pass each slot's assigned target answer type into the generation request, and
   treat the verifier's determined answer type as authoritative. Reject any
   candidate whose verified type differs from its assignment, regardless of
@@ -505,8 +688,14 @@ Each room must support:
   verification evidence.
 - `QuestionReveal`: the releasable answer, explanation, detailed verification
   receipt, and aggregate totals copied after reveal.
-- `RoomView`: versioned, phase-specific state safe for organizer and participant
-  clients, including the optional public talk title.
+- `RoomView`: versioned, phase-specific common state including the optional
+  public talk title.
+- `OrganizerRoomView`: `RoomView` plus host controls, participant count, and
+  total response count before reveal; it never contains individual response
+  rows.
+- `ParticipantRoomView`: `RoomView` plus only that signed participant's
+  confirmed choice and per-response version; it never contains another
+  participant's row or pre-reveal correctness.
 
 ### HTTP Routes
 
@@ -520,9 +709,12 @@ Each room must support:
 - `PUT /api/rooms/:code/responses/:questionId` inserts or replaces an answer.
 - `POST /internal/generation-events` records idempotent progress or failure
   events.
+- `POST /internal/uniqueness-query` returns a bounded historical top-K and the
+  current uniqueness-index snapshot version to an authenticated Modal job.
 - `POST /internal/question-candidates` atomically accepts a verified candidate
-  or returns `409 Conflict` with a non-secret rejection category for a duplicate
-  or semantic near-match.
+  and increments the uniqueness-index version, or returns `409 Conflict` with a
+  non-secret duplicate or stale-snapshot category. A stale snapshot requires
+  requery and rejudgment before resubmission.
 
 ## Brand And Accessibility
 
@@ -571,7 +763,9 @@ and tests. They are not production metrics and do not require logging answers.
   reveal transaction copies approved fields into `question_reveals`.
 - No accepted formatted-source hash or same-version AST fingerprint is reused.
 - Every room transition, response replacement, participant admission, and
-  candidate acceptance is transactional and version-checked.
+  candidate acceptance is transactional and version-checked. Host actions use
+  the room version; response replacements use their own response-row versions so
+  unrelated participants do not conflict on a shared optimistic lock.
 
 ## Success Metrics
 
@@ -644,10 +838,16 @@ configuration, raw results, and p50/p95/p99 measurements.
 - Successful Discord authorization with the configured guild and role.
 - Rejection for wrong guild, wrong role, removed role, expired token, invalid
   state, reused state, callback CSRF, and Discord API failure.
+- Rejection of missing or invalid browser CSRF tokens, disallowed origins,
+  non-JSON mutation requests, tampered participant-session cookies, expired or
+  deleted memberships, and cross-room membership claims.
 - OAuth refresh, organizer-session expiry, immediate hard-denial invalidation,
   transient-outage grace actions, grace expiry, and prohibition of room creation
   during grace.
 - HMAC callback validation, replay rejection, and event idempotency.
+- Authenticated uniqueness-query access, bounded results, snapshot-version
+  conflict handling, rejudgment after a stale snapshot, and atomic version
+  increment on candidate acceptance.
 - Modal same-attempt submission idempotency, Function retry recovery, heartbeat
   timeout, stale-attempt replacement, three-job-attempt exhaustion, and
   rejection of late or mismatched callbacks.
@@ -672,7 +872,9 @@ configuration, raw results, and p50/p95/p99 measurements.
 - Server deadlines, early close, hint publication, reveal, next question, and
   completion.
 - Joining, reconnecting, late joining, duplicate submissions, and response
-  replacement.
+  replacement, including idempotent retry, stale per-response version rejection,
+  and concurrent submissions from different participants without shared-version
+  conflicts.
 - Concurrent host actions using stale and current room versions.
 - Case-insensitive room-code entry, collision retry, expiry, abandonment, owner
   reauthentication, non-owner rejection, participant cap, `room_full`, and
@@ -735,7 +937,8 @@ configuration, raw results, and p50/p95/p99 measurements.
 - `DISCORD_REDIRECT_URI`
 - `DISCORD_GUILD_ID`
 - `DISCORD_ORGANIZER_ROLE_ID`
-- `SESSION_ENCRYPTION_KEY`
+- `OAUTH_TOKEN_ENCRYPTION_KEY`
+- `PARTICIPANT_SESSION_SIGNING_KEY`
 - `MODAL_GENERATION_URL`
 - `MODAL_PROXY_KEY`
 - `MODAL_PROXY_SECRET`
