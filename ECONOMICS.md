@@ -3,6 +3,10 @@
 **Status:** Phase 2 economic plan. Client call pending on the model question in §5.
 **Prepared:** 2026-08-11. Full workings, sources and date-stamps in
 [`sequence/research/03-economics.md`](sequence/research/03-economics.md).
+**Amended 2026-08-12** for D-7 (one question a night, ~5 minutes, scheduled
+last). Load figures below marked *scaled* are the Dimension 3 research numbers
+divided by the reduction in room-minutes — they are rescaled, **not re-derived**,
+and the underlying research still describes a 3-question, 15-minute room.
 
 Rust NYC Pop Quiz is a volunteer-run community tool, not a business. There is no
 revenue line. "Economics" here means one thing: **what does it cost to run, and
@@ -14,10 +18,10 @@ one that dies because its question bank was memorized.
 
 **The sponsorship risk we opened this research to investigate is not the real
 risk.** The PRD assumes donated Modal and Pydantic AI Gateway capacity via Rust
-NYC sponsor relationships. At this scale — 200 people, once a month, 3 questions
-a room — that donated capacity is worth **$3–15 a year**. It is a courtesy, not
-a subsidy. If both sponsorships vanished tomorrow the annual bill would move by
-roughly the price of a sandwich.
+NYC sponsor relationships. At this scale — 200 people, once a month, **1 question
+a room** — that donated capacity is worth **under $5 a year**. It is a courtesy,
+not a subsidy. If both sponsorships vanished tomorrow the annual bill would move
+by roughly the price of a coffee.
 
 The number that actually drives the bill is **Val Town Pro, ~$252/yr** — which
 the PRD never claimed was sponsored, and which no one flagged as a risk.
@@ -35,11 +39,15 @@ Read the tail-risk row against Dimension 5. The most expensive component in this
 architecture is also the one least suited to the job:
 
 - A 200-participant room polling at 1 Hz for ~15 minutes generates roughly
-  **327,000 requests** (D3 §5).
+  **327,000 requests** (D3 §5). At one question and a ~5-minute room that is
+  roughly **109,000** — *scaled, not re-derived.*
 - Val Town's SQLite runs on Turso, whose classic engine is **single-writer**.
-  200 near-simultaneous answer writes at each question deadline queue behind one
+  200 near-simultaneous answer writes at the question deadline queue behind one
   lock — the exact shape most likely to blow the PRD's own 500ms p95 write
-  target (D5).
+  target (D5). **D-7 does not fix this, it de-repeats it:** the burst is the
+  same size, it just happens once a night instead of three times. AC-54 still
+  names it the highest-risk moment in the system, and a burst you survive twice
+  by luck is not a burst you have tested.
 - Val Town publishes **no ceiling** for concurrent inbound traffic to a deployed
   val. The capacity gate is unpassed and, on current documentation, unpassable
   by desk research alone.

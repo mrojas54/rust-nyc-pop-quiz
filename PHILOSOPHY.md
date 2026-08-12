@@ -14,6 +14,15 @@ dtolnay's bank, the answer arrived before the argument could start. A remembered
 question is not an easy question — it is a question that produces *no
 conversation at all*, which is worse than a hard one.
 
+It is also why the segment is **one question in the last five minutes of the
+night**, and not a round in the middle of it. If the argument is the product,
+then the segment has to end somewhere the argument can keep going. Anywhere but
+last, the only way to finish on time is to interrupt the exact thing you were
+trying to cause. Placed last, nobody has to stop it — it walks out with them.
+
+One question a night is also eight months of supply from a single batch, which
+is the kind of thing principle 8 keeps predicting.
+
 ## Principles
 
 ### 1. Nobody in the room has seen this question
@@ -35,9 +44,40 @@ Concretely, and enforceable:
 - No published distribution of answer categories. Ever.
 - No structural feature of a question may correlate with its answer — not the
   presence of `unsafe`, not source length, not topic, not option ordering.
-- Correct-answer positions are balanced and shuffled, and **audited on every
-  build**. The first deck we built shipped a visible B, D, B, D pattern from a
-  badly seeded shuffle. It was caught by an audit, not by care.
+- Correct-answer position is drawn **uniformly and independently of history**,
+  and the **generator** is audited on every build.
+
+That last one has now failed four times, and the fourth is the instructive one.
+
+The first deck shipped a visible B, D, B, D from a badly seeded shuffle. The
+second shipped four options where five were authored. The third arrived when the
+segment became a single question: the balancer, which balanced positions *within
+a deck*, had nothing left to balance and returned the same slot every time —
+answer at A, every meetup, forever.
+
+The fourth was the *fix* for the third. Balance across the series instead: take
+the least-used letter, never repeat last month. It is what anyone would write,
+it reads like diligence, and it hands the room a certain answer every fifth
+meetup — because enforcing "the counts stay even" means that once four letters
+are spent, the fifth is arithmetic. It measured **45.7%** against a 20%
+baseline, worse than the bug it replaced. It was caught by a client reading one
+sentence of prose describing it, not by any test.
+
+So, stated as a principle rather than a bug:
+
+> **A fairness mechanism that shapes output is an oracle.** If a check can
+> change what tonight's answer is, an attendee can run the same check.
+
+Balance and unpredictability are not the same goal and they trade against each
+other. Unpredictability wins outright: under a uniform draw an uneven-looking
+history is not exploitable — past frequency carries zero information — whereas
+enforced evenness is exploitable *by construction*. So the counts are allowed to
+look lopsided, letters repeat, and the audit tests the **generator** against
+synthetic draws in both tails, where it cannot touch a real night's output.
+
+The through-line across all four: none were caught by reading the code, and the
+worst one was introduced *while fixing* the one before it. Audit the mechanism,
+not your intentions.
 
 ### 3. The machine decides the answer, never the author
 
@@ -86,6 +126,16 @@ The first version of this project specified live generation inside a five-minute
 window because it sounded like the same requirement as freshness. It was not.
 Every time a requirement seems to demand machinery, check whether it demands the
 machinery *at that moment* — supply problems rarely need runtime solutions.
+
+The second time was the round itself. "A quiz" implied several questions, so the
+design carried several questions, and with them: navigation, a per-deck balance
+mechanism, three deadline write-bursts, fifteen minutes of room time, and a
+supply problem that needed solving by October. One question dissolved all of it.
+Nothing was traded away — the argument the segment exists to cause happens once
+per night either way, and it happens *better* with somewhere to go afterwards.
+
+Both times the machinery came from a word — *live*, *quiz* — rather than from
+the thing we actually wanted. That is worth checking for by name.
 
 ## Taste
 

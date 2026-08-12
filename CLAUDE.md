@@ -45,14 +45,28 @@ Two decoupled components:
 - **Live room app** — join by code, read code, answer, reveal, aggregate.
 
 Plus **`mvp/`** — a self-contained HTML projector deck, no server, already
-running real questions. Not the product; it says `MVP` on it.
+running real questions. Not the product; it says `MVP` on it. Build the deck the
+segment actually runs with `--only <qid>`; the multi-question form is for
+reviewing a batch.
 
 ## House rules
 
 - **Never write down what a program prints.** Run it. Correct answers come from
   `verified.json`, which is written by the verifier, never by hand (AC-7).
-- **Audit the answer positions on every deck build** (AC-23). This has already
-  regressed once — the first build shipped a visible B, D, B, D pattern.
+- **The segment is one question, 3–5 minutes, scheduled last** (D-7, Story B10 /
+  AC-89…AC-92). Not a round. Anything that assumes several questions a night is
+  stale.
+- **Answer position is drawn uniformly from the date and nothing else**
+  (AC-23/23a/23b). Never balance it, never quota it, never avoid last meetup's
+  letter — every such rule converts an attendee's memory into a free
+  elimination, and enforced balance makes every fifth meetup certain. Uneven
+  counts and repeated letters are correct; do not "fix" them.
+  `mvp/answer-history.json` is a **record**, never an input.
+- **The build audits the generator, not the sequence**, in both tails — too even
+  means someone reintroduced balancing. An audit that can change tonight's
+  output is a rule, and rules leak. This area has regressed four times,
+  including once *while fixing* the previous regression. Read `PHILOSOPHY.md` §2
+  before touching it.
 - **Never overstate verification.** Miri proves absence of UB *on executed
   paths* only (AC-43).
 - Colour is never the only signal (AC-40).
