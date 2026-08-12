@@ -8,6 +8,50 @@ This is deliberately not the product. It exists to put fresh verified questions
 in front of real attendees now, and to generate the user evidence the design
 stages need — *does the room actually argue about the answer?*
 
+## Two builds
+
+| File | For | Contains |
+|---|---|---|
+| `pop-quiz-<day>.html` | **The host.** Your laptop only. | Everything — answers, explanations, hints, receipts |
+| `pop-quiz-<day>-participant.html` | **Attendees.** Safe to hand out. | Questions and the five options. Nothing else. |
+
+The participant build is answer-free **by construction**, not by hiding: no
+`data-correct`, no explanation, no hint, no receipt, and the reveal code is
+excised from the JavaScript rather than merely disabled. The build asserts this
+and fails if any of it leaks. The correct answer *text* is of course present —
+it is necessarily one of the five visible options (AC-62). What is absent is any
+way to tell which one.
+
+Regenerate both:
+
+```
+python3 tools/build_deck.py 2026-08-12 host
+python3 tools/build_deck.py 2026-08-12 participant
+```
+
+## No projector? Three ways to run it
+
+Code cannot be read aloud — people have to see it. That leaves:
+
+**1. Their own phones.** Put the participant build somewhere they can open, and
+drop the link in the meetup Discord. Everyone reads the code on their own
+screen; you read the answer and explanation aloud off your laptop. This is the
+best fallback and it is also the most faithful to where the product is going.
+It needs the file reachable at a URL — a gist, a static host, anything.
+
+**2. Paper.** Open the participant build and print it. There is a print
+stylesheet: controls disappear, every question prints, one per page, syntax
+highlighting becomes weight rather than colour so it survives a mono printer.
+Eight questions, one double-sided sheet if you print two-up. Zero technology at
+the meetup, and nothing can go wrong with it.
+
+**3. Any screen at all.** A wall-mounted TV, a large monitor turned toward the
+room, or a laptop on a table for a small group. The deck is just a web page;
+`◐` gives you a dim-room mode.
+
+Whichever you pick, **the host build stays on your machine.** It has the answers
+in it.
+
 ## Running it at the meetup
 
 1. Open `2026-08-12/pop-quiz-2026-08-12.html` in any browser. Fullscreen it.

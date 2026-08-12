@@ -17,6 +17,9 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 DAY = sys.argv[1] if len(sys.argv) > 1 else "2026-08-12"
+MODE = sys.argv[2] if len(sys.argv) > 2 else "host"
+assert MODE in ("host", "participant"), "mode must be host or participant"
+PARTICIPANT = MODE == "participant"
 DDIR = HERE.parent / DAY
 
 KEYWORDS = {
@@ -142,6 +145,22 @@ def main() -> int:
             for i, t in enumerate(c["choices"])
         )
         receipt = "".join(f"<li>{html.escape(r)}</li>" for r in c["receipt"])
+        if PARTICIPANT:
+            # Nothing that reveals the answer may exist in this payload -- not the
+            # index, not the explanation, not the receipt, not the hint. The option
+            # TEXT stays public: the correct answer is necessarily one of the five
+            # visible options (AC-62). This is AC-60 enforced at build time.
+            body.append(f'''<section class="card" id="{c['id']}" hidden>
+  <header class="meta">
+    <span class="qno">Question {c['n']} of {len(cards)}</span>
+    <span class="badges"><span class="badge">{html.escape(c['topic'])}</span>
+    <span class="badge dim">Difficulty {c['difficulty']}</span></span>
+  </header>
+  <p class="prompt">What does this program print?</p>
+  <pre class="code"><code>{highlight(c['source'])}</code></pre>
+  <div class="choices">{choices}</div>
+</section>''')
+            continue
         body.append(f'''<section class="card" id="{c['id']}" data-correct="{c['correct']}" hidden>
   <header class="meta">
     <span class="qno">Question {c['n']} of {len(cards)}</span>
@@ -162,16 +181,25 @@ def main() -> int:
     doc = TEMPLATE.replace("__CARDS__", "\n".join(body)) \
                   .replace("__COUNT__", str(len(cards))) \
                   .replace("__DAY__", DAY) \
+                  .replace("__MODE__", MODE) \
                   .replace("__RUSTC__", html.escape(verified["rustc"]))
 
-    out = DDIR / f"pop-quiz-{DAY}.html"
+    if PARTICIPANT:
+        # Excise host-only JS rather than merely guarding it. Nothing that could
+        # reveal an answer should exist in a payload handed to attendees.
+        doc = re.sub(r"/\*HOSTJS\*/.*?/\*ENDHOSTJS\*/", "", doc, flags=re.S)
+        for leak in ("data-correct", "letter-out", "byte-identical", "Verification receipt"):
+            assert leak not in doc.split("</style>")[-1], f"participant build leaks {leak!r}"
+
+    suffix = "-participant" if PARTICIPANT else ""
+    out = DDIR / f"pop-quiz-{DAY}{suffix}.html"
     out.write_text(doc)
     print(f"wrote {out}  ({len(cards)} questions, {out.stat().st_size // 1024} KB)")
     return 0
 
 
 TEMPLATE = r"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="en" data-mode="__MODE__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rust NYC Pop Quiz — __DAY__</title>
 <style>
@@ -258,7 +286,23 @@ font-size:14px;font-weight:700;color:var(--ink-2)}
 .end{text-align:center;padding:48px 20px}
 .end h1{margin-bottom:10px}
 .foot{max-width:1000px;margin:0 auto;padding:0 20px 40px;font-size:12px;color:var(--muted);text-wrap:pretty}
+html[data-mode="participant"] .host-only{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* Print = paper handouts: every question, no controls, one per page. */
+@media print{
+ html,body{background:#fff;color:#000;font-size:11pt}
+ .bar,.foot,#end,.host-only{display:none!important}
+ main{max-width:none;padding:0}
+ .card{display:block!important;page-break-after:always;break-after:page;
+  border:none;padding:0 0 12pt;box-shadow:none;background:#fff}
+ .card[hidden]{display:block!important}
+ .code{background:#f4f4f4;border:1px solid #bbb;font-size:10.5pt;overflow:visible;white-space:pre-wrap}
+ .choice{border:1px solid #999;background:#fff;page-break-inside:avoid;break-inside:avoid}
+ .choice .mark{display:none}
+ .prompt{font-size:14pt}
+ .kw,.ty,.string,.macro,.num{color:#000!important;font-weight:600}
+ .comment{color:#555!important}
+}
 @media (max-width:760px){.bar{padding:10px 14px;gap:8px}.btn{padding:7px 11px}.timer{font-size:19px;min-width:54px}}
 @media (max-width:640px){.code{font-size:14px;padding:14px}.prompt{font-size:20px}body{font-size:15px}main{padding:18px 12px 80px}.card{padding:18px 14px}.choice pre{font-size:15px}}
 </style></head><body>
@@ -268,8 +312,8 @@ font-size:14px;font-weight:700;color:var(--ink-2)}
   <div class="grow"><span class="sub">Rust NYC Pop Quiz · __DAY__ · questions generated fresh and machine-verified</span></div>
   <span class="timer" id="timer" role="timer" aria-live="off">1:30</span>
   <button class="btn" id="tbtn">Start</button>
-  <button class="btn" id="hbtn" title="H">Hint</button>
-  <button class="btn primary" id="rbtn" title="Space">Reveal</button>
+  <button class="btn host-only" id="hbtn" title="H">Hint</button>
+  <button class="btn primary host-only" id="rbtn" title="Space">Reveal</button>
   <button class="btn" id="prev" aria-label="Previous">&larr;</button>
   <button class="btn" id="next" aria-label="Next">&rarr;</button>
   <button class="btn" id="theme" aria-label="Toggle dark mode">&#9681;</button>
@@ -315,6 +359,7 @@ __CARDS__
     say('Question '+(i+1)+' of '+cards.length+'. '+(revealed[i]?'Answer revealed.':'Open.'));
     window.scrollTo(0,0);
   }
+  /*HOSTJS*/
   function reveal(){
     var c=cards[i];if(!c||revealed[i])return;revealed[i]=true;stop();
     var correct=+c.dataset.correct, btns=c.querySelectorAll('.choice');
@@ -327,6 +372,7 @@ __CARDS__
     c.querySelector('.hint').hidden=false;
     say('Answer revealed: option '+'ABCDE'[correct]+'.');
   }
+  /*ENDHOSTJS*/
   cards.forEach(function(c,n){
     c.querySelectorAll('.choice').forEach(function(b,k){
       b.onclick=function(){
@@ -338,11 +384,12 @@ __CARDS__
       };
     });
   });
-  document.getElementById('rbtn').onclick=reveal;
-  document.getElementById('hbtn').onclick=function(){
+  /*HOSTJS*/document.getElementById('rbtn').onclick=reveal;/*ENDHOSTJS*/
+  /*HOSTJS*/document.getElementById('hbtn').onclick=function(){
     var c=cards[i];if(!c)return;var h=c.querySelector('.hint');
+    if(!h)return;
     h.hidden=!h.hidden;say(h.hidden?'Hint hidden.':'Hint shown to the room.');
-  };
+  };/*ENDHOSTJS*/
   document.getElementById('next').onclick=function(){show(Math.min(i+1,cards.length))};
   document.getElementById('prev').onclick=function(){show(Math.max(i-1,0))};
   document.getElementById('theme').onclick=function(){
@@ -353,8 +400,10 @@ __CARDS__
     if(e.target.tagName==='INPUT')return;
     if(e.key==='ArrowRight'){show(Math.min(i+1,cards.length))}
     else if(e.key==='ArrowLeft'){show(Math.max(i-1,0))}
+    /*HOSTJS*/
     else if(e.key===' '){e.preventDefault();reveal()}
     else if(e.key==='h'||e.key==='H'){document.getElementById('hbtn').click()}
+    /*ENDHOSTJS*/
     else if(e.key==='t'||e.key==='T'){document.getElementById('tbtn').click()}
   });
   show(0);
