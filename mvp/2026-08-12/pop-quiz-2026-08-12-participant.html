@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-mode="host"><head><meta charset="utf-8">
+<html lang="en" data-mode="participant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rust NYC Pop Quiz — 2026-08-12</title>
 <style>
@@ -120,7 +120,7 @@ html[data-mode="participant"] .host-only{display:none}
 </div>
 
 <main id="main">
-<section class="card" id="q1" data-correct="4" hidden>
+<section class="card" id="q1" hidden>
   <header class="meta">
     <span class="qno">Question 1 of 8</span>
     <span class="badges"><span class="badge">Ownership and Drop</span>
@@ -156,14 +156,8 @@ drop c</pre><span class="mark" aria-hidden="true"></span></button><button class=
 end of main
 drop b
 drop a</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> Two things decide the order: when each value goes out of scope, and what order values in the SAME scope are dropped in.</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">Two rules combine. Values in an inner scope drop when that scope ends, so _c drops before &quot;end of main&quot; ever prints. And within a single scope, values drop in reverse order of declaration -- so at the end of main, _b goes before _a. Worth arguing about afterward: the underscore prefix only silences the unused-variable warning, it does not change drop timing. Writing `let _ = Noisy(&quot;a&quot;);` instead would drop it immediately, on that line.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q2" data-correct="2" hidden>
+<section class="card" id="q2" hidden>
   <header class="meta">
     <span class="qno">Question 2 of 8</span>
     <span class="badges"><span class="badge">Iterators and closures</span>
@@ -193,14 +187,8 @@ mapping 1
 mapping 2
 mapping 3
 total 6</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> Adaptors don&#x27;t run on their own. Something has to pull values through -- and watch how many get pulled.</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">map is lazy: it builds a pipeline and runs nothing, so &quot;created&quot; prints first. Then take(2).sum() pulls exactly two values through the chain -- so only 1 and 2 are ever mapped, and 3 is never touched at all. The total is 2 + 4 = 6. This laziness is why a long adaptor chain compiles down to a single pass with no intermediate allocation.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q3" data-correct="0" hidden>
+<section class="card" id="q3" hidden>
   <header class="meta">
     <span class="qno">Question 3 of 8</span>
     <span class="badges"><span class="badge">Collections</span>
@@ -213,14 +201,8 @@ total 6</pre><span class="mark" aria-hidden="true"></span></button></div>
     <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, v);
 }</code></pre>
   <div class="choices"><button class="choice" data-i="0" aria-label="Option A"><span class="letter">A</span><pre>[1, 2, 3, 2, 1]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="1" aria-label="Option B"><span class="letter">B</span><pre>[1, 2, 2, 3, 2, 1, 1]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="2" aria-label="Option C"><span class="letter">C</span><pre>does not compile</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="3" aria-label="Option D"><span class="letter">D</span><pre>[1, 2, 3, 2, 1, 1]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="4" aria-label="Option E"><span class="letter">E</span><pre>[1, 2, 3]</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> Read dedup&#x27;s documentation in your head, then read it again. The key word is one you might skip over.</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">dedup removes *consecutive* duplicates only -- the word is easy to skip in the docs. The adjacent 2,2 and the trailing 1,1 collapse; the later 2 and 1 are not adjacent to their earlier occurrences, so they survive. If you want genuinely unique elements you have to sort first (making duplicates adjacent) or reach for a HashSet.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q4" data-correct="1" hidden>
+<section class="card" id="q4" hidden>
   <header class="meta">
     <span class="qno">Question 4 of 8</span>
     <span class="badges"><span class="badge">Integer arithmetic</span>
@@ -238,14 +220,8 @@ total 6</pre><span class="mark" aria-hidden="true"></span></button></div>
 -4 1</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="3" aria-label="Option D"><span class="letter">D</span><pre>-4 -1
 -3 -1</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="4" aria-label="Option E"><span class="letter">E</span><pre>-4 1
 -4 1</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> Rust has two different notions of division for signed integers, and they disagree here. Which one do / and % use?</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">Rust&#x27;s / and % truncate toward zero, so -7 / 2 is -3, and the remainder takes the sign of the dividend: -1. div_euclid and rem_euclid floor instead, giving -4 with a remainder that is always non-negative: 1. Both are correct division -- they satisfy the same identity a == b * q + r -- they just make different choices about which way to round. If you have ever indexed into a ring buffer with a negative offset, you have met this bug.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q5" data-correct="3" hidden>
+<section class="card" id="q5" hidden>
   <header class="meta">
     <span class="qno">Question 5 of 8</span>
     <span class="badges"><span class="badge">Strings and UTF-8</span>
@@ -270,14 +246,8 @@ false</pre><span class="mark" aria-hidden="true"></span></button><button class="
 false</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="4" aria-label="Option E"><span class="letter">E</span><pre>5 5
 6 6
 false</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> len() is not a character count. And the second string may not contain the character you think it does.</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">len() returns BYTES, not characters. Written with the precomposed e-acute (U+00E9) the string is 5 bytes and 4 chars. Written as a plain &#x27;e&#x27; followed by a combining acute accent (U+0301) it is 6 bytes and 5 chars. The two render identically on screen and are not equal, because == on str compares bytes -- Rust does no Unicode normalization for you. Byte length, char count, and what a human calls a character are three genuinely different questions, and the third one needs a grapheme-cluster crate.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q6" data-correct="2" hidden>
+<section class="card" id="q6" hidden>
   <header class="meta">
     <span class="qno">Question 6 of 8</span>
     <span class="badges"><span class="badge">Bindings and shadowing</span>
@@ -306,14 +276,8 @@ final 1</pre><span class="mark" aria-hidden="true"></span></button><button class
 10
 20
 final 21</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> There are two different variables called count here. Only one of them survives the loop.</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">The `let count` inside the loop body *shadows* the outer count -- it is a brand-new binding that lives only for that iteration, and it is what the println sees. The outer `mut count` is never written to by the loop at all, so when the loop ends it is still 0, and count += 1 makes it 1. Shadowing looks like assignment and is not; this is one of the few places Rust will let a name quietly mean two things in the same function.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q7" data-correct="0" hidden>
+<section class="card" id="q7" hidden>
   <header class="meta">
     <span class="qno">Question 7 of 8</span>
     <span class="badges"><span class="badge">Sorting</span>
@@ -326,14 +290,8 @@ final 21</pre><span class="mark" aria-hidden="true"></span></button></div>
     <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, v);
 }</code></pre>
   <div class="choices"><button class="choice" data-i="0" aria-label="Option A"><span class="letter">A</span><pre>[(&quot;amy&quot;, 1), (&quot;dan&quot;, 1), (&quot;bob&quot;, 2), (&quot;cal&quot;, 2)]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="1" aria-label="Option B"><span class="letter">B</span><pre>[(&quot;amy&quot;, 1), (&quot;bob&quot;, 2), (&quot;cal&quot;, 2), (&quot;dan&quot;, 1)]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="2" aria-label="Option C"><span class="letter">C</span><pre>[(&quot;dan&quot;, 1), (&quot;amy&quot;, 1), (&quot;bob&quot;, 2), (&quot;cal&quot;, 2)]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="3" aria-label="Option D"><span class="letter">D</span><pre>[(&quot;amy&quot;, 1), (&quot;dan&quot;, 1), (&quot;cal&quot;, 2), (&quot;bob&quot;, 2)]</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="4" aria-label="Option E"><span class="letter">E</span><pre>does not compile</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> Two entries share a key. What does Rust&#x27;s sort promise about their relative order?</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">sort_by_key is a STABLE sort: elements whose keys compare equal keep their original relative order. bob came before amy in the input, but they have different keys so that does not matter; what matters is that amy preceded dan (both key 1) and bob preceded cal (both key 2), and both of those orders survive. sort_unstable_by_key makes no such promise and is usually a little faster -- the standard library gives you the choice deliberately.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>5 of 5 native runs produced byte-identical output</li><li>Miri (strict provenance): no undefined behaviour on the executed path · output matched native byte-for-byte</li></ul></details>
-  </div>
 </section>
-<section class="card" id="q8" data-correct="1" hidden>
+<section class="card" id="q8" hidden>
   <header class="meta">
     <span class="qno">Question 8 of 8</span>
     <span class="badges"><span class="badge">Borrow checking</span>
@@ -348,12 +306,6 @@ final 21</pre><span class="mark" aria-hidden="true"></span></button></div>
 }</code></pre>
   <div class="choices"><button class="choice" data-i="0" aria-label="Option A"><span class="letter">A</span><pre>1</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="1" aria-label="Option B"><span class="letter">B</span><pre>does not compile</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="2" aria-label="Option C"><span class="letter">C</span><pre>1
 4</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="3" aria-label="Option D"><span class="letter">D</span><pre>4</pre><span class="mark" aria-hidden="true"></span></button><button class="choice" data-i="4" aria-label="Option E"><span class="letter">E</span><pre>[1, 2, 3, 4]</pre><span class="mark" aria-hidden="true"></span></button></div>
-  <div class="hint" hidden><strong>Hint</strong> Ask what push might need to do to the vector&#x27;s storage, and what that would mean for anything already pointing into it.</div>
-  <div class="reveal" hidden>
-    <p class="answer-label">Answer <span class="letter-out"></span></p>
-    <div class="explain">&amp;v[0] takes a shared borrow pointing into the vector&#x27;s heap buffer. push needs &amp;mut v and may reallocate that buffer to grow it -- which would leave `first` dangling at a freed address. The borrow checker rejects this at compile time with E0502: cannot borrow `v` as mutable because it is also borrowed as immutable. The detail worth arguing about: the borrow is only still alive because `first` is USED after the push. Delete the final println and the same program compiles -- that is non-lexical lifetimes, and it is why this error moves around when you edit seemingly unrelated lines.</div>
-    <details class="receipt"><summary>Verification receipt</summary><ul><li>rustc 1.96.1 (31fca3adb 2026-06-26) · edition 2021 · compiled cleanly</li><li>rejected by the compiler: E0502</li></ul></details>
-  </div>
 </section>
 <section class="end card" id="end" hidden>
   <h1>That's the quiz</h1>
@@ -393,20 +345,7 @@ final 21</pre><span class="mark" aria-hidden="true"></span></button></div>
     say('Question '+(i+1)+' of '+cards.length+'. '+(revealed[i]?'Answer revealed.':'Open.'));
     window.scrollTo(0,0);
   }
-  /*HOSTJS*/
-  function reveal(){
-    var c=cards[i];if(!c||revealed[i])return;revealed[i]=true;stop();
-    var correct=+c.dataset.correct, btns=c.querySelectorAll('.choice');
-    btns.forEach(function(b,k){
-      b.classList.add(k===correct?'correct':'wrong');
-      if(picked[i]===k)b.classList.add('picked');
-    });
-    c.querySelector('.letter-out').textContent='ABCDE'[correct];
-    c.querySelector('.reveal').hidden=false;
-    c.querySelector('.hint').hidden=false;
-    say('Answer revealed: option '+'ABCDE'[correct]+'.');
-  }
-  /*ENDHOSTJS*/
+  
   cards.forEach(function(c,n){
     c.querySelectorAll('.choice').forEach(function(b,k){
       b.onclick=function(){
@@ -418,12 +357,8 @@ final 21</pre><span class="mark" aria-hidden="true"></span></button></div>
       };
     });
   });
-  /*HOSTJS*/document.getElementById('rbtn').onclick=reveal;/*ENDHOSTJS*/
-  /*HOSTJS*/document.getElementById('hbtn').onclick=function(){
-    var c=cards[i];if(!c)return;var h=c.querySelector('.hint');
-    if(!h)return;
-    h.hidden=!h.hidden;say(h.hidden?'Hint hidden.':'Hint shown to the room.');
-  };/*ENDHOSTJS*/
+  
+  
   document.getElementById('next').onclick=function(){show(Math.min(i+1,cards.length))};
   document.getElementById('prev').onclick=function(){show(Math.max(i-1,0))};
   document.getElementById('theme').onclick=function(){
@@ -434,10 +369,7 @@ final 21</pre><span class="mark" aria-hidden="true"></span></button></div>
     if(e.target.tagName==='INPUT')return;
     if(e.key==='ArrowRight'){show(Math.min(i+1,cards.length))}
     else if(e.key==='ArrowLeft'){show(Math.max(i-1,0))}
-    /*HOSTJS*/
-    else if(e.key===' '){e.preventDefault();reveal()}
-    else if(e.key==='h'||e.key==='H'){document.getElementById('hbtn').click()}
-    /*ENDHOSTJS*/
+    
     else if(e.key==='t'||e.key==='T'){document.getElementById('tbtn').click()}
   });
   show(0);
