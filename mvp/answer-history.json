@@ -1,0 +1,10 @@
+{
+  "_note": "A record of which option slot held the correct answer each meetup, and which question was used. Written by build_deck.py. Deliberately NOT an input to slot selection -- slots are drawn uniformly from the date alone, because any rule that reads this file back would let an attendee who remembers past answers narrow the next one. Uneven counts and repeated letters are expected and must not be 'corrected'.",
+  "meetups": [
+    {
+      "day": "2026-08-12",
+      "question": "q3",
+      "slot": 4
+    }
+  ]
+}

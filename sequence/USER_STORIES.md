@@ -77,7 +77,9 @@ well without reading the code.*
 
 | ID | Criterion |
 |---|---|
-| **AC-23** | Correct-answer positions are balanced across a deck and carry no detectable sequence pattern. **Audited on every build**, and the audit fails the build. `MVP` |
+| **AC-23** | An attendee who remembers the correct-answer position of **every** previous meetup gains **no advantage**. The position is drawn uniformly and independently of all history, so their best guess is 1 in 5 and stays 1 in 5 forever. `MVP` |
+| **AC-23a** | No rule may narrow the next position. Balancing, quotas, and *"never the same letter as last time"* are **prohibited** — each one converts memory into a free elimination, and enforced balance makes every fifth meetup fully determined. Observed counts will therefore be uneven and letters will repeat; that is the correct behaviour and must not be "corrected". `MVP` |
+| **AC-23b** | The **generator** is audited for uniformity on every build, in **both** tails — too skewed indicates a broken generator, too even indicates that someone reintroduced a constraint. The audit runs against synthetic draws and may never alter or reject a specific night's position; an audit that can change tonight's output is a rule, and rules leak. `MVP` |
 | **AC-24** | "does not compile" appears as an option on every question, so its presence signals nothing. `MVP` |
 | **AC-25** | No answer-category distribution is published, displayed, or documented in any artifact an attendee could read. |
 | **AC-26** | No structural property of a question correlates with its answer. The tested set is **named and enumerated**: presence of `unsafe`, source length, option text length, option position, and topic. Each is measured against the accumulated history and must not exceed chance by a stated margin. The set itself is reviewed as the bank grows — an unlisted tell is a bug in this criterion, not an excuse. |
@@ -229,6 +231,23 @@ draft of these stories dropped.
 | **AC-85** | Touch targets are at least 44px. |
 | **AC-86** | Motion respects `prefers-reduced-motion`; no animation is required to understand state. |
 
+### Story B10 — One question, at the end, and then the room is released
+*As an organizer, I want the segment to be one question in the last five minutes
+of the night, so the argument it starts is never the thing I have to interrupt.*
+
+The segment was specified as a multi-question round because that is what a quiz
+is. It does not need to be. The product is the disagreement, and a disagreement
+needs somewhere to go — mid-meetup the only place it can go is *cut off*, so the
+round was competing with its own output. Placed last, the argument leaves the
+room under its own power.
+
+| ID | Criterion |
+|---|---|
+| **AC-89** | A segment is **one** question and completes within **five minutes** end to end, including the reveal and the explanation read aloud. A question that cannot be run in five minutes is a defect in the question, not a scheduling problem. |
+| **AC-90** | The segment is scheduled **last**. Nothing the room must yield to is scheduled after it, and the wrap-up releases the room rather than moving it on. |
+| **AC-91** | An attendee seeing the question for the first time can form an answer within **30 seconds** of it appearing — the whole budget the format allows for reading. `felt` — sampled by watching when hands start going up. Failure here is a question that is too long or a screen that is too small, and it is measurable either way. |
+| **AC-92** | Running the segment consumes exactly one question from the bank per meetup, and which question each meetup used is recorded. `MVP` |
+
 ---
 
 ## C. Authorization
@@ -255,12 +274,19 @@ Not yet stories. These want the Aug 20 dry run or real attendee interviews
 before anyone writes criteria for them.
 
 - Is a timer wanted at all, or does it cut arguments short? The MVP makes it
-  optional deliberately, to find out.
+  optional deliberately, to find out. *Narrowed by Story B10 — inside a
+  five-minute closer the timer competes with the argument for the same 30
+  seconds, so the MVP run should try it without.*
 - Do phones help or hurt? A show of hands is louder and more argumentative, and
   it needs no infrastructure. If the room prefers hands, stories B1/B5 lose most
-  of their weight and the project gets much smaller.
-- Right number of questions per night — 3 is a PRD default, not a finding.
-- Does the verification receipt land as interesting, or as noise?
+  of their weight and the project gets much smaller. *One question a night makes
+  this cheaper to answer and much more consequential — see the note under B5.*
+- Does the verification receipt land as interesting, or as noise? *Sharper now:
+  in a three-minute segment the receipt costs 30 of 180 seconds. It has to earn
+  them.*
+
+**Closed** — *Right number of questions per night.* Was: "3 is a PRD default, not
+a finding." Resolved by the client, 2026-08-12: **one**. See Story B10.
 
 ---
 
@@ -297,6 +323,71 @@ changed.
 a supported mode or disposable — it currently satisfies criteria without being
 specified itself. Decide once the Aug 20 run says whether phones are wanted at
 all.
+
+### 2026-08-12 — Segment shape: one question, five minutes, last
+
+Client call: the segment becomes **one question, 3–5 minutes, at the very end of
+the meetup**. Recorded here because it changed a criterion that was already
+minted, and because it exposed a live defect.
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-23** | **Rewritten twice, same day.** Was *"balanced across a deck."* Briefly became *"balanced across the meetup series — least-used letter next, never twice consecutively."* Now: **drawn uniformly, independent of all history**, with the property stated in terms of what an attendee can infer. Split into AC-23/23a/23b. | See below — the first rewrite was wrong in a way worth recording. |
+
+**The rewrite that had to be rewritten.** Moving to one question a night stranded
+the old within-deck balancer on slot 0, which would have put the answer at **A at
+every meetup, forever**. The obvious repair — balance across the series instead,
+take the least-used letter, never repeat last month — was **worse**, and it is
+the repair anyone would reach for second, so it is recorded here rather than
+quietly replaced.
+
+Balance and unpredictability are in direct conflict. Every rule that reads
+history constrains the next answer, and a constraint is information. Enforcing
+*"counts stay within one of each other"* means that after four meetups of a cycle
+the fifth is **fully determined**:
+
+| meetup in cycle | letters attendee can eliminate | their odds |
+|---|---|---|
+| 1 | 0 of 5 | 1 in 5 |
+| 2 | 1 of 5 | 1 in 4 |
+| 3 | 2 of 5 | 1 in 3 |
+| 4 | 3 of 5 | 1 in 2 |
+| **5** | **4 of 5** | **certain** |
+
+Measured over 20 meetups: a guaranteed answer every fifth night and a **45.7%**
+average hit rate against a 20% baseline — strictly worse than the always-A bug it
+replaced, and it looked responsible, which is why it survived review long enough
+to be written down. Caught by the client reading the sentence describing it.
+
+The fix is to stop being clever: draw uniformly from the date and let the counts
+fall where they fall. A perfect-memory attendee then scores at chance (measured:
+17.5% across three strategies, baseline 20%) and can eliminate nothing, ever.
+`mvp/answer-history.json` was demoted from an input to a write-only record.
+
+The general form, worth carrying forward: **a fairness mechanism that shapes
+output is an oracle.** If a check can change what tonight's answer is, an
+attendee can run the same check.
+
+**Added:** Story B10 (AC-89…AC-92) — one question, ≤5 minutes, scheduled last,
+30-second time-to-opinion, one question consumed per meetup and recorded. Plus
+AC-23a and AC-23b, which exist to stop the balanced-ledger repair being
+reinvented by someone who notices the letters look lopsided.
+
+**Reviewed and left standing, with their meaning changed by arithmetic rather
+than by edit:**
+
+- **Story A7 (AC-75…AC-77), the reserve.** Unchanged as written, but one
+  question a night turns the existing 8 verified questions from *one night's
+  deck* into *eight meetups of supply* — roughly eight months. The reserve
+  criteria get much easier to satisfy and the generation pipeline stops being
+  on any critical path. This is `PHILOSOPHY.md` §8 paying out a second time.
+- **Story B5 (AC-52…AC-55), capacity.** The 200-participant target is unchanged,
+  but the deadline write burst — named in AC-54 as the highest-risk moment in
+  the system — now happens **once a night instead of three times**, and the room
+  is open for about five minutes rather than fifteen. The risk does not go away;
+  it stops being repeated.
+- **Story A4 (AC-21), review under 15 minutes.** Still the target for a batch.
+  Reviewing what a single meetup needs is now trivially inside it.
 
 ---
 

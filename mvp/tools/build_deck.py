@@ -16,8 +16,20 @@ import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
-DAY = sys.argv[1] if len(sys.argv) > 1 else "2026-08-12"
-MODE = sys.argv[2] if len(sys.argv) > 2 else "host"
+
+# usage: build_deck.py [day] [host|participant] [--only <question-id>]
+#   --only builds the single-question deck the live segment actually runs. The
+#   multi-question form is kept for reviewing a whole batch on your own machine.
+ARGV = sys.argv[1:]
+ONLY = None
+if "--only" in ARGV:
+    i = ARGV.index("--only")
+    assert i + 1 < len(ARGV), "--only needs a question id, e.g. --only q4"
+    ONLY = ARGV[i + 1]
+    del ARGV[i:i + 2]
+
+DAY = ARGV[0] if len(ARGV) > 0 else "2026-08-12"
+MODE = ARGV[1] if len(ARGV) > 1 else "host"
 assert MODE in ("host", "participant"), "mode must be host or participant"
 PARTICIPANT = MODE == "participant"
 DDIR = HERE.parent / DAY
@@ -82,14 +94,144 @@ def shuffled(items: list, *seed_parts) -> list:
 
 
 def answer_slots(n_questions: int, n_options: int, salt: str) -> list:
-    """Where the correct answer sits, per question.
+    """Where the correct answer sits, per question, within a multi-question deck.
 
     Balanced by construction -- every option letter is used as close to equally
     often as the counts allow -- then shuffled so the sequence carries no
     pattern. A quiz whose answer positions are guessable is the same failure as
-    a quiz whose questions are memorised."""
+    a quiz whose questions are memorised.
+
+    This only balances anything when a deck holds several questions. For the
+    one-question-a-night format the balancing unit is the meetup series, not the
+    deck -- see slot_for_meetup()."""
+    assert n_questions > 1, "single-question decks must use slot_for_meetup()"
     base = [i % n_options for i in range(n_questions)]
     return shuffled(base, "slots", salt, n_questions, n_options)
+
+
+# ---- answer position across meetups -----------------------------------------
+#
+# One question a night breaks within-deck balancing completely: with n=1 there is
+# exactly one arrangement, so answer_slots(1, 5, day) returned slot 0 for every
+# date -- the answer would have been A at every meetup, forever.
+#
+# The obvious repair -- balance across the series instead, least-used slot next,
+# never repeat last month -- is WORSE, and it is worth writing down why, because
+# it is the repair anyone would reach for second.
+#
+# Balance and unpredictability are in direct conflict. Every rule that reads
+# history constrains the next answer, and a constrained answer is information an
+# attendee can have for free. Enforcing "counts stay within one of each other"
+# means that after four meetups of a cycle the fifth is FULLY DETERMINED: an
+# attendee who remembers four letters knows the fifth with certainty. Measured
+# over 20 meetups, that scheme handed out a guaranteed answer every fifth night
+# and a 45.7% average hit rate against a 20% baseline. It was strictly worse
+# than the always-A bug it replaced, and it looked responsible.
+#
+# So: the slot is drawn UNIFORMLY and depends on nothing but the night itself.
+# The attendee's best guess is 1/5 and stays 1/5 no matter how perfectly they
+# remember every previous answer. That is the floor -- they have to guess
+# something -- and no memoryful scheme can reach it.
+#
+# The price is that the letters will NOT look evenly spread. B will come up
+# twice in a row; some letter will be missing for half a year. That is what
+# random looks like, and it is not exploitable: under a uniform draw, past
+# frequency carries exactly zero information about the next one. Do not "fix"
+# it. Making the sequence look tidier is the bug.
+#
+# The ledger below is therefore a RECORD, not an input. Nothing reads it back
+# to decide anything.
+
+HISTORY_PATH = HERE.parent / "answer-history.json"
+HISTORY_NOTE = (
+    "A record of which option slot held the correct answer each meetup, and "
+    "which question was used. Written by build_deck.py. Deliberately NOT an "
+    "input to slot selection -- slots are drawn uniformly from the date alone, "
+    "because any rule that reads this file back would let an attendee who "
+    "remembers past answers narrow the next one. Uneven counts and repeated "
+    "letters are expected and must not be 'corrected'."
+)
+
+
+def load_history() -> dict:
+    if HISTORY_PATH.exists():
+        return json.loads(HISTORY_PATH.read_text())
+    return {"_note": HISTORY_NOTE, "meetups": []}
+
+
+def slot_for_day(day: str, n_options: int) -> int:
+    """Where this meetup's correct answer sits. Uniform over n_options.
+
+    PURE, and it must stay pure. It takes the day and nothing else -- no
+    ledger, no counts, no previous slot. That signature is the security
+    property: a function that cannot see history cannot leak it. If you are
+    about to add a parameter here, read the block comment above first.
+
+    Keyed on the day rather than the question so that swapping tonight's
+    question does not move the answer; the slot belongs to the night."""
+    return _rng("meetup-slot", day)(n_options)
+
+
+# chi-square critical values, df = 4 (5 options). Two-tailed on purpose: the
+# upper tail catches a skewed generator, the LOWER tail catches someone
+# reintroducing balancing -- output that is too evenly spread is not evidence
+# of fairness, it is evidence of a constraint, which is the exploitable case.
+CHI2_DF4_UPPER = 18.467   # p = 0.001
+CHI2_DF4_LOWER = 0.297    # p = 0.999
+
+
+def audit_generator(n_options: int, sample: int = 20000) -> str:
+    """Fails the build if the slot generator is biased.
+
+    Tested against a large synthetic run of dates, never against the real
+    ledger. That is deliberate: it gives the test enough power to actually
+    catch a broken generator, while constraining nothing about what tonight's
+    answer position turns out to be. An audit that can change tonight's output
+    is not an audit, it is a rule -- and rules leak."""
+    days = [f"{2026 + i // 366:04d}-{i % 12 + 1:02d}-{i % 28 + 1:02d}-{i}"
+            for i in range(sample)]
+    counts = [0] * n_options
+    for d in days:
+        counts[slot_for_day(d, n_options)] += 1
+
+    expected = sample / n_options
+    chi2 = sum((c - expected) ** 2 / expected for c in counts)
+    assert chi2 < CHI2_DF4_UPPER, (
+        f"slot generator is skewed (chi2={chi2:.1f} over {sample} draws): "
+        + ", ".join(f"{'ABCDE'[i]}={c}" for i, c in enumerate(counts))
+    )
+    assert chi2 > CHI2_DF4_LOWER, (
+        f"slot generator is TOO EVEN (chi2={chi2:.2f} over {sample} draws) -- "
+        "something is balancing the output. Balanced answer positions are "
+        "predictable answer positions; see the comment above slot_for_day()."
+    )
+
+    # A memoryless draw must produce repeats. If it never does, something is
+    # suppressing them, which is exactly the "never last month's letter" leak.
+    seq = [slot_for_day(d, n_options) for d in days[:2000]]
+    repeats = sum(1 for a, b in zip(seq, seq[1:]) if a == b)
+    assert repeats > 0, (
+        "slot generator never repeats a position on consecutive draws -- "
+        "an attendee could rule out last meetup's letter for free"
+    )
+    return f"generator uniform (chi2={chi2:.1f}, df=4) over {sample} draws"
+
+
+def slot_for_meetup(day: str, qid: str, n_options: int) -> int:
+    """slot_for_day(), plus a line in the ledger. The ledger is write-only."""
+    slot = slot_for_day(day, n_options)
+
+    history = load_history()
+    meetups = history["meetups"]
+    entry = next((m for m in meetups if m["day"] == day), None)
+    if entry is None:
+        meetups.append({"day": day, "question": qid, "slot": slot})
+        meetups.sort(key=lambda m: m["day"])
+    else:
+        entry["question"], entry["slot"] = qid, slot
+    history["_note"] = HISTORY_NOTE
+    HISTORY_PATH.write_text(json.dumps(history, indent=2) + "\n")
+    return slot
 
 
 def main() -> int:
@@ -100,7 +242,23 @@ def main() -> int:
     for q in verified["questions"]:
         if not q.get("verified"):
             print(f"skipping unverified {q['id']}")
-    slots = answer_slots(len(live), 5, DAY)
+
+    if ONLY:
+        live = [q for q in live if q["id"] == ONLY]
+        assert live, f"{ONLY} is not a verified question in {DAY}/verified.json"
+        print(audit_generator(5))
+        slots = [slot_for_meetup(DAY, ONLY, 5)]
+
+        seq = [m for m in load_history()["meetups"]]
+        used = [m["question"] for m in seq if m["day"] != DAY]
+        if ONLY in used:
+            print(f"  !! {ONLY} was already run on "
+                  f"{', '.join(m['day'] for m in seq if m['question'] == ONLY and m['day'] != DAY)}")
+        print(f"  {DAY}: {ONLY}, answer at {'ABCDE'[slots[0]]}")
+        print(f"  series so far: {' '.join('ABCDE'[m['slot']] for m in seq)}"
+              f"   ({len(seq)} meetups -- uneven is correct, do not 'fix' it)")
+    else:
+        slots = answer_slots(len(live), 5, DAY)
 
     cards = []
     for n, (q, slot) in enumerate(zip(live, slots), start=1):
@@ -138,6 +296,8 @@ def main() -> int:
     body = []
     for c in cards:
         letters = "ABCDE"
+        # "Question 1 of 1" is noise on the single-question deck.
+        qno = "Pop quiz" if len(cards) == 1 else f"Question {c['n']} of {len(cards)}"
         choices = "".join(
             f'<button class="choice" data-i="{i}" aria-label="Option {letters[i]}">'
             f'<span class="letter">{letters[i]}</span><pre>{html.escape(t)}</pre>'
@@ -152,7 +312,7 @@ def main() -> int:
             # visible options (AC-62). This is AC-60 enforced at build time.
             body.append(f'''<section class="card" id="{c['id']}" hidden>
   <header class="meta">
-    <span class="qno">Question {c['n']} of {len(cards)}</span>
+    <span class="qno">{qno}</span>
     <span class="badges"><span class="badge">{html.escape(c['topic'])}</span>
     <span class="badge dim">Difficulty {c['difficulty']}</span></span>
   </header>
@@ -163,7 +323,7 @@ def main() -> int:
             continue
         body.append(f'''<section class="card" id="{c['id']}" data-correct="{c['correct']}" hidden>
   <header class="meta">
-    <span class="qno">Question {c['n']} of {len(cards)}</span>
+    <span class="qno">{qno}</span>
     <span class="badges"><span class="badge">{html.escape(c['topic'])}</span>
     <span class="badge dim">Difficulty {c['difficulty']}</span></span>
   </header>
@@ -191,8 +351,11 @@ def main() -> int:
         for leak in ("data-correct", "letter-out", "byte-identical", "Verification receipt"):
             assert leak not in doc.split("</style>")[-1], f"participant build leaks {leak!r}"
 
+    # The single-question deck gets its own name so it never overwrites a batch
+    # build, and so the filename says which question is loaded.
+    stem = f"pop-quiz-{DAY}-{ONLY}" if ONLY else f"pop-quiz-{DAY}"
     suffix = "-participant" if PARTICIPANT else ""
-    out = DDIR / f"pop-quiz-{DAY}{suffix}.html"
+    out = DDIR / f"{stem}{suffix}.html"
     out.write_text(doc)
     print(f"wrote {out}  ({len(cards)} questions, {out.stat().st_size // 1024} KB)")
     return 0

@@ -68,6 +68,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-4 | `ECONOMICS.md` in scope | Client call. Written; conclusion inverted the client's stated risk. |
 | D-5 | Attendee interviews in scope | Client has access. Not yet conducted — see T-6. |
 | D-6 | Borrow option (C) rejected | Code display is disqualifying across all candidates. Recorded rather than escalated because the evidence is one-sided. |
+| D-7 | **Segment = one question, 3–5 min, scheduled last.** Client call, 2026-08-12. | The argument is the product and an argument needs somewhere to go; anywhere but last, finishing on time means interrupting it. Shrinks the build (no navigation, one write-burst, ~5 min room life) and turns the 8 verified questions into ~8 months of supply. Minted Story B10 / AC-89…AC-92 and forced a rewrite of AC-23 — see below. |
 
 ## Conflicts
 
@@ -113,7 +114,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 
 - `PHILOSOPHY.md` — the one thing (*the quiz is a pretext; the argument is the
   product*), 8 principles, taste. Referenced by `CLAUDE.md`.
-- `sequence/USER_STORIES.md` — **17 stories, AC-1 … AC-88, 12 marked `felt`** after the Phase 4 review (13 stories / AC-1…AC-70 / 10 felt as first minted).
+- `sequence/USER_STORIES.md` — **18 stories, AC-1 … AC-92, 13 marked `felt`** after Phase 4b (17 / AC-1…AC-88 / 12 at Phase 4; 13 / AC-1…AC-70 / 10 as first minted).
 - `CLAUDE.md` — references every root artifact and records that `PRD.md` is a
   prior artifact superseded in part by the Phase 2 synthesis.
 
@@ -152,6 +153,36 @@ at minting was 10. Two audits came back clean — AC IDs are continuous with no
 gaps or duplicates, and the option-length tell measured 2/8 against a 1.6/8
 chance baseline (clean, but by luck — nothing checked it, which is why AC-26 now
 names it).
+
+## Phase 4b — Segment shape (D-7), 2026-08-12
+
+Client call: **one question, 3–5 minutes, at the very end of the meetup.**
+
+Applying it surfaced a live defect. `answer_slots()` balanced correct-answer
+positions *within a deck*; asked for one question it returned slot 0
+unconditionally, so **every meetup would have shipped its answer at position A,
+forever.** Third answer-position bug in this codebase, and the quietest — the
+format change broke a mechanism nobody touched.
+
+**The first fix was worse than the bug — recorded because it is the fix anyone
+would write.** Balancing was moved to the meetup series: least-used letter next,
+never repeat last month's. Enforced balance means that once four letters in a
+cycle are spent the fifth is arithmetic, so an attendee with a memory got a
+**certain** answer every fifth meetup and **45.7%** across a cycle against a 20%
+baseline. Client caught it from the sentence describing it — *"idk man like
+that's gonna be obvious that it's never last time's answer"* — before any test
+did.
+
+| | |
+|---|---|
+| **Fix** | Slot is drawn **uniformly from the date and nothing else**. `slot_for_day()` is pure and takes no history; `mvp/answer-history.json` demoted from input to write-only record. Perfect-memory attendee measured at **17.5%** across three strategies (chance = 20%), eliminating nothing. Counts are deliberately uneven and letters repeat. |
+| **Audit** | Now tests the **generator**, not the sequence: 20,000 synthetic draws, chi-square df=4, **both tails** — upper catches a skewed generator, lower catches someone reintroducing balancing. Structurally cannot alter a real night's output. Both failure modes verified to fail the build. |
+| **Principle** | *A fairness mechanism that shapes output is an oracle.* Added to `PHILOSOPHY.md` §2. |
+| **AC-23** | Rewritten twice the same day; now split **AC-23 / 23a / 23b** and stated in terms of what an attendee can infer. Both rewrites recorded in `USER_STORIES.md` rather than replaced. |
+| **Minted** | Story B10 / **AC-89…AC-92** — one question, ≤5 min end to end, scheduled last, 30-second time-to-opinion (`felt`), one question consumed and recorded per meetup. |
+| **Closed** | Open question *"right number of questions per night"* — answered: one. |
+| **Build** | `build_deck.py --only <qid>` writes `pop-quiz-<day>-<qid>.html`, so a single-question build never clobbers a batch build. Batch build retained for review. |
+| **Aug 12 deck** | `q3` (Collections — `vec.dedup()` on non-adjacent duplicates), answer at **E**. Four lines, difficulty 2, and the `[1, 2, 3]` distractor catches everyone who reads `dedup` as `unique`. |
 
 ## Remaining in this stage
 
