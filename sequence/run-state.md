@@ -5,7 +5,7 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 | | |
 |---|---|
 | **Stage** | 1 — `tone-initiation` |
-| **Phase** | 3 — Philosophy & stories: **written**. Phase 4 (stories review) is the next touchpoint. |
+| **Phase** | 4 — Stories review **complete**. Ready for handoff to `tone-prototype`. |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-initiation`, off `codex/valtown-fresh-quiz` @ `f6ea174` |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
@@ -84,7 +84,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-2 | 0 | Opening interview — origin, history, purpose, timing | **Answered** 2026-08-11 |
 | T-3 | 2 | Economic-model dialogue | Folded into T-4 — cost does not decide the fork |
 | T-4 | 2 | Hard fork — build as written / build something else / don't build | **Answered** — decouple generation (option B) |
-| T-5 | 4 | Stories review — AC-1…AC-70 | **OPEN** |
+| T-5 | 4 | Stories review — AC-1…AC-88 | **Answered** 2026-08-11 |
 | T-6 | 1–2 | Attendee interviews (client has access) | Not opened — recommended before Phase 3 stories |
 
 ## Client interview record (T-2)
@@ -113,7 +113,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 
 - `PHILOSOPHY.md` — the one thing (*the quiz is a pretext; the argument is the
   product*), 8 principles, taste. Referenced by `CLAUDE.md`.
-- `sequence/USER_STORIES.md` — 13 stories, **AC-1 … AC-70**, 14 marked `felt`.
+- `sequence/USER_STORIES.md` — **17 stories, AC-1 … AC-88, 12 marked `felt`** after the Phase 4 review (13 stories / AC-1…AC-70 / 10 felt as first minted).
 - `CLAUDE.md` — references every root artifact and records that `PRD.md` is a
   prior artifact superseded in part by the Phase 2 synthesis.
 
@@ -132,6 +132,26 @@ are exactly the failure mode `PHILOSOPHY.md` §2 exists to prevent:
 2. Each question shipped 4 options instead of 5 — "does not compile" replaced
    an authored distractor instead of being appended. Fixed, plus three build
    assertions.
+
+## Phase 4 — Stories review (T-5)
+
+Self-review found ten findings; the client resolved all of them. Applied:
+
+| Finding | Resolution |
+|---|---|
+| **Explanations were never verified** — the machine established the answer, but the LLM-written prose a host reads aloud sat unchecked under a verification badge | New **Story A6** (AC-71…AC-74) with a **blocking** organizer sign-off, a mechanical check that quoted output matches recorded output, and a receipt that states it covers the answer and not the prose |
+| **AC-44 was unfalsifiable** (*"the reveal makes people talk to each other"*) | Rewritten to the client's formulation: a **beginner-Rust attendee can explain the solution to someone else** — observable by asking one, and it tests question and explanation together |
+| **AC-69's 15-minute grace window** was shorter than real Discord outages (20 min – 3 h) | Rewritten: **authorize at room creation, not continuously**; a room runs to completion once opened, bounded by a 4-hour max lifetime. Deletes the degraded partial-service state entirely. Discord kept as the auth source per client call. |
+| No story for the bank running dry | New **Story A7** (AC-75…AC-77) — a visible reserve, early warning, and the ability to run a meetup with zero generation that day |
+| Zero accessibility criteria | New **Story B9** (AC-82…AC-86) — keyboard, live regions, AA contrast, 44px targets, reduced motion. Restores what the prototype already did. |
+| Room display smuggled in as one `felt` on a phone story | New **Story B8** (AC-78…AC-81). AC-80 notes the brand's *no dark mode in v1* is what gets amended if a dim room wins. |
+| Asserted figures and unbounded claims | AC-8 and AC-21 labelled hypotheses; AC-26's tested tells named and enumerated; AC-87 scopes determinism to the tested target triple; AC-88 restores difficulty calibration |
+
+Bookkeeping corrected: run-state had claimed 14 `felt` criteria; the true count
+at minting was 10. Two audits came back clean — AC IDs are continuous with no
+gaps or duplicates, and the option-length tell measured 2/8 against a 1.6/8
+chance baseline (clean, but by luck — nothing checked it, which is why AC-26 now
+names it).
 
 ## Remaining in this stage
 

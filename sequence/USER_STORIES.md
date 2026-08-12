@@ -39,12 +39,13 @@ ship a question whose answer I guessed.*
 |---|---|
 | **AC-6** | Every candidate is compiled with a **pinned** rustc and edition, both recorded. `MVP` |
 | **AC-7** | The correct answer is read from the program's actual output. No code path allows a hand-written answer to reach a deck. `MVP` |
-| **AC-8** | Each candidate is run at least 5 times; any candidate whose output is not byte-identical across all runs is **rejected**, not flagged. `MVP` |
+| **AC-8** | Each candidate is run at least 5 times; any candidate whose output is not byte-identical across all runs is **rejected**, not flagged. `MVP` — *5 is a starting hypothesis, not a derived figure; revisit once rejection data exists.* |
 | **AC-9** | Each candidate is run under Miri; a Miri-reported UB finding rejects the candidate unless UB is the intended answer. `MVP` |
 | **AC-10** | Miri's output is compared against native output; a mismatch rejects the candidate. `MVP` |
 | **AC-11** | A candidate expected not to compile must actually fail, and its error code is recorded. `MVP` |
 | **AC-12** | Candidate programs are compiled and executed in a sandbox with no network, no secrets, no host filesystem access, and enforced CPU/memory/time limits. |
 | **AC-13** | The recorded verification facts are sufficient to render a receipt without re-running anything. `MVP` |
+| **AC-87** | The determinism claim is **scoped to the target triple actually tested**, and the receipt says so. Five identical runs on one architecture is evidence about that architecture. |
 
 ### Story A3 — Never repeat a question
 *As an organizer, I want confidence that tonight's questions have not been asked
@@ -66,8 +67,9 @@ confusing or trivial question never reaches the projector.*
 |---|---|
 | **AC-19** | Every candidate can be accepted, rejected, or edited; rejection reasons are recorded and re-usable as pipeline signal. |
 | **AC-20** | Review shows the source, all options, the verified answer, the explanation and the receipt on one screen. `felt` |
-| **AC-21** | Reviewing a default batch takes under 15 minutes for someone who knows Rust. `felt` |
+| **AC-21** | Reviewing a default batch takes under 15 minutes for someone who knows Rust. `felt` — *15 minutes is a target to measure at the first real batch, not a derived figure.* |
 | **AC-22** | An organizer who reviews the batch has necessarily seen the answers; the product says so plainly rather than implying host ignorance. |
+| **AC-88** | Difficulty is **calibrated, not just requested**: across a sample, organizer-judged difficulty is within one level of the level asked for. A run that drifts is a generation defect, not an acceptable variance. |
 
 ### Story A5 — The meta stays unlearnable
 *As an organizer, I want no shortcut to exist that lets a regular attendee score
@@ -78,8 +80,35 @@ well without reading the code.*
 | **AC-23** | Correct-answer positions are balanced across a deck and carry no detectable sequence pattern. **Audited on every build**, and the audit fails the build. `MVP` |
 | **AC-24** | "does not compile" appears as an option on every question, so its presence signals nothing. `MVP` |
 | **AC-25** | No answer-category distribution is published, displayed, or documented in any artifact an attendee could read. |
-| **AC-26** | No structural property of a question correlates with its answer — specifically, `unsafe` must not imply a UB answer. Tested against the accumulated history, not asserted. |
+| **AC-26** | No structural property of a question correlates with its answer. The tested set is **named and enumerated**: presence of `unsafe`, source length, option text length, option position, and topic. Each is measured against the accumulated history and must not exceed chance by a stated margin. The set itself is reviewed as the bank grows — an unlisted tell is a bug in this criterion, not an excuse. |
 | **AC-27** | If UB-answer questions are introduced, `unsafe` must also appear in questions whose answer is not UB. |
+
+### Story A6 — The explanation is trustworthy
+*As an organizer, I want the explanation I read aloud to be correct, because the
+room will believe it — and it sits under a verification badge that did not check
+it.*
+
+The machine establishes the **answer**. It does not establish the prose. A wrong
+answer gets caught by the room arguing, which is the outcome we want anyway; a
+wrong explanation gets believed and repeated. This story exists because the
+verification receipt lends the explanation credibility it has not earned.
+
+| ID | Criterion |
+|---|---|
+| **AC-71** | The explanation is treated as **machine-unverified** throughout. The receipt states that verification establishes the answer and **not** the explanation. |
+| **AC-72** | **Blocking gate.** No question reaches a deck until an organizer has read its explanation and affirmed it correct. Who affirmed it and when are recorded. An unaffirmed question cannot be scheduled — this is enforced, not advisory. |
+| **AC-73** | Any output the explanation quotes as printed is mechanically checked against the recorded verified output; a mismatch blocks acceptance. |
+| **AC-74** | The reveal visually distinguishes machine-established fact (answer, receipt) from human-reviewed prose (explanation, hint), so the badge cannot be read as covering both. |
+
+### Story A7 — Always have questions
+*As an organizer, I want a meetup to never depend on a batch run succeeding that
+day, because the segment dies the first time it does.*
+
+| ID | Criterion |
+|---|---|
+| **AC-75** | The bank maintains a **reserve** of verified, reviewed, unused questions. The reserve size and its trend are visible at a glance. |
+| **AC-76** | Falling below the reserve threshold warns the organizer with enough lead time to act — not on the day. |
+| **AC-77** | A meetup can run entirely from reserve with **zero generation that day**, using no network beyond serving the room. |
 
 ---
 
@@ -121,7 +150,7 @@ is the moment the argument starts.*
 | **AC-41** | Reveal reaches connected participants within 2 seconds at p95. |
 | **AC-42** | The explanation reads well **aloud** — a host can read it to the room verbatim and be understood. `felt` |
 | **AC-43** | The receipt states what verification proves and does not overstate it. `felt` |
-| **AC-44** | The reveal makes people talk to each other. `felt` — the one criterion that matters most and the only one no test can reach. |
+| **AC-44** | After a reveal, an attendee who knows only **beginner** Rust can explain the solution to someone else. `felt` — sampled by asking one at a real meetup. If they cannot, the explanation failed, not the attendee. This is the criterion that matters most, and it tests the question and its explanation together. |
 
 ### Story B4 — Host the room
 *As an organizer, I want to run the segment without fighting the tool in front of
@@ -169,6 +198,37 @@ reveal, not merely hidden.*
 | **AC-62** | Option *text* is acknowledged as public — the correct answer is necessarily one of the visible options. |
 | **AC-63** | A Rust-expert host can infer the answer by reading the source. Host ignorance is documented as **not** a security guarantee. |
 
+### Story B8 — The room display
+*As an attendee at the back of a dim room, I want to read the program off the
+screen at the front, because that is where the argument actually happens.*
+
+The projector is not a big phone. It is a distinct surface with its own
+constraints, and it is arguably the primary one — the phone is an input device,
+the room display is where fifty people look at the same nine lines together.
+
+| ID | Criterion |
+|---|---|
+| **AC-78** | The room display is a distinct surface with its own layout, legible at 6+ metres. `felt` |
+| **AC-79** | It requires no interaction beyond host controls, and never shows the correct answer, the explanation, or an unpublished hint before reveal. |
+| **AC-80** | It is readable with the room lights down. This needs either a dim-room mode or an amendment to the brand's *no dark mode in v1* non-goal — **the brand is what gets amended if a dim room wins.** `felt` |
+| **AC-81** | The room display and the participant view never disagree about the current phase. |
+
+### Story B9 — Usable by everyone in the room
+*As an attendee using a keyboard, a screen reader, or just a phone in bright
+light, I want to take part on the same terms as everyone else.*
+
+Restores the standard the existing prototype already met — live regions, a
+reduced-motion toggle, colour never carrying meaning alone — which the first
+draft of these stories dropped.
+
+| ID | Criterion |
+|---|---|
+| **AC-82** | Every interactive element is reachable and operable by keyboard, with a visible focus indicator. |
+| **AC-83** | Every state change — question open, saving, saved, failed, closed, hint published, revealed — is announced through a polite live region. |
+| **AC-84** | Text and essential UI meet WCAG AA contrast, in both the light and the dim-room presentations. |
+| **AC-85** | Touch targets are at least 44px. |
+| **AC-86** | Motion respects `prefers-reduced-motion`; no animation is required to understand state. |
+
 ---
 
 ## C. Authorization
@@ -184,7 +244,7 @@ without maintaining a second list of people.*
 | **AC-66** | Rotated refresh tokens are persisted on every refresh; a stale token must not silently lock an organizer out. |
 | **AC-67** | Participants never authenticate. |
 | **AC-68** | Only the organizer who created a room can view or control it; no room state leaks to another organizer. |
-| **AC-69** | If the auth provider is unreachable, an already-open room keeps running for a stated grace window while room creation is paused. The window is justified against real outage durations — **the PRD's 15 minutes is shorter than most observed incidents.** |
+| **AC-69** | **Authorization is checked when a room is created, not continuously.** A room whose host was authorized at creation runs to completion regardless of provider availability, bounded by a maximum room lifetime of 4 hours. Creating a *new* room always requires a live check. This replaces the PRD's 15-minute grace window, which was shorter than most observed Discord incidents (20 minutes to 3+ hours) and required a degraded partial-service state to be designed, built and tested for no benefit. |
 | **AC-70** | A denial says which condition failed — wrong server, wrong role — without leaking membership information. |
 
 ---
@@ -204,6 +264,42 @@ before anyone writes criteria for them.
 
 ---
 
-*Minted 2026-08-11, Stage 1 Phase 3. `tone-prototype` is licensed to reopen and
-extend this file; new criteria take fresh IDs and existing IDs never change
-meaning.*
+## Amendments
+
+Criteria are minted here and **finalized at handoff** to `tone-prototype`; after
+that, an ID never changes meaning. Changes made during the Phase 4 review are
+recorded below rather than applied silently, because a criterion that quietly
+becomes something else is exactly the failure the AC-lineage rule exists to
+prevent.
+
+### 2026-08-11 — Phase 4 stories review (T-5)
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-44** | **Rewritten.** Was *"the reveal makes people talk to each other."* Now: a beginner-Rust attendee can explain the solution to someone else. | The original was unfalsifiable — nobody could definitively fail it, so every downstream stage would carry a criterion it could not discharge. The client's reformulation is observable (ask one attendee), falsifiable, and tests the question and its explanation together. |
+| **AC-69** | **Rewritten.** Was a 15-minute grace window during auth-provider outages. Now: authorization is checked at room creation only, with a 4-hour maximum room lifetime. | Dimension 2 found real Discord incidents run 20 minutes to 3+ hours, so 15 minutes bought a degraded partial-service state that had to be designed, built and tested and would not have covered a real outage. Checking at the door preserves the security property exactly and deletes the failure mode. |
+| **AC-8** | Clarified — 5 runs labelled a hypothesis. | The figure was asserted, not derived. |
+| **AC-21** | Clarified — 15 minutes labelled a target to measure. | Same. |
+| **AC-26** | Tightened — the tested set of tells is now named and enumerated. | *"No structural property correlates with its answer"* is unbounded and therefore untestable. Option length was measured after the fact and came back clean (2/8 vs. a 1.6/8 chance baseline) — by luck, not by any check. |
+
+**Added:** Story A6 (AC-71…AC-74, explanation trustworthiness with a blocking
+organizer gate), Story A7 (AC-75…AC-77, question reserve), Story B8
+(AC-78…AC-81, the room display), Story B9 (AC-82…AC-86, accessibility), plus
+AC-87 (determinism scoped to the tested target triple) and AC-88 (difficulty
+calibration, restored from the PRD).
+
+**Reviewed and left standing:** Story A2 discharges most of its criteria already
+via the MVP. Stories B6 and B7 were found properly hard-edged. Story C1 keeps
+Discord as the authorization source per the client's call, with only AC-69
+changed.
+
+**Still open, deliberately not yet criteria:** whether the MVP projector deck is
+a supported mode or disposable — it currently satisfies criteria without being
+specified itself. Decide once the Aug 20 run says whether phones are wanted at
+all.
+
+---
+
+*Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
+`tone-prototype` is licensed to reopen and extend this file; new criteria take
+fresh IDs and existing IDs never change meaning after handoff.*
