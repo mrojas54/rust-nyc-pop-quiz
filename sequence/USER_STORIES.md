@@ -133,7 +133,7 @@ to an answer.*
 
 | ID | Criterion |
 |---|---|
-| **AC-32** | Source is monospace, line-numbered, rendered **without** syntax highlighting, and legible without pinch-zoom on a 375px-wide phone. `felt` *Amended 2026-08-14 (Phase 1c) — was "syntax-highlighted"; the trace owns the colour channel. See Amendments.* |
+| **AC-32** | **Neither the source nor its trace is rendered on any participant device.** Both live on the room display only, where AC-38 and AC-78 govern their legibility. A participant device carries the options to vote on. *Rewritten twice on 2026-08-14 — first the highlighting clause (Phase 1c), then the whole premise (A-4, client call). Was: "monospace, syntax-highlighted, legible without pinch-zoom on a 375px-wide phone." See Amendments.* |
 | **AC-33** | Code that exceeds the viewport scrolls inside its own container; the page never scrolls horizontally. |
 | **AC-34** | An answer can be changed freely until the server closes the question. |
 | **AC-35** | Submission state is always visible and unambiguous: saving, saved, or failed. |
@@ -498,6 +498,54 @@ characters everywhere, from an alphabet with no `O`/`0` or `I`/`1` — a code re
 off a projector from six metres back cannot afford an ambiguous glyph. No
 criterion changes: **AC-28** says only *"a short room code"* and **AC-49** only
 requires it be on screen; both were already satisfied and remain so.
+
+### 2026-08-14 — A-4: the source never appears on a participant device
+
+Client call, during the T-12 drive-through: *"AC-32, should not put it on the
+phone, only options to vote on, code and tracing need to be on screen, maybe
+explanation and summary."*
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-32** | **Rewritten — the premise, not the wording.** Was *"source is monospace, legible without pinch-zoom on a 375px-wide phone."* Now: neither the source nor its trace is rendered on any participant device; both live on the room display only, and the device carries the options to vote on. | The criterion asked *how well* source reads on a phone. The client's answer is that it should not be there at all. Precedent for keeping the ID through a reversal is **AC-48** at T-13 — same subject, opposite answer. |
+
+**This was already half-known and could not be resolved by reasoning.** Phase 1
+recorded, from building the takes, that *AC-32 has no surface in Direction C* —
+a criterion about phone legibility governs nothing when the phone carries no
+code. That was logged as a consequence *if* C won. The client has now made it a
+requirement independent of which take wins, which is the stronger claim.
+
+**What it does to the fan-out.** The call is incompatible with two of the three
+directions, and neither is a close call:
+
+- **Direction B is eliminated.** Its core assumption is that *the phone carries
+  the code, the answer and the reveal*. The first clause is what was just
+  refused.
+- **Direction A is eliminated.** *"Only options to vote on"* presumes a device
+  with options on it. A has no participant device at all — which was already
+  carrying two recorded strikes (public commitment against §9, and it cannot
+  satisfy AC-48 as amended).
+- **Direction C is the surviving assumption**, stated by the client in her own
+  words rather than picked off a menu.
+
+**Consequences to settle, not yet minted:**
+
+1. **AC-33 loses its phone framing.** *"Code that exceeds the viewport scrolls
+   inside its own container"* was written for a phone. On the room display,
+   AC-79 says the wall carries no interaction beyond host controls — so either
+   the source **fits** on the wall, or the **host** is the only one who can move
+   it, and the room reads at the host's pace. That is a real constraint on
+   question length and it bites at build time, not design time.
+2. **Explanation and summary on the device — open.** The client said *maybe*.
+   Direction C as built refuses it outright: the phone reads *"the why is being
+   read out now — listen, don't read."* Reversing that line is the open fork.
+3. **§9's private pace has nowhere left to live unless (2) is yes.** T-15 gave
+   the per-participant trace stepper to Direction B for a §9 reason: a newcomer
+   should be able to work through it *at their own pace, with nobody watching how
+   many times they went back*. The trace is now on the wall only, host-stepped.
+   If the explanation is also spoken-only, nothing on the participant's side is
+   re-readable, and §9's private-pace property is gone from the product
+   entirely. **Putting the explanation on the device is what would restore it.**
 
 ---
 
