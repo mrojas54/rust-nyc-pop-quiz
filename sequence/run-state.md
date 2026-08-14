@@ -4,8 +4,8 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 
 | | |
 |---|---|
-| **Stage** | 1 — `tone-initiation` |
-| **Phase** | 4 — Stories review **complete**. Ready for handoff to `tone-prototype`. |
+| **Stage** | 2 — `tone-prototype`. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
+| **Phase** | Stage 1 closed at Phase 4 + 1b. All of T-1…T-10 answered. Attendee records mined (Dimension 6); **room evidence deferred to the October meetup**, client-run (T-8), non-blocking. AC-52 stands at 200 (T-7). Awaiting `tone-prototype` Phase 0. |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-initiation`, off `codex/valtown-fresh-quiz` @ `f6ea174` |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
@@ -41,12 +41,14 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 03 | Economics *(mandatory)* | Sponsorship worth $3–15/yr — **not load-bearing**. Real cost is Val Town Pro ~$252/yr, tail to ~$2,020/yr. |
 | 04 | Generation & verification | Feasible but unproven. UB path ≈187s = 62% of the 5-min deadline; ~48.8% of rooms hit it. **`unsafe` in source is a near-perfect tell for UB-targeted questions.** |
 | 05 | Realtime substrate | Val Town: needs measurement, lean skeptical. Turso single-writer vs. 200-write deadline burst. Durable Objects is a textbook fit and free at this scale. |
+| 06 | Attendees *(added 2026-08-12, T-6)* | Current venue caps at **110 RSVPs**, ~86% show rate — but every event sold out with a waitlist and the group has hit **200 twice**, so that is a venue cap, not a demand ceiling (amendment A-2). **25–27% newcomers every meetup**, 15% core. 41 free-text responses, **none asking for a quiz**; five asking for beginner-friendly content. **Participation rate never measured** — the real unknown behind AC-52/AC-54. |
 
 ## Living-artifact amendments
 
 | # | Artifact | Change |
 |---|---|---|
 | A-1 | `research/01-problem-and-people.md` | Verdict "problem unproven; solution in search of a problem" **withdrawn**. Client testimony — *"attendees had gotten all answers over and over, we stopped doing dtolnay's quiz at all"* — is primary evidence that the problem is observed, acute, and terminal. Amendment recorded in-file; original retained for the record. |
+| A-2 | `research/06-attendees.md` §2, §6 | Finding *"AC-52's 200 is ~2× the observed ceiling"* **withdrawn**. The 110-RSVP figure is a **venue supply cap, not a demand ceiling** — every event sold out with a waitlist. Client testimony: bigger venues in progress, **Jun 26 Summer Social 200 and sold out**. AC-52 stands at 200. Replaced by a sharper open variable: the **participation rate**, never measured. Original reasoning retained in-file. |
 
 ## Keystone decisions
 
@@ -86,7 +88,11 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-3 | 2 | Economic-model dialogue | Folded into T-4 — cost does not decide the fork |
 | T-4 | 2 | Hard fork — build as written / build something else / don't build | **Answered** — decouple generation (option B) |
 | T-5 | 4 | Stories review — AC-1…AC-88 | **Answered** 2026-08-11 |
-| T-6 | 1–2 | Attendee interviews (client has access) | Not opened — recommended before Phase 3 stories |
+| T-6 | 1–2 | Attendee interviews (client has access) | **Records half answered** 2026-08-12 → `research/06-attendees.md`. **Room half slipped to October** — Aug 12 skipped, Aug 20 unavailable, Sept is RustConf → `mvp/FIELD-NOTES-TEMPLATE.md` |
+| T-7 | 1b | AC-52's 200-concurrent target — label as hypothesis? | **Answered** 2026-08-12 — **proposal withdrawn**, AC-52 stands at 200. Client testimony: bigger venues being pursued; Jun 26 Summer Social hit 200, sold out. |
+| T-8 | 1b | Calendar fork — delegate Aug 20, slip to Oct, or build ahead of evidence | **Answered** 2026-08-13 — **October, client runs it herself.** Delegation declined: *"it's kind of my project and i don't want it taken from me."* |
+| T-9 | 1b | Did the Aug 12 segment run without the client? (q3 rollback) | **Answered** 2026-08-13 — **nobody ran it.** q3 rolled back, bank restored to 8. |
+| T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
 
 ## Client interview record (T-2)
 
@@ -109,6 +115,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 2 | 0 | 1 answered | ~20 min |
 | 3 | 0 | — | ~35 min |
 | MVP | 0 | — | ~40 min |
+| 1b (T-6) | 0 | 1 open (T-7) | ~20 min |
 
 ## Phase 3 output
 
@@ -184,10 +191,167 @@ did.
 | **Build** | `build_deck.py --only <qid>` writes `pop-quiz-<day>-<qid>.html`, so a single-question build never clobbers a batch build. Batch build retained for review. |
 | **Aug 12 deck** | `q3` (Collections — `vec.dedup()` on non-adjacent duplicates), answer at **E**. Four lines, difficulty 2, and the `[1, 2, 3]` distractor catches everyone who reads `dedup` as `unique`. |
 
-## Remaining in this stage
+## Phase 1b — T-6 attendee evidence, 2026-08-12
 
-- **T-5 stories review** — client reads AC-1…AC-70, iterates, and I propose the
-  stories they didn't think of.
-- **T-6 attendee interviews** — not yet conducted. The Aug 12 run is the cheapest
-  opportunity; four attendee CSVs sit in `~/Downloads`.
-- Then handoff to `tone-prototype`.
+T-6 was the last open item in Stage 1. It splits in two: what the group's own
+records can answer without a room, and what only a room can answer.
+
+**Records half — done.** `sequence/research/06-attendees.md`, a sixth dimension.
+Four CSV exports aggregated locally; **no PII copied into the repo** (identities
+hashed before cross-file matching, free text quoted unattributed).
+
+| Finding | Detail |
+|---|---|
+| **Room size** | Regular meetups cap at **110 RSVPs** (three events, exactly 110 each, 1–31 waitlisted). Unconf 2025 approved 200 against 294 registrations. |
+| **Show rate** | Median **88%**, aggregate **86%** (1,160 attendances / 1,347 yes-RSVPs, n=131 with ≥3 RSVPs). Far above the 50–60% free-meetup norm. Soft: 32 of 131 show attendances > yes-RSVPs, so the fields don't cleanly nest. |
+| **Turnover** | **25–27% of each room has never attended a Rust NYC event.** Core (10+ events) is 15%. 226 unique members across the exports. |
+| **Voice** | 41 unique free-text responses — the only attendee testimony in the corpus. **Zero mention a quiz, game, or interactive segment.** Five ask unprompted for beginner-friendly content, one for *"pairs up new people with more experienced engineers."* |
+| **Experience mix** | Not establishable. Titles measure career seniority, not Rust fluency; 41% are unmarked "engineer". |
+
+**Two corrections to claims made earlier this stage**, recorded because both were
+stated before the data was read:
+
+1. The Luma `survey_response_rating` / `survey_response_feedback` columns were
+   described as pre-existing testimony. They are **entirely empty** — 0 of 294.
+   No survey was ever collected.
+2. "Four attendee exports" is **three events, four files** — the two Gametank
+   files are the same event exported days apart. Also, `The_perks_and_pitfalls…`
+   is a *post-event* export, so its 0% newcomer rate is an artifact of export
+   timing, not a fact about the room.
+
+**Room half — instrument built, capture SLIPPED to October.**
+`mvp/FIELD-NOTES-TEMPLATE.md` is instrument and capture form in one, targeting
+AC-44, AC-89, AC-91, AC-88, AC-38/78/80, AC-51, the participation ratio, and the
+three open questions. Written so a **co-organizer can run it cold** — it does not
+require the client. A hand-run projector deck with no phones **is** the
+hands-only condition Story B5's fate depends on, so the natural experiment costs
+nothing to run whenever a meetup happens.
+
+*(Originally `mvp/2026-08-12/field-notes.md`, dated to a meetup that did not
+happen for the client. Generalized and undated 2026-08-13.)*
+
+## T-7 — AC-52 amendment proposed and WITHDRAWN, same day
+
+**`AC-52` stands at 200 as written. No amendment.** Raised and retracted
+2026-08-12 on client testimony; recorded rather than deleted because the error
+is instructive.
+
+**The proposal** was to label `AC-52`'s 200-concurrent target a hypothesis at
+"2× the observed ceiling," reasoning from the 110-RSVP cap to a ~90–100-person
+room.
+
+**The error** was reading a **venue supply cap as a demand ceiling** — and the
+disproof was already inside the same dossier: every event sold out with a
+waitlist, 76 turned away at the Unconf alone. Client testimony supplied two
+facts no export held: the group is **actively pursuing bigger venues**, and the
+**Jun 26 Summer Social drew 200, sold out**. Second time Rust NYC has filled a
+200-person room. Sizing the system to a constraint the organizers are actively
+removing is backwards.
+
+**Also retracted:** the claim that a ~100-person ceiling weakens the case for the
+heavier realtime substrate. Dimension 5 stands unchanged — Durable Objects
+remains the fit, and Turso's single-writer behaviour against a 200-write burst
+remains a live concern.
+
+**What survives, and it is sharper.** The client's own caveat — *"that was a
+party not a meetup"* — is adopted: a sold-out social establishes **draw**, not
+participation in a technical segment. `AC-52` counts **concurrent
+participants**, and the number that sizes the deadline write burst is
+*attendance × participation rate*. **Only the first factor has ever been
+measured.** 200 present at 40% participation is 80 concurrent; at 90% it is 180
+— a >2× spread in precisely the quantity AC-54 calls the highest-risk moment in
+the system.
+
+Field-notes Q2 (*do phones help or hurt*) is now the **only** live line of
+evidence bearing on whether Stories B1/B5 shrink; the room-size line is
+retracted. The field notes were amended to capture a participation count, making
+tonight the first measurement of that ratio.
+
+## Calendar reality, 2026-08-13 — attendee evidence slips to October
+
+Client: **Aug 12 skipped** (did not attend); **Aug 20 unavailable** (Alloy
+company boat party); **September is RustConf**, no meetup. **Next meetup is
+October.**
+
+**The consequence is a collision, and it is the reason this is recorded rather
+than noted.** The T-2/T-4 plan was *October for the built product, with an
+optional Aug 20 manual dry run to generate real user evidence for the prototype
+stage*. The dry run is gone. **Evidence and ship date now land in the same
+month** — the meetup that was supposed to de-risk the build is the meetup the
+build was aiming at.
+
+| # | Option | Cost |
+|---|---|---|
+| 1 | **Delegate Aug 20 to a co-organizer.** The exports show 3–4 organizer-role accounts besides the client, and `FIELD-NOTES-TEMPLATE.md` is written to be run cold by someone else. | Cheapest by far. Saves two months. Needs one ask. |
+| 2 | **October meetup becomes the dry run**; built product targets Nov/Dec. | Honest, but slips the build a full quarter. |
+| 3 | **Build ahead of evidence**, ship October. | Fastest. Designs Stories B1/B5 without ever testing whether phones are wanted — the exact risk field-notes Q2 exists to retire. |
+
+**Resolved 2026-08-13 (T-8): option 2 — October, and the client runs it
+herself.** Delegation was recommended and **declined for a reason that is
+accepted without argument**: *"it's kind of my project and i don't want it taken
+from me."* Authorship of the segment is not a cost to be optimised away, and the
+run records it as a legitimate client call rather than an efficiency loss.
+
+**The collision largely dissolves anyway**, because T-10 sent the arc forward:
+`tone-prototype` validates `felt` criteria with the *client* driving clickable
+prototypes, not with attendees; only AC-44, AC-91, the participation ratio and
+Q2 need a room. Design discovery occupies the two months that would otherwise
+have idled, and the October meetup lands as evidence feeding back into a design
+that already exists — rather than as the first and last chance to learn anything.
+
+**Carry phones-vs-hands as a prototype direction.** It is a core-assumption fork,
+which is exactly what `tone-prototype` fans out on. Making it one of the
+exploration directions turns the unanswered question into design input instead
+of a blocker, and means October's answer selects between designs already built
+rather than sending anyone back to the drawing board.
+
+## Defect — AC-92 records build time, not run time
+
+`build_deck.py:220-234` (`slot_for_meetup`) writes `answer-history.json` from
+`main()` **when a deck is built**. AC-92 requires recording which question each
+meetup **used**.
+
+**Live consequence — found and repaired 2026-08-13.** The Aug 12 deck was built
+and the meetup was skipped, so the ledger claimed **q3 was consumed when nobody
+had seen it**. One of only 8 verified questions was wrongly retired — with one
+question per meetup, a month of supply. The already-run check at
+`build_deck.py:253-256` would also have fired a **false** *"q3 was already run
+on 2026-08-12"* warning at the next build, pressuring whoever built it to burn a
+second question to avoid a repeat that never happened.
+
+Client confirmed at T-9 that the segment did not run. **The 2026-08-12 entry was
+removed by hand and `meetups` is now empty; the bank is back to 8 and q3 is
+fresh.** The rollback and its reason are recorded inside
+`mvp/answer-history.json` itself. Note that rebuilding a deck for 2026-08-12
+would recreate the entry — the defect below is unfixed.
+
+**Not an oracle bug** — the ledger is correctly write-only and does not feed slot
+selection; that part works as designed. This is a **provenance** bug: build time
+masquerading as run time.
+
+**Mechanism not fixed — carried to `tone-architect`.** Whether consumption is
+confirmed at build, at run, or by an explicit "this ran" step is a design
+decision, not a patch. It is a live candidate for a new acceptance criterion
+under Story B10, since `AC-92` as written is not satisfied by any code that
+exists. Data rolled back; mechanism open.
+
+## Stage 1 — COMPLETE 2026-08-13. Handed off to `tone-prototype`.
+
+All touchpoints T-1…T-10 answered. Carried forward, none of them blocking:
+
+- **T-6 room half — October.** The client runs `mvp/FIELD-NOTES-TEMPLATE.md` at
+  the October meetup and folds the answers back. `tone-prototype` is licensed to
+  reopen `USER_STORIES.md` when they land, which is the expected path for AC-44,
+  AC-91, the participation ratio and Q2.
+- **Phones-vs-hands → a prototype direction**, not a blocker. See T-8 above.
+- **AC-92 mechanism defect** → `tone-architect`. Likely a new criterion under
+  Story B10; `AC-92` as written is satisfied by no code that exists.
+- **Participation rate** remains the unmeasured variable behind AC-52/AC-54.
+
+*Stage 1 opened 2026-08-11, closed 2026-08-13. Superseded along the way: an
+earlier "Remaining" section listed T-5 as open and scoped it to AC-1…AC-70; T-5
+was answered 2026-08-11 and Phase 4b took the range to AC-92.*
+
+*(Superseded: an earlier version of this section listed T-5 as remaining and
+scoped it to AC-1…AC-70. T-5 was answered 2026-08-11, and Phase 4b took the
+range to AC-92.)*

@@ -1,10 +1,5 @@
 {
   "_note": "A record of which option slot held the correct answer each meetup, and which question was used. Written by build_deck.py. Deliberately NOT an input to slot selection -- slots are drawn uniformly from the date alone, because any rule that reads this file back would let an attendee who remembers past answers narrow the next one. Uneven counts and repeated letters are expected and must not be 'corrected'.",
-  "meetups": [
-    {
-      "day": "2026-08-12",
-      "question": "q3",
-      "slot": 4
-    }
-  ]
+  "_rollback_2026-08-13": "The 2026-08-12 entry (q3, slot 4) was removed by hand. The deck was built but the meetup was not attended and the segment never ran, so nobody has seen q3 and it is still fresh. It is written by build_deck.py at BUILD time, not run time, which is the AC-92 provenance defect recorded in sequence/run-state.md -- building a deck for a meetup that does not happen falsely retires a question. Rebuilding for 2026-08-12 would recreate this entry.",
+  "meetups": []
 }

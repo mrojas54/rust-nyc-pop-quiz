@@ -9,11 +9,11 @@ room.
 | Artifact | What it is |
 |---|---|
 | [`PHILOSOPHY.md`](PHILOSOPHY.md) | **The one thing, and the principles.** Read before changing anything user-facing. |
-| [`sequence/USER_STORIES.md`](sequence/USER_STORIES.md) | Stories with stable acceptance-criteria IDs (**AC-1 … AC-70**). IDs never change meaning. |
+| [`sequence/USER_STORIES.md`](sequence/USER_STORIES.md) | Stories with stable acceptance-criteria IDs (**AC-1 … AC-92**, 18 stories). IDs never change meaning. |
 | [`ECONOMICS.md`](ECONOMICS.md) | What it costs to run and who absorbs it. |
 | [`sequence/run-state.md`](sequence/run-state.md) | Where the Tone arc is. **Read on every invoke.** |
 | [`sequence/research/00-synthesis.md`](sequence/research/00-synthesis.md) | Phase 2 fold-back — what the research changed and why the shape is what it is. |
-| [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate. |
+| [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate, attendees. |
 | [`mvp/README.md`](mvp/README.md) | The hand-run projector deck. How to run it at a meetup. |
 
 ## Standing of `PRD.md`
@@ -62,6 +62,11 @@ reviewing a batch.
   elimination, and enforced balance makes every fifth meetup certain. Uneven
   counts and repeated letters are correct; do not "fix" them.
   `mvp/answer-history.json` is a **record**, never an input.
+- **A built deck is not a run segment.** `answer-history.json` is written by
+  `build_deck.py` at **build** time, so building a deck for a meetup that then
+  does not happen falsely retires a question — it happened on 2026-08-12 and was
+  rolled back by hand. `AC-92` asks for what each meetup *used*; no code
+  currently satisfies that. Before trusting the ledger, confirm the segment ran.
 - **The build audits the generator, not the sequence**, in both tails — too even
   means someone reintroduced balancing. An audit that can change tonight's
   output is a rule, and rules leak. This area has regressed four times,
