@@ -4,10 +4,10 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 
 | | |
 |---|---|
-| **Stage** | 2 — `tone-prototype`. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
-| **Phase** | Stage 1 closed at Phase 4 + 1b. All of T-1…T-10 answered. Attendee records mined (Dimension 6); **room evidence deferred to the October meetup**, client-run (T-8), non-blocking. AC-52 stands at 200 (T-7). Awaiting `tone-prototype` Phase 0. |
+| **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
+| **Phase** | **0 — direction fan-out.** Corpus read cold. Three candidate directions put to the client at **T-11**; nothing built until directions are agreed. Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
-| **Branch** | `ai-c11-cc/tone-initiation`, off `codex/valtown-fresh-quiz` @ `f6ea174` |
+| **Branch** | `ai-c11-cc/tone-prototype`, off `main` @ `9d3fff7`. *(Stage 1 ran on `ai-c11-cc/tone-initiation` and three follow-on branches, all merged to `main` via PRs #1–#4.)* |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
 | **Client** | Michelle Rojas (Rust NYC organizer) |
 | **Opened** | 2026-08-11 |
@@ -93,6 +93,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-8 | 1b | Calendar fork — delegate Aug 20, slip to Oct, or build ahead of evidence | **Answered** 2026-08-13 — **October, client runs it herself.** Delegation declined: *"it's kind of my project and i don't want it taken from me."* |
 | T-9 | 1b | Did the Aug 12 segment run without the client? (q3 rollback) | **Answered** 2026-08-13 — **nobody ran it.** q3 rolled back, bank restored to 8. |
 | T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
+| T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Open** 2026-08-14 |
 
 ## Client interview record (T-2)
 
@@ -355,3 +356,59 @@ was answered 2026-08-11 and Phase 4b took the range to AC-92.*
 *(Superseded: an earlier version of this section listed T-5 as remaining and
 scoped it to AC-1…AC-70. T-5 was answered 2026-08-11, and Phase 4b took the
 range to AC-92.)*
+
+---
+
+# Stage 2 — `tone-prototype`
+
+## Phase 0 — Intake, 2026-08-14
+
+Corpus read cold: `run-state.md`, `PHILOSOPHY.md`, `sequence/USER_STORIES.md`
+(18 stories, AC-1…AC-92, 13 `felt`), `CLAUDE.md`, `ECONOMICS.md`, the Phase-2
+synthesis, and `PRD.md` §Brand And Accessibility. Inputs are complete; nothing
+upstream is missing.
+
+**Prior design asset re-assessed.** `~/Downloads/Pop Quiz - Rust NYC
+(offline).html` (869 KB) carries two lanes — Organizer and Participant — across
+~20 named states, including the ones nobody remembers to design: *Discord is
+unreachable*, *Reconnecting*, *Room closed*, *Hint published to everyone*, *How
+the room voted*, plus a reduced-motion toggle and screen-reader announcements.
+Its `RustNYCDesignSystem` tokens match the `PRD.md` brand contract exactly
+(`--radius:4px`, `--accent-primary:#d69e2e`, 44px targets, 480px container).
+
+Two things it is **not**, both load-bearing for this stage:
+
+1. **It is pre-D-7.** Its vocabulary is a multi-question round — *Next question*,
+   *End quiz*, *Quiz complete*, a question count, and *Generate quiz* as a live
+   action. The one-question-in-five-minutes segment invalidates that spine.
+2. **It has no room-display lane.** Story B8 (AC-78…AC-81) — the surface
+   `USER_STORIES.md` calls *arguably the primary one* — was never designed.
+   Under D-7 the projector carries the whole segment.
+
+So it is a strong **component and edge-state library**, not a converged take.
+
+**Prototype scope note.** Story A4/A6/A7 (the organizer review surface, AC-20 and
+AC-21 both `felt`) is a real design surface with no fan-out axis — it is a tool
+for one person, and that person is the client. Carried to T-11 as a scope
+question, not a direction.
+
+**Seam mock owed.** Discord is the external system the user also lives in
+(Story C1, AC-64…AC-70). Per the stage contract this needs a stand-in of
+Discord's own surface plus a one-page seam diagram — what maps to what, what
+crosses, what each side sees — not a black box.
+
+## T-11 — exploration directions (open)
+
+Put to the client 2026-08-14. Three candidate directions, each resting on a
+different core assumption about **where the segment actually happens**:
+
+| | Direction | Core assumption | What it costs if wrong |
+|---|---|---|---|
+| **A** | **Hands** — no participant app at all. Projector + a host control. | The room's voice beats its phones; the infrastructure was never the point. | Stories B1/B5/B6 lose most of their weight; the build shrinks to a fraction. |
+| **B** | **Phone-first** — the phone carries code, answer, and reveal. | Commitment is private, and anonymity is what makes people willing to be wrong out loud. | Closest to the PRD and the prior prototype — but that prototype is pre-D-7. |
+| **C** | **Projector-first, phone as buzzer** — code lives on the big screen, the phone is five letters. | Fifty people reading the *same* nine lines is the event; the phone is an input device, not a reading surface. | Makes AC-91's 30-second budget a projector-typography problem, not a phone-layout one. |
+
+The phones-vs-hands fork was carried here deliberately from T-8: it is a
+core-assumption fork, which is what this stage fans out on, and building it as a
+direction means October's field notes **select between designs that already
+exist** rather than sending the design back to the start.
