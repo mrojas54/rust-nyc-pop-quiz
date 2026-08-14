@@ -28,6 +28,19 @@ The PRD is one input among several and may be substantially rewritten.
 | State-explorer prototype | `~/Downloads/Pop Quiz - Rust NYC (offline).html` | 20 named states, both lanes, `RustNYCDesignSystem` component set. **Design work survives the fork** — see synthesis §4. Not yet in-repo. |
 | Superseded copy | `~/Documents/rust-nyc-quiz` | Marked `SUPERSEDED.md` 2026-07-25. Do not work there. |
 | Riptide workspace copy | `~/.humanlayer/workspaces/set-up-initial-github/rust-nyc-pop-quiz` | Byte-identical PRD. Branch `ai-humanlayer-cc/set-up-initial-github`. |
+| **Rust NYC Design System** *(missed at intake — found 2026-08-14)* | claude.ai/design · `d608a53a-9b53-40c0-a64d-7017613f1956` | **The house brand.** 9 components incl. `SourceCode`, `ChoiceButton`, `RoomCode`, `Timer`; token CSS; **Cascadia Mono** + Instrument Serif with the fonts bundled; Ferris Liberty brand imagery; `BRAND_STYLE_GUIDE.md`; brand-voice guidelines. |
+| **Pop Quiz design project** *(missed at intake — found 2026-08-14)* | claude.ai/design · `c3ae9b25-bbd3-4e96-b402-ef7ea2d9d387` | `DESIGN.md`, **`PROJECTOR_SPEC.md`**, 8 designed screens (`.dc.html`) incl. Projector / Host Controls / Organizer Setup / Participant ×4, a `design_handoff_pop_quiz/` bundle, and ~20 screenshots including `01-reveal-step5.png`. |
+
+**Intake correction, 2026-08-14.** Stage 1 recorded the offline HTML as *"the
+state-explorer prototype"* and stopped there. It is not a loose artifact — it is
+the compiled output of a **bound design system** and a **written design spec**,
+both of which existed and neither of which was inventoried. Consequence: Stage 2
+Phase 1 built `prototypes/_shared/tokens.css` from `PRD.md` §Brand And
+Accessibility when `tone-prototype`'s own contract says *where a house brand
+exists, inherit it and say so*, and `PHILOSOPHY.md` says the brand values *are
+not up for reinvention*. The palette came out identical — both derive from the
+same PRD — but the typography, the component set, and several interaction rules
+did not. See Phase 1c.
 
 ## Phase 1 — Research: complete
 
@@ -98,6 +111,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Open** 2026-08-14 |
 | T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Answered** 2026-08-14 — **AC-48 rewritten**, hints are private. Took **AC-45**'s published-hint control with it. |
 | T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
+| T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Open** 2026-08-14 |
 
 ## Client interview record (T-2)
 
@@ -553,7 +567,65 @@ is announced to the room. That is a second, independent strike against Direction
 A, invisible until the hint question was asked — and a small demonstration that
 the criteria are doing real work rather than decorating the design.
 
-### T-14 answered — Direction A stays, as the honest loser
+## Phase 1c — the design corpus, 2026-08-14
+
+Connected to claude.ai/design at the client's instruction. Two projects, both
+hers, neither in Stage 1's intake. Read: `PROJECTOR_SPEC.md`, `DESIGN.md`,
+`tokens/colors.css`, `tokens/fonts.css`, and both file manifests.
+
+### What the corpus is ahead of us on
+
+- **The trace was already specified**, and its model is better than the one built
+  here yesterday. `PROJECTOR_SPEC.md` §4.1: a step is
+  `{ lines, focus, note, values }` — highlight execution lines, dim everything
+  outside a focus region, anchor a callout to the trap line, and show
+  debugger-style value deltas (`v.len(): 2 → 3`). **That generalises to all eight
+  questions in the bank.** The tape built here only models a collection walk and
+  would not survive `q1` (drop order), `q6` (shadowing) or `q8` (E0502).
+- **The projector is already the star.** §0: *"the reveal+trace state is where
+  the night lives"*; §9 build order puts the wall first and calls it *"the new
+  surface and the star."* That is Direction C's core assumption, arrived at
+  independently three weeks earlier — the strongest evidence yet in the fan-out,
+  and it did not come from these prototypes.
+- **A whole surface the arc has not specced:** the **static fallback** (§6) — the
+  same projector views with baked data in one offline file, for when generation,
+  auth, or wifi fails at the venue. Related to Story A7 but not the same thing.
+- **`SourceCode` renders with no syntax highlighting.** Deliberate, and the
+  prototypes here highlight. The design system wins.
+- **Cascadia Mono** is the brand mono, bundled as a variable font. `PRD.md` says
+  *"a system monospace stack"*; the house brand says otherwise and is newer.
+- Components already exist for most of what was hand-rolled: `SourceCode`,
+  `ChoiceButton`, `RoomCode`, `Timer`, `Panel`, `Alert`, `Badge`, `Button`.
+- Room code is **six characters** (`KMT4XW`), not `RUST-4417`.
+
+### Where the arc is ahead of the corpus
+
+`PROJECTOR_SPEC.md` predates D-7 by three weeks, and Stage 1 supersedes it in
+six load-bearing places. None of these are the corpus being sloppy — they are
+decisions taken after it was written.
+
+| # | Corpus says | Arc says | Standing |
+|---|---|---|---|
+| 1 | ~3 questions, 90s answer, 10–15 min discussion each, *"Question X of N"* | **One** question, ≤5 min, scheduled last | **D-7 wins.** Deletes the round, the counter, and the between-question transition. |
+| 2 | Timer is load-bearing — big `M:SS`, amber bar, *"Final countdown"*, a `Timer` component | Timer competes with the argument for the same 30 seconds; try it without | **Arc wins, pending October.** Story B10's note. |
+| 3 | Discord outage → *"keep running ≤15 min, new rooms paused"* | **AC-69**: authorized at creation only, 4-hour room lifetime | **AC-69 wins.** Dimension 2 measured real incidents at 20 min – 3 h; 15 minutes bought a degraded state that covered nothing. |
+| 4 | Sessions and aggregates deleted after **30 days** | **AC-56**: no per-person record outlives the room; totals expire *with* it | **AC-56 wins** — it is strictly stronger, and §6 of the philosophy is why. |
+| 5 | **3** native runs in the receipt | **AC-8**: at least **5**, non-identical output rejects | **AC-8 wins** (labelled a hypothesis, to revisit on rejection data). |
+| 6 | Fifth choice is *"exhibits undefined behavior"* | **AC-24**: *"does not compile"* on **every** question so its presence signals nothing | **AC-24 wins.** A category-specific fifth option is exactly the structural tell §2 forbids. |
+
+### The one real conflict — and it is a good one
+
+`PROJECTOR_SPEC.md` §4.2 / §8.1, **resolved**: the trace is **host-driven only**;
+participant phones stay read-only through reveal and *"never trace controls."*
+Direction B here gives every participant their own stepper.
+
+That was the right call in July and it collides with `PHILOSOPHY.md` §9, minted
+yesterday from the client's own testimony: a newcomer should be able to work
+through it **at their own pace, with nobody watching how many times they went
+back**. A host-stepped trace runs at the pace of the person who already knows the
+answer.
+
+Not resolvable by reading either document — **T-15**.
 
 Kept in the fan-out with both strikes recorded inside the take itself. It costs
 nothing to keep now, and in October it is the **built** comparison for

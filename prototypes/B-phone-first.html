@@ -194,7 +194,13 @@
 <script src="_shared/data.js"></script>
 <script src="_shared/proto.js"></script>
 <script>
-const state = { phase: "join", picked: null, save: null, hintShown: false, hintPulled: false };
+const state = { phase: "join", picked: null, save: null, hintShown: false, hintPulled: false, traceStep: 0 };
+
+function traceStep(d) {
+  state.traceStep = Math.max(0, Math.min(state.traceStep + d, TONIGHT.trace.steps.length - 1));
+  render();
+  announce(traceSay(TONIGHT, state.traceStep));
+}
 
 /* ---- participant ----------------------------------------------------- */
 function pHead(extra) {
@@ -328,7 +334,11 @@ function renderParticipant() {
           ? '<p class="meta" style="margin-top:10px">Five different readings of four lines of Rust. That is the segment working — the answer is the least interesting part of the next two minutes.</p>'
           : '') +
         (p === "reveal"
-          ? '<div class="panel by-human" style="margin-top:10px">' +
+          ? '<div class="panel" style="margin-top:10px">' +
+            traceHtml(TONIGHT, state.traceStep) +
+            '<p class="meta" style="margin:10px 0 0">Yours to step, at your own speed. Nobody is waiting for you and nobody can see how many times you went back.</p>' +
+            '</div>' +
+            '<div class="panel by-human" style="margin-top:10px">' +
             '<span class="provenance human">✎ written by a human · the machine did not check this part</span>' +
             '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
             '<div class="receipt" style="margin-top:8px"><span class="provenance machine">✓ established by the machine</span><br>' +
@@ -441,7 +451,17 @@ function renderProjector() {
           (p === "split"
             ? '<p style="font-size:15px;color:var(--text-secondary);margin:12px 0 0">' +
               ROOM.answered + ' answered. Five different readings. No answer yet.</p>'
-            : '')) +
+            /* The projector shows the trace's OUTCOME, not a stepping animation.
+               In this direction the stepping is personal — 58 people are each
+               walking it at their own speed on their own phone, and a moving
+               tape at the front would pull every eye off the surface where the
+               work is actually happening. In C it is the opposite: there the
+               tape IS the collective act. Same component, opposite call. */
+            : '<div style="margin-top:14px">' +
+              traceHtml(TONIGHT, TONIGHT.trace.steps.length - 1, { noNav: true, noHead: true, cellsOnly: true }) +
+              '<p style="font-size:14px;color:var(--text-secondary);margin:16px 0 0">' +
+              'Two dropped, and only because of who they were next to.<br>' +
+              'Step it yourself on your phone.</p></div>')) +
     '</div>';
 }
 

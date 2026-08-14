@@ -175,8 +175,15 @@ const state = {
   phase: "idle",          // idle | live | hint | counting | split | reveal | released
   countIndex: 0,          // which letter we are counting hands for
   tally: { A: 0, B: 0, C: 0, D: 0, E: 0 },
-  hintShown: false
+  hintShown: false,
+  traceStep: 0
 };
+
+function traceStep(d) {
+  state.traceStep = Math.max(0, Math.min(state.traceStep + d, TONIGHT.trace.steps.length - 1));
+  render();
+  announce(traceSay(TONIGHT, state.traceStep));
+}
 
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
@@ -235,7 +242,13 @@ function renderProjector() {
 
   const left =
     '<div class="proj-code">' +
-      '<pre class="code" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+      '<pre class="code" tabindex="0" aria-label="Rust source"' +
+        (state.phase === "reveal" ? ' style="flex:none"' : '') + '>' +
+        rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+      (state.phase === "reveal"
+        ? '<div class="panel" style="margin-top:10px;flex:1;overflow:auto">' +
+          traceHtml(TONIGHT, state.traceStep, { big: true, noNav: true }) + '</div>'
+        : '') +
       (state.hintShown
         ? '<div class="panel" style="margin-top:10px;font-size:16px;border-left:3px solid var(--blue)">' +
           '<b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>'
@@ -343,6 +356,10 @@ function renderHost() {
   } else if (state.phase === "reveal") {
     html = header("step 5 of 5", "Read it aloud") +
       '<div class="stack">' +
+      '<div class="panel" style="font-size:var(--text-sm)">' +
+        '<h3>Step the trace · the room is watching this</h3>' +
+        '<p class="meta" style="margin:4px 0 8px">The tape on the projector follows these buttons. Say the line, then advance.</p>' +
+        traceHtml(TONIGHT, state.traceStep, { noHead: true }) + '</div>' +
       '<div class="panel by-human" style="font-size:var(--text-sm)">' +
         '<span class="provenance human">✎ your script · in this order</span>' +
         '<div style="margin-top:8px">' + explainHtml(TONIGHT, { votes: state.tally, answered: totalHands() }) + '</div></div>' +

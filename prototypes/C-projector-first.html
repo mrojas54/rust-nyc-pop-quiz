@@ -188,7 +188,13 @@
 <script src="_shared/data.js"></script>
 <script src="_shared/proto.js"></script>
 <script>
-const state = { phase: "idle", picked: null, hintShown: false, hintPulled: false };
+const state = { phase: "idle", picked: null, hintShown: false, hintPulled: false, traceStep: 0 };
+
+function traceStep(d) {
+  state.traceStep = Math.max(0, Math.min(state.traceStep + d, TONIGHT.trace.steps.length - 1));
+  render();
+  announce(traceSay(TONIGHT, state.traceStep));
+}
 
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
@@ -232,8 +238,17 @@ function renderProjector() {
   phase.textContent = ({ live: "read it", closed: "answers closed",
                          split: "how the room voted", reveal: "the answer" })[p];
 
-  const code = '<div class="proj-code"><pre class="code" tabindex="0" aria-label="Rust source">' +
-    rustHighlight(TONIGHT.source.trimEnd()) + '</pre></div>';
+  /* At reveal the left column stops being a static listing and becomes the
+     program running. The host steps it from their phone (AC-79). */
+  const code = '<div class="proj-code" style="flex-direction:column;gap:14px">' +
+    '<pre class="code" tabindex="0" aria-label="Rust source"' +
+      (p === "reveal" ? ' style="flex:none;font-size:20px"' : '') + '>' +
+      rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+    (p === "reveal"
+      ? '<div class="panel" style="flex:1;overflow:auto">' +
+        traceHtml(TONIGHT, state.traceStep, { big: true, noNav: true }) + '</div>'
+      : '') +
+    '</div>';
 
   let side;
   if (p === "live" || p === "closed") {
@@ -373,6 +388,10 @@ function renderHost() {
   } else if (p === "reveal") {
     html = head("step 4 of 4", "Read it aloud") +
       '<div class="stack">' +
+      '<div class="panel" style="font-size:var(--text-sm)">' +
+      '<h3>Step the trace · the room is watching this</h3>' +
+      '<p class="meta" style="margin:4px 0 8px">The tape on the projector follows these buttons. Say the line, then advance.</p>' +
+      traceHtml(TONIGHT, state.traceStep, { noHead: true }) + '</div>' +
       '<div class="panel by-human" style="font-size:var(--text-sm)">' +
       '<span class="provenance human">✎ your script · in this order · this is the only place it exists</span>' +
       '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
@@ -393,6 +412,7 @@ function renderHost() {
 function render() { renderProjector(); renderParticipant(); renderHost(); }
 function go(phase) {
   state.phase = phase;
+  if (phase === "reveal") state.traceStep = 0;
   render();
   announce(({
     idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",

@@ -78,6 +78,81 @@ function pct(n, total) {
 }
 
 /* ---------------------------------------------------------------------------
+   The trace: step the program, one comparison at a time.
+
+   Prose can assert that dedup compares neighbours. Only the tape can show it —
+   and the frame that does the work is the one where the second 2 survives
+   because it is sitting next to a 3. That is the whole reason 41% of the room
+   answered [1, 2, 3], and it is a picture, not a sentence.
+
+   `cellsOnly` renders the tape without the narration, for surfaces where the
+   host is speaking the line rather than the screen showing it.
+   --------------------------------------------------------------------------- */
+function traceHtml(q, i, opts) {
+  opts = opts || {};
+  const t = q.trace;
+  if (!t) return "";
+  const step = t.steps[Math.max(0, Math.min(i, t.steps.length - 1))];
+  const kept = step.kept || [];
+  const size = opts.big ? "font-size:22px;min-width:56px;padding:12px 14px" : "";
+
+  const tape = t.cells.map(function (v, idx) {
+    const cls = ["tcell"];
+    /* A cell is "gone" once the walk has passed it and it was not kept. */
+    const passed = step.done || (step.cursor !== null && idx <= step.cursor);
+    if (kept.indexOf(idx) >= 0) cls.push("kept");
+    else if (passed) cls.push("gone");
+    if (idx === step.cursor) cls.push("cursor");
+    if (idx === step.against) cls.push("against");
+    return '<span class="' + cls.join(" ") + '" style="' + size + '">' + v +
+           '<span class="tidx">' + idx + '</span></span>';
+  }).join("");
+
+  const vtag = step.verdict === "keep" ? '<span class="vtag keep">keep</span>'
+             : step.verdict === "drop" ? '<span class="vtag drop">drop</span>'
+             : '<span class="vtag none">' + (step.done ? "done" : "start") + '</span>';
+
+  const dots = t.steps.map(function (_, n) {
+    return '<i class="' + (n === i ? "on" : n < i ? "past" : "") + '"></i>';
+  }).join("");
+
+  return '<div class="trace">' +
+    (opts.noHead ? '' :
+      '<div class="trace-head"><h3>Step it through</h3><code>' + escapeHtml(t.call) + '</code>' +
+      '<span class="meta">' + escapeHtml(t.subtitle) + '</span></div>') +
+    '<div class="trace-tape">' + tape + '</div>' +
+    (opts.cellsOnly ? '' :
+      '<div class="trace-verdict">' + vtag + '<span>' + escapeHtml(step.say) + '</span></div>') +
+    (step.pivot && !opts.cellsOnly
+      ? '<div class="trace-pivot"><b>This is the frame worth stopping on.</b> ' +
+        'The 2 survives because its neighbour is a 3 — not because it is unique. ' +
+        'Everyone who read <code>dedup</code> as <code>unique</code> was reading a ' +
+        'reasonable thing that Rust does not do.</div>'
+      : '') +
+    /* AC-79: the room display takes no interaction beyond host controls, so the
+       projector renders the tape with no nav and the host's phone drives it. */
+    (opts.noNav
+      ? '<div class="trace-nav"><span class="trace-dots" aria-hidden="true">' + dots + '</span>' +
+        '<span class="pos">step ' + i + ' of ' + (t.steps.length - 1) + '</span></div>'
+      : '<div class="trace-nav">' +
+        '<button class="btn" style="min-height:34px;padding:4px 12px" onclick="traceStep(-1)"' +
+          (i === 0 ? " disabled" : "") + ' aria-label="previous step">←</button>' +
+        '<button class="btn' + (i < t.steps.length - 1 ? " btn-primary" : "") +
+          '" style="min-height:34px;padding:4px 12px" onclick="traceStep(1)"' +
+          (i >= t.steps.length - 1 ? " disabled" : "") + ' aria-label="next step">→</button>' +
+        '<span class="trace-dots" aria-hidden="true">' + dots + '</span>' +
+        '<span class="pos">step ' + i + ' of ' + (t.steps.length - 1) + '</span>' +
+      '</div>') +
+  '</div>';
+}
+
+/* Announcement text for a step, so the tape is not a visual-only channel. */
+function traceSay(q, i) {
+  const s = q.trace.steps[Math.max(0, Math.min(i, q.trace.steps.length - 1))];
+  return (s.verdict ? s.verdict + ". " : "") + s.say;
+}
+
+/* ---------------------------------------------------------------------------
    The explanation, in three beats.
 
    Beat order is the whole point and it is not cosmetic:

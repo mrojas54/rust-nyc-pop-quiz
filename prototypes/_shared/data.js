@@ -75,6 +75,50 @@ const TONIGHT = {
     miri: "clean",
     miriMatches: true,
     target: "aarch64-apple-darwin"
+  },
+
+  /* --------------------------------------------------------------------
+     The trace — stepping the program, one comparison at a time.
+
+     This is the beginner lane made concrete. AC-96 asks that the first
+     beat of an explanation land for someone who knows only beginner Rust,
+     and prose can only assert that `dedup` compares neighbours. A trace
+     SHOWS it, and the step where it shows it is step 4: the second 2
+     survives because it is sitting next to a 3. That single frame is the
+     entire reason 24 people answered [1, 2, 3].
+
+     PROVENANCE — open question, carried to tone-architect. This trace is
+     AUTHORED, so under AC-74 it is human prose and belongs on the human
+     side of the line with the explanation. It does not have to stay that
+     way: a trace of this shape is mechanically derivable by instrumenting
+     the program under the pinned toolchain and recording state per step,
+     which would make it machine-established and put it on the SAME side of
+     the line as the answer. That is a real pipeline capability, not a
+     formatting choice, and it decides which side of AC-74 the trace lives
+     on. See run-state.
+     -------------------------------------------------------------------- */
+  trace: {
+    call: "v.dedup()",
+    subtitle: "one pass, comparing each element with the one before it",
+    cells: [1, 2, 2, 3, 2, 1, 1],
+    steps: [
+      { cursor: null, against: null, kept: [0],
+        say: "We start with all seven. The first element is always kept — there is nothing in front of it for it to be a duplicate of." },
+      { cursor: 1, against: 0, verdict: "keep", kept: [0, 1],
+        say: "2 against 1. Different, so the 2 stays." },
+      { cursor: 2, against: 1, verdict: "drop", kept: [0, 1],
+        say: "2 against 2. The same — and sitting right next to each other. This one goes." },
+      { cursor: 3, against: 1, verdict: "keep", kept: [0, 1, 3],
+        say: "3 against 2. Different, so the 3 stays." },
+      { cursor: 4, against: 3, verdict: "keep", kept: [0, 1, 3, 4], pivot: true,
+        say: "2 against 3. Different — so this 2 stays. There is already a 2 in the list, back at the start, and dedup does not look. It only ever compares neighbours. This is the step the whole question turns on." },
+      { cursor: 5, against: 4, verdict: "keep", kept: [0, 1, 3, 4, 5],
+        say: "1 against 2. Different, so the 1 stays — same story. There is a 1 at the very front, and it is nowhere near this one." },
+      { cursor: 6, against: 5, verdict: "drop", kept: [0, 1, 3, 4, 5],
+        say: "1 against 1. The same, and adjacent. This one goes too." },
+      { cursor: null, against: null, done: true, kept: [0, 1, 3, 4, 5],
+        say: "Five left. Two were dropped, and both of them only because of who they happened to be sitting next to." }
+    ]
   }
 };
 
