@@ -2,6 +2,62 @@
 
 The resume anchor for the whole Tone arc. Every stage reads this first on invoke.
 
+---
+
+## ▶ RESUME HERE — handoff written 2026-08-14
+
+**You are mid-`tone-prototype` (Stage 2), Phase 1c. Five takes are built and
+reconciled. One touchpoint is open and it is not answerable by an agent.**
+
+**First four things, in order:**
+
+1. Read this file top to bottom, then `PHILOSOPHY.md` (**§9 is a day old and
+   reframes the project**), then `sequence/USER_STORIES.md` (AC-1…AC-96, 19
+   stories — the amendments section at the bottom is where the recent thinking
+   is).
+2. `git checkout ai-c11-cc/tone-prototype` — pushed, 7 commits ahead of `main`,
+   **no PR** because the stage is not finished.
+3. Open `prototypes/index.html` in a browser. Everything else is downstream of
+   having actually driven these.
+4. **The skill is disabled.** `tone-prototype` is set `"off"` in
+   `~/.claude/settings.json` → `skillOverrides`, so the Skill tool refuses it.
+   Read `~/.claude/skills/tone-prototype/SKILL.md` directly and follow it, and
+   skim the two sibling `tone-*` skills for the pipeline norms.
+
+**The only open touchpoint is T-12: the client drives the five takes and picks a
+direction.** Do not converge, do not write `DESIGN.md`, and do not invoke
+`tone-architect` before that happens — the stage's rule is that iteration ends
+when the client *loves* a take, not when she accepts one. T-11, T-13, T-14 and
+T-15 are all answered; see the touchpoints table.
+
+**Traps that will otherwise cost you an hour:**
+
+- **The design corpus is not in this repo.** It is on claude.ai/design, reachable
+  through the `DesignSync` tool: the **Rust NYC Design System**
+  (`d608a53a-9b53-40c0-a64d-7017613f1956`) and the **Pop Quiz** project
+  (`c3ae9b25-bbd3-4e96-b402-ef7ea2d9d387`). Stage 1 missed both; the prototypes
+  now inherit from them. `PROJECTOR_SPEC.md` and `DESIGN.md` in that second
+  project are authoritative for anything visual — read before designing.
+- **`PRD.md` is not the contract**, and on typography it is stale: it says a
+  system monospace stack, the house brand says Cascadia Mono.
+- **Do not add syntax highlighting** to source wells. It was tried and removed —
+  the trace signals with highlight-and-dim and a colour channel underneath
+  competes with it.
+- **Do not put a ✗ on a participant's own answer**, and do not reveal before
+  showing the split. AC-93/AC-94, and §9 is why.
+- **Do not "fix" the answer-position counts** for looking lopsided. That area has
+  regressed four times, once while fixing the previous regression. Read
+  `PHILOSOPHY.md` §2 first.
+- **`mvp/answer-history.json` is a record, never an input**, and a built deck is
+  not a run segment (the AC-92 defect, carried to `tone-architect`).
+
+**Carried forward, none blocking T-12:** the October field notes (T-6 room half),
+the AC-92 mechanism defect, the never-measured participation rate, and a new gap
+— the **static fallback** (`PROJECTOR_SPEC.md` §6), which the arc has never
+specced.
+
+---
+
 | | |
 |---|---|
 | **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
