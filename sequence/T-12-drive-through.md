@@ -3,8 +3,11 @@
 The one open touchpoint in Stage 2. Nothing converges without it: no `DESIGN.md`,
 no `tone-architect`, no build. Written 2026-08-14 so it survives the session.
 
-**About 35 minutes.** All six surfaces are already open as browser tabs in the
-right-hand pane. The room code everywhere is `KMT4XW`.
+**About 35 minutes.** All six surfaces are open as browser tabs in the
+right-hand pane — **`Takes index`**, **`B · Phone-first`**, **`C ·
+Projector-first`**, **`A · Hands`**, **`Review surface`**, **`Discord seam`**.
+This checklist lives in the left pane so a take and its instructions are visible
+at the same time. The room code everywhere is `KMT4XW`.
 
 **The pick is the start of the design, not the end.** Whatever you choose, we
 iterate it together until you love it — many rounds is normal, because this is
