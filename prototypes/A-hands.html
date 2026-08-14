@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction A — Hands · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 14px; }
+  .direction-head {
+    width: 100%; max-width: 1120px;
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px;
+    padding-bottom: 4px;
+  }
+  .direction-head h1 { font-size: 28px; }
+  .assumption {
+    font-size: var(--text-sm); color: var(--text-secondary);
+    border-left: 3px solid var(--accent); padding-left: 10px;
+  }
+  .pair { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start;
+          justify-content: center; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+  /* ---- projector -------------------------------------------------- */
+  .proj-body { flex: 1; display: flex; flex-direction: column; padding: 26px 34px;
+               min-height: 0; }
+  .proj-top { display: flex; justify-content: space-between; align-items: baseline;
+              flex: none; margin-bottom: 14px; }
+  .proj-brand { font-size: 13px; letter-spacing: var(--tracking-caps);
+                text-transform: uppercase; color: var(--text-secondary); }
+  .proj-main { flex: 1; display: flex; gap: 26px; min-height: 0; }
+  .proj-code { flex: 1.15; min-width: 0; display: flex; flex-direction: column; }
+  .proj-code .code { flex: 1; font-size: 21px; line-height: 1.5; }
+  .proj-opts { flex: 1; display: flex; flex-direction: column; gap: 7px;
+               justify-content: center; min-width: 0; }
+  .opt {
+    display: flex; align-items: center; gap: 12px; min-height: 44px;
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--white); font-size: 19px;
+  }
+  .opt .letter {
+    flex: none; width: 32px; height: 32px; display: grid; place-items: center;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-weight: 700; background: var(--panel);
+  }
+  .opt .otext { white-space: pre-wrap; word-break: break-word; }
+  .opt.asking { border-color: var(--accent); border-width: 3px; padding: 5px 10px;
+                background: var(--accent-subtle); }
+  [data-room="dim"] .opt.asking { background: #4a3a12; }
+  .opt.asking .letter { background: var(--accent); color: #2d3748; border-color: var(--accent); }
+  .opt.correct { border-color: var(--green); border-width: 3px; padding: 5px 10px; }
+  .opt.correct .letter::after { content: " ✓"; }
+  .opt .tally { margin-left: auto; font-size: 17px; font-weight: 700; }
+
+  .huge-ask { flex: 1; display: grid; place-items: center; text-align: center; }
+  .huge-ask .lead { font-size: 22px; color: var(--text-secondary);
+                    letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+  .huge-ask .letter-xl { font-family: var(--serif); font-size: 150px; line-height: 1;
+                         color: var(--accent); }
+  [data-room="dim"] .huge-ask .letter-xl { color: var(--accent); }
+  .huge-ask .otext-xl { font-size: 26px; margin-top: 6px; white-space: pre-wrap; }
+
+  .bars { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 18px; }
+  .bar-row .letter { flex: none; width: 28px; font-weight: 700; }
+  .bar-track { flex: 1; height: 26px; background: var(--input);
+               border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text-secondary); }
+  .bar-row.is-correct .bar-fill { background: var(--green); }
+  .bar-row.is-correct .letter::after { content: " ✓"; }
+  .bar-n { flex: none; width: 68px; text-align: right; }
+
+  .explain { font-size: 18px; line-height: 1.55; }
+  .title-card { flex: 1; display: grid; place-items: center; text-align: center; }
+  .title-card h2 { font-size: 58px; }
+
+  /* ---- host phone -------------------------------------------------- */
+  .host-step { font-size: var(--text-xs); text-transform: uppercase;
+               letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .host-h { font-family: var(--serif); font-size: 26px; margin: 2px 0 10px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .counter { display: flex; align-items: center; gap: 10px; }
+  .counter .num { flex: 1; text-align: center; font-size: 34px; font-weight: 700;
+                  font-family: var(--serif); }
+  .step-btn { width: 56px; height: 56px; font-size: 24px; }
+  .ratio { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+           color: var(--text-secondary); border-top: 1px solid var(--border); }
+  .ratio b { color: var(--text); }
+  .warn { border-left: 3px solid var(--orange); background: var(--orange-subtle);
+          padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
+  .no-preview { border-left: 3px solid var(--blue); background: var(--blue-subtle);
+          padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
+
+  .dimtoggle { display: flex; gap: 8px; align-items: center; font-size: var(--text-xs);
+               color: var(--text-secondary); }
+  .dimtoggle button { min-height: 28px; padding: 3px 10px; font-size: var(--text-xs); }
+
+  .note {
+    width: 100%; max-width: 1120px; font-size: var(--text-xs);
+    color: var(--text-secondary); border-top: 1px solid var(--border);
+    padding-top: 10px; line-height: 1.7;
+  }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>Direction A — Hands</h1>
+    <div class="assumption">Core assumption: <b>the room's voice beats its phones.</b> There is no participant app. The only screens are the projector and the host's own phone.</div>
+  </div>
+
+  <div class="col">
+    <div class="frame-label">Room display · projector, 16:9</div>
+    <div class="projector" id="proj">
+      <div class="proj-body">
+        <div class="proj-top">
+          <span class="proj-brand">Rust NYC · Pop Quiz</span>
+          <span class="proj-brand" id="projPhase">closing segment</span>
+        </div>
+        <div id="projMain" class="proj-main"></div>
+      </div>
+    </div>
+    <div class="dimtoggle">
+      <span>AC-80 · room display legibility:</span>
+      <button class="btn" onclick="setRoom('light')">lights up</button>
+      <button class="btn" onclick="setRoom('dim')">lights down</button>
+      <span id="roomNote"></span>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div class="col">
+      <div class="frame-label">Host control · the organizer's own phone</div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="hostBody"></div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width: 420px; align-items: flex-start;">
+      <div class="frame-label">What this direction is testing</div>
+      <div class="panel" style="font-size: var(--text-sm); line-height: 1.65;">
+        <p style="margin-top:0"><b>The room votes out loud, option by option.</b> The projector asks for one letter at a time in 150px type; the host counts hands and taps the number. Nobody joins anything.</p>
+        <p><b>Stories that evaporate.</b> B1 (join without an account), B5 (capacity, AC-52–55), B7's pre-reveal payload work, and most of B6 — there is no participant client to leak from, no write burst to load-test, and nothing per-person exists to record. The build shrinks to a projector and a host control.</p>
+        <p><b>The criterion this direction strains.</b> AC-39 wants anonymous per-option totals at reveal. Hands produce a count only because <em>the host types it</em>, and a hand is visible to the whole room. Direction A is maximally private in the record and maximally public in the moment — the opposite trade from B and C.</p>
+        <p style="margin-bottom:0"><b>AC-91 gets easier, AC-38 gets harder.</b> Everyone reads the same screen at the same instant, so time-to-opinion is one measurement, not fifty. But the projector is now the only place the code exists — if the back row can't read it, there is no fallback.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Real data.</b> Source, options, explanation, hint and receipt are the verified <code>q3</code> from <code>mvp/2026-08-12/</code> — pinned rustc 1.96.1, 5 byte-identical runs, Miri clean, answer at E as <code>slot_for_day()</code> actually drew it. The vote split is weighted so the <code>[1, 2, 3]</code> distractor beats the correct answer, because that is what "reads <code>dedup</code> as <code>unique</code>" does to a room. Attendance figures come from <code>sequence/research/06-attendees.md</code>.
+  </div>
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+/* --------------------------------------------------------------------------
+   State machine. The host phone drives; the projector reflects.
+   -------------------------------------------------------------------------- */
+const LETTERS = ["A", "B", "C", "D", "E"];
+
+const state = {
+  phase: "idle",          // idle | live | hint | counting | split | reveal | released
+  countIndex: 0,          // which letter we are counting hands for
+  tally: { A: 0, B: 0, C: 0, D: 0, E: 0 },
+  hintShown: false
+};
+
+function setRoom(mode) {
+  document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
+  document.getElementById("roomNote").textContent =
+    mode === "dim"
+      ? "— this is the brand amendment AC-80 predicts. Judge it, don't assume it."
+      : "";
+}
+
+function totalHands() {
+  return LETTERS.reduce(function (n, L) { return n + state.tally[L]; }, 0);
+}
+
+/* ---- projector ----------------------------------------------------- */
+function renderProjector() {
+  const main = document.getElementById("projMain");
+  const phase = document.getElementById("projPhase");
+  main.className = "proj-main";
+
+  if (state.phase === "idle") {
+    phase.textContent = "closing segment";
+    main.className = "title-card";
+    main.innerHTML =
+      '<div><h2>Pop Quiz</h2>' +
+      '<p style="font-size:22px;color:var(--text-secondary)">One question. Five minutes.<br>Then we all go argue about it.</p></div>';
+    return;
+  }
+
+  if (state.phase === "released") {
+    phase.textContent = "that's the night";
+    main.className = "title-card";
+    main.innerHTML =
+      '<div><h2>Keep arguing.</h2>' +
+      '<p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
+      'Nothing was recorded. No scores, no names, no history — the count died with the room.<br><br>' +
+      'The full explanation is in the Discord, and so is whoever disagreed with you.</p></div>';
+    return;
+  }
+
+  if (state.phase === "counting") {
+    const L = LETTERS[state.countIndex];
+    const opt = TONIGHT.options[state.countIndex];
+    phase.textContent = "hands up · " + (state.countIndex + 1) + " of 5";
+    main.className = "huge-ask";
+    main.innerHTML =
+      '<div><div class="lead">Hands up for</div>' +
+      '<div class="letter-xl">' + L + '</div>' +
+      '<div class="otext-xl">' + escapeHtml(opt.text) + '</div></div>';
+    return;
+  }
+
+  /* live / hint / split / reveal all show the code beside a right-hand column */
+  phase.textContent = ({
+    live: "read it", hint: "hint published", split: "how the room voted", reveal: "the answer"
+  })[state.phase];
+
+  const left =
+    '<div class="proj-code">' +
+      '<pre class="code" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+      (state.hintShown
+        ? '<div class="panel" style="margin-top:10px;font-size:16px;border-left:3px solid var(--blue)">' +
+          '<b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>'
+        : '') +
+    '</div>';
+
+  let right = "";
+
+  if (state.phase === "live" || state.phase === "hint") {
+    right = '<div class="proj-opts">' + TONIGHT.options.map(function (o, i) {
+      return '<div class="opt"><span class="letter">' + o.letter + '</span>' +
+             '<span class="otext">' + escapeHtml(o.text) + '</span></div>';
+    }).join("") + '</div>';
+  }
+
+  if (state.phase === "split") {
+    const total = totalHands();
+    right = '<div class="proj-opts"><div class="bars">' + TONIGHT.options.map(function (o) {
+      const n = state.tally[o.letter];
+      return '<div class="bar-row"><span class="letter">' + o.letter + '</span>' +
+             '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, total) + '%"></span></span>' +
+             '<span class="bar-n">' + n + ' · ' + pct(n, total) + '%</span></div>';
+    }).join("") +
+    '</div><p style="font-size:15px;color:var(--text-secondary);margin:14px 0 0">' +
+    total + ' hands counted. No answer yet.</p></div>';
+  }
+
+  if (state.phase === "reveal") {
+    const total = totalHands();
+    right =
+      '<div class="proj-opts">' +
+      '<div class="bars">' + TONIGHT.options.map(function (o) {
+        const n = state.tally[o.letter];
+        return '<div class="bar-row' + (o.correct ? " is-correct" : "") + '">' +
+               '<span class="letter">' + o.letter + '</span>' +
+               '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, total) + '%"></span></span>' +
+               '<span class="bar-n">' + n + ' · ' + pct(n, total) + '%</span></div>';
+      }).join("") + '</div>' +
+      '<div class="panel by-human" style="margin-top:12px">' +
+        '<span class="provenance human">✎ written by a human, reviewed not verified</span>' +
+        '<p class="explain" style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p>' +
+      '</div>' +
+      '<div class="receipt" style="margin-top:10px">' +
+        '<span class="provenance machine">✓ established by the machine</span><br>' +
+        'Compiled with ' + TONIGHT.receipt.rustc + ', edition ' + TONIGHT.receipt.edition + '. ' +
+        'Ran ' + TONIGHT.receipt.runs + '×, byte-identical each time, on ' + TONIGHT.receipt.target + '. ' +
+        'Miri clean under strict provenance, and its output matched the native run.<br>' +
+        '<b>This establishes the answer. It does not check the explanation above.</b>' +
+      '</div></div>';
+  }
+
+  main.innerHTML = left + right;
+}
+
+/* ---- host phone ----------------------------------------------------- */
+function renderHost() {
+  const b = document.getElementById("hostBody");
+  let html = "";
+
+  const header = function (step, title) {
+    return '<div class="host-step">' + step + '</div><div class="host-h">' + title + '</div>';
+  };
+
+  if (state.phase === "idle") {
+    html = header("step 1 of 5", "Start the segment") +
+      '<div class="stack">' +
+      '<div class="no-preview">You get no answer preview. You are playing too — that is the point, and it is why you can be wrong in front of everyone tonight.</div>' +
+      '<p class="meta">Question <b>q3</b> · Collections · difficulty 2 · verified 2026-08-11. Drawn for today by date alone.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'live\')">Put it on the screen</button>' +
+      '</div>';
+  } else if (state.phase === "live" || state.phase === "hint") {
+    html = header("step 2 of 5", "The room is reading") +
+      '<div class="stack">' +
+      '<p class="meta">No timer. A timer would be competing with the argument for the same thirty seconds.</p>' +
+      (state.hintShown
+        ? '<div class="no-preview">Hint is on the screen. Everyone got it at the same moment.</div>'
+        : '<button class="btn" onclick="publishHint()">Publish the hint to the room</button>') +
+      '<button class="btn btn-primary" onclick="startCount()">Everyone ready — count hands</button>' +
+      '</div>';
+  } else if (state.phase === "counting") {
+    const L = LETTERS[state.countIndex];
+    const opt = TONIGHT.options[state.countIndex];
+    html = header("step 3 of 5 · " + (state.countIndex + 1) + " of 5", "Hands up for " + L) +
+      '<div class="stack">' +
+      '<div class="panel" style="font-size:var(--text-sm)"><b>' + L + '</b> — ' + escapeHtml(opt.text) + '</div>' +
+      '<div class="counter">' +
+        '<button class="btn step-btn" onclick="bump(-1)" aria-label="one fewer hand">−</button>' +
+        '<span class="num" aria-live="polite">' + state.tally[L] + '</span>' +
+        '<button class="btn step-btn" onclick="bump(1)" aria-label="one more hand">+</button>' +
+      '</div>' +
+      '<button class="btn btn-primary" onclick="nextLetter()">' +
+        (state.countIndex === 4 ? "Show the room its split" : "Next letter") +
+      '</button>' +
+      (state.countIndex === 0 ? '' : '<button class="btn" onclick="prevLetter()">Back a letter</button>') +
+      '<div class="warn"><b>The honest bit.</b> This tally is your thumb on a counter, not a measurement. AC-39 asks for anonymous per-option totals; here they are only as good as your counting, and a raised hand was never anonymous to the room in the first place.</div>' +
+      '</div>';
+  } else if (state.phase === "split") {
+    html = header("step 4 of 5", "Let it sit") +
+      '<div class="stack">' +
+      '<p class="meta">The split is up and there is no answer yet. This is the loudest ten seconds of the segment — spend them.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal the answer</button>' +
+      '<button class="btn" onclick="startCount()">Recount — I got that wrong</button>' +
+      '</div>';
+  } else if (state.phase === "reveal") {
+    html = header("step 5 of 5", "Read it aloud") +
+      '<div class="stack">' +
+      '<div class="panel by-human" style="font-size:var(--text-sm)">' +
+        '<span class="provenance human">✎ your script</span>' +
+        '<p style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+      '<button class="btn btn-primary" onclick="go(\'released\')">Release the room</button>' +
+      '</div>';
+  } else {
+    html = header("done", "Segment complete") +
+      '<div class="stack">' +
+      '<p class="meta">Five minutes. One question. Nothing stored.</p>' +
+      '<div class="panel" style="font-size:var(--text-sm)"><b>q3 is now spent.</b> It is recorded as used by <em>tonight\'s meetup</em> — not by tonight\'s build. That distinction is the AC-92 defect Stage 1 carried forward, and this screen is where it gets fixed.</div>' +
+      '<button class="btn" onclick="reset()">Run it again</button>' +
+      '</div>';
+  }
+
+  b.innerHTML = html +
+    '<div class="ratio">In the room tonight: <b>' + ROOM.present + '</b> · hands counted: <b>' + totalHands() + '</b>' +
+    (totalHands() > 0 ? ' · participation <b>' + pct(totalHands(), ROOM.present) + '%</b>' : '') +
+    '<br>Participation has never been measured. This line is the instrument.</div>';
+}
+
+/* ---- transitions ----------------------------------------------------- */
+function render() { renderProjector(); renderHost(); }
+
+function go(phase) {
+  state.phase = phase;
+  render();
+  announce(({
+    live: "Question is on the screen.",
+    split: "The room's split is shown. No answer yet.",
+    reveal: "Answer revealed. Correct answer is E.",
+    released: "Segment complete. Nothing was recorded."
+  })[phase] || phase);
+}
+
+function publishHint() { state.hintShown = true; go("hint"); announce("Hint published to everyone at once."); }
+
+function startCount() {
+  state.countIndex = 0;
+  state.tally = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+  go("counting");
+}
+function bump(n) {
+  const L = LETTERS[state.countIndex];
+  state.tally[L] = Math.max(0, state.tally[L] + n);
+  render();
+}
+function nextLetter() {
+  if (state.countIndex === 4) { go("split"); return; }
+  state.countIndex += 1;
+  go("counting");
+}
+function prevLetter() { state.countIndex = Math.max(0, state.countIndex - 1); go("counting"); }
+function reset() { state.phase = "idle"; state.hintShown = false; startCount(); state.phase = "idle"; render(); }
+
+mountBadge("Direction A · Hands", "no participant app exists in this direction");
+setRoom("light");
+render();
+</script>
+</body>
+</html>

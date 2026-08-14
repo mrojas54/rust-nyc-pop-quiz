@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Discord seam · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 16px; }
+  .direction-head { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap;
+                    align-items: baseline; gap: 12px; }
+  .direction-head h1 { font-size: 28px; }
+  .assumption { font-size: var(--text-sm); color: var(--text-secondary);
+                border-left: 3px solid var(--accent); padding-left: 10px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start;
+          justify-content: center; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .wide { width: 100%; max-width: 1180px; }
+
+  /* --- Discord stand-in --------------------------------------------- */
+  .dc { width: 460px; background: #313338; color: #dbdee1; border-radius: 6px;
+        font-family: var(--mono); overflow: hidden; }
+  .dc-top { background: #232428; padding: 10px 14px; font-size: var(--text-xs);
+            color: #949ba4; letter-spacing: var(--tracking-caps); text-transform: uppercase;
+            border-bottom: 1px solid #1e1f22; display: flex; justify-content: space-between; }
+  .dc-body { padding: 18px; }
+  .dc h2 { font-family: var(--serif); color: #f2f3f5; font-size: 22px; }
+  .dc .app-row { display: flex; align-items: center; gap: 10px; margin: 14px 0;
+                 padding: 10px; background: #2b2d31; border-radius: 4px; }
+  .dc .app-icon { width: 40px; height: 40px; border-radius: 4px; background: #d69e2e;
+                  display: grid; place-items: center; color: #2d3748; font-weight: 700; }
+  .dc ul { margin: 12px 0; padding-left: 18px; font-size: var(--text-sm); line-height: 1.7; }
+  .dc .scope { color: #f2f3f5; }
+  .dc .dc-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .dc button { flex: 1; min-height: 40px; border-radius: 3px; border: 0; cursor: pointer;
+               font-family: var(--mono); font-size: var(--text-sm); }
+  .dc .cancel { background: transparent; color: #dbdee1; }
+  .dc .auth { background: #5865f2; color: #fff; font-weight: 600; }
+  .dc .roles { background: #2b2d31; border-radius: 4px; padding: 12px; font-size: var(--text-xs); }
+  .dc .role { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .dc .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dc .rid { margin-left: auto; color: #949ba4; }
+
+  /* --- our side ------------------------------------------------------ */
+  .card { width: 460px; }
+  .deny { border-left: 3px solid var(--red); background: var(--red-subtle);
+          padding: 10px 12px; border-radius: var(--radius); font-size: var(--text-sm); }
+  .ok   { border-left: 3px solid var(--green); background: var(--green-subtle);
+          padding: 10px 12px; border-radius: var(--radius); font-size: var(--text-sm); }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .switcher { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .switcher .btn { min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+  .switcher .lbl { font-size: var(--text-xs); text-transform: uppercase;
+                   letter-spacing: var(--tracking-caps); color: var(--text-secondary); margin-right: 4px; }
+
+  table.seam { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
+  table.seam th, table.seam td { border: 1px solid var(--border); padding: 7px 9px;
+                                 text-align: left; vertical-align: top; }
+  table.seam th { background: var(--panel); font-weight: 600; }
+  table.seam code { background: var(--white); padding: 1px 4px; border-radius: 2px;
+                    border: 1px solid var(--border); }
+  .diagram-wrap { width: 100%; overflow-x: auto; background: var(--white);
+                  border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .note { width: 100%; max-width: 1180px; font-size: var(--text-xs); color: var(--text-secondary);
+          border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.7; }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>The Discord seam</h1>
+    <div class="assumption"><b>The integration boundary is where the build bleeds</b>, and it gets zero design attention if it is left a black box. So Discord's own surface is mocked here too — not just ours.</div>
+  </div>
+
+  <div class="switcher">
+    <span class="lbl">Who is signing in</span>
+    <button class="btn" onclick="setCase('organizer')">an organizer</button>
+    <button class="btn" onclick="setCase('member')">a member, no organizer role</button>
+    <button class="btn" onclick="setCase('other')">right person, wrong server</button>
+    <button class="btn" onclick="setCase('admin')">a server Administrator</button>
+    <button class="btn" onclick="setCase('outage')">Discord is down, mid-segment</button>
+  </div>
+
+  <div class="pair">
+    <div class="col">
+      <div class="frame-label">Discord · stand-in for their surface, not ours</div>
+      <div class="dc">
+        <div class="dc-top"><span>discord.com/oauth2/authorize</span><span>stand-in</span></div>
+        <div class="dc-body">
+          <h2>An application would like to access your account</h2>
+          <div class="app-row">
+            <span class="app-icon">PQ</span>
+            <span><b style="color:#f2f3f5">Rust NYC Pop Quiz</b><br>
+            <span style="font-size:var(--text-xs);color:#949ba4">wants to know who you are, and nothing else</span></span>
+          </div>
+          <ul>
+            <li><span class="scope">identify</span> — your user ID. Not your email.</li>
+            <li><span class="scope">guilds.members.read</span> — which roles you hold <em>in Rust NYC only</em>.</li>
+          </ul>
+          <p style="font-size:var(--text-xs);color:#949ba4;margin:0">
+            It cannot read messages, cannot post, cannot see your other servers, and there is no bot in the guild.
+          </p>
+          <div class="dc-actions">
+            <button class="cancel">Cancel</button>
+            <button class="auth" onclick="authorize()">Authorize</button>
+          </div>
+          <div style="margin-top:16px">
+            <div style="font-size:var(--text-xs);color:#949ba4;letter-spacing:var(--tracking-caps);text-transform:uppercase;margin-bottom:6px">
+              What Discord holds about you — the thing we are actually reading
+            </div>
+            <div class="roles" id="dcRoles"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="frame-label">Pop Quiz · what our side does with it</div>
+      <div class="card panel" id="ourSide" style="min-height:420px"></div>
+    </div>
+  </div>
+
+  <div class="wide">
+    <div class="frame-label" style="margin-bottom:6px">The seam · one page</div>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 1120 470" width="1120" height="470" role="img"
+           aria-label="Seam diagram: what Discord holds, what crosses the boundary, and what Pop Quiz stores.">
+        <defs>
+          <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/>
+          </marker>
+          <marker id="arwA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#945c0a"/>
+          </marker>
+        </defs>
+
+        <!-- columns -->
+        <rect x="8"   y="8" width="330" height="454" rx="4" fill="#f4f5f7" stroke="#cbd5e0"/>
+        <rect x="396" y="8" width="330" height="454" rx="4" fill="#fffaf0" stroke="#d69e2e" stroke-width="2"/>
+        <rect x="784" y="8" width="328" height="454" rx="4" fill="#f4f5f7" stroke="#cbd5e0"/>
+
+        <text x="24"  y="32" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#2d3748" letter-spacing="1.2">DISCORD — THEIR SIDE</text>
+        <text x="412" y="32" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#945c0a" letter-spacing="1.2">THE SEAM — WHAT CROSSES</text>
+        <text x="800" y="32" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#2d3748" letter-spacing="1.2">POP QUIZ — OUR SIDE</text>
+
+        <!-- discord objects -->
+        <rect x="24" y="48" width="298" height="66" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="36" y="68" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">guild</text>
+        <text x="36" y="86" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">id 704144524340494336  ← immutable</text>
+        <text x="36" y="103" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">name "Rust NYC"  ← renameable, never read</text>
+
+        <rect x="24" y="126" width="298" height="98" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="36" y="146" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">member.roles[]</text>
+        <text x="36" y="164" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">["8905…", "1179…"]  ← role IDs, immutable</text>
+        <text x="36" y="182" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">role NAMES live elsewhere and change</text>
+        <text x="36" y="203" font-family="ui-monospace,monospace" font-size="11" fill="#9b2c2c">permissions bitfield — NEVER read (AC-65)</text>
+
+        <rect x="24" y="236" width="298" height="80" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="36" y="256" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">tokens</text>
+        <text x="36" y="274" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">access_token  ~7 days</text>
+        <text x="36" y="292" font-family="ui-monospace,monospace" font-size="11" fill="#9b2c2c">refresh_token ROTATES on every refresh</text>
+        <text x="36" y="308" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">(undocumented — found in Dimension 2)</text>
+
+        <rect x="24" y="332" width="298" height="60" rx="4" fill="#ffffff" stroke="#cbd5e0" stroke-dasharray="4 3"/>
+        <text x="36" y="352" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">availability</text>
+        <text x="36" y="370" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">real incidents run 20 min – 3 h+</text>
+        <text x="36" y="386" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">so a 15-min grace window bought nothing</text>
+
+        <!-- the seam: what crosses -->
+        <rect x="412" y="48" width="298" height="54" rx="4" fill="#ffffff" stroke="#d69e2e"/>
+        <text x="424" y="68" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#945c0a">→ authorize (identify, guilds.members.read)</text>
+        <text x="424" y="86" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">the organizer's browser, once, at sign-in</text>
+
+        <rect x="412" y="114" width="298" height="72" rx="4" fill="#ffffff" stroke="#d69e2e"/>
+        <text x="424" y="134" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#945c0a">← GET /users/@me/guilds/{id}/member</text>
+        <text x="424" y="152" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">returns roles[] — the ONLY fact we act on</text>
+        <text x="424" y="170" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">404 here means "not in that guild"</text>
+
+        <rect x="412" y="198" width="298" height="54" rx="4" fill="#ffffff" stroke="#d69e2e"/>
+        <text x="424" y="218" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#945c0a">↻ refresh — and re-persist the new token</text>
+        <text x="424" y="236" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">dropping the rotated one locks the host out</text>
+
+        <rect x="412" y="266" width="298" height="72" rx="4" fill="#f0fff4" stroke="#38a169"/>
+        <text x="424" y="286" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#276749">CHECKED ONCE — at room creation</text>
+        <text x="424" y="304" font-family="ui-monospace,monospace" font-size="11" fill="#276749">a live room never calls Discord again</text>
+        <text x="424" y="322" font-family="ui-monospace,monospace" font-size="11" fill="#276749">bounded instead by a 4-hour lifetime</text>
+
+        <rect x="412" y="350" width="298" height="66" rx="4" fill="#fff5f5" stroke="#e53e3e" stroke-dasharray="5 3"/>
+        <text x="424" y="370" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#9b2c2c">PARTICIPANTS NEVER CROSS THIS LINE</text>
+        <text x="424" y="388" font-family="ui-monospace,monospace" font-size="11" fill="#9b2c2c">no OAuth, no account, no identity at all</text>
+        <text x="424" y="406" font-family="ui-monospace,monospace" font-size="11" fill="#9b2c2c">Discord outage cannot stop a room (AC-67)</text>
+
+        <!-- our side -->
+        <rect x="800" y="48" width="296" height="82" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="812" y="68" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">config</text>
+        <text x="812" y="86" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">GUILD_ID   = "704144524340494336"</text>
+        <text x="812" y="104" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">ORGANIZER_ROLE_ID = "8905…"</text>
+        <text x="812" y="121" font-family="ui-monospace,monospace" font-size="11" fill="#276749">two IDs. no names, no bitfields.</text>
+
+        <rect x="800" y="142" width="296" height="88" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="812" y="162" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">the whole authorization rule</text>
+        <text x="812" y="182" font-family="ui-monospace,monospace" font-size="11" fill="#276749">roles.includes(ORGANIZER_ROLE_ID)</text>
+        <text x="812" y="202" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">Administrator does not appear in roles[],</text>
+        <text x="812" y="219" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">so it cannot bypass — by construction.</text>
+
+        <rect x="800" y="242" width="296" height="96" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="812" y="262" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">room</text>
+        <text x="812" y="280" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">created_by  = this organizer only (AC-68)</text>
+        <text x="812" y="298" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">created_at, expires_at = +4 h (AC-69)</text>
+        <text x="812" y="316" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">code RUST-4417 — public, meaningless</text>
+        <text x="812" y="332" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">host session survives refresh + device swap</text>
+
+        <rect x="800" y="350" width="296" height="66" rx="4" fill="#ffffff" stroke="#cbd5e0"/>
+        <text x="812" y="370" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#2d3748">denials say which condition failed</text>
+        <text x="812" y="388" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">"wrong server" / "wrong role" — and never</text>
+        <text x="812" y="406" font-family="ui-monospace,monospace" font-size="11" fill="#4a5568">who else holds it (AC-70)</text>
+
+        <!-- flows -->
+        <line x1="322" y1="75"  x2="410" y2="75"  stroke="#945c0a" stroke-width="2" marker-end="url(#arwA)"/>
+        <line x1="322" y1="150" x2="410" y2="150" stroke="#945c0a" stroke-width="2" marker-end="url(#arwA)"/>
+        <line x1="322" y1="272" x2="410" y2="225" stroke="#945c0a" stroke-width="2" marker-end="url(#arwA)"/>
+        <line x1="712" y1="150" x2="798" y2="185" stroke="#4a5568" stroke-width="2" marker-end="url(#arw)"/>
+        <line x1="712" y1="300" x2="798" y2="285" stroke="#4a5568" stroke-width="2" marker-end="url(#arw)"/>
+        <line x1="712" y1="120" x2="798" y2="95"  stroke="#4a5568" stroke-width="2" marker-end="url(#arw)"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="wide">
+    <div class="frame-label" style="margin-bottom:6px">What each side sees</div>
+    <table class="seam">
+      <thead><tr><th style="width:24%">Fact</th><th style="width:25%">Discord holds</th><th style="width:26%">Pop Quiz stores</th><th style="width:25%">Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>Which server</td><td>Guild object, <code>id</code> plus a renameable <code>name</code></td><td>The <code>id</code> only, in config</td><td>A guild rename must never change who can host.</td></tr>
+        <tr><td>Which role</td><td><code>member.roles[]</code> — an array of role IDs</td><td>One <code>ORGANIZER_ROLE_ID</code></td><td><b>AC-65.</b> Names are mutable and duplicable; IDs are neither.</td></tr>
+        <tr><td>Administrator</td><td>A bit in a permissions bitfield</td><td><b>Nothing. Never read.</b></td><td>Admin and guild ownership grant every permission on Discord — reading the bitfield would silently make every admin a host. Reading <code>roles[]</code> makes that impossible rather than merely forbidden.</td></tr>
+        <tr><td>Who you are</td><td>User ID, and much more we never ask for</td><td>User ID, to answer "is this the same organizer?"</td><td>Scope stays at <code>identify</code>. No email, no messages, no bot in the guild.</td></tr>
+        <tr><td>Staying signed in</td><td>Access token ~7 days; <b>refresh token rotates</b></td><td>The newest refresh token, re-persisted <em>every</em> refresh</td><td><b>AC-66.</b> Rotation is undocumented. Persisting the old one locks an organizer out at the worst possible moment.</td></tr>
+        <tr><td>Still authorized?</td><td>Answers only while Discord is up</td><td>Asked <b>once</b>, at room creation</td><td><b>AC-69.</b> Real outages run 20 minutes to 3 hours. A room that started authorized runs to completion, bounded by 4 hours; a <em>new</em> room always needs a live check.</td></tr>
+        <tr><td>Attendees</td><td><b>Nothing. They never appear here.</b></td><td>An anonymous count that dies with the room</td><td><b>AC-67.</b> The seam has exactly one user — the host. That is what keeps an outage from cancelling the segment.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>Where these facts come from.</b> <code>sequence/research/02-*</code> (Dimension 2, the Discord seam): role IDs immutable, no bot required, Administrator unable to bypass by construction, refresh-token rotation undocumented, and observed incident durations of 20 minutes to 3+ hours — the finding that replaced the PRD's 15-minute grace window with AC-69's check-at-the-door.
+  </div>
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+const GUILD = "704144524340494336";
+const ORG_ROLE = "890512773119492096";
+
+const CASES = {
+  organizer: {
+    label: "Michelle · organizer",
+    roles: [
+      { name: "Organizer", id: ORG_ROLE, color: "#d69e2e" },
+      { name: "Speaker",   id: "117904455201234432", color: "#3182ce" }
+    ],
+    inGuild: true, admin: false
+  },
+  member: {
+    label: "Sam · member",
+    roles: [{ name: "Member", id: "704144524340494337", color: "#949ba4" }],
+    inGuild: true, admin: false
+  },
+  other: {
+    label: "Alex · organizer of a different server",
+    roles: [], inGuild: false, admin: false
+  },
+  admin: {
+    label: "Robin · server Administrator",
+    roles: [{ name: "Moderator", id: "998877665544332211", color: "#e53e3e" }],
+    inGuild: true, admin: true
+  },
+  outage: {
+    label: "Michelle · organizer, room already running",
+    roles: [{ name: "Organizer", id: ORG_ROLE, color: "#d69e2e" }],
+    inGuild: true, admin: false, outage: true
+  }
+};
+
+let current = "organizer";
+
+function setCase(k) { current = k; render(); }
+function authorize() { render(); announce("Authorized. Checking the one thing that decides it."); }
+
+function render() {
+  const c = CASES[current];
+
+  /* --- Discord's side --------------------------------------------- */
+  document.getElementById("dcRoles").innerHTML =
+    '<div style="color:#f2f3f5;margin-bottom:6px">' + c.label + '</div>' +
+    (c.inGuild
+      ? '<div class="role"><span class="dot" style="background:#949ba4"></span>guild <span class="rid">' + GUILD + '</span></div>' +
+        c.roles.map(function (r) {
+          return '<div class="role"><span class="dot" style="background:' + r.color + '"></span>' +
+            r.name + ' <span class="rid">' + r.id + '</span></div>';
+        }).join("") +
+        (c.admin
+          ? '<div class="role" style="margin-top:6px;border-top:1px solid #1e1f22;padding-top:6px">' +
+            '<span class="dot" style="background:#e53e3e"></span>permissions <span class="rid">ADMINISTRATOR (0x8)</span></div>' +
+            '<div style="color:#949ba4;margin-top:4px">— a bitfield, not a role. It is not in roles[].</div>'
+          : '')
+      : '<div style="color:#949ba4">Not a member of guild ' + GUILD + '. The member endpoint returns 404.</div>');
+
+  /* --- our side ----------------------------------------------------- */
+  const has = c.inGuild && c.roles.some(function (r) { return r.id === ORG_ROLE; });
+  let html = '<h2 style="font-size:22px;margin-bottom:10px">Host a room</h2>';
+
+  if (c.outage) {
+    html +=
+      '<div class="stack">' +
+      '<div class="ok"><b>Your room is fine.</b> RUST-4417 is open and will run to completion. ' +
+      'It was authorized when you created it at 8:58pm, and nothing re-checks a live room.</div>' +
+      '<div class="deny"><b>You cannot start a <em>new</em> room right now.</b> Discord is not answering, and creating a room is the one moment that needs a live check. Try again when they are back.</div>' +
+      '<p class="meta">This is AC-69 doing its job. The PRD\'s 15-minute grace window would have expired 40 minutes ago and taken the segment with it — real Discord incidents run 20 minutes to 3+ hours. Checking at the door instead of continuously deletes the entire degraded-service state rather than designing it.</p>' +
+      '<div class="panel" style="font-size:var(--text-xs)"><b>Room lifetime</b> — opened 8:58pm, hard expiry 12:58am. Four hours is the bound that replaced "keep asking Discord".</div>' +
+      '</div>';
+  } else if (has) {
+    html +=
+      '<div class="stack">' +
+      '<div class="ok"><b>You can host.</b> You hold the organizer role in Rust NYC.</div>' +
+      '<div class="panel" style="font-size:var(--text-xs)">' +
+      '<b>What was actually checked</b><br>' +
+      '<code>roles.includes("' + ORG_ROLE + '")</code> → true<br><br>' +
+      'Not your role\'s name, which anyone can duplicate. Not a permissions bitfield, which every admin already has. One immutable ID against one configured ID.</div>' +
+      '<button class="btn btn-primary" onclick="announce(\'Room created. Authorization will not be checked again.\')">Create the room</button>' +
+      '<p class="meta">Authorization is checked <b>now</b> and never again for this room. Only you can view or control it, and it expires four hours from creation whatever happens to Discord in between.</p>' +
+      '</div>';
+  } else if (!c.inGuild) {
+    html +=
+      '<div class="stack">' +
+      '<div class="deny"><b>You are not in the Rust NYC server.</b> Hosting is limited to organizers there. If you think you should be, ask in the server — we cannot tell you anything about who is.</div>' +
+      '<p class="meta"><b>AC-70.</b> It names the condition that failed — server, not role — so a real organizer signed into the wrong account can fix it. It reveals nothing about who holds the role, and the wording is identical whether or not the role exists.</p>' +
+      '</div>';
+  } else if (c.admin) {
+    html +=
+      '<div class="stack">' +
+      '<div class="deny"><b>You do not have the organizer role.</b> Hosting needs that specific role in Rust NYC — being an admin of the server is a different thing.</div>' +
+      '<p class="meta"><b>This is the case worth staring at.</b> Robin can delete every channel in the guild and still cannot host the quiz. Discord\'s Administrator bit grants every permission it defines — so any check that reads the permissions bitfield silently makes every admin a host. Reading <code>roles[]</code> makes that <em>impossible</em>, not merely forbidden: the Administrator bit does not appear there at all. AC-65 is a design that cannot be violated, rather than a rule someone has to remember.</p>' +
+      '</div>';
+  } else {
+    html +=
+      '<div class="stack">' +
+      '<div class="deny"><b>You do not have the organizer role.</b> Hosting needs that specific role in Rust NYC. If that is wrong, ask an organizer to check.</div>' +
+      '<p class="meta">Same wording as the Administrator case above, deliberately — the denial distinguishes <em>server</em> from <em>role</em>, and nothing finer. Anything more specific starts describing the membership list.</p>' +
+      '</div>';
+  }
+
+  document.getElementById("ourSide").innerHTML = html;
+}
+
+mountBadge("Discord seam", "stand-in surfaces; no OAuth happens here");
+render();
+</script>
+</body>
+</html>

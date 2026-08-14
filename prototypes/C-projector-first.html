@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction C — Projector-first · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 14px; }
+  .direction-head { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap;
+                    align-items: baseline; gap: 12px; }
+  .direction-head h1 { font-size: 28px; }
+  .assumption { font-size: var(--text-sm); color: var(--text-secondary);
+                border-left: 3px solid var(--accent); padding-left: 10px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start;
+          justify-content: center; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+  /* ---- projector: the product --------------------------------------- */
+  .proj-wrap { transition: transform .25s ease; transform-origin: top center; }
+  .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
+  .proj-top { display: flex; justify-content: space-between; align-items: baseline;
+              flex: none; margin-bottom: 12px; }
+  .proj-brand { font-size: 13px; letter-spacing: var(--tracking-caps);
+                text-transform: uppercase; color: var(--text-secondary); }
+  .proj-main { flex: 1; display: flex; gap: 28px; min-height: 0; }
+  .proj-code { flex: 1.35; min-width: 0; display: flex; }
+  /* The whole bet of this direction: the code is set for the back row. */
+  .proj-code .code { flex: 1; font-size: 27px; line-height: 1.5; padding: 18px 20px; }
+  .proj-side { flex: 1; display: flex; flex-direction: column; gap: 8px;
+               justify-content: center; min-width: 0; }
+
+  .opt { display: flex; align-items: center; gap: 14px; min-height: 52px;
+         padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+         background: var(--white); font-size: 24px; }
+  .opt .letter { flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+                 border: 1px solid var(--border); border-radius: var(--radius);
+                 font-weight: 700; background: var(--panel); font-size: 22px; }
+  .opt .otext { white-space: pre-wrap; word-break: break-word; }
+  .opt.correct { border-color: var(--green); border-width: 4px; padding: 5px 11px; }
+  .opt.correct .letter { background: var(--green); color: #fff; border-color: var(--green); }
+  .opt.correct .letter::after { content: " ✓"; }
+
+  .bars { display: flex; flex-direction: column; gap: 7px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 22px; }
+  .bar-row .letter { flex: none; width: 30px; font-weight: 700; }
+  .bar-track { flex: 1; height: 30px; background: var(--input); border: 1px solid var(--border);
+               border-radius: var(--radius); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text-secondary); }
+  .bar-row.is-correct .bar-fill { background: var(--green); }
+  .bar-row.is-correct .letter::after { content: " ✓"; }
+  .bar-n { flex: none; width: 92px; text-align: right; font-size: 19px; }
+
+  .joinstrip { flex: none; display: flex; justify-content: space-between; align-items: baseline;
+               border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px;
+               font-size: 19px; color: var(--text-secondary); }
+  .joinstrip b { color: var(--accent); font-family: var(--serif); font-size: 30px; }
+
+  .title-card { flex: 1; display: grid; place-items: center; text-align: center; }
+  .title-card h2 { font-size: 62px; }
+
+  /* ---- the buzzer phone ---------------------------------------------- */
+  .buzz-body { padding: 12px !important; gap: 8px; }
+  .buzz-head { flex: none; text-align: center; padding-bottom: 6px;
+               border-bottom: 1px solid var(--border); }
+  .buzz-head .lookup { font-size: var(--text-sm); color: var(--text-secondary); }
+  .buzz-head .lookup b { color: var(--text); }
+  .buzz-grid { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .buzz {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+    border: 2px solid var(--border); border-radius: var(--radius);
+    background: var(--white); color: var(--text);
+    font-family: var(--serif); font-size: 46px; cursor: pointer; min-height: var(--touch);
+  }
+  .buzz[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-hover);
+                               border-width: 4px; font-weight: 700; }
+  .buzz[aria-pressed="true"]::after { content: "✓"; font-family: var(--mono); font-size: 24px; }
+  .buzz.correct { border-color: var(--green); border-width: 4px; }
+  .buzz.mine-wrong { border-color: var(--red); border-width: 4px; }
+  .buzz:disabled { cursor: default; }
+  .buzz-foot { flex: none; font-size: var(--text-xs); text-align: center;
+               color: var(--text-secondary); }
+  .buzz-verdict { flex: 1; display: grid; place-items: center; text-align: center; }
+  .buzz-verdict .vb { font-family: var(--serif); font-size: 72px; line-height: 1; }
+
+  /* ---- controls ------------------------------------------------------- */
+  .switcher { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 6px;
+              align-items: center; }
+  .switcher .btn { min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+  .switcher .lbl { font-size: var(--text-xs); text-transform: uppercase;
+                   letter-spacing: var(--tracking-caps); color: var(--text-secondary);
+                   margin-right: 4px; }
+  .host-step { font-size: var(--text-xs); text-transform: uppercase;
+               letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .host-h { font-family: var(--serif); font-size: 24px; margin: 2px 0 10px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .no-preview { border-left: 3px solid var(--blue); background: var(--blue-subtle);
+                padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
+  .ratio { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+           color: var(--text-secondary); border-top: 1px solid var(--border); }
+  .ratio b { color: var(--text); }
+  .note { width: 100%; max-width: 1180px; font-size: var(--text-xs); color: var(--text-secondary);
+          border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.7; }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>Direction C — Projector-first, phone as buzzer</h1>
+    <div class="assumption">Core assumption: <b>fifty people reading the <em>same</em> nine lines is the event.</b> The code lives on the big screen and nowhere else. The phone is five letters — an input device, not a reading surface.</div>
+  </div>
+
+  <div class="switcher">
+    <span class="lbl">Drive the segment</span>
+    <button class="btn" onclick="go('idle')">1 · title</button>
+    <button class="btn" onclick="go('live')">2 · question live</button>
+    <button class="btn" onclick="go('closed')">3 · answers closed</button>
+    <button class="btn" onclick="go('split')">4 · the split</button>
+    <button class="btn" onclick="go('reveal')">5 · reveal</button>
+    <button class="btn" onclick="go('released')">6 · released</button>
+    <span class="lbl" style="margin-left:14px">AC-78 · the back-row test</span>
+    <button class="btn" onclick="setDistance(1)">front row</button>
+    <button class="btn" onclick="setDistance(0.55)">middle</button>
+    <button class="btn" onclick="setDistance(0.33)">6 metres back</button>
+    <span class="lbl" style="margin-left:14px">AC-80</span>
+    <button class="btn" onclick="setRoom('light')">lights up</button>
+    <button class="btn" onclick="setRoom('dim')">lights down</button>
+  </div>
+
+  <div class="col" style="width:100%">
+    <div class="frame-label">Room display · the product</div>
+    <div class="proj-wrap" id="projWrap" style="width:100%;display:flex;justify-content:center">
+      <div class="projector" id="proj" style="max-width:1120px">
+        <div class="proj-body">
+          <div class="proj-top">
+            <span class="proj-brand">Rust NYC · Pop Quiz</span>
+            <span class="proj-brand" id="projPhase">—</span>
+          </div>
+          <div class="proj-main" id="projMain"></div>
+          <div class="joinstrip" id="joinStrip"></div>
+        </div>
+      </div>
+    </div>
+    <div class="meta" id="distNote">Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs.</div>
+  </div>
+
+  <div class="pair">
+    <div class="col">
+      <div class="frame-label">Participant · the buzzer. No code on it, ever.</div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body buzz-body" id="pBody"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="frame-label">Host control</div>
+      <div class="phone" style="height:560px">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="hostBody"></div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width:380px;align-items:flex-start">
+      <div class="frame-label">What this direction is testing</div>
+      <div class="panel" style="font-size:var(--text-sm);line-height:1.65">
+        <p style="margin-top:0"><b>AC-91 becomes a typography problem.</b> Thirty seconds to form an opinion is the whole budget the format allows. Here that is decided by one thing — how big the code is set on one screen — instead of by fifty different phones held at fifty distances.</p>
+        <p><b>The explanation is spoken, not read.</b> B puts the prose on every phone; C puts it only in the host's hand and on the projector's receipt. Everyone hears it at the same time, which is the version that actually starts an argument. It also means AC-42 ("reads well aloud") stops being aspirational and becomes the only way the explanation is ever delivered.</p>
+        <p><b>What it costs.</b> Someone in the back who cannot read the screen has no fallback — there is no code on their phone. AC-32's "legible without pinch-zoom on a 375px phone" has no surface to apply to, and would need withdrawing or rewriting against the projector instead.</p>
+        <p style="margin-bottom:0"><b>What it buys.</b> The join path and write burst still exist, but the participant client is five buttons — the smallest thing that can still produce a real anonymous count, and the least that can go wrong in front of the room.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Real data.</b> Verified <code>q3</code> from <code>mvp/2026-08-12/</code>, answer at E as drawn. <b>Set at 27px here</b> — roughly double Direction B's phone size — because that is the claim this direction is making and it should be judged, not asserted. The back-row buttons scale the whole frame rather than the type, so what you see is what the room sees.
+  </div>
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+const state = { phase: "idle", picked: null, hintShown: false };
+
+function setRoom(mode) {
+  document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
+}
+function setDistance(scale) {
+  document.getElementById("projWrap").style.transform = "scale(" + scale + ")";
+  document.getElementById("projWrap").style.marginBottom = (scale < 1 ? -(1 - scale) * 620 : 0) + "px";
+  document.getElementById("distNote").textContent = scale === 1
+    ? "Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs."
+    : scale > 0.4
+    ? "Middle of the room. Still comfortable? The nine lines are the whole segment."
+    : "About six metres back — the last row at a full Rust NYC meetup. If you are squinting now, AC-78 fails and this direction fails with it.";
+}
+
+/* ---- projector ------------------------------------------------------- */
+function renderProjector() {
+  const main = document.getElementById("projMain");
+  const strip = document.getElementById("joinStrip");
+  const phase = document.getElementById("projPhase");
+  const p = state.phase;
+  main.className = "proj-main";
+  strip.style.display = "flex";
+
+  if (p === "idle") {
+    phase.textContent = "closing segment";
+    main.className = "title-card";
+    main.innerHTML = '<div><h2>Pop Quiz</h2><p style="font-size:24px;color:var(--text-secondary)">' +
+      'One question. Five minutes.<br>Then we all go argue about it.</p></div>';
+    strip.innerHTML = '<span>join from your phone — you only need the letter</span><b>' + ROOM.code + '</b>';
+    return;
+  }
+  if (p === "released") {
+    phase.textContent = "that's the night";
+    main.className = "title-card";
+    main.innerHTML = '<div><h2>Keep arguing.</h2><p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
+      'The count expired with the room. No names, no scores, nothing to look up tomorrow.</p></div>';
+    strip.style.display = "none";
+    return;
+  }
+
+  phase.textContent = ({ live: "read it", closed: "answers closed",
+                         split: "how the room voted", reveal: "the answer" })[p];
+
+  const code = '<div class="proj-code"><pre class="code" tabindex="0" aria-label="Rust source">' +
+    rustHighlight(TONIGHT.source.trimEnd()) + '</pre></div>';
+
+  let side;
+  if (p === "live" || p === "closed") {
+    side = '<div class="proj-side">' + TONIGHT.options.map(function (o) {
+      return '<div class="opt"><span class="letter">' + o.letter + '</span>' +
+             '<span class="otext">' + escapeHtml(o.text) + '</span></div>';
+    }).join("") +
+    (state.hintShown ? '<div class="panel" style="border-left:3px solid var(--blue);font-size:18px;margin-top:6px"><b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>' : '') +
+    '</div>';
+  } else {
+    const bars = TONIGHT.options.map(function (o) {
+      const n = ROOM.votes[o.letter];
+      return '<div class="bar-row' + (p === "reveal" && o.correct ? " is-correct" : "") + '">' +
+        '<span class="letter">' + o.letter + '</span>' +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, ROOM.answered) + '%"></span></span>' +
+        '<span class="bar-n">' + n + ' · ' + pct(n, ROOM.answered) + '%</span></div>';
+    }).join("");
+    side = '<div class="proj-side"><div class="bars">' + bars + '</div>' +
+      (p === "split"
+        ? '<p style="font-size:19px;color:var(--text-secondary);margin:14px 0 0">' + ROOM.answered + ' answered. No answer yet.</p>'
+        : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
+          '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
+          '<div class="receipt" style="margin-top:10px;font-size:15px">' +
+          '<span class="provenance machine">✓ established by the machine</span><br>' +
+          TONIGHT.receipt.rustc + ' · ran ' + TONIGHT.receipt.runs + '× byte-identical · Miri clean, output matched.<br>' +
+          '<b>Establishes the answer. Not the explanation — that one is human, and you are about to hear it.</b></div>') +
+      '</div>';
+  }
+
+  main.innerHTML = code + side;
+  strip.innerHTML = (p === "live" || p === "closed")
+    ? '<span>' + (p === "live" ? "still open — join and pick a letter" : "answers are closed") + '</span><b>' + ROOM.code + '</b>'
+    : '<span>' + ROOM.answered + ' of ' + ROOM.present + ' in the room answered</span><b>' + ROOM.code + '</b>';
+}
+
+/* ---- buzzer phone ---------------------------------------------------- */
+function renderParticipant() {
+  const b = document.getElementById("pBody");
+  const p = state.phase;
+
+  if (p === "idle" || p === "released") {
+    b.innerHTML =
+      '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
+      '<div class="buzz-verdict"><div>' +
+      (p === "idle"
+        ? '<div class="vb">↑</div><p class="meta" style="max-width:220px">You\'re in. Everything happens on the screen at the front — look up.</p>'
+        : '<div class="vb">✓</div><p class="meta" style="max-width:220px">Nothing about you was recorded. Not your answer, not your device, not that you were here.</p>') +
+      '</div></div>' +
+      '<div class="buzz-foot">no account · no name · no score</div>';
+    return;
+  }
+
+  if (p === "reveal") {
+    const mine = state.picked || "A";
+    const right = mine === "E";
+    b.innerHTML =
+      '<div class="buzz-head"><div class="lookup"><b>Look up.</b> The answer is on the screen.</div></div>' +
+      '<div class="buzz-verdict"><div>' +
+      '<div class="vb" style="color:' + (right ? "var(--green)" : "var(--red)") + '">' + (right ? "✓" : "✗") + '</div>' +
+      '<p style="font-size:20px;margin:10px 0 4px">You said <b>' + mine + '</b>.</p>' +
+      '<p style="font-size:20px;margin:0">It was <b>E</b>.</p>' +
+      '<p class="meta" style="max-width:230px;margin:14px auto 0">' +
+      pct(ROOM.votes[mine], ROOM.answered) + '% of the room said ' + mine + ' too. The why is being read out — listen, don\'t read.</p>' +
+      '</div></div>' +
+      '<div class="buzz-foot">computed on this phone · never sent anywhere</div>';
+    return;
+  }
+
+  const locked = (p === "closed" || p === "split");
+  b.innerHTML =
+    '<div class="buzz-head"><div class="lookup">' +
+      (locked ? 'Answers closed. You said <b>' + (state.picked || "—") + '</b>.'
+              : '<b>Look up</b> — the code is on the screen') +
+    '</div></div>' +
+    '<div class="buzz-grid">' + TONIGHT.options.map(function (o) {
+      const mine = state.picked === o.letter;
+      return '<button class="buzz" aria-pressed="' + (mine ? "true" : "false") + '"' +
+        (locked ? " disabled" : "") + ' onclick="pick(\'' + o.letter + '\')"' +
+        ' aria-label="Answer ' + o.letter + '">' + o.letter + '</button>';
+    }).join("") + '</div>' +
+    '<div class="buzz-foot">' +
+      (locked ? "locked in" : "tap to change it, any time until the host closes") +
+    '</div>';
+}
+
+/* ---- host ------------------------------------------------------------- */
+function renderHost() {
+  const b = document.getElementById("hostBody");
+  const p = state.phase;
+  const head = function (s, t) { return '<div class="host-step">' + s + '</div><div class="host-h">' + t + '</div>'; };
+  let html;
+
+  if (p === "idle") {
+    html = head("step 1 of 4", "Start the segment") +
+      '<div class="stack">' +
+      '<div class="panel" style="text-align:center"><div class="meta">room code</div>' +
+      '<div style="font-family:var(--serif);font-size:34px;color:var(--accent)">' + ROOM.code + '</div></div>' +
+      '<div class="no-preview">No answer preview. You are playing too.</div>' +
+      '<button class="btn btn-primary" onclick="go(\'live\')">Put it on the screen</button></div>';
+  } else if (p === "live") {
+    html = head("step 2 of 4", "The room is reading") +
+      '<div class="stack">' +
+      '<p class="meta"><b>' + ROOM.answered + '</b> answered · <b>' + ROOM.present + '</b> in the room. No timer.</p>' +
+      (state.hintShown ? '<div class="no-preview">Hint is on the screen.</div>'
+                       : '<button class="btn" onclick="publishHint()">Publish the hint</button>') +
+      '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
+  } else if (p === "closed" || p === "split") {
+    html = head("step 3 of 4", "Let it sit") +
+      '<div class="stack">' +
+      (p === "closed"
+        ? '<button class="btn btn-primary" onclick="go(\'split\')">Show the room its split</button>'
+        : '<p class="meta">The split is up and there is no answer yet. Loudest ten seconds of the night.</p>' +
+          '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal</button>') +
+      '</div>';
+  } else if (p === "reveal") {
+    html = head("step 4 of 4", "Read it aloud") +
+      '<div class="stack">' +
+      '<div class="panel by-human" style="font-size:var(--text-sm)">' +
+      '<span class="provenance human">✎ your script · this is the only place it exists</span>' +
+      '<p style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+      '<p class="meta">Nobody else has this text. In this direction the explanation is spoken, so if it does not read aloud well, the room simply never gets it — AC-42 stops being a nice-to-have.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'released\')">Release the room</button></div>';
+  } else {
+    html = head("done", "Segment complete") +
+      '<div class="stack"><p class="meta">Five minutes. One question. Nothing stored.</p>' +
+      '<button class="btn" onclick="go(\'idle\')">Run it again</button></div>';
+  }
+
+  b.innerHTML = html +
+    '<div class="ratio">In the room: <b>' + ROOM.present + '</b> · answering: <b>' + ROOM.answered + '</b> · participation <b>' +
+    pct(ROOM.answered, ROOM.present) + '%</b><br>Never measured before. This is the number October is for.</div>';
+}
+
+/* ---- transitions ------------------------------------------------------ */
+function render() { renderProjector(); renderParticipant(); renderHost(); }
+function go(phase) {
+  state.phase = phase;
+  render();
+  announce(({
+    idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",
+    closed: "Answers are closed.", split: "The room's split is shown. No answer yet.",
+    reveal: "Revealed. The correct answer is E.", released: "Segment complete. Nothing was recorded."
+  })[phase] || phase);
+}
+function pick(letter) {
+  if (state.phase !== "live") return;
+  state.picked = letter;
+  render();
+  announce("Answer " + letter + " saved.");
+}
+function publishHint() { state.hintShown = true; render(); announce("Hint published to everyone at once."); }
+
+mountBadge("Direction C · Projector-first", "no server behind this; the counts are fixed");
+state.picked = "A";
+setRoom("light");
+render();
+</script>
+</body>
+</html>

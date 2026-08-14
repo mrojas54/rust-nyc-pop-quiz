@@ -5,7 +5,7 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 | | |
 |---|---|
 | **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
-| **Phase** | **0 — direction fan-out.** Corpus read cold. Three candidate directions put to the client at **T-11**; nothing built until directions are agreed. Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. |
+| **Phase** | **1 — takes built, awaiting the client's drive-through.** T-11 answered: **all three directions, plus the review surface as one take.** Five clickable prototypes in `prototypes/`, all on the real verified batch. Nothing converges until the client has *used* them. Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-prototype`, off `main` @ `9d3fff7`. *(Stage 1 ran on `ai-c11-cc/tone-initiation` and three follow-on branches, all merged to `main` via PRs #1–#4.)* |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
@@ -93,7 +93,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-8 | 1b | Calendar fork — delegate Aug 20, slip to Oct, or build ahead of evidence | **Answered** 2026-08-13 — **October, client runs it herself.** Delegation declined: *"it's kind of my project and i don't want it taken from me."* |
 | T-9 | 1b | Did the Aug 12 segment run without the client? (q3 rollback) | **Answered** 2026-08-13 — **nobody ran it.** q3 rolled back, bank restored to 8. |
 | T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
-| T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Open** 2026-08-14 |
+| T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Answered** 2026-08-14 — **all three directions**; review surface **in scope as one take**, not fanned out. |
+| T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Open** 2026-08-14 |
 
 ## Client interview record (T-2)
 
@@ -412,3 +413,60 @@ The phones-vs-hands fork was carried here deliberately from T-8: it is a
 core-assumption fork, which is what this stage fans out on, and building it as a
 direction means October's field notes **select between designs that already
 exist** rather than sending the design back to the start.
+
+**Answered 2026-08-14: all three, and the review surface as one take.**
+
+## Phase 1 — the takes, 2026-08-14
+
+`prototypes/`, five clickable HTML takes plus an index. Every one runs on the
+**real verified batch** from `mvp/2026-08-12/` — real sources, real distractors,
+the real long explanations, real receipt facts, and `q3`'s answer at **E**
+exactly as `slot_for_day()` drew it. Room figures come from
+`research/06-attendees.md` (110-RSVP cap, 88% median show → 95 present). Nothing
+is shortened to flatter a layout; that is the point of prototyping on real data.
+
+| File | Take | Frames |
+|---|---|---|
+| `A-hands.html` | Direction A — Hands | projector + host phone |
+| `B-phone-first.html` | Direction B — Phone-first | participant phone + host phone + projector mirror |
+| `C-projector-first.html` | Direction C — Projector-first, phone as buzzer | projector + buzzer phone + host phone |
+| `review-surface.html` | Review surface (one take) | desktop browser |
+| `seam-discord.html` | The Discord seam | Discord stand-in + our side + SVG seam diagram |
+| `index.html` | The takes, side by side | — |
+
+Shared: `_shared/tokens.css` (the `PRD.md` brand contract, inherited not
+reinvented), `_shared/data.js` (the real batch), `_shared/proto.js` (Rust
+highlighting, the persistent `PROTOTYPE` badge, the AC-83 live region).
+
+**Instruments built into the takes**, so `felt` criteria can be judged rather
+than asserted:
+
+- **C carries a back-of-the-room test** — front row / middle / six metres back,
+  scaling the whole frame. AC-78 is the criterion this direction lives or dies
+  on, and a mock only ever seen at full size passes a test the room never runs.
+- **A and C carry a lights-down toggle.** AC-80 says the brand's *no dark mode
+  in v1* is what gets amended if a dim room wins, so the amendment is built and
+  offered for judgement instead of argued about.
+- **The review surface times itself.** AC-21 targets 15 minutes for a batch and
+  nobody has ever measured it; the clock in the corner is the measurement.
+- **Every host surface shows the participation ratio** — the one variable behind
+  AC-52/AC-54 that has never been measured.
+
+**Findings already surfaced by building, ahead of the client's drive-through:**
+
+1. **The prior state-explorer is not a Direction-B head start.** Its spine is a
+   multi-question round; D-7 deletes that vocabulary. Its edge-state catalogue
+   survives and is reused.
+2. **AC-39 does not survive Direction A as written.** *Anonymous per-option
+   totals* exist there only because the host types them, and a raised hand was
+   never anonymous to the room. If A wins, AC-39 needs amending — recorded in
+   the take itself rather than hidden.
+3. **AC-32 has no surface in Direction C.** *Legible without pinch-zoom on a
+   375px phone* applies to nothing when the phone carries no code. If C wins,
+   AC-32 is withdrawn or rewritten against the projector.
+4. **The explanation's delivery is a design fork, not a detail.** B puts the
+   prose on every phone; C puts it only in the host's hand. Under C, AC-42
+   (*reads well aloud*) stops being aspirational — speech is the only delivery.
+5. **`q8`'s answer *is* "does not compile",** so appending AC-24's universal
+   option would have shipped a five-option question with four real choices.
+   Caught in the review surface and fixed there.

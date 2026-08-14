@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B — Phone-first · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 14px; }
+  .direction-head { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap;
+                    align-items: baseline; gap: 12px; }
+  .direction-head h1 { font-size: 28px; }
+  .assumption { font-size: var(--text-sm); color: var(--text-secondary);
+                border-left: 3px solid var(--accent); padding-left: 10px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start;
+          justify-content: center; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+  /* ---- participant phone ------------------------------------------- */
+  .p-head { flex: none; display: flex; justify-content: space-between;
+            align-items: baseline; padding-bottom: 8px; margin-bottom: 10px;
+            border-bottom: 1px solid var(--border); }
+  .p-brand { font-size: var(--text-xs); text-transform: uppercase;
+             letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .p-code { font-size: var(--text-xs); color: var(--text-secondary); }
+  .p-code b { color: var(--text); }
+
+  .code-phone { font-size: 13.5px; line-height: 1.55; max-height: 210px; }
+
+  .choice {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: var(--touch); padding: 8px 10px; margin: 0;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--white); color: var(--text);
+    font-family: var(--mono); font-size: var(--text-sm); text-align: left;
+    cursor: pointer;
+  }
+  .choice .letter { flex: none; width: 28px; height: 28px; display: grid;
+                    place-items: center; border: 1px solid var(--border);
+                    border-radius: var(--radius); font-weight: 700; background: var(--panel); }
+  .choice .otext { white-space: pre-wrap; word-break: break-word; }
+  .choice[aria-pressed="true"] { border-color: var(--accent); border-width: 3px; padding: 6px 8px;
+                                 background: var(--accent-subtle); }
+  .choice[aria-pressed="true"] .letter { background: var(--accent); border-color: var(--accent); }
+  .choice.correct { border-color: var(--green); border-width: 3px; padding: 6px 8px; }
+  .choice.correct .letter::after { content: " ✓"; }
+  .choice.was-mine.wrong { border-color: var(--red); border-width: 3px; padding: 6px 8px; }
+  .choice.was-mine.wrong .letter::after { content: " ✗"; }
+  .choice:disabled { cursor: default; opacity: 1; }
+  .choice .share { margin-left: auto; font-size: var(--text-xs); color: var(--text-secondary); }
+
+  .savebar { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs);
+             padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+             background: var(--white); }
+  .savebar.saving  { border-left: 3px solid var(--blue);   background: var(--blue-subtle); }
+  .savebar.saved   { border-left: 3px solid var(--green);  background: var(--green-subtle); }
+  .savebar.failed  { border-left: 3px solid var(--red);    background: var(--red-subtle); }
+  .savebar.paused  { border-left: 3px solid var(--orange); background: var(--orange-subtle); }
+
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .grow { flex: 1; }
+  .field { width: 100%; min-height: var(--touch); padding: 10px 12px;
+           font-family: var(--mono); font-size: 18px; letter-spacing: 0.1em;
+           text-align: center; text-transform: uppercase;
+           border: 1px solid var(--border); border-radius: var(--radius);
+           background: var(--white); color: var(--text); }
+  .lobby { flex: 1; display: grid; place-items: center; text-align: center; }
+
+  /* ---- projector (secondary in this direction) --------------------- */
+  .proj-body { flex: 1; display: flex; flex-direction: column; padding: 22px 28px; min-height: 0; }
+  .proj-top { display: flex; justify-content: space-between; align-items: baseline; flex: none;
+              margin-bottom: 12px; }
+  .proj-brand { font-size: 12px; letter-spacing: var(--tracking-caps);
+                text-transform: uppercase; color: var(--text-secondary); }
+  .proj-main { flex: 1; display: flex; gap: 22px; min-height: 0; }
+  .proj-main .code { flex: 1; font-size: 18px; line-height: 1.5; }
+  .joinbox { flex: none; width: 260px; display: flex; flex-direction: column;
+             justify-content: center; text-align: center; gap: 6px; }
+  .joinbox .big { font-family: var(--serif); font-size: 46px; line-height: 1; color: var(--accent); }
+  .joinbox .cnt { font-size: 30px; font-weight: 700; }
+
+  .bars { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .bar-row { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+  .bar-row .letter { flex: none; width: 22px; font-weight: 700; }
+  .bar-track { flex: 1; height: 20px; background: var(--input); border: 1px solid var(--border);
+               border-radius: var(--radius); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text-secondary); }
+  .bar-row.is-correct .bar-fill { background: var(--green); }
+  .bar-row.is-correct .letter::after { content: " ✓"; }
+  .bar-n { flex: none; width: 58px; text-align: right; font-size: var(--text-xs); }
+
+  /* ---- controls ---------------------------------------------------- */
+  .switcher { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 6px;
+              align-items: center; }
+  .switcher .btn { min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+  .switcher .lbl { font-size: var(--text-xs); text-transform: uppercase;
+                   letter-spacing: var(--tracking-caps); color: var(--text-secondary);
+                   margin-right: 4px; }
+  .host-step { font-size: var(--text-xs); text-transform: uppercase;
+               letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .host-h { font-family: var(--serif); font-size: 24px; margin: 2px 0 10px; }
+  .no-preview { border-left: 3px solid var(--blue); background: var(--blue-subtle);
+                padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
+  .ratio { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+           color: var(--text-secondary); border-top: 1px solid var(--border); }
+  .ratio b { color: var(--text); }
+  .note { width: 100%; max-width: 1180px; font-size: var(--text-xs); color: var(--text-secondary);
+          border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.7; }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>Direction B — Phone-first</h1>
+    <div class="assumption">Core assumption: <b>commitment is private.</b> Anonymity is what makes a room full of colleagues willing to be wrong, so the phone carries the code, the answer and the reveal. The projector is a mirror.</div>
+  </div>
+
+  <div class="switcher">
+    <span class="lbl">Drive the segment</span>
+    <button class="btn" onclick="go('join')">1 · join</button>
+    <button class="btn" onclick="go('lobby')">2 · lobby</button>
+    <button class="btn" onclick="go('live')">3 · question live</button>
+    <button class="btn" onclick="go('closed')">4 · answers closed</button>
+    <button class="btn" onclick="go('reveal')">5 · reveal</button>
+    <button class="btn" onclick="go('wrap')">6 · wrap-up</button>
+    <span class="lbl" style="margin-left:14px">Edge states</span>
+    <button class="btn" onclick="go('failed')">save failed</button>
+    <button class="btn" onclick="go('reconnect')">reconnecting</button>
+    <button class="btn" onclick="go('full')">room full</button>
+    <button class="btn" onclick="go('badcode')">unknown code</button>
+  </div>
+
+  <div class="pair">
+    <div class="col">
+      <div class="frame-label">Participant · 375px phone — the primary surface</div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span id="netIcon">▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="pBody"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="frame-label">Host control</div>
+      <div class="phone" style="height: 560px;">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="hostBody"></div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width: 380px; align-items: flex-start;">
+      <div class="frame-label">What this direction is testing</div>
+      <div class="panel" style="font-size: var(--text-sm); line-height: 1.65;">
+        <p style="margin-top:0"><b>Rebuilt on the D-7 spine.</b> The prior state-explorer is phone-first too, but its vocabulary is a round — <em>next question</em>, <em>end quiz</em>, a question counter. One question in five minutes deletes all of it. What survives, and is reused here, is its edge-state catalogue.</p>
+        <p><b>This is the expensive direction.</b> It is the only one that needs Stories B1, B5, B6 and B7 in full: a join path, a 200-concurrent deadline write burst (AC-52–55, the highest-risk moment in the system), and canary-secret proof that no pre-reveal payload carries the answer.</p>
+        <p style="margin-bottom:0"><b>What it buys.</b> A real anonymous count rather than the host's thumb on a counter, a per-person "you picked A" computed on-device and never transmitted (AC-58), and code you can hold six inches from your face — which is the only version of AC-32 that a back row can actually pass.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col" style="width:100%">
+    <div class="frame-label">Room display · a mirror in this direction, not the product</div>
+    <div class="projector" id="proj" style="max-width: 940px;">
+      <div class="proj-body">
+        <div class="proj-top">
+          <span class="proj-brand">Rust NYC · Pop Quiz</span>
+          <span class="proj-brand" id="projPhase">—</span>
+        </div>
+        <div class="proj-main" id="projMain"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Real data.</b> The question is the verified <code>q3</code> from <code>mvp/2026-08-12/</code>, answer at E exactly as <code>slot_for_day()</code> drew it. <b>58 of 95</b> answering is a placeholder for the one number nobody has ever measured — the participation rate behind AC-52 and AC-54. At 95 present it is 61%; the same room at 40% and at 90% is a &gt;2× spread in the quantity that sizes the write burst.
+  </div>
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+const state = { phase: "join", picked: null, save: null, hintShown: false };
+
+/* ---- participant ----------------------------------------------------- */
+function pHead(extra) {
+  return '<div class="p-head"><span class="p-brand">Pop Quiz</span>' +
+         '<span class="p-code">' + (extra || ("room <b>" + ROOM.code + "</b>")) + '</span></div>';
+}
+
+function choicesHtml(mode) {
+  return TONIGHT.options.map(function (o) {
+    const mine = state.picked === o.letter;
+    let cls = "choice";
+    let share = "";
+    if (mode === "reveal") {
+      if (o.correct) cls += " correct";
+      if (mine) cls += " was-mine" + (o.correct ? "" : " wrong");
+      share = '<span class="share">' + pct(ROOM.votes[o.letter], ROOM.answered) + "%</span>";
+    }
+    return '<button class="' + cls + '" aria-pressed="' + (mine ? "true" : "false") + '"' +
+           (mode === "reveal" || mode === "closed" ? " disabled" : "") +
+           ' onclick="pick(\'' + o.letter + '\')">' +
+           '<span class="letter">' + o.letter + '</span>' +
+           '<span class="otext">' + escapeHtml(o.text) + '</span>' + share + '</button>';
+  }).join("");
+}
+
+function renderParticipant() {
+  const b = document.getElementById("pBody");
+  const p = state.phase;
+  let html = "";
+
+  if (p === "join" || p === "full" || p === "badcode") {
+    const err = p === "full"
+      ? '<div class="savebar failed">✗ &nbsp;<span><b>This room is full.</b> It holds 200 and all 200 seats are taken. Nothing was reserved for you — ask the host, or play on the projector with everyone else.</span></div>'
+      : p === "badcode"
+      ? '<div class="savebar failed">✗ &nbsp;<span><b>No room with that code.</b> Codes are four letters, a dash, then four digits. Check the screen at the front — it is up there the whole time.</span></div>'
+      : "";
+    html = pHead("no account needed") +
+      '<div class="stack grow" style="justify-content:center">' +
+      '<h2 style="text-align:center">Join the room</h2>' +
+      '<p class="meta" style="text-align:center;margin:0 0 6px">The code is on the screen at the front. No sign-up, no email, no nickname.</p>' +
+      '<input class="field" value="' + (p === "join" ? ROOM.code : (p === "badcode" ? "RUST-9999" : ROOM.code)) + '" aria-label="Room code">' +
+      err +
+      '<button class="btn btn-primary" onclick="go(\'lobby\')">Join</button>' +
+      '<p class="meta" style="text-align:center;margin-top:14px">Nothing about you is stored. No score, no name, no history — see the wrap-up.</p>' +
+      '</div>';
+  } else if (p === "lobby") {
+    html = pHead() +
+      '<div class="lobby"><div>' +
+      '<h2>You\'re in.</h2>' +
+      '<p class="meta" style="max-width:230px;margin:8px auto 0">One question, about five minutes, then everyone goes and argues about it.<br><br>Look up when it starts.</p>' +
+      '</div></div>';
+  } else if (p === "reconnect") {
+    html = pHead() +
+      '<div class="stack">' +
+      '<div class="savebar paused">◐ &nbsp;<span><b>Reconnecting.</b> Your saved answer (<b>' + (state.picked || "A") + '</b>) is safe on the server. Controls are paused until this screen is fresh again.</span></div>' +
+      '<pre class="code code-phone" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+      '<div class="stack" style="opacity:.5;pointer-events:none">' + choicesHtml("live") + '</div>' +
+      '</div>';
+  } else {
+    /* live / closed / reveal / failed / wrap */
+    if (p === "wrap") {
+      html = pHead("room closed") +
+        '<div class="stack">' +
+        '<h2>That\'s the night.</h2>' +
+        '<div class="panel by-machine"><span class="provenance machine">what was recorded</span>' +
+        '<p style="margin:6px 0 0;font-size:var(--text-sm)">An anonymous count of how many people chose each option — 58 numbers with nothing attached to them. It expires with this room.</p></div>' +
+        '<div class="panel"><span class="provenance human">what was not</span>' +
+        '<p style="margin:6px 0 0;font-size:var(--text-sm)">Your answer. Your device. Anything that could reconnect this screen to you, tonight or ever. There is no account to delete because there was never one to make.</p></div>' +
+        '<p class="meta">The line above this one is computed on your phone from what you saw. It was never sent anywhere.</p>' +
+        '<div class="panel" style="border-left:3px solid var(--accent)"><b>You picked ' + (state.picked || "A") + '.</b> The answer was E. You were in good company — 41% of the room picked A.</div>' +
+        '</div>';
+    } else {
+      const savebar =
+        p === "failed"
+          ? '<div class="savebar failed">✗ &nbsp;<span><b>Couldn\'t save that.</b> Your last saved answer (<b>' + (state.picked || "A") + '</b>) is still safe. <a href="#" onclick="retry();return false;">Try again</a></span></div>'
+          : state.save === "saving"
+          ? '<div class="savebar saving">◐ &nbsp;<span>Saving <b>' + state.picked + '</b>…</span></div>'
+          : state.save === "saved"
+          ? '<div class="savebar saved">✓ &nbsp;<span>Saved <b>' + state.picked + '</b>. Change it as often as you like until the host closes it.</span></div>'
+          : p === "closed"
+          ? '<div class="savebar paused">◼ &nbsp;<span>Answers are closed. You are locked in on <b>' + (state.picked || "—") + '</b>.</span></div>'
+          : p === "reveal"
+          ? ''
+          : '<div class="savebar">○ &nbsp;<span>Pick one. You can change it right up until the host closes it.</span></div>';
+
+      html = pHead() +
+        (p === "reveal"
+          ? '<h2 style="margin-bottom:8px">The answer is E.</h2>'
+          : '') +
+        '<pre class="code code-phone" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+        (state.hintShown && p !== "reveal"
+          ? '<div class="panel" style="margin-top:8px;border-left:3px solid var(--blue);font-size:var(--text-xs)"><b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>'
+          : '') +
+        '<div class="stack" style="margin-top:10px">' + choicesHtml(p === "reveal" ? "reveal" : (p === "closed" ? "closed" : "live")) + '</div>' +
+        '<div style="margin-top:10px">' + savebar + '</div>' +
+        (p === "reveal"
+          ? '<div class="panel by-human" style="margin-top:10px">' +
+            '<span class="provenance human">✎ written by a human, reviewed not verified</span>' +
+            '<p style="margin:6px 0 0;font-size:var(--text-sm)">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+            '<div class="receipt" style="margin-top:8px"><span class="provenance machine">✓ established by the machine</span><br>' +
+            TONIGHT.receipt.rustc + ' · edition ' + TONIGHT.receipt.edition + ' · ran ' + TONIGHT.receipt.runs +
+            '× byte-identical on ' + TONIGHT.receipt.target + ' · Miri clean, output matched.<br>' +
+            '<b>This establishes the answer, not the explanation above.</b></div>' +
+            '<button class="btn" style="margin-top:10px" onclick="go(\'wrap\')">What was recorded?</button>'
+          : '');
+    }
+  }
+
+  b.innerHTML = html;
+  document.getElementById("netIcon").textContent = state.phase === "reconnect" ? "▮▯▯ ⌁" : "▮▮▮ ⌁";
+}
+
+/* ---- host ------------------------------------------------------------- */
+function renderHost() {
+  const b = document.getElementById("hostBody");
+  const p = state.phase;
+  const head = function (step, title) {
+    return '<div class="host-step">' + step + '</div><div class="host-h">' + title + '</div>';
+  };
+  let html;
+
+  if (p === "join" || p === "lobby" || p === "full" || p === "badcode") {
+    html = head("step 1 of 4", "Lobby is open") +
+      '<div class="stack">' +
+      '<div class="panel" style="text-align:center"><div class="meta">room code</div>' +
+      '<div style="font-family:var(--serif);font-size:34px;color:var(--accent)">' + ROOM.code + '</div></div>' +
+      '<p class="meta"><b>' + ROOM.answered + '</b> joined · <b>' + ROOM.present + '</b> in the room</p>' +
+      '<div class="no-preview">No answer preview for you either. You are playing.</div>' +
+      '<button class="btn btn-primary" onclick="go(\'live\')">Open the question</button></div>';
+  } else if (p === "live" || p === "failed" || p === "reconnect") {
+    html = head("step 2 of 4", "Question is live") +
+      '<div class="stack">' +
+      '<p class="meta"><b>' + ROOM.answered + '</b> answered of <b>' + ROOM.answered + '</b> joined. No timer — a timer competes with the argument.</p>' +
+      (state.hintShown
+        ? '<div class="no-preview">Hint published. Everyone got it at once.</div>'
+        : '<button class="btn" onclick="publishHint()">Publish the hint</button>') +
+      '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
+  } else if (p === "closed") {
+    html = head("step 3 of 4", "Answers are in") +
+      '<div class="stack">' +
+      '<p class="meta">The split is on the screen and there is no answer yet. Spend these ten seconds.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal</button></div>';
+  } else {
+    html = head("step 4 of 4", "Read it aloud") +
+      '<div class="stack">' +
+      '<div class="panel by-human" style="font-size:var(--text-sm)"><span class="provenance human">✎ your script</span>' +
+      '<p style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+      '<button class="btn" onclick="go(\'wrap\')">Release the room</button></div>';
+  }
+
+  b.innerHTML = html +
+    '<div class="ratio">In the room: <b>' + ROOM.present + '</b> · answering: <b>' + ROOM.answered + '</b> · participation <b>' +
+    pct(ROOM.answered, ROOM.present) + '%</b><br>Never measured before. This is the number October is for.</div>';
+}
+
+/* ---- projector -------------------------------------------------------- */
+function renderProjector() {
+  const main = document.getElementById("projMain");
+  const phase = document.getElementById("projPhase");
+  const p = state.phase;
+
+  if (p === "join" || p === "lobby" || p === "full" || p === "badcode") {
+    phase.textContent = "join";
+    main.innerHTML =
+      '<div style="flex:1;display:grid;place-items:center;text-align:center">' +
+      '<div><div class="proj-brand">join from your phone</div>' +
+      '<div style="font-family:var(--serif);font-size:76px;line-height:1.1;color:var(--accent)">' + ROOM.code + '</div>' +
+      '<div style="font-size:20px;color:var(--text-secondary);margin-top:8px"><b>' + ROOM.answered + '</b> in · no account, no name</div></div></div>';
+    return;
+  }
+
+  phase.textContent = ({ live: "read it", failed: "read it", reconnect: "read it",
+                         closed: "answers closed", reveal: "the answer", wrap: "that's the night" })[p];
+
+  if (p === "wrap") {
+    main.innerHTML = '<div style="flex:1;display:grid;place-items:center;text-align:center">' +
+      '<div><h2 style="font-size:48px">Keep arguing.</h2>' +
+      '<p style="font-size:18px;color:var(--text-secondary);max-width:600px;margin:10px auto 0">' +
+      'The count expired with the room. No names, no scores, nothing to look up tomorrow.</p></div></div>';
+    return;
+  }
+
+  const bars = TONIGHT.options.map(function (o) {
+    const n = ROOM.votes[o.letter];
+    return '<div class="bar-row' + (p === "reveal" && o.correct ? " is-correct" : "") + '">' +
+      '<span class="letter">' + o.letter + '</span>' +
+      '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, ROOM.answered) + '%"></span></span>' +
+      '<span class="bar-n">' + (p === "reveal" ? n + " · " : "") + pct(n, ROOM.answered) + '%</span></div>';
+  }).join("");
+
+  main.innerHTML =
+    '<pre class="code" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+    '<div class="joinbox">' +
+      (p === "live" || p === "failed" || p === "reconnect"
+        ? '<div class="proj-brand">room</div><div class="big">' + ROOM.code + '</div>' +
+          '<div class="cnt">' + ROOM.answered + ' / ' + ROOM.present + '</div>' +
+          '<div class="meta">answered · in the room</div>'
+        : '<div class="proj-brand">how the room voted</div><div class="bars">' + bars + '</div>') +
+    '</div>';
+}
+
+/* ---- transitions ------------------------------------------------------ */
+function render() { renderParticipant(); renderHost(); renderProjector(); }
+
+function go(phase) {
+  state.phase = phase;
+  if (phase === "reveal" || phase === "closed") { state.save = null; }
+  if (phase === "live" && !state.picked) { state.save = null; }
+  render();
+  announce(({
+    join: "Join screen.", lobby: "You are in the room. Waiting for the question.",
+    live: "Question is open. Five options.", closed: "Answers are closed.",
+    reveal: "Revealed. The correct answer is E.", wrap: "Segment complete. Nothing per-person was recorded.",
+    failed: "Your answer could not be saved. Your last saved answer is safe.",
+    reconnect: "Reconnecting. Controls are paused until state is fresh.",
+    full: "This room is full.", badcode: "No room with that code."
+  })[phase] || phase);
+}
+
+function pick(letter) {
+  if (state.phase !== "live" && state.phase !== "failed") return;
+  state.picked = letter;
+  state.phase = "live";
+  state.save = "saving";
+  render();
+  announce("Saving " + letter);
+  window.setTimeout(function () {
+    if (state.save === "saving") { state.save = "saved"; render(); announce("Saved " + letter); }
+  }, 550);
+}
+function retry() { state.phase = "live"; state.save = "saving"; render();
+  window.setTimeout(function () { state.save = "saved"; render(); announce("Saved."); }, 550); }
+function publishHint() { state.hintShown = true; render(); announce("Hint published to everyone at once."); }
+
+mountBadge("Direction B · Phone-first", "no server behind this; the counts are fixed");
+state.picked = "A";
+render();
+</script>
+</body>
+</html>
