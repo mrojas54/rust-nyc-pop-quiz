@@ -104,8 +104,18 @@ This is the gap no off-the-shelf tool fills — Kahoot caps a question at 120
 characters. If the code is not comfortably legible, nothing else matters,
 because nobody can form the opinion the argument needs.
 
-Monospace, generous size, real syntax highlighting, a scroll container that
-never makes the page scroll sideways.
+Monospace, generous size, line numbers, and a scroll container that never makes
+the page scroll sideways.
+
+*Amended 2026-08-14, during `tone-prototype` Phase 1c.* This line said **real
+syntax highlighting** until the house design system was read. Its `SourceCode`
+component renders with no highlighting at all, deliberately, and `PROJECTOR_SPEC`
+§4.1 is where the reason becomes visible: the trace signals by highlighting the
+lines currently executing and dimming everything outside the focus region. A
+second colour channel running underneath competes with the one thing the room is
+being asked to look at. **Legibility is the principle; highlighting was an
+implementation of it that turned out to work against the trace.** Colour still
+never carries a signal by itself — that constraint is unchanged.
 
 ### 6. Nothing per-person is recorded
 

@@ -51,6 +51,13 @@ T-15 are all answered; see the touchpoints table.
 - **`mvp/answer-history.json` is a record, never an input**, and a built deck is
   not a run segment (the AC-92 defect, carried to `tone-architect`).
 
+**Done on the 2026-08-14 resume pass, before T-12** — the Phase 1c reconcile had
+been applied to the prototypes only, so for a day the corpus required syntax
+highlighting the takes deliberately did not do. `PHILOSOPHY.md` §5 amended,
+**AC-32 rewritten**, room code taken to six characters (`KMT4XW`). Details at the
+end of the Phase 1c section. **This does not change T-12** — the takes look the
+same except for the room code.
+
 **Carried forward, none blocking T-12:** the October field notes (T-6 room half),
 the AC-92 mechanism defect, the never-measured participation rate, and a new gap
 — the **static fallback** (`PROJECTOR_SPEC.md` §6), which the arc has never
@@ -61,7 +68,7 @@ specced.
 | | |
 |---|---|
 | **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
-| **Phase** | **1c — takes reconciled onto the house design system, awaiting the drive-through.** Five clickable prototypes in `prototypes/`, all on the real verified batch, all now on the design system's tokens, Cascadia Mono, `SourceCode`, and `PROJECTOR_SPEC` §4.1's trace model. **A-3 amendment: `PHILOSOPHY.md` §9 and Story B11 / AC-93…AC-96** — being wrong has to be the ordinary thing. Answered: T-11, T-13 (AC-48 rewritten), T-14 (A stays), T-15 (trace stepped both ways). **T-12 — the drive-through — is the one still open, and nothing converges without it.** Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. New gap for architect: the static fallback. |
+| **Phase** | **1c — takes reconciled onto the house design system, awaiting the drive-through.** Five clickable prototypes in `prototypes/`, all on the real verified batch, all now on the design system's tokens, Cascadia Mono, `SourceCode`, and `PROJECTOR_SPEC` §4.1's trace model. **A-3 amendment: `PHILOSOPHY.md` §9 and Story B11 / AC-93…AC-96** — being wrong has to be the ordinary thing. Answered: T-11, T-13 (AC-48 rewritten), T-14 (A stays), T-15 (trace stepped both ways). **T-12 — the drive-through — is the one still open, and nothing converges without it.** Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. New gap for architect: the static fallback. **Resume pass 2026-08-14: the reconcile reached the criteria** — `PHILOSOPHY.md` §5 amended, **AC-32 rewritten** (no syntax highlighting), room code now six characters (`KMT4XW`). |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-prototype`, off `main` @ `9d3fff7`. *(Stage 1 ran on `ai-c11-cc/tone-initiation` and three follow-on branches, all merged to `main` via PRs #1–#4.)* |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
@@ -741,3 +748,29 @@ Kept in the fan-out with both strikes recorded inside the take itself. It costs
 nothing to keep now, and in October it is the **built** comparison for
 *do phones help or hurt* rather than a hypothetical — which is exactly the job
 T-8 sent the phones-vs-hands question here to do.
+
+### The reconcile reaches the criteria — 2026-08-14, on resume
+
+The Phase 1c reconcile was applied to the **prototypes** and stopped there. Two
+items were left un-propagated overnight and were caught on resume, before T-12.
+Client instruction: **amend both.**
+
+| # | Was | Now |
+|---|---|---|
+| 1 | `PHILOSOPHY.md` §5 required *"real syntax highlighting"* and **AC-32** required source be *"syntax-highlighted"* — while the takes deliberately rendered none | §5 amended (legibility is the principle; highlighting was an implementation of it that works against the trace) and **AC-32 rewritten** to monospace, line-numbered, **without** highlighting. Recorded in `USER_STORIES.md` → Amendments. |
+| 2 | Takes showed the pre-corpus room code `RUST-4417`; the design system's `RoomCode` is six characters (`KMT4XW`) | Six characters everywhere — `_shared/data.js` (canonical) and the two strings in `seam-discord.html`. Alphabet excludes `O`/`0` and `I`/`1`: the code is read off a projector from six metres back. No criterion changes — **AC-28** says only *"a short room code"*, **AC-49** only that it stays on screen. |
+
+**Why it is recorded rather than fixed quietly.** For one day the corpus required
+something the artifacts deliberately did not do, which is precisely the drift the
+AC-lineage rule exists to catch. The lesson generalises: *the reconcile is not
+done when the prototypes change — it is done when the criteria agree with them.*
+
+Also corrected: `_shared/proto.js`'s file header still advertised *"Rust
+highlighting"* — accurate about the trace's highlight-and-dim, and exactly the
+stale label that would get syntax highlighting reintroduced by someone skimming.
+The implementation was already correct.
+
+**Deliberately not touched:** Phase 1 finding #3 — **AC-32 has no surface at all
+in Direction C**, where the phone carries no code. That is a T-12 consequence and
+waits for the direction call. This pass fixed only the highlighting clause, which
+was wrong in every direction.

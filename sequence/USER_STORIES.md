@@ -133,7 +133,7 @@ to an answer.*
 
 | ID | Criterion |
 |---|---|
-| **AC-32** | Source is monospace, syntax-highlighted, and legible without pinch-zoom on a 375px-wide phone. `felt` |
+| **AC-32** | Source is monospace, line-numbered, rendered **without** syntax highlighting, and legible without pinch-zoom on a 375px-wide phone. `felt` *Amended 2026-08-14 (Phase 1c) — was "syntax-highlighted"; the trace owns the colour channel. See Amendments.* |
 | **AC-33** | Code that exceeds the viewport scrolls inside its own container; the page never scrolls horizontally. |
 | **AC-34** | An answer can be changed freely until the server closes the question. |
 | **AC-35** | Submission state is always visible and unambiguous: saving, saved, or failed. |
@@ -473,6 +473,31 @@ until the hint question was asked. Recorded at T-14, where the client's call was
 to **keep A in the fan-out as the honest loser** rather than drop it: it costs
 nothing to keep, and in October it is a built comparison for *do phones help or
 hurt* instead of a hypothetical.
+
+### 2026-08-14 — Phase 1c: the house design system reaches the criteria
+
+The reconcile onto the Rust NYC Design System was applied to the prototypes on
+2026-08-14 and **the criteria were not updated with it**, so for a day the corpus
+required something the takes deliberately did not do. Caught on resume and
+recorded here rather than fixed quietly, because a criterion that disagrees with
+the artifact it governs is the failure the AC-lineage rule exists to catch.
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-32** | **Rewritten.** Was *"monospace, syntax-highlighted, legible without pinch-zoom on a 375px phone."* Now: monospace, **line-numbered**, rendered **without** syntax highlighting, same legibility bar. | The design system's `SourceCode` renders unhighlighted on purpose. `PROJECTOR_SPEC.md` §4.1 is the reason: the trace signals by highlighting the executing lines and dimming outside the focus region, so a syntax palette underneath competes with the only signal the room is meant to follow. Legibility was always the point; highlighting was one implementation of it, and it works against the trace. `PHILOSOPHY.md` §5 amended in the same pass. |
+
+**Not the same problem, still open.** Phase 1 already recorded that **AC-32 has
+no surface at all in Direction C** — *legible on a 375px phone* governs nothing
+when the phone carries no code. That is a T-12 consequence and is deliberately
+left for the direction call; this amendment only fixes the highlighting clause,
+which was wrong in every direction.
+
+**Room code, applied at the same time.** The design system's room code is six
+characters (`KMT4XW`); the takes still showed the pre-corpus `RUST-4417`. Now six
+characters everywhere, from an alphabet with no `O`/`0` or `I`/`1` — a code read
+off a projector from six metres back cannot afford an ambiguous glyph. No
+criterion changes: **AC-28** says only *"a short room code"* and **AC-49** only
+requires it be on screen; both were already satisfied and remain so.
 
 ---
 

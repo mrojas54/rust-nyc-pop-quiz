@@ -1,6 +1,7 @@
 /* ===========================================================================
-   Shared prototype plumbing: Rust highlighting, the PROTOTYPE badge, and the
-   polite live region that AC-83 asks every state change to go through.
+   Shared prototype plumbing: the source well and its trace highlight-and-dim
+   (NOT syntax highlighting — see below), the PROTOTYPE badge, and the polite
+   live region that AC-83 asks every state change to go through.
    =========================================================================== */
 
 function escapeHtml(s) {

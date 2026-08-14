@@ -136,7 +136,11 @@ const ROOM = {
   present: 95,
   answered: 58,
   votes: { A: 24, B: 5, C: 3, D: 9, E: 17 },
-  code: "RUST-4417"
+  /* Six characters, per the house design system's RoomCode (KMT4XW), not the
+     pre-corpus "RUST-4417". The alphabet excludes O/0 and I/1 — this code is
+     read off a projector from six metres back, where an ambiguous glyph costs
+     someone the room. */
+  code: "KMT4XW"
 };
 
 /* The rest of the verified bank, for the organizer review surface.
