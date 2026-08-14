@@ -5,7 +5,7 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 | | |
 |---|---|
 | **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
-| **Phase** | **1 — takes built, awaiting the client's drive-through.** T-11 answered: **all three directions, plus the review surface as one take.** Five clickable prototypes in `prototypes/`, all on the real verified batch. Nothing converges until the client has *used* them. Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. |
+| **Phase** | **1b — takes reworked on client testimony, awaiting the drive-through.** T-11 answered (all three directions + review surface as one take). Five clickable prototypes in `prototypes/`, all on the real verified batch. **A-3 amendment: `PHILOSOPHY.md` §9 and Story B11 / AC-93…AC-96** — being wrong has to be the ordinary thing. T-12 (pick a direction), T-13 (private hint vs AC-48) and T-14 (does A survive) all open. Nothing converges until the client has *used* them. Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-prototype`, off `main` @ `9d3fff7`. *(Stage 1 ran on `ai-c11-cc/tone-initiation` and three follow-on branches, all merged to `main` via PRs #1–#4.)* |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
@@ -48,6 +48,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | # | Artifact | Change |
 |---|---|---|
 | A-1 | `research/01-problem-and-people.md` | Verdict "problem unproven; solution in search of a problem" **withdrawn**. Client testimony — *"attendees had gotten all answers over and over, we stopped doing dtolnay's quiz at all"* — is primary evidence that the problem is observed, acute, and terminal. Amendment recorded in-file; original retained for the record. |
+| A-3 | `PHILOSOPHY.md` (new §9), `sequence/USER_STORIES.md` (new Story B11 / AC-93…AC-96) | **Client testimony 2026-08-14, unprompted:** *"i want newbies to be able to be wrong. the feedback we get and it's surfaced in women in rust is: everything is very intimidating. people aren't allowed to be wrong."* Principle 6 protected the **record**; nothing protected the **moment**, and they are not the same thing. Nothing anywhere in the corpus had mentioned intimidation — Dimension 6 §4b could see the beginner *want* but had no account of the *cause*. Same evidence class as A-1. Details in Stage 2 Phase 1b below. |
 | A-2 | `research/06-attendees.md` §2, §6 | Finding *"AC-52's 200 is ~2× the observed ceiling"* **withdrawn**. The 110-RSVP figure is a **venue supply cap, not a demand ceiling** — every event sold out with a waitlist. Client testimony: bigger venues in progress, **Jun 26 Summer Social 200 and sold out**. AC-52 stands at 200. Replaced by a sharper open variable: the **participation rate**, never measured. Original reasoning retained in-file. |
 
 ## Keystone decisions
@@ -95,6 +96,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
 | T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Answered** 2026-08-14 — **all three directions**; review surface **in scope as one take**, not fanned out. |
 | T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Open** 2026-08-14 |
+| T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Open** 2026-08-14 |
+| T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Open** 2026-08-14 |
 
 ## Client interview record (T-2)
 
@@ -470,3 +473,58 @@ than asserted:
 5. **`q8`'s answer *is* "does not compile",** so appending AC-24's universal
    option would have shipped a five-option question with four real choices.
    Caught in the review surface and fixed there.
+
+## Phase 1b — client testimony reopens the philosophy, 2026-08-14
+
+**The input.** Unprompted, on first sight of the takes: *"i want newbies to be
+able to be wrong. the feedback we get and it's surfaced in women in rust is:
+everything is very intimidating. people aren't allowed to be wrong."*
+
+**Why it is recorded as an amendment and not a preference.** This is primary
+evidence about the room, the same class as the T-2 quote that withdrew Dimension
+1's verdict. **Nothing in 1,811 lines of dossier mentions intimidation.**
+Dimension 6 §4b found the beginner *want* — five unprompted asks for
+beginner-friendly content, one for *"pairs up new people with more experienced
+engineers"*, against a 25–27% never-attended-before rate — and correctly tied it
+to AC-44. It had no account of the cause. This is the cause.
+
+**What it changed in the philosophy.** Principle 6 (*nothing per-person is
+recorded*) protects the **record**. It turns out to be necessary and nowhere
+near sufficient: a segment can record nothing at all and still be the most
+exposing five minutes of someone's evening. New **§9** protects the **moment**.
+The one thing is unchanged and is what the new principle serves — an argument is
+the product, and an argument needs people willing to be wrong out loud.
+
+**The asset the format has and nothing else does.** *Majority wrongness,
+anonymous, in public.* On `q3`, **24 of 58 chose `[1, 2, 3]`** — 41% of the
+room, wrong, together. No host saying it is fine to be wrong does what a room
+watching 41% of itself be wrong does. The failure mode to avoid is the one that
+looks like kindness: softening questions, or reassuring people.
+
+**The prototypes were doing the opposite, and it took building them to see it.**
+
+| Where | What the first cut did | Now |
+|---|---|---|
+| B and C | A red **✗** on the participant's own choice | No ✗ exists anywhere in the product |
+| B | *answers closed* → *reveal*, no split beat | Split phase between them — **AC-93** |
+| A, B, C | One intermediate-pitched paragraph | Three beats; the middle one is the popular wrong answer — **AC-95**, **AC-96** |
+| B, C | Hint only publishable by the host to the whole room | A quiet pull-your-own hint, **badged as a proposal** (T-13) |
+
+**Direction A takes a direct hit.** *Hands up for A*, one letter at a time, is
+public commitment with your face attached. The newcomer who is unsure raises
+nothing, visibly, five times. Every available mitigation — eyes closed, heads
+down — removes the public commitment, and the public commitment **is** the
+direction. Recorded inside the take itself rather than quietly de-emphasised;
+whether it stays in the fan-out is **T-14**, the client's call.
+
+**Minted:** Story B11 / **AC-93…AC-96**. `PHILOSOPHY.md` gains §9 and one taste
+line (*the person who got it wrong is being talked to, not about*).
+
+**Not minted, deliberately:** the private hint. It contradicts **AC-48** head-on,
+and a new criterion that contradicts a standing one is a fork in the truth rather
+than an addition to it. **T-13** resolves it first.
+
+**Spec consequence for `tone-architect`.** AC-95 turns `explanation` from one
+string into three fields, and the middle one cannot be empty. That is a
+content-model change and a new blocking review gate alongside AC-72, not a copy
+change.

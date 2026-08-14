@@ -137,6 +137,51 @@ per night either way, and it happens *better* with somewhere to go afterwards.
 Both times the machinery came from a word — *live*, *quiz* — rather than from
 the thing we actually wanted. That is worth checking for by name.
 
+### 9. Being wrong has to be the ordinary thing, not the failing thing
+
+*Added 2026-08-14 on client testimony, during `tone-prototype`.*
+
+The feedback Rust NYC gets — surfaced through Women in Rust — is that
+**everything is very intimidating, and people aren't allowed to be wrong.**
+Principle 6 already protects the *record*: no accounts, no scores, nothing
+per-person. That turns out to be necessary and nowhere near sufficient. A
+segment can record absolutely nothing and still be the most exposing five
+minutes of someone's evening.
+
+This reframes what the segment is for without changing the one thing. An
+argument is the product, and **an argument needs people willing to be wrong out
+loud** — so anything that raises the cost of being wrong is destroying the
+product, not decorating it.
+
+A quiz is a machine for manufacturing public wrongness. That makes it either
+exactly the wrong format for this room or the best intervention available, and
+the difference is entirely in how the wrongness is handled. The asset is
+specific and no other format has it:
+
+> **Majority wrongness, anonymous, in public.** On the first real question, 24
+> of 58 people picked `[1, 2, 3]` — 41% of the room, wrong, together. Nothing a
+> host can *say* about it being fine to be wrong does what watching 41% of your
+> colleagues be wrong does.
+
+Concretely, and enforceable:
+
+- **The split is shown before the answer, always.** You find out you are not
+  alone *before* you find out you were wrong. The order is the entire mechanism;
+  revealing first and showing the split afterwards is a different product.
+- **Nothing ever marks a person as wrong.** The correct option gets a ✓ because
+  that is a fact about the answer. Your own choice gets no ✗ — it gets a count
+  of how many people read it the same way you did.
+- **The most-chosen wrong answer is the subject of the explanation, not an
+  omission from it.** Name it, say how many chose it, and say why it is a
+  reasonable reading. In `dedup`'s case it is reasonable: every other language
+  would have been right.
+- **Asking for help costs nothing.** A newcomer who wants the hint must be able
+  to get it without anyone — the host included — being told they needed it.
+
+The failure mode to watch for is the one that looks like kindness: softening the
+question, or telling people it is fine to be wrong. Neither works. What works is
+showing them, with a number, that most of the room was wrong too.
+
 ## Taste
 
 **Nostalgic and technical.** It should look like a well-made terminal, not a
@@ -152,6 +197,9 @@ SaaS dashboard.
 - Motion is minimal and respects `prefers-reduced-motion`.
 - Every string is written to be read aloud by a host standing in front of people.
   Explanations especially — they are a script, not documentation.
+- Every string is also written so that the person who got it wrong is being
+  talked **to**, not talked **about**. No congratulating the winners, because
+  there are none.
 
 ## What this is not
 

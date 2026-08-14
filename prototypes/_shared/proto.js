@@ -76,3 +76,46 @@ function announce(message) {
 function pct(n, total) {
   return total === 0 ? 0 : Math.round((n / total) * 100);
 }
+
+/* ---------------------------------------------------------------------------
+   The explanation, in three beats.
+
+   Beat order is the whole point and it is not cosmetic:
+
+     1. what happened        — plain enough that a beginner can repeat it (AC-44)
+     2. why the popular
+        WRONG answer is
+        tempting             — names the majority's reading and makes it
+                               reasonable. This is the beat that makes being
+                               wrong ordinary instead of embarrassing, and it
+                               only works because it comes with a count.
+     3. the bit worth
+        arguing about        — the thing the segment exists to start
+
+   Beat 2 is the one the old single-paragraph design had no room for.
+   --------------------------------------------------------------------------- */
+function explainHtml(q, room, opts) {
+  opts = opts || {};
+  const e = q.explains;
+  if (!e) return "";
+  const L = e.whyWrong.option;
+  const n = room.votes[L];
+  const share = pct(n, room.answered);
+  const scale = opts.big ? ' style="font-size:18px"' : "";
+
+  return '' +
+    '<div class="beat">' +
+      '<h3>What happens</h3>' +
+      '<p' + scale + '>' + escapeHtml(e.what) + '</p>' +
+    '</div>' +
+    '<div class="beat beat-company">' +
+      '<h3>Why ' + n + ' of us said ' + L + '</h3>' +
+      '<p' + scale + '>' + escapeHtml(e.whyWrong.text) + '</p>' +
+      '<p class="meta" style="margin:6px 0 0"><b>' + share + '% of the room read it that way.</b> ' +
+      'That is not a room getting it wrong — that is a room finding the one place Rust disagrees with everything else they have used.</p>' +
+    '</div>' +
+    '<div class="beat">' +
+      '<h3>The bit worth arguing about</h3>' +
+      '<p' + scale + '>' + escapeHtml(e.argue) + '</p>' +
+    '</div>';
+}

@@ -144,10 +144,15 @@
     <div class="col" style="max-width: 420px; align-items: flex-start;">
       <div class="frame-label">What this direction is testing</div>
       <div class="panel" style="font-size: var(--text-sm); line-height: 1.65;">
+        <div class="proposal" style="margin-bottom:12px;border-color:var(--red);background:var(--red-subtle)">
+          <span class="proposal-tag" style="color:#9b2c2c;border-color:#9b2c2c">Client testimony, 2026-08-14</span>
+          <b>This direction is the one the new evidence hits directly.</b> The room's feedback — surfaced through Women in Rust — is that <em>everything is very intimidating; people aren't allowed to be wrong.</em> Hands up for A, one letter at a time, is <b>public commitment with your name attached to your face</b>. The newcomer who isn't sure raises nothing, visibly, five times running. A's entire pitch rests on public commitment being the good part.
+        </div>
         <p style="margin-top:0"><b>The room votes out loud, option by option.</b> The projector asks for one letter at a time in 150px type; the host counts hands and taps the number. Nobody joins anything.</p>
         <p><b>Stories that evaporate.</b> B1 (join without an account), B5 (capacity, AC-52–55), B7's pre-reveal payload work, and most of B6 — there is no participant client to leak from, no write burst to load-test, and nothing per-person exists to record. The build shrinks to a projector and a host control.</p>
-        <p><b>The criterion this direction strains.</b> AC-39 wants anonymous per-option totals at reveal. Hands produce a count only because <em>the host types it</em>, and a hand is visible to the whole room. Direction A is maximally private in the record and maximally public in the moment — the opposite trade from B and C.</p>
-        <p style="margin-bottom:0"><b>AC-91 gets easier, AC-38 gets harder.</b> Everyone reads the same screen at the same instant, so time-to-opinion is one measurement, not fifty. But the projector is now the only place the code exists — if the back row can't read it, there is no fallback.</p>
+        <p><b>AC-39 does not survive here as written.</b> It wants anonymous per-option totals. Hands produce a count only because <em>the host types it</em>, and a raised hand was never anonymous to the room. A is maximally private in the <em>record</em> and maximally public in the <em>moment</em> — which is exactly the wrong way round for the problem the client just named.</p>
+        <p><b>Can it be rescued?</b> Honestly: not without stopping being Direction A. Eyes-closed voting is the classroom fix and it is a strange thing to ask a room of adults for. Every mitigation removes the public commitment, and the public commitment <em>is</em> the direction. It is kept here because a direction you can see losing is worth more than one you never built.</p>
+        <p style="margin-bottom:0"><b>AC-91 gets easier, AC-38 gets harder.</b> Everyone reads the same screen at the same instant, so time-to-opinion is one measurement, not fifty. But the projector is the only place the code exists — if the back row can't read it, there is no fallback.</p>
       </div>
     </div>
   </div>
@@ -270,7 +275,7 @@ function renderProjector() {
       }).join("") + '</div>' +
       '<div class="panel by-human" style="margin-top:12px">' +
         '<span class="provenance human">✎ written by a human, reviewed not verified</span>' +
-        '<p class="explain" style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p>' +
+        '<div style="margin-top:8px">' + explainHtml(TONIGHT, { votes: state.tally, answered: totalHands() }, { big: true }) + '</div>' +
       '</div>' +
       '<div class="receipt" style="margin-top:10px">' +
         '<span class="provenance machine">✓ established by the machine</span><br>' +
@@ -337,8 +342,8 @@ function renderHost() {
     html = header("step 5 of 5", "Read it aloud") +
       '<div class="stack">' +
       '<div class="panel by-human" style="font-size:var(--text-sm)">' +
-        '<span class="provenance human">✎ your script</span>' +
-        '<p style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+        '<span class="provenance human">✎ your script · in this order</span>' +
+        '<div style="margin-top:8px">' + explainHtml(TONIGHT, { votes: state.tally, answered: totalHands() }) + '</div></div>' +
       '<button class="btn btn-primary" onclick="go(\'released\')">Release the room</button>' +
       '</div>';
   } else {

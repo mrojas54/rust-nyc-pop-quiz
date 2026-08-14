@@ -46,8 +46,14 @@
   .choice[aria-pressed="true"] .letter { background: var(--accent); border-color: var(--accent); }
   .choice.correct { border-color: var(--green); border-width: 3px; padding: 6px 8px; }
   .choice.correct .letter::after { content: " ✓"; }
-  .choice.was-mine.wrong { border-color: var(--red); border-width: 3px; padding: 6px 8px; }
-  .choice.was-mine.wrong .letter::after { content: " ✗"; }
+  /* Your own choice is marked as YOURS, never as wrong. There is no ✗ in this
+     product — the answer gets a ✓, the person gets nothing to be ashamed of. */
+  .choice.was-mine { background: var(--accent-subtle); }
+  .choice.was-mine::before { content: "yours"; position: absolute; }
+  .choice { position: relative; }
+  .choice.was-mine::before { top: -7px; left: 8px; font-size: 10px;
+    letter-spacing: var(--tracking-caps); text-transform: uppercase;
+    background: var(--accent); color: #2d3748; padding: 0 4px; border-radius: 2px; }
   .choice:disabled { cursor: default; opacity: 1; }
   .choice .share { margin-left: auto; font-size: var(--text-xs); color: var(--text-secondary); }
 
@@ -125,8 +131,9 @@
     <button class="btn" onclick="go('lobby')">2 · lobby</button>
     <button class="btn" onclick="go('live')">3 · question live</button>
     <button class="btn" onclick="go('closed')">4 · answers closed</button>
-    <button class="btn" onclick="go('reveal')">5 · reveal</button>
-    <button class="btn" onclick="go('wrap')">6 · wrap-up</button>
+    <button class="btn" onclick="go('split')">5 · where the room landed</button>
+    <button class="btn" onclick="go('reveal')">6 · reveal</button>
+    <button class="btn" onclick="go('wrap')">7 · wrap-up</button>
     <span class="lbl" style="margin-left:14px">Edge states</span>
     <button class="btn" onclick="go('failed')">save failed</button>
     <button class="btn" onclick="go('reconnect')">reconnecting</button>
@@ -154,9 +161,14 @@
     <div class="col" style="max-width: 380px; align-items: flex-start;">
       <div class="frame-label">What this direction is testing</div>
       <div class="panel" style="font-size: var(--text-sm); line-height: 1.65;">
+        <div class="proposal" style="margin-bottom:12px">
+          <span class="proposal-tag">Client testimony, 2026-08-14</span>
+          <b>Reworked against the room's own feedback:</b> <em>everything is very intimidating; people aren't allowed to be wrong.</em> Three changes, all visible in the phone above — a <b>split beat before the answer</b> (step 5), <b>no ✗ on your own choice</b> ever, and an explanation that spends its middle paragraph on <b>why so many of us picked A</b>. Plus a hint you can pull yourself, which is a proposed AC-48 amendment.
+        </div>
         <p style="margin-top:0"><b>Rebuilt on the D-7 spine.</b> The prior state-explorer is phone-first too, but its vocabulary is a round — <em>next question</em>, <em>end quiz</em>, a question counter. One question in five minutes deletes all of it. What survives, and is reused here, is its edge-state catalogue.</p>
-        <p><b>This is the expensive direction.</b> It is the only one that needs Stories B1, B5, B6 and B7 in full: a join path, a 200-concurrent deadline write burst (AC-52–55, the highest-risk moment in the system), and canary-secret proof that no pre-reveal payload carries the answer.</p>
-        <p style="margin-bottom:0"><b>What it buys.</b> A real anonymous count rather than the host's thumb on a counter, a per-person "you picked A" computed on-device and never transmitted (AC-58), and code you can hold six inches from your face — which is the only version of AC-32 that a back row can actually pass.</p>
+        <p><b>This direction now looks strongest on the new evidence</b>, and the reason is narrow: it is the only one where a newcomer can commit, change their mind, and ask for help <em>without anyone knowing they did any of it</em>. Anonymity is the floor. The split beat is what turns it into belonging.</p>
+        <p><b>This is also the expensive direction.</b> The only one that needs Stories B1, B5, B6 and B7 in full: a join path, a 200-concurrent deadline write burst (AC-52–55, the highest-risk moment in the system), and canary-secret proof that no pre-reveal payload carries the answer.</p>
+        <p style="margin-bottom:0"><b>What else it buys.</b> A real anonymous count rather than the host's thumb on a counter, a per-person recap computed on-device and never transmitted (AC-58), and code you can hold six inches from your face — the only version of AC-32 a back row can actually pass.</p>
       </div>
     </div>
   </div>
@@ -182,7 +194,7 @@
 <script src="_shared/data.js"></script>
 <script src="_shared/proto.js"></script>
 <script>
-const state = { phase: "join", picked: null, save: null, hintShown: false };
+const state = { phase: "join", picked: null, save: null, hintShown: false, hintPulled: false };
 
 /* ---- participant ----------------------------------------------------- */
 function pHead(extra) {
@@ -190,22 +202,39 @@ function pHead(extra) {
          '<span class="p-code">' + (extra || ("room <b>" + ROOM.code + "</b>")) + '</span></div>';
 }
 
+/* The correct option gets a ✓ — that is AC-40 marking the ANSWER.
+   Your own choice never gets a ✗. Marking the person is what the room's
+   feedback says is already happening to newcomers everywhere else. */
 function choicesHtml(mode) {
   return TONIGHT.options.map(function (o) {
     const mine = state.picked === o.letter;
     let cls = "choice";
     let share = "";
-    if (mode === "reveal") {
-      if (o.correct) cls += " correct";
-      if (mine) cls += " was-mine" + (o.correct ? "" : " wrong");
-      share = '<span class="share">' + pct(ROOM.votes[o.letter], ROOM.answered) + "%</span>";
+    if (mode === "reveal" || mode === "split") {
+      if (mode === "reveal" && o.correct) cls += " correct";
+      if (mine) cls += " was-mine";
+      share = '<span class="share">' + ROOM.votes[o.letter] + " · " +
+              pct(ROOM.votes[o.letter], ROOM.answered) + "%</span>";
     }
     return '<button class="' + cls + '" aria-pressed="' + (mine ? "true" : "false") + '"' +
-           (mode === "reveal" || mode === "closed" ? " disabled" : "") +
+           (mode === "live" ? "" : " disabled") +
            ' onclick="pick(\'' + o.letter + '\')">' +
            '<span class="letter">' + o.letter + '</span>' +
            '<span class="otext">' + escapeHtml(o.text) + '</span>' + share + '</button>';
   }).join("");
+}
+
+/* You are not alone, stated before anyone is told they were wrong. */
+function companyHtml() {
+  const mine = state.picked || "A";
+  const n = ROOM.votes[mine];
+  const others = n - 1;
+  return '<div class="company"><span class="n">' + n + '</span>' +
+    '<span>You said <b>' + mine + '</b>' +
+    (others > 0
+      ? ' — and so did <b>' + others + '</b> other people, ' + pct(n, ROOM.answered) + '% of the room.'
+      : ' — and you were the only one. That is the most interesting answer in the room.') +
+    '</span></div>';
 }
 
 function renderParticipant() {
@@ -251,8 +280,8 @@ function renderParticipant() {
         '<p style="margin:6px 0 0;font-size:var(--text-sm)">An anonymous count of how many people chose each option — 58 numbers with nothing attached to them. It expires with this room.</p></div>' +
         '<div class="panel"><span class="provenance human">what was not</span>' +
         '<p style="margin:6px 0 0;font-size:var(--text-sm)">Your answer. Your device. Anything that could reconnect this screen to you, tonight or ever. There is no account to delete because there was never one to make.</p></div>' +
-        '<p class="meta">The line above this one is computed on your phone from what you saw. It was never sent anywhere.</p>' +
-        '<div class="panel" style="border-left:3px solid var(--accent)"><b>You picked ' + (state.picked || "A") + '.</b> The answer was E. You were in good company — 41% of the room picked A.</div>' +
+        '<p class="meta">The line below this one is computed on your phone from what you saw. It was never sent anywhere.</p>' +
+        companyHtml() +
         '</div>';
     } else {
       const savebar =
@@ -264,24 +293,47 @@ function renderParticipant() {
           ? '<div class="savebar saved">✓ &nbsp;<span>Saved <b>' + state.picked + '</b>. Change it as often as you like until the host closes it.</span></div>'
           : p === "closed"
           ? '<div class="savebar paused">◼ &nbsp;<span>Answers are closed. You are locked in on <b>' + (state.picked || "—") + '</b>.</span></div>'
-          : p === "reveal"
+          : (p === "reveal" || p === "split")
           ? ''
-          : '<div class="savebar">○ &nbsp;<span>Pick one. You can change it right up until the host closes it.</span></div>';
+          : '<div class="savebar">○ &nbsp;<span>Pick one. You can change it right up until the host closes it. Nobody sees what you picked.</span></div>';
+
+      /* --- the private hint: proposed AC-48 amendment ------------------ */
+      const hintUi =
+        p !== "live" && p !== "failed"
+          ? ''
+          : state.hintPulled
+          ? '<div class="proposal" style="margin-top:8px"><span class="proposal-tag">AC-48 proposal</span>' +
+            '<b>Hint · </b>' + escapeHtml(TONIGHT.hint) +
+            '<br><span style="color:var(--text-secondary)">You pulled this yourself. Nobody was told.</span></div>'
+          : '<button class="btn" style="margin-top:8px;min-height:36px;font-size:var(--text-xs)" onclick="pullHint()">' +
+            'Show me a hint — quietly</button>';
 
       html = pHead() +
-        (p === "reveal"
-          ? '<h2 style="margin-bottom:8px">The answer is E.</h2>'
+        (p === "split"
+          ? '<h2 style="margin-bottom:2px">Where the room landed.</h2>' +
+            '<p class="meta" style="margin:0 0 8px">No answer yet.</p>'
+          : p === "reveal"
+          ? '<h2 style="margin-bottom:8px">It was E.</h2>'
           : '') +
-        '<pre class="code code-phone" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
-        (state.hintShown && p !== "reveal"
+        (p === "split" || p === "reveal" ? companyHtml() : '') +
+        '<pre class="code code-phone" tabindex="0" aria-label="Rust source" style="margin-top:' +
+          (p === "split" || p === "reveal" ? "10px" : "0") + '">' +
+          rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+        (state.hintShown && p !== "reveal" && p !== "split"
           ? '<div class="panel" style="margin-top:8px;border-left:3px solid var(--blue);font-size:var(--text-xs)"><b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>'
           : '') +
-        '<div class="stack" style="margin-top:10px">' + choicesHtml(p === "reveal" ? "reveal" : (p === "closed" ? "closed" : "live")) + '</div>' +
-        '<div style="margin-top:10px">' + savebar + '</div>' +
+        hintUi +
+        '<div class="stack" style="margin-top:10px">' +
+          choicesHtml(p === "reveal" ? "reveal" : p === "split" ? "split" : p === "closed" ? "closed" : "live") +
+        '</div>' +
+        (savebar ? '<div style="margin-top:10px">' + savebar + '</div>' : '') +
+        (p === "split"
+          ? '<p class="meta" style="margin-top:10px">Five different readings of four lines of Rust. That is the segment working — the answer is the least interesting part of the next two minutes.</p>'
+          : '') +
         (p === "reveal"
           ? '<div class="panel by-human" style="margin-top:10px">' +
-            '<span class="provenance human">✎ written by a human, reviewed not verified</span>' +
-            '<p style="margin:6px 0 0;font-size:var(--text-sm)">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+            '<span class="provenance human">✎ written by a human · the machine did not check this part</span>' +
+            '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
             '<div class="receipt" style="margin-top:8px"><span class="provenance machine">✓ established by the machine</span><br>' +
             TONIGHT.receipt.rustc + ' · edition ' + TONIGHT.receipt.edition + ' · ran ' + TONIGHT.receipt.runs +
             '× byte-identical on ' + TONIGHT.receipt.target + ' · Miri clean, output matched.<br>' +
@@ -321,15 +373,22 @@ function renderHost() {
         : '<button class="btn" onclick="publishHint()">Publish the hint</button>') +
       '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
   } else if (p === "closed") {
-    html = head("step 3 of 4", "Answers are in") +
+    html = head("step 3 of 5", "Answers are in") +
       '<div class="stack">' +
-      '<p class="meta">The split is on the screen and there is no answer yet. Spend these ten seconds.</p>' +
+      '<p class="meta">Don\'t reveal yet. Show them where the room landed first — that beat is the one that makes being wrong ordinary, and skipping it wastes the only thing this format is good at.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'split\')">Show the room its split</button></div>';
+  } else if (p === "split") {
+    html = head("step 4 of 5", "Let it sit") +
+      '<div class="stack">' +
+      '<div class="company"><span class="n">' + ROOM.votes.A + '</span>' +
+      '<span>picked <b>A</b> — ' + pct(ROOM.votes.A, ROOM.answered) + '% of the room, and it is wrong. Say that number out loud before you say the answer.</span></div>' +
+      '<p class="meta">Nobody knows who. Nobody knows they are wrong yet. They only know they are not alone — which is the whole reason this beat exists.</p>' +
       '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal</button></div>';
   } else {
-    html = head("step 4 of 4", "Read it aloud") +
+    html = head("step 5 of 5", "Read it aloud") +
       '<div class="stack">' +
-      '<div class="panel by-human" style="font-size:var(--text-sm)"><span class="provenance human">✎ your script</span>' +
-      '<p style="margin:6px 0 0">' + escapeHtml(TONIGHT.explanation) + '</p></div>' +
+      '<div class="panel by-human" style="font-size:var(--text-sm)"><span class="provenance human">✎ your script · in this order</span>' +
+      '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
       '<button class="btn" onclick="go(\'wrap\')">Release the room</button></div>';
   }
 
@@ -355,7 +414,8 @@ function renderProjector() {
   }
 
   phase.textContent = ({ live: "read it", failed: "read it", reconnect: "read it",
-                         closed: "answers closed", reveal: "the answer", wrap: "that's the night" })[p];
+                         closed: "answers closed", split: "where the room landed",
+                         reveal: "the answer", wrap: "that's the night" })[p];
 
   if (p === "wrap") {
     main.innerHTML = '<div style="flex:1;display:grid;place-items:center;text-align:center">' +
@@ -370,7 +430,7 @@ function renderProjector() {
     return '<div class="bar-row' + (p === "reveal" && o.correct ? " is-correct" : "") + '">' +
       '<span class="letter">' + o.letter + '</span>' +
       '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, ROOM.answered) + '%"></span></span>' +
-      '<span class="bar-n">' + (p === "reveal" ? n + " · " : "") + pct(n, ROOM.answered) + '%</span></div>';
+      '<span class="bar-n">' + n + " · " + pct(n, ROOM.answered) + '%</span></div>';
   }).join("");
 
   main.innerHTML =
@@ -380,7 +440,13 @@ function renderProjector() {
         ? '<div class="proj-brand">room</div><div class="big">' + ROOM.code + '</div>' +
           '<div class="cnt">' + ROOM.answered + ' / ' + ROOM.present + '</div>' +
           '<div class="meta">answered · in the room</div>'
-        : '<div class="proj-brand">how the room voted</div><div class="bars">' + bars + '</div>') +
+        : '<div class="proj-brand">' +
+          (p === "split" ? "where the room landed" : "how the room voted") + '</div>' +
+          '<div class="bars">' + bars + '</div>' +
+          (p === "split"
+            ? '<p style="font-size:15px;color:var(--text-secondary);margin:12px 0 0">' +
+              ROOM.answered + ' answered. Five different readings. No answer yet.</p>'
+            : '')) +
     '</div>';
 }
 
@@ -395,6 +461,7 @@ function go(phase) {
   announce(({
     join: "Join screen.", lobby: "You are in the room. Waiting for the question.",
     live: "Question is open. Five options.", closed: "Answers are closed.",
+    split: "Where the room landed. Twenty-four people chose A. No answer yet.",
     reveal: "Revealed. The correct answer is E.", wrap: "Segment complete. Nothing per-person was recorded.",
     failed: "Your answer could not be saved. Your last saved answer is safe.",
     reconnect: "Reconnecting. Controls are paused until state is fresh.",
@@ -416,6 +483,15 @@ function pick(letter) {
 function retry() { state.phase = "live"; state.save = "saving"; render();
   window.setTimeout(function () { state.save = "saved"; render(); announce("Saved."); }, 550); }
 function publishHint() { state.hintShown = true; render(); announce("Hint published to everyone at once."); }
+
+/* Proposed AC-48 amendment. As written, AC-48 says a hint is shown to everyone
+   at once — a fairness rule inherited from a scoring mindset this product does
+   not have. There is no score, no leaderboard and no record, so the only thing
+   a public-only hint protects is the fairness of a competition that does not
+   exist. What it costs is real: a newcomer who wants help has to get the host
+   to announce that the room needs help. */
+function pullHint() { state.hintPulled = true; render();
+  announce("Hint shown on your phone only. Nobody else was told."); }
 
 mountBadge("Direction B · Phone-first", "no server behind this; the counts are fixed");
 state.picked = "A";

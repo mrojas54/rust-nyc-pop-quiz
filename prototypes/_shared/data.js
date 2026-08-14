@@ -40,6 +40,33 @@ const TONIGHT = {
     { letter: "E", text: "[1, 2, 3, 2, 1]", correct: true }
   ],
   explanation: "dedup removes *consecutive* duplicates only — the word is easy to skip in the docs. The adjacent 2,2 and the trailing 1,1 collapse; the later 2 and 1 are not adjacent to their earlier occurrences, so they survive. If you want genuinely unique elements you have to sort first (making duplicates adjacent) or reach for a HashSet.",
+
+  /* --------------------------------------------------------------------
+     The same explanation, restructured into three beats.
+
+     The one-paragraph form above is what the batch actually holds, and it
+     is kept verbatim — AC-73's quoted-output check runs against it and the
+     receipt's "this does not cover the prose" claim is about it.
+
+     But AC-44 asks that someone who knows only beginner Rust can explain
+     the solution TO SOMEONE ELSE, and one intermediate-pitched paragraph
+     does not hand anyone that. The real explanations in the bank already
+     have this shape latent in them — every one of them ends on a "worth
+     arguing about" clause. This makes it explicit, and puts the popular
+     WRONG answer in the middle beat rather than leaving it unmentioned.
+
+     Design consequence for tone-architect: `explanation` stops being one
+     string and becomes three fields. That is a content-model change, not a
+     copy change, and it needs a criterion of its own.
+     -------------------------------------------------------------------- */
+  explains: {
+    what: "dedup only removes duplicates that are sitting next to each other. The 2,2 in the middle and the 1,1 at the end were adjacent, so they collapsed into one. The other 2 and the other 1 weren't next to their twins, so they stayed exactly where they were.",
+    whyWrong: {
+      option: "A",
+      text: "In almost every other language, a method called dedup means unique — give me each value once. Rust's doesn't. The word doing all the work is consecutive, it appears once in the docs, and it is extremely easy to read straight past."
+    },
+    argue: "If you want genuinely unique elements you have to sort first — which makes the duplicates adjacent — or reach for a HashSet. Which of those you pick is a real decision, and it is mostly about whether you care about order."
+  },
   receipt: {
     rustc: RUSTC,
     edition: EDITION,

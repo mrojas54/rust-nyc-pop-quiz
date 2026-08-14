@@ -248,6 +248,37 @@ room under its own power.
 | **AC-91** | An attendee seeing the question for the first time can form an answer within **30 seconds** of it appearing — the whole budget the format allows for reading. `felt` — sampled by watching when hands start going up. Failure here is a question that is too long or a screen that is too small, and it is measurable either way. |
 | **AC-92** | Running the segment consumes exactly one question from the bank per meetup, and which question each meetup used is recorded. `MVP` |
 
+### Story B11 — Being wrong is the ordinary thing
+
+*As an attendee who is new to Rust, I want to get it wrong without it costing me
+anything, because the room I am in already feels like a place where you are not
+allowed to.*
+
+Minted 2026-08-14 during `tone-prototype`, on client testimony: the feedback
+Rust NYC gets, surfaced through Women in Rust, is that **everything is very
+intimidating and people aren't allowed to be wrong.** Story B6 already protects
+the *record*; this story protects the *moment*, and they are not the same thing.
+See `PHILOSOPHY.md` §9.
+
+Dimension 6 corroborates the constituency without having named the cause: five
+of 41 free-text responses ask unprompted for beginner-friendly content, one
+specifically for *"pairs up new people with more experienced engineers"*, and
+25–27% of every room has never attended before.
+
+| ID | Criterion |
+|---|---|
+| **AC-93** | The room's split is shown **before** the correct answer, as its own phase, and the reveal cannot be reached without passing through it. Order is the mechanism, not a preference: a split shown *after* the answer is a scoreboard. |
+| **AC-94** | No participant-facing surface marks a participant's **own** answer as incorrect — no ✗, no red, no "you were wrong". The correct option is marked (AC-40 still applies to the *answer*); the participant's own choice is marked only with the number of people who chose the same thing. |
+| **AC-95** | The explanation **names the most-chosen incorrect option**, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — *what happened* / *why the popular wrong answer is tempting* / *the bit worth arguing about* — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72. |
+| **AC-96** | The explanation's **first beat** is understandable to someone who knows only beginner Rust, without the other two. `felt` — same instrument as AC-44, sampled by asking one attendee at a real meetup. |
+
+**Deliberately not yet a criterion:** whether a participant can obtain the hint
+**privately**, without the host or any other participant being told. It is the
+right thing for this story and it **contradicts AC-48**, which requires one hint
+shown to everyone at once. Raised at **T-13**; not minted until AC-48 is
+resolved, because a new criterion that contradicts a standing one is a fork in
+the truth rather than an addition to it.
+
 ---
 
 ## C. Authorization
@@ -391,6 +422,45 @@ than by edit:**
 
 ---
 
+### 2026-08-14 — Stage 2, `tone-prototype`: being wrong is the ordinary thing
+
+Client testimony, unprompted: *"i want newbies to be able to be wrong. the
+feedback we get and it's surfaced in women in rust is: everything is very
+intimidating. people aren't allowed to be wrong."*
+
+Primary evidence about the room, of the same class as the T-2 quote that
+withdrew Dimension 1's verdict at amendment A-1. **Nothing anywhere in the
+corpus mentioned intimidation before this** — Dimension 6 could observe the
+beginner *want* (§4b) but had no account of the *cause*.
+
+**Added:** Story B11 (AC-93…AC-96) and `PHILOSOPHY.md` §9.
+
+**Found by building, and fixed:** the first cut of the prototypes did the
+opposite of this on every surface that mattered.
+
+| Where | What it did | Now |
+|---|---|---|
+| Directions B and C | Marked the participant's own choice with a red **✗** | No ✗ exists in the product. The answer is marked; the person is not. |
+| Direction B | Went from *answers closed* straight to *reveal* | A split phase sits between them — **AC-93** |
+| All three | One intermediate-pitched explanation paragraph | Three beats, the middle one about the popular wrong answer — **AC-95**, **AC-96** |
+| Direction A | Is the mechanism, not a variant of it | Recorded honestly in the take; see T-14 |
+
+**Reviewed and left standing, with its weight changed:** **AC-44** (a beginner
+can explain the solution to someone else) was already called *the criterion that
+matters most*. It is now also the criterion this story is measured by, and
+Dimension 6 §4b had already independently arrived at that.
+
+**Open conflict — T-13.** A private, pull-it-yourself hint contradicts **AC-48**
+(*publishing a hint shows the same hint to everyone, at once*). The argument for
+amending AC-48: it protects the fairness of a competition that does not exist —
+there is no score, no leaderboard, and nothing recorded — while the cost is that
+a newcomer has to have the host announce that the room needs help. Built in the
+prototypes as a **badged proposal**, the same way the dim-room mode is built as
+AC-80's, so it can be judged rather than argued about.
+
+---
+
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
-fresh IDs and existing IDs never change meaning after handoff.*
+fresh IDs and existing IDs never change meaning after handoff. Range is now
+AC-1 … AC-96 across 19 stories.*
