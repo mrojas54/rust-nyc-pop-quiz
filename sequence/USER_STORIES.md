@@ -539,13 +539,45 @@ directions, and neither is a close call:
 2. **Explanation and summary on the device — open.** The client said *maybe*.
    Direction C as built refuses it outright: the phone reads *"the why is being
    read out now — listen, don't read."* Reversing that line is the open fork.
-3. **§9's private pace has nowhere left to live unless (2) is yes.** T-15 gave
-   the per-participant trace stepper to Direction B for a §9 reason: a newcomer
-   should be able to work through it *at their own pace, with nobody watching how
-   many times they went back*. The trace is now on the wall only, host-stepped.
-   If the explanation is also spoken-only, nothing on the participant's side is
-   re-readable, and §9's private-pace property is gone from the product
-   entirely. **Putting the explanation on the device is what would restore it.**
+3. **§9's private pace had nowhere left to live** once the trace went to the wall
+   host-stepped. T-15 gave the per-participant stepper to Direction B for a §9
+   reason: a newcomer should work through it *at their own pace, with nobody
+   watching how many times they went back*. With the trace on the wall only and
+   the explanation spoken only, nothing on the participant's side is re-readable
+   and that property is gone from the product.
+
+### The take-it-home link — client proposal, 2026-08-14
+
+Raised by the client in response to (3), and it is a better answer than putting
+the explanation on the phone: *"can't we also give a link they can go to after,
+to trace on their full monitor."*
+
+**Why it beats the phone.** Every option on the table traded §9's private pace
+against the room's attention — prose on fifty phones during the reveal is fifty
+people not looking at the wall or at each other, in the exact ninety seconds the
+argument is supposed to start. The link **moves the private pace off the phone
+and out of the segment entirely**: the room stays a room, and the newcomer gets
+to step the trace afterwards, on a real screen, as many times as they like, with
+nobody watching. It is also the literal form of the one thing — *placed last,
+nobody has to stop it; it walks out with them.*
+
+**It is nearly free, for a reason already in the corpus.** `PROJECTOR_SPEC.md` §6
+requires the projector **view** be built separately from its **data source** so
+the static fallback is `mode: "static"` plus a fixture rather than a second
+design. A take-it-home trace page is that same view, with a different data source
+and a different hand on the stepper. The separation the project already owes
+itself is what makes this cheap.
+
+**Three things it forces a decision on, none of them blocking T-12:**
+
+| # | Question | Why it is not obvious |
+|---|---|---|
+| 1 | **Does the page carry the room's split?** | *"24 of 58 chose `[1, 2, 3]`"* is the single most §9 fact the segment produces — and **AC-56** says no per-person record outlives the room and totals expire *with* it. A page carrying the split is an aggregate that outlives the room. Either AC-56 is amended deliberately or the page ships question + trace + explanation and no room data. |
+| 2 | **Is it public?** | It would be the first public surface this project has. *What this is not: a question bank to publish.* The freshness objection mostly dissolves — **Story A3** never repeats a question, so a spent question costs nothing — but the last quiz died **because its bank was public**, and that deserves a decision rather than a default. |
+| 3 | **How is it handed over?** | The phone is already in their hand at release; showing the link there is the cheap answer, and a QR on the wall covers whoever never joined. Participants never authenticate (**AC-67**), so the page is unauthenticated by construction. |
+
+**Not minted, and not prototyped yet** — the client is still driving the takes at
+T-12, and this is design input to that drive, not a result of it.
 
 ---
 
