@@ -96,8 +96,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
 | T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Answered** 2026-08-14 — **all three directions**; review surface **in scope as one take**, not fanned out. |
 | T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Open** 2026-08-14 |
-| T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Open** 2026-08-14 |
-| T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Open** 2026-08-14 |
+| T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Answered** 2026-08-14 — **AC-48 rewritten**, hints are private. Took **AC-45**'s published-hint control with it. |
+| T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
 
 ## Client interview record (T-2)
 
@@ -528,3 +528,34 @@ than an addition to it. **T-13** resolves it first.
 string into three fields, and the middle one cannot be empty. That is a
 content-model change and a new blocking review gate alongside AC-72, not a copy
 change.
+
+### T-13 answered — AC-48 rewritten, and it deletes a host control
+
+**The hint is now private.** Every participant can pull it on their own device
+for as long as the question is open, and taking it tells nobody — not the host,
+not the room, not any total. Was: *publishing a hint shows the same hint to
+everyone, at once.*
+
+The old criterion protected the fairness of a competition that does not exist —
+no score, no leaderboard, nothing recorded. What it cost was one-sided: a
+newcomer who wanted help had to get the host to announce that the room needed
+help.
+
+**AC-45 amended as a consequence, not a separate decision.** *An optional
+published hint* is gone from the host's controls, because a hint that is always
+available has nothing left to publish. **`PHILOSOPHY.md` §8 paying out a third
+time** — and the first time it arrived from an accessibility argument rather
+than an engineering one.
+
+**It also rules something out that nobody had noticed.** A direction with no
+participant device **cannot satisfy AC-48 as amended**: its only possible hint
+is announced to the room. That is a second, independent strike against Direction
+A, invisible until the hint question was asked — and a small demonstration that
+the criteria are doing real work rather than decorating the design.
+
+### T-14 answered — Direction A stays, as the honest loser
+
+Kept in the fan-out with both strikes recorded inside the take itself. It costs
+nothing to keep now, and in October it is the **built** comparison for
+*do phones help or hurt* rather than a hypothetical — which is exactly the job
+T-8 sent the phones-vs-hands question here to do.

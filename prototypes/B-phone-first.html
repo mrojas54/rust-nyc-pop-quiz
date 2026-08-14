@@ -297,16 +297,16 @@ function renderParticipant() {
           ? ''
           : '<div class="savebar">○ &nbsp;<span>Pick one. You can change it right up until the host closes it. Nobody sees what you picked.</span></div>';
 
-      /* --- the private hint: proposed AC-48 amendment ------------------ */
+      /* --- the hint (AC-48, as rewritten at T-13) ----------------------- */
       const hintUi =
         p !== "live" && p !== "failed"
           ? ''
           : state.hintPulled
-          ? '<div class="proposal" style="margin-top:8px"><span class="proposal-tag">AC-48 proposal</span>' +
+          ? '<div class="panel" style="margin-top:8px;border-left:3px solid var(--blue);font-size:var(--text-xs)">' +
             '<b>Hint · </b>' + escapeHtml(TONIGHT.hint) +
-            '<br><span style="color:var(--text-secondary)">You pulled this yourself. Nobody was told.</span></div>'
+            '<br><span style="color:var(--text-secondary)">Yours only. The host was not told, the room was not told, and it is not counted anywhere.</span></div>'
           : '<button class="btn" style="margin-top:8px;min-height:36px;font-size:var(--text-xs)" onclick="pullHint()">' +
-            'Show me a hint — quietly</button>';
+            'Show me a hint</button>';
 
       html = pHead() +
         (p === "split"
@@ -319,9 +319,6 @@ function renderParticipant() {
         '<pre class="code code-phone" tabindex="0" aria-label="Rust source" style="margin-top:' +
           (p === "split" || p === "reveal" ? "10px" : "0") + '">' +
           rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
-        (state.hintShown && p !== "reveal" && p !== "split"
-          ? '<div class="panel" style="margin-top:8px;border-left:3px solid var(--blue);font-size:var(--text-xs)"><b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>'
-          : '') +
         hintUi +
         '<div class="stack" style="margin-top:10px">' +
           choicesHtml(p === "reveal" ? "reveal" : p === "split" ? "split" : p === "closed" ? "closed" : "live") +
@@ -368,9 +365,7 @@ function renderHost() {
     html = head("step 2 of 4", "Question is live") +
       '<div class="stack">' +
       '<p class="meta"><b>' + ROOM.answered + '</b> answered of <b>' + ROOM.answered + '</b> joined. No timer — a timer competes with the argument.</p>' +
-      (state.hintShown
-        ? '<div class="no-preview">Hint published. Everyone got it at once.</div>'
-        : '<button class="btn" onclick="publishHint()">Publish the hint</button>') +
+      '<div class="no-preview"><b>There is no hint button here any more.</b> The hint sits on every phone, pullable at any time, and you are never told who took it. AC-48 rewritten at T-13 — a hint that is always available needs no publishing, so this control had nothing left to do.</div>' +
       '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
   } else if (p === "closed") {
     html = head("step 3 of 5", "Answers are in") +

@@ -151,7 +151,8 @@
         <p style="margin-top:0"><b>The room votes out loud, option by option.</b> The projector asks for one letter at a time in 150px type; the host counts hands and taps the number. Nobody joins anything.</p>
         <p><b>Stories that evaporate.</b> B1 (join without an account), B5 (capacity, AC-52–55), B7's pre-reveal payload work, and most of B6 — there is no participant client to leak from, no write burst to load-test, and nothing per-person exists to record. The build shrinks to a projector and a host control.</p>
         <p><b>AC-39 does not survive here as written.</b> It wants anonymous per-option totals. Hands produce a count only because <em>the host types it</em>, and a raised hand was never anonymous to the room. A is maximally private in the <em>record</em> and maximally public in the <em>moment</em> — which is exactly the wrong way round for the problem the client just named.</p>
-        <p><b>Can it be rescued?</b> Honestly: not without stopping being Direction A. Eyes-closed voting is the classroom fix and it is a strange thing to ask a room of adults for. Every mitigation removes the public commitment, and the public commitment <em>is</em> the direction. It is kept here because a direction you can see losing is worth more than one you never built.</p>
+        <p><b>Second strike, found later.</b> AC-48 was rewritten at T-13: the hint belongs on each participant's own device, and taking it must tell nobody. With no participant device, A's only possible hint is announced to the whole room — <em>"we need a hint"</em> said out loud. A cannot satisfy AC-48 as it now stands, and that was invisible until the hint question got asked.</p>
+        <p><b>Can it be rescued?</b> Honestly: not without it stopping being Direction A. Eyes-closed voting is the classroom fix and it is a strange thing to ask a room of adults for. Every mitigation removes the public commitment, and the public commitment <em>is</em> the direction. <b>It stays in the fan-out anyway</b> — the client's call at T-14, and the right one: it costs nothing to keep, and in October it is a built comparison for <em>do phones help or hurt</em> rather than a hypothetical. A direction you can watch lose is worth more than one you never built.</p>
         <p style="margin-bottom:0"><b>AC-91 gets easier, AC-38 gets harder.</b> Everyone reads the same screen at the same instant, so time-to-opinion is one measurement, not fifty. But the projector is the only place the code exists — if the back row can't read it, there is no fallback.</p>
       </div>
     </div>
@@ -310,8 +311,9 @@ function renderHost() {
       '<div class="stack">' +
       '<p class="meta">No timer. A timer would be competing with the argument for the same thirty seconds.</p>' +
       (state.hintShown
-        ? '<div class="no-preview">Hint is on the screen. Everyone got it at the same moment.</div>'
+        ? '<div class="no-preview">Hint is on the screen. Everyone got it at the same moment — <b>including the fact that it was needed.</b></div>'
         : '<button class="btn" onclick="publishHint()">Publish the hint to the room</button>') +
+      '<div class="warn"><b>This button cannot satisfy AC-48 any more.</b> As rewritten at T-13, the hint belongs on each participant\'s own device and taking it must tell nobody. With no participant device, the only hint this direction can offer is announced to the whole room — which is precisely the cost PHILOSOPHY §9 exists to remove. Second strike against A, and it only became visible once the hint question was asked.</div>' +
       '<button class="btn btn-primary" onclick="startCount()">Everyone ready — count hands</button>' +
       '</div>';
   } else if (state.phase === "counting") {

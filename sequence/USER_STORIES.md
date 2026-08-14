@@ -160,10 +160,10 @@ fifty people.*
 
 | ID | Criterion |
 |---|---|
-| **AC-45** | The host controls the room code, question start, an optional published hint, early close, reveal, and advance. |
+| **AC-45** | The host controls the room code, question start, early close, reveal, and advance. *Amended 2026-08-14 (T-13): "an optional published hint" removed — the hint is no longer a host action at all. See AC-48.* |
 | **AC-46** | The host sees participant count and answers-in while a question is live. |
 | **AC-47** | The host receives no answer preview before reveal. |
-| **AC-48** | Publishing a hint shows the same hint to everyone, at once. |
+| **AC-48** | **The hint is available to every participant, on their own device, for as long as the question is open — and taking it tells nobody.** Not the host, not the room, not the totals. There is no host-published hint and no signal that anyone used one. *Rewritten 2026-08-14 (T-13). Was: "publishing a hint shows the same hint to everyone, at once."* |
 | **AC-49** | Every host screen states its phase, one primary action, and the room code where returning is still possible. |
 | **AC-50** | The host can recover control of their own room after a refresh, a crash, or a device change. |
 | **AC-51** | Running a full segment requires no improvisation or apology to the room. `felt` |
@@ -272,12 +272,21 @@ specifically for *"pairs up new people with more experienced engineers"*, and
 | **AC-95** | The explanation **names the most-chosen incorrect option**, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — *what happened* / *why the popular wrong answer is tempting* / *the bit worth arguing about* — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72. |
 | **AC-96** | The explanation's **first beat** is understandable to someone who knows only beginner Rust, without the other two. `felt` — same instrument as AC-44, sampled by asking one attendee at a real meetup. |
 
-**Deliberately not yet a criterion:** whether a participant can obtain the hint
-**privately**, without the host or any other participant being told. It is the
-right thing for this story and it **contradicts AC-48**, which requires one hint
-shown to everyone at once. Raised at **T-13**; not minted until AC-48 is
-resolved, because a new criterion that contradicts a standing one is a fork in
-the truth rather than an addition to it.
+**The private hint lives at AC-48, not here.** It was raised as a conflict at
+**T-13** and **resolved 2026-08-14 by rewriting AC-48** rather than by minting a
+second criterion that would have said the same thing in different words. AC-48
+now carries this story's requirement: the hint is pullable by anyone, at any
+time while the question is open, and taking it tells nobody.
+
+**Consequence for Story B4:** the host loses a control. AC-45 no longer lists a
+published hint, because there is nothing left to publish — a hint that is always
+available needs no announcement. `PHILOSOPHY.md` §8 (*prefer the smaller
+mechanism*) paying out a third time, and this one came from an accessibility
+argument rather than an engineering one.
+
+**Consequence for Direction A:** a direction with no participant device cannot
+satisfy AC-48 as amended. Its only possible hint is host-announced to the whole
+room, which is the exact cost §9 names. Recorded at T-14.
 
 ---
 
@@ -450,13 +459,20 @@ can explain the solution to someone else) was already called *the criterion that
 matters most*. It is now also the criterion this story is measured by, and
 Dimension 6 §4b had already independently arrived at that.
 
-**Open conflict — T-13.** A private, pull-it-yourself hint contradicts **AC-48**
-(*publishing a hint shows the same hint to everyone, at once*). The argument for
-amending AC-48: it protects the fairness of a competition that does not exist —
-there is no score, no leaderboard, and nothing recorded — while the cost is that
-a newcomer has to have the host announce that the room needs help. Built in the
-prototypes as a **badged proposal**, the same way the dim-room mode is built as
-AC-80's, so it can be judged rather than argued about.
+### 2026-08-14 — T-13: AC-48 rewritten, and it takes a host control with it
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-48** | **Rewritten.** Was *"publishing a hint shows the same hint to everyone, at once."* Now: the hint is available to every participant on their own device while the question is open, and taking it tells nobody. | The old criterion protected the fairness of a competition that does not exist — no score, no leaderboard, nothing recorded. What it cost was real and one-sided: a newcomer who wanted help had to get the host to announce that the room needed help. Against `PHILOSOPHY.md` §9 that trade is indefensible. |
+| **AC-45** | **Amended.** *"An optional published hint"* removed from the host's controls. | Not a separate decision — a consequence. A hint that is always available needs no publishing, so the control has nothing left to do. §8 (*prefer the smaller mechanism*) a third time, arrived at from an accessibility argument rather than an engineering one. |
+
+**What this rules out.** A direction with no participant device cannot satisfy
+AC-48 as amended — its only possible hint is announced to the whole room. That
+is a second, independent strike against Direction A, and it was not visible
+until the hint question was asked. Recorded at T-14, where the client's call was
+to **keep A in the fan-out as the honest loser** rather than drop it: it costs
+nothing to keep, and in October it is a built comparison for *do phones help or
+hurt* instead of a hypothetical.
 
 ---
 

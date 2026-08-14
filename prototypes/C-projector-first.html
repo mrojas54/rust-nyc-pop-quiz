@@ -241,7 +241,6 @@ function renderProjector() {
       return '<div class="opt"><span class="letter">' + o.letter + '</span>' +
              '<span class="otext">' + escapeHtml(o.text) + '</span></div>';
     }).join("") +
-    (state.hintShown ? '<div class="panel" style="border-left:3px solid var(--blue);font-size:18px;margin-top:6px"><b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>' : '') +
     '</div>';
   } else {
     const bars = TONIGHT.options.map(function (o) {
@@ -331,12 +330,13 @@ function renderParticipant() {
         (locked ? " disabled" : "") + ' onclick="pick(\'' + o.letter + '\')"' +
         ' aria-label="Answer ' + o.letter + '">' + o.letter + '</button>';
     }).join("") + '</div>' +
-    /* Proposed AC-48 amendment — see B for the argument. In this direction it
-       matters more, not less: the hint is the only text this phone can carry. */
+    /* AC-48 as rewritten at T-13. In this direction it matters more, not less:
+       the hint is the only text this phone is ever allowed to carry. */
     (locked ? '' : state.hintPulled
-      ? '<div class="proposal"><span class="proposal-tag">AC-48 proposal</span>' +
-        escapeHtml(TONIGHT.hint) + '<br><span style="color:var(--text-secondary)">Yours only. Nobody was told.</span></div>'
-      : '<button class="btn" style="min-height:34px;font-size:var(--text-xs)" onclick="pullHint()">Show me a hint — quietly</button>') +
+      ? '<div class="panel" style="border-left:3px solid var(--blue);font-size:var(--text-xs)">' +
+        escapeHtml(TONIGHT.hint) +
+        '<br><span style="color:var(--text-secondary)">Yours only. Nobody was told, and it is not counted anywhere.</span></div>'
+      : '<button class="btn" style="min-height:34px;font-size:var(--text-xs)" onclick="pullHint()">Show me a hint</button>') +
     '<div class="buzz-foot">' +
       (locked ? "locked in" : "tap to change it, any time until the host closes · nobody sees what you picked") +
     '</div>';
@@ -360,8 +360,7 @@ function renderHost() {
     html = head("step 2 of 4", "The room is reading") +
       '<div class="stack">' +
       '<p class="meta"><b>' + ROOM.answered + '</b> answered · <b>' + ROOM.present + '</b> in the room. No timer.</p>' +
-      (state.hintShown ? '<div class="no-preview">Hint is on the screen.</div>'
-                       : '<button class="btn" onclick="publishHint()">Publish the hint</button>') +
+      '<div class="no-preview"><b>No hint button here any more.</b> It sits on every phone, pullable at any time, and nobody is told who took it — AC-48 rewritten at T-13. In this direction that is the phone\'s <em>only</em> text, which makes it the one thing the buzzer is for besides five letters.</div>' +
       '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
   } else if (p === "closed" || p === "split") {
     html = head("step 3 of 4", "Let it sit") +
