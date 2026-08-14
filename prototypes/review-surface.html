@@ -242,7 +242,7 @@ function renderPane() {
       /* ---- left: the program and what the machine established -------- */
       '<div>' +
         '<div class="block"><h3>Source · ' + q.id + ' · ' + q.topic + '</h3>' +
-          '<pre class="code" tabindex="0" aria-label="Rust source">' + rustHighlight(q.source.trimEnd()) + '</pre>' +
+          sourceCodeHtml(q.source, "Source · " + q.id) +
         '</div>' +
 
         '<div class="block by-machine" style="margin-top:12px">' +

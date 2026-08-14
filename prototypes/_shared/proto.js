@@ -3,46 +3,48 @@
    polite live region that AC-83 asks every state change to go through.
    =========================================================================== */
 
-const KEYWORDS = [
-  "as", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern",
-  "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
-  "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct",
-  "super", "trait", "true", "type", "unsafe", "use", "where", "while"
-];
-
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/* Deliberately muted: keywords, strings, numbers, macros, comments. No rainbow.
-   PHILOSOPHY.md asks for "a well-made terminal, not a SaaS dashboard". */
-function rustHighlight(src) {
-  const kw = KEYWORDS.join("|");
-  const re = new RegExp(
-    "(//[^\\n]*)"                        + "|" +  // 1 comment
-    "(\"(?:\\\\.|[^\"\\\\])*\")"          + "|" +  // 2 string
-    "([A-Za-z_][A-Za-z0-9_]*!)"          + "|" +  // 3 macro
-    "\\b(" + kw + ")\\b"                 + "|" +  // 4 keyword
-    "\\b(\\d[\\d_]*(?:\\.\\d+)?)\\b",             // 5 number
-    "g"
-  );
+/* ---------------------------------------------------------------------------
+   SourceCode — matched to the design system's components/quiz/SourceCode.jsx:
+   white well, 13px mono, muted line numbers, focusable scroll region, and
+   NO SYNTAX HIGHLIGHTING.
 
-  let out = "";
-  let last = 0;
-  let m;
-  while ((m = re.exec(src)) !== null) {
-    out += escapeHtml(src.slice(last, m.index));
-    const cls = m[1] ? "c" : m[2] ? "s" : m[3] ? "m" : m[4] ? "k" : "n";
-    out += '<span class="' + cls + '">' + escapeHtml(m[0]) + "</span>";
-    last = m.index + m[0].length;
-  }
-  out += escapeHtml(src.slice(last));
+   The first cut of this stage syntax-highlighted the Rust, which looked like an
+   obvious improvement and was wrong. The reveal's trace signals with
+   highlight-and-dim (PROJECTOR_SPEC §4.1); a second colour channel running
+   underneath it competes with the only thing the room is meant to be reading.
+   The design system had already resolved this.
 
-  /* fn names read better bold; done after tokenising so it can't eat a keyword. */
-  return out.replace(
-    /(<span class="k">fn<\/span>\s+)([A-Za-z_][A-Za-z0-9_]*)/g,
-    '$1<span class="f">$2</span>'
-  );
+   opts.hl    — 1-based line numbers to highlight (the current trace step)
+   opts.focus — [start, end], 1-based inclusive; everything outside is dimmed
+   opts.size  — override the 13px body (the wall sets this much larger)
+   --------------------------------------------------------------------------- */
+function sourceCodeHtml(code, label, opts) {
+  opts = opts || {};
+  const hl = opts.hl || [];
+  const focus = opts.focus || null;
+  const lines = String(code).replace(/\n$/, "").split("\n");
+  const width = String(lines.length).length + "ch";
+
+  const body = lines.map(function (line, i) {
+    const n = i + 1;
+    const cls = ["rn-src-line"];
+    if (hl.indexOf(n) >= 0) cls.push("hl");
+    else if (focus && (n < focus[0] || n > focus[1])) cls.push("dim");
+    return '<span class="' + cls.join(" ") + '">' +
+           '<span class="rn-src-ln" aria-hidden="true" style="width:' + width + '">' + n + '</span>' +
+           escapeHtml(line || " ") + '</span>';
+  }).join("");
+
+  return '<div class="rn-src"' + (opts.style ? ' style="' + opts.style + '"' : '') + '>' +
+    '<div class="rn-src-head"><span>' + escapeHtml(label || "Source code") + '</span>' +
+      (opts.meta ? '<span>' + opts.meta + '</span>' : '') + '</div>' +
+    '<div class="rn-src-scroll" role="region" aria-label="' + escapeHtml(label || "Source code") + '" tabindex="0">' +
+      '<pre' + (opts.size ? ' style="font-size:' + opts.size + '"' : '') + '><code>' + body + '</code></pre>' +
+    '</div></div>';
 }
 
 /* The badge is part of the artifact. A high-fidelity mockup must never be
@@ -88,68 +90,75 @@ function pct(n, total) {
    `cellsOnly` renders the tape without the narration, for surfaces where the
    host is speaking the line rather than the screen showing it.
    --------------------------------------------------------------------------- */
-function traceHtml(q, i, opts) {
+function traceStepOf(q, i) {
+  return q.trace.steps[Math.max(0, Math.min(i, q.trace.steps.length - 1))];
+}
+
+/* The source well for a given trace step: highlighted lines + dimmed surround. */
+function traceSourceHtml(q, i, opts) {
+  const s = traceStepOf(q, i);
+  opts = opts || {};
+  return sourceCodeHtml(q.source, opts.label || "What does this program print?", {
+    hl: s.lines, focus: s.focus, size: opts.size, style: opts.style, meta: opts.meta
+  });
+}
+
+/* The callout, the value deltas, and the step progress.
+
+   PROJECTOR_SPEC §3.5: the numeric "Step N of M" label is the accessible
+   signal and the dots are supplementary, never colour-only. §4.3: stepping is
+   an instant state change, and the active step always carries its number and
+   its callout text so a reduced-motion or reduced-vision viewer reads the same
+   story as everyone else. */
+function traceNoteHtml(q, i, opts) {
   opts = opts || {};
   const t = q.trace;
-  if (!t) return "";
-  const step = t.steps[Math.max(0, Math.min(i, t.steps.length - 1))];
-  const kept = step.kept || [];
-  const size = opts.big ? "font-size:22px;min-width:56px;padding:12px 14px" : "";
+  const s = traceStepOf(q, i);
+  const total = t.steps.length;
+  const scale = opts.big ? ' style="font-size:19px"' : "";
 
-  const tape = t.cells.map(function (v, idx) {
-    const cls = ["tcell"];
-    /* A cell is "gone" once the walk has passed it and it was not kept. */
-    const passed = step.done || (step.cursor !== null && idx <= step.cursor);
-    if (kept.indexOf(idx) >= 0) cls.push("kept");
-    else if (passed) cls.push("gone");
-    if (idx === step.cursor) cls.push("cursor");
-    if (idx === step.against) cls.push("against");
-    return '<span class="' + cls.join(" ") + '" style="' + size + '">' + v +
-           '<span class="tidx">' + idx + '</span></span>';
-  }).join("");
-
-  const vtag = step.verdict === "keep" ? '<span class="vtag keep">keep</span>'
-             : step.verdict === "drop" ? '<span class="vtag drop">drop</span>'
-             : '<span class="vtag none">' + (step.done ? "done" : "start") + '</span>';
+  const values = (s.values || []).length
+    ? '<div class="trace-values">' + s.values.map(function (v) {
+        return '<div class="tval"><span class="tname">' + escapeHtml(v.name) + '</span>' +
+          '<span class="twas">' + escapeHtml(v.was) + '</span>' +
+          '<span class="tarrow">→</span>' +
+          '<span class="tnow">' + escapeHtml(v.now) + '</span></div>';
+      }).join("") + '</div>'
+    : '';
 
   const dots = t.steps.map(function (_, n) {
     return '<i class="' + (n === i ? "on" : n < i ? "past" : "") + '"></i>';
   }).join("");
 
   return '<div class="trace">' +
-    (opts.noHead ? '' :
-      '<div class="trace-head"><h3>Step it through</h3><code>' + escapeHtml(t.call) + '</code>' +
-      '<span class="meta">' + escapeHtml(t.subtitle) + '</span></div>') +
-    '<div class="trace-tape">' + tape + '</div>' +
-    (opts.cellsOnly ? '' :
-      '<div class="trace-verdict">' + vtag + '<span>' + escapeHtml(step.say) + '</span></div>') +
-    (step.pivot && !opts.cellsOnly
-      ? '<div class="trace-pivot"><b>This is the frame worth stopping on.</b> ' +
-        'The 2 survives because its neighbour is a 3 — not because it is unique. ' +
-        'Everyone who read <code>dedup</code> as <code>unique</code> was reading a ' +
-        'reasonable thing that Rust does not do.</div>'
-      : '') +
-    /* AC-79: the room display takes no interaction beyond host controls, so the
-       projector renders the tape with no nav and the host's phone drives it. */
+    '<div class="trace-note"' + scale + '>' +
+      '<span class="step-n">Step ' + (i + 1) + ' of ' + total +
+        (s.pivot ? ' · the one worth stopping on' : '') + '</span>' +
+      escapeHtml(s.note) +
+    '</div>' +
+    values +
+    /* AC-79 / §3.5: the wall takes no interaction beyond host controls, so it
+       renders progress only and the host's phone drives the walk. */
     (opts.noNav
       ? '<div class="trace-nav"><span class="trace-dots" aria-hidden="true">' + dots + '</span>' +
-        '<span class="pos">step ' + i + ' of ' + (t.steps.length - 1) + '</span></div>'
+        '<span class="pos">Step ' + (i + 1) + ' of ' + total + '</span></div>'
       : '<div class="trace-nav">' +
         '<button class="btn" style="min-height:34px;padding:4px 12px" onclick="traceStep(-1)"' +
           (i === 0 ? " disabled" : "") + ' aria-label="previous step">←</button>' +
-        '<button class="btn' + (i < t.steps.length - 1 ? " btn-primary" : "") +
+        '<button class="btn' + (i < total - 1 ? " btn-primary" : "") +
           '" style="min-height:34px;padding:4px 12px" onclick="traceStep(1)"' +
-          (i >= t.steps.length - 1 ? " disabled" : "") + ' aria-label="next step">→</button>' +
+          (i >= total - 1 ? " disabled" : "") + ' aria-label="next step">→</button>' +
         '<span class="trace-dots" aria-hidden="true">' + dots + '</span>' +
-        '<span class="pos">step ' + i + ' of ' + (t.steps.length - 1) + '</span>' +
+        '<span class="pos">Step ' + (i + 1) + ' of ' + total + '</span>' +
       '</div>') +
   '</div>';
 }
 
-/* Announcement text for a step, so the tape is not a visual-only channel. */
+/* Announcement text, so the trace is never a visual-only channel. */
 function traceSay(q, i) {
-  const s = q.trace.steps[Math.max(0, Math.min(i, q.trace.steps.length - 1))];
-  return (s.verdict ? s.verdict + ". " : "") + s.say;
+  const s = traceStepOf(q, i);
+  const v = (s.values || []).map(function (x) { return x.name + " is now " + x.now; }).join(". ");
+  return "Step " + (i + 1) + " of " + q.trace.steps.length + ". " + s.note + (v ? " " + v + "." : "");
 }
 
 /* ---------------------------------------------------------------------------

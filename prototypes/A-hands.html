@@ -242,13 +242,10 @@ function renderProjector() {
 
   const left =
     '<div class="proj-code">' +
-      '<pre class="code" tabindex="0" aria-label="Rust source"' +
-        (state.phase === "reveal" ? ' style="flex:none"' : '') + '>' +
-        rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
       (state.phase === "reveal"
-        ? '<div class="panel" style="margin-top:10px;flex:1;overflow:auto">' +
-          traceHtml(TONIGHT, state.traceStep, { big: true, noNav: true }) + '</div>'
-        : '') +
+        ? traceSourceHtml(TONIGHT, state.traceStep, { size: "20px", style: "flex:none" }) +
+          traceNoteHtml(TONIGHT, state.traceStep, { big: true, noNav: true })
+        : sourceCodeHtml(TONIGHT.source, "What does this program print?", { size: "21px" })) +
       (state.hintShown
         ? '<div class="panel" style="margin-top:10px;font-size:16px;border-left:3px solid var(--blue)">' +
           '<b>Hint · </b>' + escapeHtml(TONIGHT.hint) + '</div>'
@@ -359,7 +356,7 @@ function renderHost() {
       '<div class="panel" style="font-size:var(--text-sm)">' +
         '<h3>Step the trace · the room is watching this</h3>' +
         '<p class="meta" style="margin:4px 0 8px">The tape on the projector follows these buttons. Say the line, then advance.</p>' +
-        traceHtml(TONIGHT, state.traceStep, { noHead: true }) + '</div>' +
+        traceNoteHtml(TONIGHT, state.traceStep) + '</div>' +
       '<div class="panel by-human" style="font-size:var(--text-sm)">' +
         '<span class="provenance human">✎ your script · in this order</span>' +
         '<div style="margin-top:8px">' + explainHtml(TONIGHT, { votes: state.tally, answered: totalHands() }) + '</div></div>' +

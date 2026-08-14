@@ -111,7 +111,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Open** 2026-08-14 |
 | T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Answered** 2026-08-14 — **AC-48 rewritten**, hints are private. Took **AC-45**'s published-hint control with it. |
 | T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
-| T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Open** 2026-08-14 |
+| T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
 
 ## Client interview record (T-2)
 
@@ -626,6 +626,60 @@ back**. A host-stepped trace runs at the pace of the person who already knows th
 answer.
 
 Not resolvable by reading either document — **T-15**.
+
+### T-15 answered — both
+
+**The wall is host-stepped; the phones step freely.** §4.2 keeps its narrative
+build for the room, and §9 gets its private pace. The two are not the same
+control and were only ever in conflict because the spec assumed one of them.
+
+- **A and C** — the wall carries the trace, the host advances it, and the wall
+  renders progress only (AC-79: no interaction beyond host controls).
+- **B** — every participant steps their own copy at their own speed, and the
+  wall shows the trace's **outcome** rather than an animation. A moving tape at
+  the front would pull every eye off the surface where the work is happening.
+  Same component, opposite call per direction, and that difference is now one of
+  the things the fan-out is actually testing.
+
+### The reconcile — decided and applied
+
+The client's instruction was to read the package and decide. Read:
+`PROJECTOR_SPEC.md`, `DESIGN.md`, `README.md`, `SUMMARY.md`, `tokens/colors.css`,
+`tokens/typography.css`, `tokens/spacing.css`, `tokens/base.css`,
+`components/quiz/SourceCode.jsx`, both manifests.
+
+**Adopted:**
+
+1. **The token CSS verbatim** — `prototypes/_shared/tokens.css` §1 is now the
+   design system's four token files copied exactly, with the Phase-1 names kept
+   only as a clearly-marked alias block that resolves into them. Nothing
+   diverges; anything built from these takes deletes the aliases.
+2. **Cascadia Mono.** `PRD.md` says *"a system monospace stack"*; the house brand
+   says Cascadia Mono and is newer. The TTFs live in the design system's
+   `assets/fonts/` and are not vendored here, so the takes fall back to SF Mono
+   locally — a real build must ship the font.
+3. **`SourceCode` with no syntax highlighting**, line numbers, white well,
+   focusable scroll region. **The prototypes had highlighting and it was wrong.**
+   The reason is only visible once §4.1 is read: the trace signals with
+   highlight-and-dim, so a second colour channel underneath competes with the
+   one thing the room is supposed to be reading. The design system had already
+   resolved this and the resolution is right.
+4. **The §4.1 trace model** — `{ lines, focus, note, values }` — replacing the
+   bespoke tape, in all three directions. Step progress renders as **"Step N of
+   M" plus dots**, the number being the accessible signal (§3.5).
+
+**Not adopted, deliberately:** pixel-reproducing all nine components across three
+directions. Two of the three get discarded at T-12, and component fidelity is
+`tone-architect` and build work. Proportional, and recorded here rather than
+skipped silently.
+
+**New gap for `tone-architect`:** the **static fallback** (§6) — the same
+projector views with baked data in one offline file, keyboard-driven, for when
+generation, auth, or the venue wifi fails. The arc has never specced it. It is
+close kin to `mvp/` and to Story A7 but is neither, and §6's design implication
+is load-bearing: build the projector **view** separately from its **data
+source**, so the fallback is `mode: "static"` + a fixture rather than a second
+design.
 
 Kept in the fan-out with both strikes recorded inside the take itself. It costs
 nothing to keep now, and in October it is the **built** comparison for

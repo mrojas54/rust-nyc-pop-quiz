@@ -273,7 +273,7 @@ function renderParticipant() {
     html = pHead() +
       '<div class="stack">' +
       '<div class="savebar paused">◐ &nbsp;<span><b>Reconnecting.</b> Your saved answer (<b>' + (state.picked || "A") + '</b>) is safe on the server. Controls are paused until this screen is fresh again.</span></div>' +
-      '<pre class="code code-phone" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+      sourceCodeHtml(TONIGHT.source, "What does this program print?") +
       '<div class="stack" style="opacity:.5;pointer-events:none">' + choicesHtml("live") + '</div>' +
       '</div>';
   } else {
@@ -322,9 +322,10 @@ function renderParticipant() {
           ? '<h2 style="margin-bottom:8px">It was E.</h2>'
           : '') +
         (p === "split" || p === "reveal" ? companyHtml() : '') +
-        '<pre class="code code-phone" tabindex="0" aria-label="Rust source" style="margin-top:' +
-          (p === "split" || p === "reveal" ? "10px" : "0") + '">' +
-          rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+        (p === "reveal"
+          ? traceSourceHtml(TONIGHT, state.traceStep, { style: "margin-top:10px" })
+          : sourceCodeHtml(TONIGHT.source, "What does this program print?",
+              { style: (p === "split" ? "margin-top:10px" : "") })) +
         hintUi +
         '<div class="stack" style="margin-top:10px">' +
           choicesHtml(p === "reveal" ? "reveal" : p === "split" ? "split" : p === "closed" ? "closed" : "live") +
@@ -335,7 +336,7 @@ function renderParticipant() {
           : '') +
         (p === "reveal"
           ? '<div class="panel" style="margin-top:10px">' +
-            traceHtml(TONIGHT, state.traceStep) +
+            traceNoteHtml(TONIGHT, state.traceStep) +
             '<p class="meta" style="margin:10px 0 0">Yours to step, at your own speed. Nobody is waiting for you and nobody can see how many times you went back.</p>' +
             '</div>' +
             '<div class="panel by-human" style="margin-top:10px">' +
@@ -439,7 +440,7 @@ function renderProjector() {
   }).join("");
 
   main.innerHTML =
-    '<pre class="code" tabindex="0" aria-label="Rust source">' + rustHighlight(TONIGHT.source.trimEnd()) + '</pre>' +
+    sourceCodeHtml(TONIGHT.source, "What does this program print?", { size: "18px", style: "flex:1" }) +
     '<div class="joinbox">' +
       (p === "live" || p === "failed" || p === "reconnect"
         ? '<div class="proj-brand">room</div><div class="big">' + ROOM.code + '</div>' +
@@ -458,7 +459,7 @@ function renderProjector() {
                work is actually happening. In C it is the opposite: there the
                tape IS the collective act. Same component, opposite call. */
             : '<div style="margin-top:14px">' +
-              traceHtml(TONIGHT, TONIGHT.trace.steps.length - 1, { noNav: true, noHead: true, cellsOnly: true }) +
+              traceNoteHtml(TONIGHT, TONIGHT.trace.steps.length - 1, { noNav: true }) +
               '<p style="font-size:14px;color:var(--text-secondary);margin:16px 0 0">' +
               'Two dropped, and only because of who they were next to.<br>' +
               'Step it yourself on your phone.</p></div>')) +

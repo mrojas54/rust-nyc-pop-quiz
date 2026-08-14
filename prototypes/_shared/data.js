@@ -87,6 +87,14 @@ const TONIGHT = {
      survives because it is sitting next to a 3. That single frame is the
      entire reason 24 people answered [1, 2, 3].
 
+     MODEL — this is PROJECTOR_SPEC.md §4.1, verbatim: a trace is an ordered
+     list of steps, and each step may highlight lines (execution order), dim
+     everything outside a focus region, anchor a callout to the trap line,
+     and show debugger-style value deltas. The first cut of this stage used
+     a bespoke value-tape instead; it modelled a collection walk and would
+     not have survived q1 (drop order), q6 (shadowing) or q8 (E0502). The
+     house model generalises to the whole bank.
+
      PROVENANCE — open question, carried to tone-architect. This trace is
      AUTHORED, so under AC-74 it is human prose and belongs on the human
      side of the line with the explanation. It does not have to stay that
@@ -98,26 +106,25 @@ const TONIGHT = {
      on. See run-state.
      -------------------------------------------------------------------- */
   trace: {
-    call: "v.dedup()",
-    subtitle: "one pass, comparing each element with the one before it",
-    cells: [1, 2, 2, 3, 2, 1, 1],
     steps: [
-      { cursor: null, against: null, kept: [0],
-        say: "We start with all seven. The first element is always kept — there is nothing in front of it for it to be a duplicate of." },
-      { cursor: 1, against: 0, verdict: "keep", kept: [0, 1],
-        say: "2 against 1. Different, so the 2 stays." },
-      { cursor: 2, against: 1, verdict: "drop", kept: [0, 1],
-        say: "2 against 2. The same — and sitting right next to each other. This one goes." },
-      { cursor: 3, against: 1, verdict: "keep", kept: [0, 1, 3],
-        say: "3 against 2. Different, so the 3 stays." },
-      { cursor: 4, against: 3, verdict: "keep", kept: [0, 1, 3, 4], pivot: true,
-        say: "2 against 3. Different — so this 2 stays. There is already a 2 in the list, back at the start, and dedup does not look. It only ever compares neighbours. This is the step the whole question turns on." },
-      { cursor: 5, against: 4, verdict: "keep", kept: [0, 1, 3, 4, 5],
-        say: "1 against 2. Different, so the 1 stays — same story. There is a 1 at the very front, and it is nowhere near this one." },
-      { cursor: 6, against: 5, verdict: "drop", kept: [0, 1, 3, 4, 5],
-        say: "1 against 1. The same, and adjacent. This one goes too." },
-      { cursor: null, against: null, done: true, kept: [0, 1, 3, 4, 5],
-        say: "Five left. Two were dropped, and both of them only because of who they happened to be sitting next to." }
+      { lines: [2], focus: [1, 5],
+        note: "Seven elements go in — and two of the pairs happen to be sitting next to each other. Hold on to which ones.",
+        values: [{ name: "v", was: "—", now: "[1, 2, 2, 3, 2, 1, 1]" }] },
+      { lines: [3], focus: [2, 4],
+        note: "dedup makes one pass, comparing each element with the one immediately before it. Only neighbours are ever compared — it never looks further back.",
+        values: [] },
+      { lines: [3], focus: [3, 3],
+        note: "The 2, 2 in the middle collapses. Same value, side by side.",
+        values: [{ name: "v", was: "[1, 2, 2, 3, 2, 1, 1]", now: "[1, 2, 3, 2, 1, 1]" }] },
+      { lines: [3], focus: [3, 3],
+        note: "The 1, 1 on the end collapses for exactly the same reason.",
+        values: [{ name: "v", was: "[1, 2, 3, 2, 1, 1]", now: "[1, 2, 3, 2, 1]" }] },
+      { lines: [3], focus: [3, 3], pivot: true,
+        note: "And the other 2 and the other 1 survive — because they were never next to their twins. There is already a 2 near the front, and dedup did not look. This is the step the whole question turns on.",
+        values: [] },
+      { lines: [4], focus: [1, 5],
+        note: "Five left. Two were dropped, and both of them only because of who they happened to be sitting next to.",
+        values: [{ name: "stdout", was: "—", now: "[1, 2, 3, 2, 1]" }] }
     ]
   }
 };
