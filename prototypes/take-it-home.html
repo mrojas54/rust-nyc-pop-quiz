@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Take it home · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 14px; }
+  .direction-head { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap;
+                    align-items: baseline; gap: 12px; }
+  .direction-head h1 { font-size: 28px; }
+  .assumption { font-size: var(--text-sm); color: var(--text-secondary);
+                border-left: 3px solid var(--accent); padding-left: 10px; }
+
+  .app { background: var(--page); padding: 26px 30px 34px; }
+  .sheet { max-width: 760px; margin: 0 auto; }
+
+  .masthead { border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 20px; }
+  .masthead .kicker { font-size: var(--text-xs); letter-spacing: .12em; text-transform: uppercase;
+                      color: var(--text-secondary); }
+  .masthead h2 { font-family: var(--serif); font-size: 30px; margin: 6px 0 8px; }
+  .masthead .sub { color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.55; }
+
+  /* The rotation notice. Not a legal footnote — it is the mechanism, so it
+     says so where a reader will actually meet it. */
+  .rotates { margin-top: 12px; border: 1px dashed var(--border); border-radius: var(--radius);
+             padding: 9px 12px; font-size: var(--text-xs); color: var(--text-secondary);
+             line-height: 1.5; background: var(--input); }
+  .rotates b { color: var(--text); }
+
+  .sec { margin-top: 26px; }
+  .sec > h3 { font-size: var(--text-sm); letter-spacing: .1em; text-transform: uppercase;
+              color: var(--text-secondary); margin-bottom: 10px; }
+
+  /* --- options: the answer is marked, nobody's choice is ---------------- */
+  .opts { display: flex; flex-direction: column; gap: 6px; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+         border: 1px solid var(--border); border-radius: var(--radius);
+         background: var(--white); font-family: var(--mono); font-size: var(--text-sm); }
+  .opt .l { font-weight: 700; width: 1.4em; color: var(--text-secondary); }
+  .opt.correct { border-color: var(--green); border-width: 2px; background: var(--green-subtle); }
+  .opt.correct .l { color: var(--text); }
+  .opt .tick { margin-left: auto; color: var(--green); font-weight: 700; }
+  .opt .tick-txt { margin-left: auto; font-size: var(--text-xs); color: var(--text-secondary); }
+
+  /* --- the trace, and it is yours ---------------------------------------- */
+  .yours { border-left: 3px solid var(--accent); padding-left: 12px; margin-bottom: 12px;
+           font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.55; }
+  .yours b { color: var(--text); }
+  .keyhint { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 8px; }
+  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border);
+        border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px; background: var(--white);
+        color: var(--text); }
+
+  /* --- receipt ------------------------------------------------------------ */
+  .receipt { font-family: var(--mono); font-size: var(--text-xs); line-height: 1.7;
+             border: 1px solid var(--border); border-radius: var(--radius);
+             background: var(--white); padding: 12px 14px; }
+  .receipt .row { display: flex; gap: 10px; }
+  .receipt .row span:first-child { color: var(--text-secondary); min-width: 8.5em; }
+  .receipt .caveat { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border);
+                     color: var(--text-secondary); line-height: 1.6; }
+
+  /* --- the handover: how you got here ------------------------------------- */
+  .handover { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .handover { grid-template-columns: 1fr; } }
+  .hand { border: 1px solid var(--border); border-radius: var(--radius);
+          background: var(--white); padding: 14px; }
+  .hand h4 { font-size: var(--text-sm); margin-bottom: 4px; }
+  .hand p { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.55; margin: 0; }
+  .qr { width: 132px; height: 132px; margin: 10px auto; display: block; }
+  .linkbox { margin: 12px auto 0; font-family: var(--mono); font-size: 15px; text-align: center;
+             border: 1px solid var(--border); border-radius: var(--radius);
+             padding: 9px; background: var(--input); letter-spacing: .01em; }
+
+  /* --- notes recorded inside the take ------------------------------------- */
+  .note { max-width: 1180px; width: 100%; }
+  .note .panel-callout { line-height: 1.6; }
+  .note h4 { margin-bottom: 5px; }
+  .note p { margin: 0 0 9px; }
+  .note p:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>Take it home</h1>
+    <span class="assumption">The page a participant opens <b>after</b> the meetup, on a real screen,
+      to step the trace at their own pace with nobody watching.</span>
+  </div>
+
+  <!-- Why this surface exists, recorded in the take rather than only in a doc. -->
+  <div class="note">
+    <div class="panel panel-callout">
+      <h4>Why this exists — §9's private pace had nowhere left to live</h4>
+      <p>T-15 gave the per-participant trace stepper to Direction B for a <b>§9</b> reason: a newcomer
+         should be able to work through it <i>at their own pace, with nobody watching how many times
+         they went back</i>. <b>A-4</b> then put the source and the trace on the wall only, host-stepped
+         — and with the explanation spoken aloud, nothing on the participant's side was re-readable.
+         That property was gone from the product.</p>
+      <p>Every fix considered on the phone traded private pace against the room's attention: prose on
+         fifty phones during the reveal is fifty people not looking at the wall or at each other, in the
+         ninety seconds the argument is supposed to start. <b>This page makes no such trade</b> — it moves
+         the private pace off the phone and out of the segment. The room stays a room. It is also the
+         literal form of the one thing: <i>placed last, nobody has to stop it — it walks out with them.</i></p>
+    </div>
+  </div>
+
+  <div class="browser">
+    <div class="browser-chrome">
+      <span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span>
+      <span class="browser-url">popquiz.rustnyc.org/last</span>
+    </div>
+
+    <div class="app">
+      <div class="sheet">
+
+        <div class="masthead">
+          <div class="kicker">Rust NYC · Pop Quiz</div>
+          <h2>The question from August 12</h2>
+          <div class="sub">Collections · difficulty 2 · you had about ninety seconds and a room full of
+            people disagreeing with you. Here it is again, with as long as you want.</div>
+
+          <div class="rotates">
+            <b>This page always holds the most recent meetup's question.</b> When we meet again in
+            October it becomes October's, and this one is gone. Nothing is archived, nothing is
+            published as a bank — there is only ever one question here.
+          </div>
+        </div>
+
+        <div class="sec">
+          <h3>The program</h3>
+          <div id="src"></div>
+        </div>
+
+        <div class="sec">
+          <h3>The options</h3>
+          <div class="opts" id="opts"></div>
+        </div>
+
+        <div class="sec">
+          <h3>Step it yourself</h3>
+          <div class="yours">
+            <b>Go as slowly as you like, and go backwards as often as you like.</b>
+            Nothing here is timed, nothing is recorded, and nobody can see that you are on step two for
+            the fourth time. Step 5 is the one the whole question turns on.
+          </div>
+          <div id="trace-src"></div>
+          <div id="trace-note"></div>
+          <div class="keyhint">Or use <kbd>←</kbd> and <kbd>→</kbd>.</div>
+        </div>
+
+        <div class="sec">
+          <h3>Why</h3>
+          <div id="explain"></div>
+        </div>
+
+        <div class="sec">
+          <h3>How we know</h3>
+          <div class="receipt" id="receipt"></div>
+        </div>
+
+        <div class="sec">
+          <h3>How you got here</h3>
+          <div class="handover">
+            <div class="hand">
+              <h4>On the wall, when the room is released</h4>
+              <svg class="qr" id="qr" viewBox="0 0 33 33" shape-rendering="crispEdges"
+                   role="img" aria-label="QR code to popquiz.rustnyc.org/last"></svg>
+              <p>Covers everyone in the room, including whoever never joined on their phone.</p>
+            </div>
+            <div class="hand">
+              <h4>On the phone you already have open</h4>
+              <div class="linkbox">popquiz.rustnyc.org/last</div>
+              <p>Short enough to read off a slide and type. It never changes, so it can be printed on
+                 anything — the page behind it is what rotates.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- The two things this surface decides, recorded where they were decided. -->
+  <div class="note">
+    <div class="panel panel-callout">
+      <h4>What this page deliberately does not have</h4>
+      <p><b>No room state, of any kind.</b> Client call: the page is informational. It does not say what
+         the room chose, what you chose, how many got it right, or that 24 people read <code>dedup</code>
+         as <code>unique</code> that night. <b>AC-56</b> holds unamended — no per-person record outlives
+         the room and the totals expire with it. The split is the most <b>§9</b> fact the segment produces
+         and it stays in the room that produced it.</p>
+      <p><b>Open, and it is a real conflict: AC-95 requires the count.</b> <i>"The explanation names the
+         most-chosen incorrect option, <b>states how many chose it</b>, and says why it is a reasonable
+         reading."</i> On this page the middle beat names the popular wrong answer but <b>cannot</b> state
+         how many chose it without carrying room state. The reading here is that AC-95 was written for the
+         live reveal, where the count <i>is</i> the mechanism — <i>you are not alone</i> — and that a page
+         read alone days later needs a different form of the same beat: make the wrong reading reasonable
+         as a fact about the language, not about that night's room. <b>That scoping is not yet a
+         criterion.</b> It needs either an amendment to AC-95 or a sibling criterion for the
+         take-it-home surface, and it is <code>tone-architect</code>'s to settle.</p>
+      <p><b>Rotation is the expiry, and it needs no mechanism.</b> The client asked for something that is
+         <i>"not set for all time — maybe it expires until the next meetup."</i> A URL that always means
+         <i>the last meetup's question</i> gets that by construction: no expiry job, no archive, no dated
+         URLs to accumulate, and only ever one question public at a time. <b>Story A3</b> never repeats a
+         question, so a spent one costs nothing to show. <code>PHILOSOPHY.md</code> §8 — <i>prefer the
+         smaller mechanism</i> — for a fourth time.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+const Q = TONIGHT;
+let step = 0;
+
+/* The three beats WITHOUT the room.
+
+   proto.js's explainHtml() renders "Why 24 of us said A" and "41% of the room
+   read it that way" — both are room state, and this page carries none. The
+   beat survives the loss because what makes the wrong reading reasonable was
+   never the count: it is a fact about the language. See the note in the take. */
+function explainNoRoomHtml(q) {
+  const e = q.explains;
+  const L = e.whyWrong.option;
+  const chosen = q.options.filter(function (o) { return o.letter === L; })[0];
+  return '' +
+    '<div class="beat">' +
+      '<h3>What happens</h3>' +
+      '<p>' + escapeHtml(e.what) + '</p>' +
+    '</div>' +
+    '<div class="beat beat-company">' +
+      '<h3>Why ' + L + ' — <code>' + escapeHtml(chosen.text) + '</code> — is the reading almost everyone brings</h3>' +
+      '<p>' + escapeHtml(e.whyWrong.text) + '</p>' +
+      '<p class="meta" style="margin:6px 0 0">If you read it that way, nothing is missing from your Rust. ' +
+        'This is the one place <code>dedup</code> disagrees with every other language you have used, and ' +
+        'the disagreement is one word long.</p>' +
+    '</div>' +
+    '<div class="beat">' +
+      '<h3>The bit worth arguing about</h3>' +
+      '<p>' + escapeHtml(e.argue) + '</p>' +
+    '</div>';
+}
+
+function renderOptions() {
+  document.getElementById("opts").innerHTML = Q.options.map(function (o) {
+    return '<div class="opt' + (o.correct ? ' correct' : '') + '">' +
+      '<span class="l">' + o.letter + '</span>' +
+      '<span>' + escapeHtml(o.text) + '</span>' +
+      (o.correct
+        /* AC-40: colour is never the only signal — the tick and the word carry it too.
+           AC-94: the answer is marked; no choice of any person's is. */
+        ? '<span class="tick">✓ the answer</span>'
+        : '<span class="tick-txt"></span>') +
+      '</div>';
+  }).join("");
+}
+
+function renderReceipt() {
+  const r = Q.receipt;
+  document.getElementById("receipt").innerHTML =
+    '<div class="row"><span>compiler</span><span>' + escapeHtml(r.rustc) + '</span></div>' +
+    '<div class="row"><span>edition</span><span>' + escapeHtml(r.edition) + '</span></div>' +
+    '<div class="row"><span>target</span><span>' + escapeHtml(r.target) + '</span></div>' +
+    '<div class="row"><span>runs</span><span>' + r.runs + ', byte-identical output</span></div>' +
+    '<div class="row"><span>miri</span><span>' + escapeHtml(r.miri) + ', output matched the native runs</span></div>' +
+    '<div class="caveat">Nobody wrote this answer down. It came from running the program. ' +
+    'A clean Miri run proves there was no undefined behaviour <b>on the paths actually executed</b> ' +
+    '— it is evidence, not a proof, and the prose above it is written by a human and checked by ' +
+    'an organizer, not by the machine.</div>';
+}
+
+function renderTrace() {
+  document.getElementById("trace-src").innerHTML =
+    traceSourceHtml(Q, step, { label: "What does this program print?" });
+  document.getElementById("trace-note").innerHTML = traceNoteHtml(Q, step);
+}
+
+/* proto.js's trace nav calls traceStep(). Stepping is unbounded in both
+   directions and counts nothing — that is the entire point of the surface. */
+function traceStep(d) {
+  const next = Math.max(0, Math.min(step + d, Q.trace.steps.length - 1));
+  if (next === step) return;
+  step = next;
+  renderTrace();
+  announce(traceSay(Q, step));
+}
+
+document.addEventListener("keydown", function (ev) {
+  if (ev.key === "ArrowRight") { traceStep(1); }
+  else if (ev.key === "ArrowLeft") { traceStep(-1); }
+});
+
+/* A stand-in QR: real finder squares, deterministic modules. It is a mock of a
+   handover, not a working code — the badge says so and so does this comment. */
+function renderQr() {
+  const N = 33, cells = [];
+  let seed = 20260812;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  function finder(ox, oy) {
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const edge = x === 0 || y === 0 || x === 6 || y === 6;
+      const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+      if (edge || core) cells.push([ox + x, oy + y]);
+    }
+  }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const inFinder = (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+    if (!inFinder && rnd() > 0.52) cells.push([x, y]);
+  }
+  finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+  document.getElementById("qr").innerHTML =
+    '<rect width="33" height="33" fill="#ffffff"/>' +
+    cells.map(function (c) {
+      return '<rect x="' + c[0] + '" y="' + c[1] + '" width="1" height="1" fill="#1a202c"/>';
+    }).join("");
+}
+
+document.getElementById("src").innerHTML =
+  sourceCodeHtml(Q.source, "What does this program print?", { meta: "q3 · Collections" });
+renderOptions();
+renderTrace();
+document.getElementById("explain").innerHTML = explainNoRoomHtml(Q);
+renderReceipt();
+renderQr();
+mountBadge("Take it home", "the page a participant opens after the meetup · no room data, by design");
+</script>
+</body>
+</html>

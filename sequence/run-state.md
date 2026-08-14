@@ -513,6 +513,7 @@ is shortened to flatter a layout; that is the point of prototyping on real data.
 | `C-projector-first.html` | Direction C — Projector-first, phone as buzzer | projector + buzzer phone + host phone |
 | `review-surface.html` | Review surface (one take) | desktop browser |
 | `seam-discord.html` | The Discord seam | Discord stand-in + our side + SVG seam diagram |
+| `take-it-home.html` *(added 2026-08-14)* | Take it home — the post-meetup page | desktop browser |
 | `index.html` | The takes, side by side | — |
 
 Shared: `_shared/tokens.css` (the `PRD.md` brand contract, inherited not

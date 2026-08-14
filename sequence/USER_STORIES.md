@@ -576,8 +576,35 @@ itself is what makes this cheap.
 | 2 | **Is it public?** | It would be the first public surface this project has. *What this is not: a question bank to publish.* The freshness objection mostly dissolves — **Story A3** never repeats a question, so a spent question costs nothing — but the last quiz died **because its bank was public**, and that deserves a decision rather than a default. |
 | 3 | **How is it handed over?** | The phone is already in their hand at release; showing the link there is the cheap answer, and a QR on the wall covers whoever never joined. Participants never authenticate (**AC-67**), so the page is unauthenticated by construction. |
 
-**Not minted, and not prototyped yet** — the client is still driving the takes at
-T-12, and this is design input to that drive, not a result of it.
+**Client calls, 2026-08-14, on all three:**
+
+1. **No room state.** *"The page is just informational, no room state."* **AC-56
+   holds unamended** — the split stays in the room that produced it.
+2. **Public, and it rotates.** *"Public yes, it's okay if people go back, it's
+   not set for all time, maybe it expires until the next meetup."*
+3. **QR code or link.**
+
+**Prototyped:** `prototypes/take-it-home.html`, framed as a desktop browser.
+
+**Two things the build surfaced, one of them a real conflict:**
+
+- **AC-95 cannot be satisfied on this page as written.** It requires the
+  explanation to *state how many chose* the popular wrong answer — which is room
+  state. `proto.js`'s `explainHtml()` renders *"Why 24 of us said A"* and *"41%
+  of the room read it that way"*, so the page needed its own renderer. The beat
+  survives the loss because what makes the wrong reading reasonable was never the
+  count: it is a fact about the language. **The reading is that AC-95 is scoped to
+  the live reveal**, where the count *is* the mechanism — *you are not alone* —
+  and that a page read alone days later needs a different form of the same beat.
+  **Not yet a criterion.** It needs an amendment to AC-95 or a sibling criterion
+  for this surface, and it is `tone-architect`'s to settle.
+- **Rotation is the expiry, and it needs no mechanism.** A URL that always means
+  *the last meetup's question* — `popquiz.rustnyc.org/last` — gets the client's
+  *"expires until the next meetup"* by construction: no expiry job, no archive,
+  no dated URLs accumulating, and **only ever one question public at a time**.
+  Story A3 never repeats a question, so a spent one costs nothing to show. The
+  link never changes, so it can be printed on anything; the page behind it
+  rotates. `PHILOSOPHY.md` §8 — *prefer the smaller mechanism* — a fourth time.
 
 ---
 
