@@ -68,7 +68,7 @@ specced.
 | | |
 |---|---|
 | **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
-| **Phase** | **1c — takes reconciled onto the house design system, awaiting the drive-through.** Five clickable prototypes in `prototypes/`, all on the real verified batch, all now on the design system's tokens, Cascadia Mono, `SourceCode`, and `PROJECTOR_SPEC` §4.1's trace model. **A-3 amendment: `PHILOSOPHY.md` §9 and Story B11 / AC-93…AC-96** — being wrong has to be the ordinary thing. Answered: T-11, T-13 (AC-48 rewritten), T-14 (A stays), T-15 (trace stepped both ways). **T-12 — the drive-through — is the one still open, and nothing converges without it.** Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. New gap for architect: the static fallback. **Resume pass 2026-08-14: the reconcile reached the criteria** — `PHILOSOPHY.md` §5 amended, **AC-32 rewritten** (no syntax highlighting), room code now six characters (`KMT4XW`). |
+| **Phase** | **2 — converging on Direction C. T-12 answered 2026-08-14: *"C is it."*** The fan-out is closed and iteration on C has not started. Queue: source full-width with options beneath; type size defaulted to the real venue (**needs the client's screen size and room depth**); the handover into `take-it-home`; and the `felt` judgments still unmade — AC-80, AC-93, AC-21. *Prior:* **1c — takes reconciled onto the house design system, awaiting the drive-through.** Five clickable prototypes in `prototypes/`, all on the real verified batch, all now on the design system's tokens, Cascadia Mono, `SourceCode`, and `PROJECTOR_SPEC` §4.1's trace model. **A-3 amendment: `PHILOSOPHY.md` §9 and Story B11 / AC-93…AC-96** — being wrong has to be the ordinary thing. Answered: T-11, T-13 (AC-48 rewritten), T-14 (A stays), T-15 (trace stepped both ways). **T-12 — the drive-through — is the one still open, and nothing converges without it.** Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. New gap for architect: the static fallback. **Resume pass 2026-08-14: the reconcile reached the criteria** — `PHILOSOPHY.md` §5 amended, **AC-32 rewritten** (no syntax highlighting), room code now six characters (`KMT4XW`). |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-prototype`, off `main` @ `9d3fff7`. *(Stage 1 ran on `ai-c11-cc/tone-initiation` and three follow-on branches, all merged to `main` via PRs #1–#4.)* |
 | **Remote** | `git@github.com:mrojas54/rust-nyc-pop-quiz.git` (private) |
@@ -172,7 +172,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-9 | 1b | Did the Aug 12 segment run without the client? (q3 rollback) | **Answered** 2026-08-13 — **nobody ran it.** q3 rolled back, bank restored to 8. |
 | T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
 | T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Answered** 2026-08-14 — **all three directions**; review surface **in scope as one take**, not fanned out. |
-| T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Open** 2026-08-14 |
+| T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Answered** 2026-08-14 — **Direction C.** *"C is it."* |
 | T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Answered** 2026-08-14 — **AC-48 rewritten**, hints are private. Took **AC-45**'s published-hint control with it. |
 | T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
@@ -552,6 +552,54 @@ than asserted:
 5. **`q8`'s answer *is* "does not compile",** so appending AC-24's universal
    option would have shipped a five-option question with four real choices.
    Caught in the review surface and fixed there.
+
+## T-12 ANSWERED — Direction C, 2026-08-14
+
+*"C is it."* **Projector-first, phone as buzzer.** The code lives on the big
+screen and nowhere else; the phone is five letters.
+
+**It was not picked off a menu.** The client had already stated C's core
+assumption in her own words at **A-4** — *"should not put it on the phone, only
+options to vote on, code and tracing need to be on screen"* — which eliminated
+**B** (its assumption is that the phone carries the code) and **A** (*"only
+options to vote on"* presumes a device that A does not have). A also carried two
+recorded strikes: public commitment against §9, and it cannot satisfy AC-48 as
+rewritten at T-13. The drive-through then confirmed C directly rather than by
+elimination.
+
+Corroborated independently: `PROJECTOR_SPEC.md` §0 called the reveal+trace state
+*"where the night lives"* and §9's build order put the wall first as *"the new
+surface and the star"* — three weeks before these prototypes existed.
+
+**What this closes.** The fan-out. `A-hands.html` and `B-phone-first.html` are
+now historical takes, not candidates; both stay in the repo because October's
+field notes are supposed to select against *built* comparisons rather than
+hypotheses (T-8), and B's projector bug was fixed for exactly that reason.
+
+**What it does NOT close, and the stage rule is explicit about it.** *The pick is
+the start of the design, not the end.* Iteration ends when the client **loves**
+the take, not when she picks it — the working test is *would she keep this if a
+better option appeared tomorrow?* **No `DESIGN.md`, no `tone-architect`, no
+build** until the iteration rounds on C are done.
+
+### The iteration queue on C, in priority order
+
+| # | Round | Why it is first |
+|---|---|---|
+| 1 | **Source full-width, options beneath** | The options column costs ~43% of the wall. This one layout change absorbs the horizontal overflow on every source in the bank and decides whether 35 lines is reachable at all. Everything about question length depends on it. |
+| 2 | **Type size defaulted to the real venue** | The derived model currently assumes a 20ft screen with the back row at 20ft. Nobody has supplied Rust NYC's actual screen size or room depth, and those two numbers move the answer by 2×. **Client input needed.** |
+| 3 | **The handover into `take-it-home`** | C's `6 · released` still ends the segment with nothing. The QR and link exist only inside the take-it-home page, so the segment cannot currently be judged end to end. |
+| 4 | **The `felt` judgments still unmade** | AC-80 (lights up or down), AC-93 (does split-before-answer land), AC-21 (the review-surface clock, never once measured). These are part of loving the take, not separate from it. |
+
+### Criteria consequences now binding, none yet minted
+
+- **A sibling to AC-33: the source must FIT the wall.** Container-scroll is a
+  phone escape hatch and A-4 took the phone away. This is a bound on question
+  dimensions, therefore a constraint on the generation pipeline. Kin to AC-88.
+- **AC-95 scoping** for the take-it-home page — it requires a count the page
+  cannot carry without room state.
+- **AC-32** is already rewritten (A-4) and is satisfied by C by construction.
+- **AC-39** — the objection was specific to Direction A and dies with it.
 
 ## The source under test — and the wall does not fit the bank
 
