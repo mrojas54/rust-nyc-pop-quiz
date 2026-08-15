@@ -673,12 +673,15 @@ point. The client rejected it and replaced the frame — see **A-5**.
 
 | | |
 |---|---|
-| **Knowledge sharing** | The wall: *"Find someone who picked something else and ask them what they saw — not to settle it, just to hear it."* The phone drops its *"Look up"* prefix here and reads **"Turn to someone near you"** — the only phase that points at the room instead of the wall. |
+| **Knowledge sharing — unstaged, and that is the point** | **Second correction, same day.** The first build of this beat told the room *"find someone who picked something else and ask them what they saw."* The client cut it: *"none of this... no one needs to volunteer though we'll take it from one volunteer."* **An instruction is still an obligation**, and §9's whole subject is the person who does not want to be put on the spot. Turning to a stranger on cue is a smaller ask than defending an answer, but it is the same kind of ask. The wall now says only **"Let's walk it. Still no answer. Nobody has to say anything."** If one voice offers a reading the host takes it; if none does, nothing is missing. The sharing happens **at the bar**, unforced, which is where it was always going to happen. |
 | **Repetition** | The room then walks the trace **together, before the answer**. The trace already existed but sat *after* the reveal, where it justified a settled result. Moved in front of it, the second pass through the program is what **produces** the understanding rather than what explains it. |
 | **Still no answer** | The correct option is not marked and the receipt is not shown. Caught during the build: the first cut fell through to the reveal branch and put **E and the verification receipt on the wall during the beat**, which would have made the whole phase pointless. |
 
-Order is **share → repeat → resolve**, and `take-it-home` is the third
-repetition, alone, later. End card is now **"Keep working through it."**
+Order is **repeat → resolve → release**, and `take-it-home` is the second
+repetition, alone, later. **The end card is the client's own line: "Let's go to
+the bar."** It is better than anything written for it here — the understanding
+carries on socially and unforced, which is the one thing's *"it walks out with
+them"* stated as a thing a person would actually say.
 
 **Cost, and it is real:** AC-89 gives the segment 3–5 minutes and this beat wants
 60–90 seconds of it. That is the first thing in this stage that *spends* the
@@ -687,7 +690,8 @@ protected when something has to give.
 
 **Criterion owed, not yet minted:** working through it is now a named phase of
 the product and nothing in `USER_STORIES.md` requires it. Candidate under Story
-B11, alongside AC-93's ordering rule.
+B11, alongside AC-93's ordering rule — and it must carry the **no-obligation**
+property explicitly, because that is the half two successive designs got wrong.
 
 ### The iteration queue on C, in priority order
 

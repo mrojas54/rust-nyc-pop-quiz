@@ -532,7 +532,7 @@ function renderProjector() {
   if (p === "released") {
     phase.textContent = "that's the night";
     main.className = "title-card";
-    main.innerHTML = '<div><h2>Keep working through it.</h2><p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
+    main.innerHTML = '<div><h2>Let\'s go to the bar.</h2><p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
       'The count expired with the room. No names, no scores, nothing to look up tomorrow.</p></div>';
     strip.style.display = "none";
     return;
@@ -587,10 +587,9 @@ function renderProjector() {
           '<span>of us read it the same way. No answer yet.</span></div>'
         : p === "work"
         ? '<div class="workbeat">' +
-          '<b>Work through it.</b>' +
-          '<span>Find someone who picked something else and ask them what they saw ' +
-          '\u2014 not to settle it, just to hear it.</span>' +
-          '<span class="second">Then we walk the program together. Still no answer.</span>' +
+          '<b>Let\'s walk it.</b>' +
+          '<span>Still no answer.</span>' +
+          '<span class="second">Nobody has to say anything.</span>' +
           '</div>'
         : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
           '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
@@ -634,9 +633,9 @@ function renderParticipant() {
     b.innerHTML =
       /* During 'work' the beat points at the room, not the wall — "Look up"
          would be telling them to do the opposite of what the phase asks. */
-      '<div class="buzz-head"><div class="lookup">' + (p === "work" ? '' : '<b>Look up.</b> ') +
+      '<div class="buzz-head"><div class="lookup"><b>Look up.</b> ' +
         (p === "split" ? "Where the room landed."
-          : p === "work" ? "Turn to someone near you."
+          : p === "work" ? "We're walking it through."
           : "The answer is on the screen.") +
       '</div></div>' +
       '<div class="buzz-verdict"><div>' +
@@ -652,7 +651,7 @@ function renderParticipant() {
         (p === "split"
           ? 'Five different readings of four lines. Nobody knows who picked what — including us.'
           : p === "work"
-          ? 'Ask them what they saw. You are not checking who was right — nobody knows yet.'
+          ? 'Nothing to do. Nobody knows the answer yet, including us.'
           : (others > 0
               ? 'You and ' + others + ' other people read it the same way. The why is being read out now — listen, don\'t read.'
               : 'You were the only one, which makes yours the most interesting answer in the room.')) +
@@ -795,7 +794,7 @@ function go(phase) {
   announce(({
     idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",
     closed: "Answers are closed.", split: "The room's split is shown. No answer yet.",
-    work: "Work through it. Find someone who picked differently, then we walk the program together. Still no answer.",
+    work: "Walking the program through together. Still no answer, and nobody has to say anything.",
     reveal: "Revealed. The correct answer is E.", released: "Segment complete. Nothing was recorded."
   })[phase] || phase);
 }
