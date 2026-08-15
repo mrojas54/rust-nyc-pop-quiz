@@ -4,64 +4,75 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 
 ---
 
-## ▶ RESUME HERE — handoff written 2026-08-14
+## ▶ RESUME HERE — handoff written 2026-08-14, evening
 
-**You are mid-`tone-prototype` (Stage 2), Phase 1c. Five takes are built and
-reconciled. One touchpoint is open and it is not answerable by an agent.**
+**Stage 2 `tone-prototype`, Round 3. T-12 is ANSWERED — the direction is C.**
+**The stage is not done.** The rule is explicit: iteration ends when the client
+**loves** the take, not when she picks it. No `DESIGN.md`, no `tone-architect`,
+no build.
 
 **First four things, in order:**
 
-1. Read this file top to bottom, then `PHILOSOPHY.md` (**§9 is a day old and
-   reframes the project**), then `sequence/USER_STORIES.md` (AC-1…AC-96, 19
-   stories — the amendments section at the bottom is where the recent thinking
-   is).
-2. `git checkout ai-c11-cc/tone-prototype` — pushed, 7 commits ahead of `main`,
-   **no PR** because the stage is not finished.
-3. Open `prototypes/index.html` in a browser. Everything else is downstream of
-   having actually driven these.
-4. **The skill is disabled.** `tone-prototype` is set `"off"` in
+1. Read this file top to bottom. **`PHILOSOPHY.md`'s one thing CHANGED today
+   (A-5)** — read it before touching anything user-facing, because every stage
+   before this one was written against the old sentence.
+2. `git checkout ai-c11-cc/tone-prototype` — pushed, ~19 commits ahead of `main`,
+   **no PR**, because the stage is not finished.
+3. Open `prototypes/C-projector-first.html` and **drive all seven phases**. That
+   is the converged direction. `take-it-home.html` is the second surface. A and B
+   are historical takes, not candidates — keep them, October compares against
+   built things rather than hypotheses.
+4. **The skill is disabled.** `tone-prototype` is `"off"` in
    `~/.claude/settings.json` → `skillOverrides`, so the Skill tool refuses it.
-   Read `~/.claude/skills/tone-prototype/SKILL.md` directly and follow it, and
-   skim the two sibling `tone-*` skills for the pipeline norms.
+   Read `~/.claude/skills/tone-prototype/SKILL.md` directly.
 
-**The only open touchpoint is T-12: the client drives the five takes and picks a
-direction.** Do not converge, do not write `DESIGN.md`, and do not invoke
-`tone-architect` before that happens — the stage's rule is that iteration ends
-when the client *loves* a take, not when she accepts one. T-11, T-13, T-14 and
-T-15 are all answered; see the touchpoints table.
+### What changed today — the thesis, not a detail
 
-**Traps that will otherwise cost you an hour:**
+- **A-5.** *"The argument is the product"* → **"the understanding is the product,
+  and the room gets there by working through it together."** Client testimony.
+  An argument has sides and a winner, which is what §9 exists to prevent.
+- **A-4.** The source and its trace are **never** on a participant device. This
+  eliminated Directions A and B before the drive-through confirmed C.
+- **AC-97 / AC-98 minted.** The walk-through phase, and the prohibition that
+  **nothing obliges a participant to speak.**
 
-- **The design corpus is not in this repo.** It is on claude.ai/design, reachable
-  through the `DesignSync` tool: the **Rust NYC Design System**
-  (`d608a53a-9b53-40c0-a64d-7017613f1956`) and the **Pop Quiz** project
-  (`c3ae9b25-bbd3-4e96-b402-ef7ea2d9d387`). Stage 1 missed both; the prototypes
-  now inherit from them. `PROJECTOR_SPEC.md` and `DESIGN.md` in that second
-  project are authoritative for anything visual — read before designing.
-- **`PRD.md` is not the contract**, and on typography it is stale: it says a
-  system monospace stack, the house brand says Cascadia Mono.
-- **Do not add syntax highlighting** to source wells. It was tried and removed —
-  the trace signals with highlight-and-dim and a colour channel underneath
-  competes with it.
-- **Do not put a ✗ on a participant's own answer**, and do not reveal before
-  showing the split. AC-93/AC-94, and §9 is why.
-- **Do not "fix" the answer-position counts** for looking lopsided. That area has
-  regressed four times, once while fixing the previous regression. Read
-  `PHILOSOPHY.md` §2 first.
+### Open, and the first two need a person rather than an agent
+
+| | |
+|---|---|
+| **T-17** | Syntax colour in the trace-free phases. **Built as a proposal, criteria deliberately not updated.** Needs the client's eye **and Cole's call** — he owns the design system's `SourceCode` and made the brand's Liberty Ferris imagery. If it is kept, **AC-32 takes its third revision in one day** and `PHILOSOPHY.md` §5 its second. |
+| **`felt` never answered** | **AC-93** — does split-before-answer land? **AC-21** — the review-surface clock, never once measured. Both are the client's alone. |
+| **Never collected** | The client's list of what annoyed her in B and C. That list *is* the next iteration rounds and it will evaporate. **Ask for it.** |
+| **Field notes** | The client will measure the projected image width and the distance to the last occupied row. **15ft / 20ft is a HYPOTHESIS** and everything about question length rests on it. |
+
+### Traps that will cost an hour, or ship a defect
+
+- **Do not reintroduce the argument framing** (A-5). It survived in copy in seven
+  files and was swept; ordinary English uses — *"the build-vs-borrow argument"* —
+  were deliberately left.
+- **Do not add anything telling participants to talk to each other** (AC-98).
+  It has been written twice and cut twice in one day: *"someone from each, why?"*
+  and *"find someone who picked something else."* An instruction is an obligation
+  however gently worded.
+- **Do not mark the answer or show the receipt during `5 · work through it`**
+  (AC-97). The first build fell through to the reveal branch and did exactly
+  that, which makes the phase pointless.
+- **Syntax colour is ON only where no trace is running** and must stay off in
+  `work` and `reveal` — that is the whole reason it was allowed back.
+- **The wall lays out at 1120px design size and scales as a unit.** Sizing it
+  with `width:100%` shrinks the box while its px contents do not, and the options
+  land on top of the source. Type is **derived** from screen size and back-row
+  distance, never chosen.
+- **Answer-position balancing is still the oldest trap in the repo** — four
+  regressions, one introduced while fixing another. `PHILOSOPHY.md` §2 first.
 - **`mvp/answer-history.json` is a record, never an input**, and a built deck is
-  not a run segment (the AC-92 defect, carried to `tone-architect`).
+  not a run segment (the AC-92 mechanism defect, still unfixed, → `tone-architect`).
 
-**Done on the 2026-08-14 resume pass, before T-12** — the Phase 1c reconcile had
-been applied to the prototypes only, so for a day the corpus required syntax
-highlighting the takes deliberately did not do. `PHILOSOPHY.md` §5 amended,
-**AC-32 rewritten**, room code taken to six characters (`KMT4XW`). Details at the
-end of the Phase 1c section. **This does not change T-12** — the takes look the
-same except for the room code.
-
-**Carried forward, none blocking T-12:** the October field notes (T-6 room half),
-the AC-92 mechanism defect, the never-measured participation rate, and a new gap
-— the **static fallback** (`PROJECTOR_SPEC.md` §6), which the arc has never
-specced.
+**Carried forward, none blocking:** October field notes (T-6 room half), the
+AC-92 mechanism defect, the never-measured participation rate, the static
+fallback (`PROJECTOR_SPEC` §6), and the **AC-33 sibling** — on the wall the
+source must *fit*, because container-scroll was a phone escape hatch and A-4 took
+the phone away.
 
 ---
 
