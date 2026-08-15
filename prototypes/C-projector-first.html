@@ -41,6 +41,13 @@
              border: 1px solid #9b2c2c; border-left-width: 3px; border-radius: var(--radius);
              padding: 7px 10px; color: #9b2c2c; background: #fff5f5; }
   .fitwarn[hidden] { display: none; }
+
+  .legibility-only { display: flex; flex-direction: column; gap: 12px;
+                     border: 2px dashed var(--border); border-radius: var(--radius);
+                     padding: 18px 20px; font-size: 19px; line-height: 1.5;
+                     color: var(--text-secondary); }
+  .legibility-only b { color: var(--text); }
+  .legibility-only > b:first-child { font-size: 22px; }
   .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
   .proj-top { display: flex; justify-content: space-between; align-items: baseline;
               flex: none; margin-bottom: 12px; }
@@ -309,6 +316,10 @@ function bankSource(id) {
   const q = (typeof BANK !== "undefined" ? BANK : []).filter(function (x) { return x.id === id; })[0];
   return q ? q.source : TONIGHT.source;
 }
+function sourceLabel() {
+  const s = SOURCES.filter(function (x) { return x.key === sourceKey; })[0];
+  return s ? s.label : sourceKey;
+}
 function currentSource() {
   const s = SOURCES.filter(function (x) { return x.key === sourceKey; })[0];
   return s ? s.get() : TONIGHT.source;
@@ -412,7 +423,21 @@ function renderProjector() {
     '</div>';
 
   let side;
-  if (p === "live" || p === "closed") {
+  if ((p === "live" || p === "closed") && sourceKey !== "q3") {
+    /* The options belong to q3. Showing them beside another program's source
+       produced a wall nobody could answer — five `dedup` outputs next to a
+       HashMap program. The switcher is a LEGIBILITY instrument, so when it is
+       off q3 the wall says so and shows no options at all, rather than pairing
+       a real source with answers from a different question. */
+    side = '<div class="proj-side"><div class="legibility-only">' +
+      '<b>Legibility test — not a question.</b>' +
+      '<span>This is the source from <b>' + escapeHtml(sourceLabel()) + '</b>, on the wall at ' +
+      'the real size. The five options are <code>q3</code>\'s and would be nonsense here, so they ' +
+      'are not shown.</span>' +
+      '<span>Judge one thing only: <b>can you read it from the back of the room?</b> ' +
+      'Go to <b>4 · the split</b> and the wall returns to the real segment.</span>' +
+      '</div></div>';
+  } else if (p === "live" || p === "closed") {
     side = '<div class="proj-side">' + TONIGHT.options.map(function (o) {
       return '<div class="opt"><span class="letter">' + o.letter + '</span>' +
              '<span class="otext">' + escapeHtml(o.text) + '</span></div>';
@@ -615,6 +640,14 @@ if (document.fonts && document.fonts.ready) {
 function go(phase) {
   state.phase = phase;
   if (phase === "reveal") state.traceStep = 0;
+  /* The split, the reveal and the release all show q3's room data, so the
+     source has to be q3's from the split onwards. Snap back rather than let a
+     legibility test bleed into the segment, and say so instead of doing it
+     silently. */
+  if (sourceKey !== "q3" && (phase === "split" || phase === "reveal" || phase === "released")) {
+    setSource("q3");
+    announce("Back to the real segment — q3.");
+  }
   render();
   announce(({
     idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",
