@@ -65,6 +65,15 @@
   .proj-side { flex: 1; display: flex; flex-direction: column; gap: 8px;
                justify-content: center; min-width: 0; }
 
+  /* Full-width: the source takes the whole wall and the options sit beneath it
+     in two columns. Buys line width, spends line count — see the note in the
+     script. */
+  .proj-main.full { flex-direction: column; gap: 14px; }
+  .proj-main.full .proj-code { flex: 1; min-height: 0; }
+  .proj-main.full .proj-side { flex: none; display: grid; gap: 8px;
+                               grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .proj-main.full .legibility-only { grid-column: 1 / -1; }
+
   .opt { display: flex; align-items: center; gap: 14px; min-height: 52px;
          padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius);
          background: var(--white); font-size: 24px; }
@@ -170,10 +179,14 @@
     <button class="btn" onclick="applyTypeModel(true)">shrink to the smallest legible</button>
     <span class="lbl">screen</span>
     <button class="btn" onclick="setScreen(12)">12ft</button>
+    <button class="btn" onclick="setScreen(15)">15ft</button>
     <button class="btn" onclick="setScreen(20)">20ft</button>
     <span class="lbl">back row</span>
     <button class="btn" onclick="setBackRow(20)">20ft</button>
     <button class="btn" onclick="setBackRow(40)">40ft</button>
+    <span class="lbl" style="margin-left:14px">Wall layout</span>
+    <button class="btn" onclick="setLayout('split')">code beside options</button>
+    <button class="btn" onclick="setLayout('full')">code full-width</button>
     <span class="lbl" style="margin-left:14px">AC-80</span>
     <button class="btn" onclick="setRoom('light')">lights up</button>
     <button class="btn" onclick="setRoom('dim')">lights down</button>
@@ -275,10 +288,16 @@ function setRoom(mode) {
    but arithmetic beats a squint in a browser, and until now there was neither. */
 const WALL_CANVAS_H = 630;   /* mock px representing the full image height */
 const CAP_RATIO     = 0.7;   /* cap height as a fraction of font-size, monospace */
-let   screenWidthFt = 20;
+let   screenWidthFt = 15;   /* client estimate, "pretty big, maybe 15ft" — HYPOTHESIS, to be measured in October */
 let   backRowFt     = 20;
 let   readRatio     = 150;
 let   wallFontPx    = 27;
+/* The wall has a fixed area. It can be spent on WIDTH (source full-bleed,
+   options beneath) or on HEIGHT (source beside the options). Neither dominates:
+   full-width fixes long LINES, split-column fixes long PROGRAMS. Both are built
+   so the trade is looked at rather than argued about. */
+let   wallLayout    = "split";   /* "split" | "full" */
+function setLayout(m) { wallLayout = m; render(); applyTypeModel(false); }
 
 function minLegibleFontPx() {
   const screenHIn = screenWidthFt * 12 * 9 / 16;      /* 16:9 */
@@ -483,6 +502,7 @@ function renderProjector() {
 
   /* At reveal the left column stops being a static listing and becomes the
      program running. The host steps it from their phone (AC-79). */
+  const mainCls = "proj-main" + (wallLayout === "full" ? " full" : "");
   const code = '<div class="proj-code" style="flex-direction:column;gap:14px">' +
     (p === "reveal"
       ? traceSourceHtml(TONIGHT, state.traceStep, { size: "24px", style: "flex:none" }) +
@@ -533,6 +553,7 @@ function renderProjector() {
       '</div>';
   }
 
+  main.className = mainCls;
   main.innerHTML = code + side;
   strip.innerHTML = (p === "live" || p === "closed")
     ? '<span>' + (p === "live" ? "still open — join and pick a letter" : "answers are closed") + '</span><b>' + ROOM.code + '</b>'

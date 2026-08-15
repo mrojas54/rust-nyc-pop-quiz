@@ -582,6 +582,39 @@ the take, not when she picks it — the working test is *would she keep this if 
 better option appeared tomorrow?* **No `DESIGN.md`, no `tone-architect`, no
 build** until the iteration rounds on C are done.
 
+### Round 1 — full-width layout: built, and it settles the question length
+
+Client: *"i dont know how big but pretty big, maybe 15ft, i have to measure or
+ask."* Taken as the working figure and **labelled a hypothesis**, with the
+measurement routed to `mvp/FIELD-NOTES-TEMPLATE.md` so October produces it. Both
+wall layouts are now built and switchable, because neither obviously dominates:
+**full-width buys line width and spends line count.**
+
+Measured at **15ft screen, back row 20ft → 14.2px smallest comfortable type**:
+
+| Source | Code beside options | **Code full-width** |
+|---|---|---|
+| `q3` — 5 lines | fits | fits |
+| `q1` — 16 lines | fits | fits |
+| `q7` — 69ch wide | **56px off the edge** | **fits** |
+| `LAYOUT-35` | 337px across, 294px down | across **fixed**, 294px down |
+
+**Full-width fixes every real question in the bank**, including `q7`, which was
+the widest thing the fan-out had. Adopt it.
+
+**And it produces the number the project has never had: the wall holds 16
+lines.** `q1`, the longest question in the bank, is **exactly 16**. There is no
+headroom at all, and the 16 rests on a guessed screen width — which is precisely
+why the measurement is now in the field notes.
+
+**35 lines is not reachable here, and that is fine.** It would need ~8.6px
+against a 14.2px legible minimum. **D-6's *"no tool can display a 35-line Rust
+program"* was always a statement about what off-the-shelf tools cannot do, not a
+requirement this segment has** — under D-7 nobody reads 35 lines standing up in
+five minutes. The build-vs-borrow argument is unaffected; what changes is that
+**question length is now a bounded, measurable property** rather than an
+assumption.
+
 ### The iteration queue on C, in priority order
 
 | # | Round | Why it is first |
