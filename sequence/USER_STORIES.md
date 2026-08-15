@@ -530,12 +530,19 @@ directions, and neither is a close call:
 
 **Consequences to settle, not yet minted:**
 
-1. **AC-33 loses its phone framing.** *"Code that exceeds the viewport scrolls
-   inside its own container"* was written for a phone. On the room display,
-   AC-79 says the wall carries no interaction beyond host controls — so either
-   the source **fits** on the wall, or the **host** is the only one who can move
-   it, and the room reads at the host's pace. That is a real constraint on
-   question length and it bites at build time, not design time.
+1. **AC-33 loses its phone framing — and this has now been measured.**
+   *"Code that exceeds the viewport scrolls inside its own container"* was
+   written for a phone, where the reader's thumb is the escape hatch. AC-79 says
+   the wall carries no interaction beyond host controls, so on the wall overflow
+   is not scrollable — it is **invisible**, and a horizontal scrollbar is the
+   prototype reporting success at the exact thing it is failing.
+   **Not one question in the verified bank fits the wall at 27px**: `q3` loses
+   168px off the right edge, `q7` loses 605px, and `q1` also loses 212px off the
+   bottom. Direction C therefore needs a sibling criterion that the source
+   **fits** — a bound on question dimensions, not a CSS fix, and so a constraint
+   on the generation pipeline. Kin to **AC-88**. Measured 2026-08-14 with the
+   *source under test* switcher built on the client's observation that the
+   example on screen was not complex enough.
 2. **Explanation and summary on the device — open.** The client said *maybe*.
    Direction C as built refuses it outright: the phone reads *"the why is being
    read out now — listen, don't read."* Reversing that line is the open fork.

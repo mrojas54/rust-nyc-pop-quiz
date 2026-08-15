@@ -34,6 +34,13 @@
   .undersize { margin-top: 6px; font-size: var(--text-xs); color: var(--accent-hover);
                border-left: 3px solid var(--accent); padding-left: 9px; line-height: 1.5; }
   .undersize[hidden] { display: none; }
+
+  /* Louder than the undersize note, because this one is about the product
+     rather than about the window it is being previewed in. */
+  .fitwarn { margin-top: 6px; font-size: var(--text-xs); line-height: 1.5;
+             border: 1px solid #9b2c2c; border-left-width: 3px; border-radius: var(--radius);
+             padding: 7px 10px; color: #9b2c2c; background: #fff5f5; }
+  .fitwarn[hidden] { display: none; }
   .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
   .proj-top { display: flex; justify-content: space-between; align-items: baseline;
               flex: none; margin-bottom: 12px; }
@@ -140,6 +147,12 @@
     <button class="btn" onclick="setDistance(1)">front row</button>
     <button class="btn" onclick="setDistance(0.55)">middle</button>
     <button class="btn" onclick="setDistance(0.33)">6 metres back</button>
+    <span class="lbl" style="margin-left:14px">Source under test</span>
+    <button class="btn" onclick="setSource('q3')">q3 · 5 lines</button>
+    <button class="btn" onclick="setSource('q1')">q1 · 16 lines</button>
+    <button class="btn" onclick="setSource('q7')">q7 · 69ch wide</button>
+    <button class="btn" onclick="setSource('q5')">q5 · 9×50</button>
+    <button class="btn" onclick="setSource('L35')">35 lines · not a question</button>
     <span class="lbl" style="margin-left:14px">AC-80</span>
     <button class="btn" onclick="setRoom('light')">lights up</button>
     <button class="btn" onclick="setRoom('dim')">lights down</button>
@@ -168,6 +181,8 @@
     </div>
     <div class="meta" id="distNote">Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs.</div>
     <div class="undersize" id="undersize" hidden></div>
+    <div class="meta" id="srcNote" style="margin-top:6px"></div>
+    <div class="fitwarn" id="fitWarn" hidden></div>
   </div>
 
   <div class="pair">
@@ -221,6 +236,101 @@ function traceStep(d) {
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
 }
+/* ---- the source under test -------------------------------------------
+   Every direction was built and judged against q3 — which is, by measurement,
+   the JOINT-SHORTEST question in the bank: 5 lines, 42 characters at its
+   widest. It is real and it is verified, but it is the prettiest member of the
+   set, and AC-78 / AC-38 / AC-33 are exactly the criteria that a short source
+   flatters. The stage contract is blunt about this: a prototype validated
+   against pretty data validates nothing.
+
+   So the wall can be driven against any source in the bank, worst cases first.
+   This swaps the SOURCE ONLY, and only in the phases before reveal — the vote,
+   the split and the reveal stay q3's, because the room data is q3's and a split
+   shown against another question's options would be a lie.
+
+   LAYOUT-35 is not a question and must never be mistaken for one. It carries no
+   options, no answer and no receipt, and nothing anywhere claims what it prints
+   — PHILOSOPHY §3 holds. It exists to answer one thing nothing else in this
+   project can: the research names "no mainstream live-quiz tool can display a
+   35-line Rust program" as the gap that disqualified every off-the-shelf option
+   and justified building this (D-6). The verified bank tops out at 16 lines, so
+   that claim has never once been exercised on a real surface. */
+const LAYOUT_35 = [
+  "use std::collections::HashMap;",
+  "",
+  "#[derive(Debug, Clone, PartialEq)]",
+  "enum Token {",
+  "    Word(String),",
+  "    Number(i64),",
+  "}",
+  "",
+  "fn classify(raw: &str) -> Option<Token> {",
+  "    if raw.is_empty() {",
+  "        return None;",
+  "    }",
+  "    match raw.parse::<i64>() {",
+  "        Ok(n) => Some(Token::Number(n)),",
+  "        Err(_) => Some(Token::Word(raw.to_lowercase())),",
+  "    }",
+  "}",
+  "",
+  "fn main() {",
+  "    let line = \"the 3 quick foxes 12 the FOXES\";",
+  "    let mut counts: HashMap<Token, usize> = HashMap::new();",
+  "",
+  "    for raw in line.split_whitespace() {",
+  "        if let Some(tok) = classify(raw) {",
+  "            *counts.entry(tok).or_insert(0) += 1;",
+  "        }",
+  "    }",
+  "",
+  "    let mut seen: Vec<_> = counts.into_iter().collect();",
+  "    seen.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| format!(\"{:?}\", a.0).cmp(&format!(\"{:?}\", b.0))));",
+  "",
+  "    for (tok, n) in seen.iter().take(3) {",
+  "        println!(\"{:?} appeared {} time(s)\", tok, n);",
+  "    }",
+  "}"
+].join("\n");
+
+/* Ordered worst-case-first: the widest line, then the most lines, then the one
+   the takes have been using. */
+const SOURCES = [
+  { key: "q3",  label: "q3 · 5 lines",        get: function () { return TONIGHT.source; } },
+  { key: "q1",  label: "q1 · 16 lines",       get: function () { return bankSource("q1"); } },
+  { key: "q7",  label: "q7 · 69ch wide",      get: function () { return bankSource("q7"); } },
+  { key: "q5",  label: "q5 · 9 lines, 50ch",  get: function () { return bankSource("q5"); } },
+  { key: "L35", label: "35 lines · not a question", get: function () { return LAYOUT_35; } }
+];
+let sourceKey = "q1";
+
+function bankSource(id) {
+  const q = (typeof BANK !== "undefined" ? BANK : []).filter(function (x) { return x.id === id; })[0];
+  return q ? q.source : TONIGHT.source;
+}
+function currentSource() {
+  const s = SOURCES.filter(function (x) { return x.key === sourceKey; })[0];
+  return s ? s.get() : TONIGHT.source;
+}
+function setSource(key) {
+  sourceKey = key;
+  render();
+  const s = SOURCES.filter(function (x) { return x.key === key; })[0];
+  const lines = currentSource().replace(/\n$/, "").split("\n");
+  const widest = Math.max.apply(null, lines.map(function (l) { return l.length; }));
+  document.getElementById("srcNote").innerHTML = key === "L35"
+    ? "<b>This is a layout fixture, not a question.</b> No options, no answer, no receipt, and nothing " +
+      "here claims what it prints. It is 35 lines because the research says a 35-line Rust program is " +
+      "what no off-the-shelf tool can display — the reason this gets built at all. The verified bank " +
+      "tops out at 16 lines, so <b>this is the first time that claim has been put on a surface.</b> " +
+      "If the wall cannot hold it, D-6 needs revisiting, not the CSS."
+    : "<b>" + lines.length + " lines, widest " + widest + " characters.</b> The takes were built against " +
+      "q3 — the joint-shortest question in the bank. Judge AC-78 on the worst source the bank can " +
+      "actually produce, not the one that flatters the layout.";
+  announce("Source under test: " + (s ? s.label : key));
+}
+
 /* ---- fitting the wall ------------------------------------------------
    WALL_W is the design width every px inside the projector was drawn for.
    The frame scales to whatever room it has; `dist` is the back-row test
@@ -298,7 +408,7 @@ function renderProjector() {
     (p === "reveal"
       ? traceSourceHtml(TONIGHT, state.traceStep, { size: "24px", style: "flex:none" }) +
         traceNoteHtml(TONIGHT, state.traceStep, { big: true, noNav: true })
-      : sourceCodeHtml(TONIGHT.source, "What does this program print?", { size: "27px" })) +
+      : sourceCodeHtml(currentSource(), "What does this program print?", { size: "27px" })) +
     '</div>';
 
   let side;
@@ -460,7 +570,48 @@ function renderHost() {
 }
 
 /* ---- transitions ------------------------------------------------------ */
-function render() { renderProjector(); renderParticipant(); renderHost(); }
+/* Does the source actually fit the wall?
+
+   AC-33 says code that exceeds the viewport scrolls inside its own container and
+   the page never scrolls sideways. That was written for a phone, where the
+   reader's thumb is the escape hatch. On the wall there is no thumb: AC-79 says
+   the wall takes no interaction beyond host controls, and under A-4 the source
+   lives ONLY on the wall. So a line that runs past the edge is not scrollable
+   here — it is invisible, and the scrollbar is the take quietly lying about it.
+   This says so out loud instead. */
+function checkWallFit() {
+  const el = document.getElementById("fitWarn");
+  if (!el) return;
+  const sc = document.querySelector("#proj .rn-src-scroll");
+  const body = document.querySelector("#proj .proj-body");
+  if (!sc || !body) { el.hidden = true; return; }
+  const overX = sc.scrollWidth - sc.clientWidth;
+  const overY = body.scrollHeight - body.offsetHeight;
+  if (overX <= 2 && overY <= 2) {
+    el.hidden = true;
+    return;
+  }
+  const bits = [];
+  if (overX > 2) bits.push("<b>" + overX + "px runs off the right-hand edge</b> — on a phone that scrolls, " +
+    "on a wall it is simply not in the room");
+  if (overY > 2) bits.push("<b>" + overY + "px falls off the bottom</b> of a 16:9 frame that cannot grow");
+  el.hidden = false;
+  el.innerHTML = "Does not fit the wall: " + bits.join(", and ") +
+    ". AC-33's container-scroll escape hatch belongs to the phone, and A-4 took the phone away.";
+}
+
+function render() {
+  renderProjector(); renderParticipant(); renderHost();
+  /* Measured synchronously AND after a frame: the serif webfont lands late, and
+     a fit check that runs before it does reports the wall as fitting when it
+     does not. That mis-measurement is exactly the kind of thing this warning
+     exists to catch, so it must not be the first victim of it. */
+  checkWallFit();
+  requestAnimationFrame(checkWallFit);
+}
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () { checkWallFit(); fitWall(); });
+}
 function go(phase) {
   state.phase = phase;
   if (phase === "reveal") state.traceStep = 0;
@@ -485,6 +636,9 @@ mountBadge("Direction C · Projector-first", "no server behind this; the counts 
 state.picked = "A";
 setRoom("light");
 render();
+/* Defaults to q1, not q3: the point of the instrument is that the layout should
+   be judged against the worst source the bank can actually produce. */
+setSource("q1");
 fitWall();
 </script>
 </body>

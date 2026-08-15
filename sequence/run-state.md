@@ -553,6 +553,61 @@ than asserted:
    option would have shipped a five-option question with four real choices.
    Caught in the review surface and fixed there.
 
+## The source under test — and the wall does not fit the bank
+
+**Client, driving C, 2026-08-14:** *"example on screen is not really complex
+enough."* Correct, and the measurement is worse than the impression.
+
+**Every take was built and judged against `q3` — the joint-shortest question in
+the bank**, 5 lines and 42 characters at its widest. Real and verified, but the
+prettiest member of the set, and AC-78 / AC-38 / AC-33 are precisely the criteria
+a short source flatters. The stage contract names this failure directly: *a
+prototype validated against pretty data validates nothing.* It was avoided for
+the room numbers and the explanations and then walked into on the source itself.
+
+| Source | Lines | Widest | Runs off the wall at 27px |
+|---|---|---|---|
+| `q3` *(what every take used)* | 5 | 42ch | **168px horizontally** |
+| `q1` | 16 | 36ch | 87px across, **212px vertically** |
+| `q5` | 9 | 50ch | **298px horizontally** |
+| `q7` | 5 | 69ch | **605px horizontally** |
+| `LAYOUT-35` *(fixture, not a question)* | 35 | 101ch | **1140px across, 1029px down** |
+
+**Instrument built:** a *source under test* switcher on Direction C, worst case
+first, defaulting to **`q1` rather than `q3`**. It swaps the source only, and
+only before reveal — the vote, the split and the reveal stay `q3`'s, because the
+room data is `q3`'s and a split shown against another question's options would be
+a lie. The take now also states the overflow on screen rather than letting a
+scrollbar absorb it.
+
+### Three findings, in rising order of consequence
+
+1. **Not one question in the bank fits the wall at 27px.** Even the 5-line `q3`
+   loses 168px off the right edge. This was invisible because the source well
+   scrolls horizontally — which looks like AC-33 being satisfied.
+2. **AC-33 does not transfer to the wall, and A-4 is why.** *"Code that exceeds
+   the viewport scrolls inside its own container"* was written for a phone, where
+   the reader's thumb is the escape hatch. **AC-79** says the wall takes no
+   interaction beyond host controls, and **A-4** put the source on the wall and
+   nowhere else. So on the wall, overflow is not scrollable — it is **invisible**,
+   and the scrollbar is the prototype quietly lying. Direction C needs a sibling
+   criterion that the source **fits**, which is a bound on question dimensions,
+   not a CSS fix. Candidate kin to **AC-88** (difficulty calibration) and a
+   constraint on the generation pipeline.
+3. **The 35-line claim has never been tested, and this design fails it too.**
+   Dimension 1 and **D-6** rest on *"no mainstream live-quiz tool can display a
+   35-line Rust program"* — that is the entire build-vs-borrow argument. The
+   verified bank tops out at 16 lines, so no artifact in this project has ever
+   displayed one. The fixture does, and the wall loses 1140px across and 1029px
+   down. Either the segment never uses sources that long — plausible under D-7,
+   one question in five minutes — **or the type size drops, which trades directly
+   against AC-78**, the criterion C lives on. That trade is real, unmade, and
+   belongs to T-12 and `tone-architect`.
+
+`LAYOUT-35` carries no options, no answer and no receipt, and nothing anywhere
+claims what it prints — `PHILOSOPHY.md` §3 holds. It is a layout fixture and the
+take says so on screen.
+
 ## Defect found by the T-12 drive-through — the wall did not fit its window
 
 **Found 2026-08-14 by the client, on a screenshot**, driving Direction C in a
