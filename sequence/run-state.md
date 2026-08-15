@@ -583,11 +583,24 @@ a shrunken mock is not judged at all, and the take should say that itself rather
 than rely on whoever is driving remembering it. Same reasoning as the back-row
 buttons existing at all.
 
-**Not fixed: Direction B's projector mirror has the identical defect** (measured
-143px of overflow at the same width). Left alone deliberately — B was eliminated
-by A-4, and Phase 1c already declined component fidelity on takes that get
-discarded at T-12. **Direction A is unaffected**; its wall is a single column and
-survives shrinking. Recorded so nobody rediscovers it as a new bug.
+**Direction B had the identical defect** (143px of overflow) and was initially
+left alone as disproportionate work on an eliminated direction — **client call:
+fix it**, done the same day. Ported at B's own design width (940px, not 1120px),
+without the back-row factor, because in that direction the wall is a mirror and
+nothing is judged on its legibility.
+
+**Fixing it surfaced a second, independent defect in B that scaling had been
+hiding.** Even at design width the reveal phase pushed ~43px out of the frame:
+`.joinbox` is `flex: 0 0 auto` and its reveal stack — brand, split bars, and a
+**343px block of prose** — could not fit a fixed 16:9 wall. The prose now scrolls
+in its own container, which is AC-33's rule applied to the wall. **In this
+direction that is the honest shape anyway**: under B the explanation belongs on
+the phone and the wall is only mirroring it, so a wall that cannot hold the full
+prose is telling the truth about the direction rather than failing at it.
+
+Verified clean afterwards at **every phase of both takes** — B across all seven,
+C across all six. **Direction A was unaffected throughout**; its wall is a single
+column and survives shrinking.
 
 ## Phase 1b — client testimony reopens the philosophy, 2026-08-14
 

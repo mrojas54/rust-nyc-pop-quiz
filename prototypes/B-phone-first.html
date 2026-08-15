@@ -75,6 +75,29 @@
   .lobby { flex: 1; display: grid; place-items: center; text-align: center; }
 
   /* ---- projector (secondary in this direction) --------------------- */
+  /* Same fit as Direction C, at this wall's own design width. Everything inside
+     is px-sized for a 940px mirror; without the fit layer the box shrinks below
+     that and its contents overflow the 16:9 frame and collide. No back-row
+     factor here — this wall is a mirror, not the surface AC-78 is judged on. */
+  .proj-fit  { width: 100%; overflow: hidden; transition: height .25s ease; }
+  .proj-wrap { width: 940px; transform-origin: top left; transition: transform .25s ease; }
+  .proj-wrap .projector { width: 940px; max-width: none; }
+
+  /* .proj-main carries min-height:0; its children did not, so a flex item never
+     shrank below its content and the reveal phase pushed ~43px out of the frame
+     even at design width. The source well scrolls inside itself (AC-33) rather
+     than growing the wall. */
+  .proj-main > * { min-height: 0; }
+  .proj-main .rn-src { display: flex; flex-direction: column; }
+  .proj-main .rn-src-scroll { overflow-y: auto; }
+  /* The reveal stacks brand + split bars + a long prose block into a fixed 16:9
+     frame; the prose was 343px of it and pushed the rest out. It scrolls in its
+     own container instead (AC-33's rule, applied to the wall). In this direction
+     that is the honest shape anyway — the explanation belongs on the phone here,
+     and the wall is only mirroring it. */
+  .joinbox { display: flex; flex-direction: column; min-height: 0; }
+  .joinbox > *:last-child { min-height: 0; overflow-y: auto; }
+
   .proj-body { flex: 1; display: flex; flex-direction: column; padding: 22px 28px; min-height: 0; }
   .proj-top { display: flex; justify-content: space-between; align-items: baseline; flex: none;
               margin-bottom: 12px; }
@@ -175,13 +198,17 @@
 
   <div class="col" style="width:100%">
     <div class="frame-label">Room display · a mirror in this direction, not the product</div>
-    <div class="projector" id="proj" style="max-width: 940px;">
-      <div class="proj-body">
-        <div class="proj-top">
-          <span class="proj-brand">Rust NYC · Pop Quiz</span>
-          <span class="proj-brand" id="projPhase">—</span>
+    <div class="proj-fit" id="projFit">
+      <div class="proj-wrap" id="projWrap">
+        <div class="projector" id="proj">
+          <div class="proj-body">
+            <div class="proj-top">
+              <span class="proj-brand">Rust NYC · Pop Quiz</span>
+              <span class="proj-brand" id="projPhase">—</span>
+            </div>
+            <div class="proj-main" id="projMain"></div>
+          </div>
         </div>
-        <div class="proj-main" id="projMain"></div>
       </div>
     </div>
   </div>
@@ -509,9 +536,26 @@ function publishHint() { state.hintShown = true; render(); announce("Hint publis
 function pullHint() { state.hintPulled = true; render();
   announce("Hint shown on your phone only. Nobody else was told."); }
 
+/* The mirror lays out at its design width and scales to fit — see the CSS note.
+   No back-row factor: in this direction the wall is a mirror of what is already
+   on every phone, so nothing is judged on its legibility. */
+const WALL_W = 940;
+function fitWall() {
+  const fit = document.getElementById("projFit");
+  const wrap = document.getElementById("projWrap");
+  if (!fit || !wrap) return;
+  const avail = fit.clientWidth;
+  const s = Math.min(avail / WALL_W, 1);
+  wrap.style.transform = "scale(" + s + ")";
+  wrap.style.marginLeft = Math.round((avail - WALL_W * s) / 2) + "px";
+  fit.style.height = Math.round(wrap.offsetHeight * s) + "px";
+}
+window.addEventListener("resize", fitWall);
+
 mountBadge("Direction B · Phone-first", "no server behind this; the counts are fixed");
 state.picked = "A";
 render();
+fitWall();
 </script>
 </body>
 </html>
