@@ -91,7 +91,7 @@ room will believe it — and it sits under a verification badge that did not che
 it.*
 
 The machine establishes the **answer**. It does not establish the prose. A wrong
-answer gets caught by the room arguing, which is the outcome we want anyway; a
+answer gets caught by the room working through it, which is the outcome we want anyway; a
 wrong explanation gets believed and repeated. This story exists because the
 verification receipt lends the explanation credibility it has not earned.
 
@@ -143,7 +143,7 @@ to an answer.*
 
 ### Story B3 — The reveal
 *As an attendee, I want to see the answer, why, and what the room thought — that
-is the moment the argument starts.*
+is the moment the room starts working it out together.*
 
 | ID | Criterion |
 |---|---|
@@ -202,7 +202,7 @@ reveal, not merely hidden.*
 
 ### Story B8 — The room display
 *As an attendee at the back of a dim room, I want to read the program off the
-screen at the front, because that is where the argument actually happens.*
+screen at the front, because that is where the room works through it together.*
 
 The projector is not a big phone. It is a distinct surface with its own
 constraints, and it is arguably the primary one — the phone is an input device,
@@ -233,12 +233,12 @@ draft of these stories dropped.
 
 ### Story B10 — One question, at the end, and then the room is released
 *As an organizer, I want the segment to be one question in the last five minutes
-of the night, so the argument it starts is never the thing I have to interrupt.*
+of the night, so the working-through it starts is never the thing I have to interrupt.*
 
 The segment was specified as a multi-question round because that is what a quiz
 is. It does not need to be. The product is the disagreement, and a disagreement
 needs somewhere to go — mid-meetup the only place it can go is *cut off*, so the
-round was competing with its own output. Placed last, the argument leaves the
+round was competing with its own output. Placed last, the working-through leaves the
 room under its own power.
 
 | ID | Criterion |
@@ -269,7 +269,7 @@ specifically for *"pairs up new people with more experienced engineers"*, and
 |---|---|
 | **AC-93** | The room's split is shown **before** the correct answer, as its own phase, and the reveal cannot be reached without passing through it. Order is the mechanism, not a preference: a split shown *after* the answer is a scoreboard. |
 | **AC-94** | No participant-facing surface marks a participant's **own** answer as incorrect — no ✗, no red, no "you were wrong". The correct option is marked (AC-40 still applies to the *answer*); the participant's own choice is marked only with the number of people who chose the same thing. |
-| **AC-95** | The explanation **names the most-chosen incorrect option**, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — *what happened* / *why the popular wrong answer is tempting* / *the bit worth arguing about* — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72. |
+| **AC-95** | The explanation **names the most-chosen incorrect option**, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — *what happened* / *why the popular wrong answer is tempting* / *the bit worth taking away* — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72. |
 | **AC-96** | The explanation's **first beat** is understandable to someone who knows only beginner Rust, without the other two. `felt` — same instrument as AC-44, sampled by asking one attendee at a real meetup. |
 
 **The private hint lives at AC-48, not here.** It was raised as a conflict at
@@ -315,9 +315,9 @@ before anyone writes criteria for them.
 
 - Is a timer wanted at all, or does it cut arguments short? The MVP makes it
   optional deliberately, to find out. *Narrowed by Story B10 — inside a
-  five-minute closer the timer competes with the argument for the same 30
+  five-minute closer the timer competes with the working-through for the same 30
   seconds, so the MVP run should try it without.*
-- Do phones help or hurt? A show of hands is louder and more argumentative, and
+- Do phones help or hurt? A show of hands is louder and more talkative, and
   it needs no infrastructure. If the room prefers hands, stories B1/B5 lose most
   of their weight and the project gets much smaller. *One question a night makes
   this cheaper to answer and much more consequential — see the note under B5.*
@@ -562,7 +562,7 @@ to trace on their full monitor."*
 **Why it beats the phone.** Every option on the table traded §9's private pace
 against the room's attention — prose on fifty phones during the reveal is fifty
 people not looking at the wall or at each other, in the exact ninety seconds the
-argument is supposed to start. The link **moves the private pace off the phone
+room is supposed to be working through it together. The link **moves the private pace off the phone
 and out of the segment entirely**: the room stays a room, and the newcomer gets
 to step the trace afterwards, on a real screen, as many times as they like, with
 nobody watching. It is also the literal form of the one thing — *placed last,
