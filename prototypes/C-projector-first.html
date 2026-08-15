@@ -47,6 +47,12 @@
   .typenote.ok  { border-left-color: var(--green); }
   .typenote.bad { border-left-color: #9b2c2c; color: #9b2c2c; }
 
+  .workbeat { display: flex; flex-direction: column; gap: 10px; margin-top: 16px;
+              border-left: 4px solid var(--accent); padding-left: 14px; font-size: 21px;
+              line-height: 1.45; color: var(--text-secondary); }
+  .workbeat b { color: var(--text); font-size: 30px; font-family: var(--serif); }
+  .workbeat .second { font-size: 18px; }
+
   .legibility-only { display: flex; flex-direction: column; gap: 12px;
                      border: 2px dashed var(--border); border-radius: var(--radius);
                      padding: 18px 20px; font-size: 19px; line-height: 1.5;
@@ -162,8 +168,9 @@
     <button class="btn" onclick="go('live')">2 · question live</button>
     <button class="btn" onclick="go('closed')">3 · answers closed</button>
     <button class="btn" onclick="go('split')">4 · the split</button>
-    <button class="btn" onclick="go('reveal')">5 · reveal</button>
-    <button class="btn" onclick="go('released')">6 · released</button>
+    <button class="btn" onclick="go('work')">5 · work through it</button>
+    <button class="btn" onclick="go('reveal')">6 · reveal</button>
+    <button class="btn" onclick="go('released')">7 · released</button>
     <span class="lbl" style="margin-left:14px">AC-78 · the back-row test</span>
     <button class="btn" onclick="setDistance(1)">front row</button>
     <button class="btn" onclick="setDistance(0.55)">middle</button>
@@ -245,7 +252,7 @@
           <b>Reworked against the room's own feedback:</b> <em>everything is very intimidating; people aren't allowed to be wrong.</em> The buzzer no longer grades you — <b>no ✓, no ✗</b>. At the split and the reveal it shows one number: how many people said what you said. The verdict is on the projector, about the answer, never about the person. A quiet pull-your-own hint is proposed here too.
         </div>
         <p style="margin-top:0"><b>AC-91 becomes a typography problem.</b> Thirty seconds to form an opinion is the whole budget the format allows. Here that is decided by one thing — how big the code is set on one screen — instead of by fifty different phones held at fifty distances.</p>
-        <p><b>The explanation is spoken, not read.</b> B puts the prose on every phone; C puts it only in the host's hand and on the projector's receipt. Everyone hears it at the same time, which is the version that actually starts an argument. It also means AC-42 ("reads well aloud") stops being aspirational and becomes the only way the explanation is ever delivered.</p>
+        <p><b>The explanation is spoken, not read.</b> B puts the prose on every phone; C puts it only in the host's hand and on the projector's receipt. Everyone hears it at the same time, which is the version that actually spreads the understanding — the people who have it telling the people who don't, rather than two people debating in front of everyone. It also means AC-42 ("reads well aloud") stops being aspirational and becomes the only way the explanation is ever delivered.</p>
         <p><b>What it costs.</b> Someone in the back who cannot read the screen has no fallback — there is no code on their phone. AC-32's "legible without pinch-zoom on a 375px phone" has no surface to apply to, and would need withdrawing or rewriting against the projector instead.</p>
         <p style="margin-bottom:0"><b>What it buys.</b> The join path and write burst still exist, but the participant client is five buttons — the smallest thing that can still produce a real anonymous count, and the least that can go wrong in front of the room.</p>
       </div>
@@ -525,7 +532,7 @@ function renderProjector() {
   if (p === "released") {
     phase.textContent = "that's the night";
     main.className = "title-card";
-    main.innerHTML = '<div><h2>Keep arguing.</h2><p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
+    main.innerHTML = '<div><h2>Keep working through it.</h2><p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
       'The count expired with the room. No names, no scores, nothing to look up tomorrow.</p></div>';
     strip.style.display = "none";
     return;
@@ -538,7 +545,7 @@ function renderProjector() {
      program running. The host steps it from their phone (AC-79). */
   const mainCls = "proj-main" + (wallLayout === "full" ? " full" : "");
   const code = '<div class="proj-code" style="flex-direction:column;gap:14px">' +
-    (p === "reveal"
+    (p === "reveal" || p === "work"
       ? traceSourceHtml(TONIGHT, state.traceStep, { size: "24px", style: "flex:none" }) +
         traceNoteHtml(TONIGHT, state.traceStep, { big: true, noNav: true })
       : sourceCodeHtml(currentSource(), "What does this program print?", { size: wallFontPx + "px" })) +
@@ -578,6 +585,13 @@ function renderProjector() {
         ? '<div class="company" style="margin-top:16px;font-size:19px">' +
           '<span class="n" style="font-size:38px">' + ROOM.votes.A + '</span>' +
           '<span>of us read it the same way. No answer yet.</span></div>'
+        : p === "work"
+        ? '<div class="workbeat">' +
+          '<b>Work through it.</b>' +
+          '<span>Find someone who picked something else and ask them what they saw ' +
+          '\u2014 not to settle it, just to hear it.</span>' +
+          '<span class="second">Then we walk the program together. Still no answer.</span>' +
+          '</div>'
         : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
           '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
           '<div class="receipt" style="margin-top:10px;font-size:15px">' +
@@ -613,13 +627,17 @@ function renderParticipant() {
 
   /* The split beat, on the phone. You learn you are not alone BEFORE you learn
      you were wrong — and in this direction you learn it while looking up. */
-  if (p === "split" || p === "reveal") {
+  if (p === "split" || p === "work" || p === "reveal") {
     const mine = state.picked || "A";
     const n = ROOM.votes[mine];
     const others = n - 1;
     b.innerHTML =
-      '<div class="buzz-head"><div class="lookup"><b>Look up.</b> ' +
-        (p === "split" ? "Where the room landed." : "The answer is on the screen.") +
+      /* During 'work' the beat points at the room, not the wall — "Look up"
+         would be telling them to do the opposite of what the phase asks. */
+      '<div class="buzz-head"><div class="lookup">' + (p === "work" ? '' : '<b>Look up.</b> ') +
+        (p === "split" ? "Where the room landed."
+          : p === "work" ? "Turn to someone near you."
+          : "The answer is on the screen.") +
       '</div></div>' +
       '<div class="buzz-verdict"><div>' +
       /* No ✓ and no ✗. The number is the message: you are one of n, not one of
@@ -633,6 +651,8 @@ function renderParticipant() {
       '<p class="meta" style="max-width:230px;margin:14px auto 0">' +
         (p === "split"
           ? 'Five different readings of four lines. Nobody knows who picked what — including us.'
+          : p === "work"
+          ? 'Ask them what they saw. You are not checking who was right — nobody knows yet.'
           : (others > 0
               ? 'You and ' + others + ' other people read it the same way. The why is being read out now — listen, don\'t read.'
               : 'You were the only one, which makes yours the most interesting answer in the room.')) +
@@ -642,7 +662,7 @@ function renderParticipant() {
     return;
   }
 
-  const locked = (p === "closed" || p === "split");
+  const locked = (p === "closed" || p === "split" || p === "work");
   b.innerHTML =
     '<div class="buzz-head"><div class="lookup">' +
       (locked ? 'Answers closed. You said <b>' + (state.picked || "—") + '</b>.'
@@ -686,7 +706,7 @@ function renderHost() {
       '<p class="meta"><b>' + ROOM.answered + '</b> answered · <b>' + ROOM.present + '</b> in the room. No timer.</p>' +
       '<div class="no-preview"><b>No hint button here any more.</b> It sits on every phone, pullable at any time, and nobody is told who took it — AC-48 rewritten at T-13. In this direction that is the phone\'s <em>only</em> text, which makes it the one thing the buzzer is for besides five letters.</div>' +
       '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
-  } else if (p === "closed" || p === "split") {
+  } else if (p === "closed" || p === "split" || p === "work") {
     html = head("step 3 of 4", "Let it sit") +
       '<div class="stack">' +
       (p === "closed"
@@ -762,12 +782,12 @@ if (document.fonts && document.fonts.ready) {
 }
 function go(phase) {
   state.phase = phase;
-  if (phase === "reveal") state.traceStep = 0;
+  if (phase === "work" || phase === "reveal") state.traceStep = 0;
   /* The split, the reveal and the release all show q3's room data, so the
      source has to be q3's from the split onwards. Snap back rather than let a
      legibility test bleed into the segment, and say so instead of doing it
      silently. */
-  if (sourceKey !== "q3" && (phase === "split" || phase === "reveal" || phase === "released")) {
+  if (sourceKey !== "q3" && (phase === "split" || phase === "work" || phase === "reveal" || phase === "released")) {
     setSource("q3");
     announce("Back to the real segment — q3.");
   }
@@ -775,6 +795,7 @@ function go(phase) {
   announce(({
     idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",
     closed: "Answers are closed.", split: "The room's split is shown. No answer yet.",
+    work: "Work through it. Find someone who picked differently, then we walk the program together. Still no answer.",
     reveal: "Revealed. The correct answer is E.", released: "Segment complete. Nothing was recorded."
   })[phase] || phase);
 }

@@ -613,6 +613,30 @@ itself is what makes this cheap.
   link never changes, so it can be printed on anything; the page behind it
   rotates. `PHILOSOPHY.md` §8 — *prefer the smaller mechanism* — a fourth time.
 
+### 2026-08-14 — A-5: the one thing changes, and Story B11 gains a phase
+
+Client testimony: *"no, work through it. not argument, understanding through
+repetition and knowledge sharing."*
+
+`PHILOSOPHY.md` said **the argument is the product** from Stage 1. It now says
+the **understanding** is, reached by working through it together. **An argument
+has sides and a winner** — the thing §9 exists to prevent. Full reasoning in
+`PHILOSOPHY.md`'s one thing and at **A-5** in `run-state.md`.
+
+**No AC changes meaning**, and that is worth stating plainly: not one criterion
+was written in terms of winning an argument, which is some evidence the criteria
+were closer to the truth than the thesis sentence above them. **AC-44** —
+*a beginner can explain the solution to someone else* — reads as the most
+load-bearing criterion in the file under the new wording, not the old one.
+
+**Owed, and deliberately not minted here:** *working through it* is now a built
+phase of the product — the room shares readings, then walks the trace together,
+before any answer is shown — and nothing in this file requires it. It belongs
+under **Story B11** beside AC-93's ordering rule, and it needs the same care
+AC-93 got: the order **share → repeat → resolve** is the mechanism, not a
+preference. Left for the round that mints it rather than slipped in as a
+consequence.
+
 ---
 
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.

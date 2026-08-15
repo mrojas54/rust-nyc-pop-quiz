@@ -126,6 +126,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | A-1 | `research/01-problem-and-people.md` | Verdict "problem unproven; solution in search of a problem" **withdrawn**. Client testimony — *"attendees had gotten all answers over and over, we stopped doing dtolnay's quiz at all"* — is primary evidence that the problem is observed, acute, and terminal. Amendment recorded in-file; original retained for the record. |
 | A-3 | `PHILOSOPHY.md` (new §9), `sequence/USER_STORIES.md` (new Story B11 / AC-93…AC-96) | **Client testimony 2026-08-14, unprompted:** *"i want newbies to be able to be wrong. the feedback we get and it's surfaced in women in rust is: everything is very intimidating. people aren't allowed to be wrong."* Principle 6 protected the **record**; nothing protected the **moment**, and they are not the same thing. Nothing anywhere in the corpus had mentioned intimidation — Dimension 6 §4b could see the beginner *want* but had no account of the *cause*. Same evidence class as A-1. Details in Stage 2 Phase 1b below. |
 | A-4 | `sequence/USER_STORIES.md` (**AC-32** rewritten) | **Client call 2026-08-14, during the T-12 drive-through:** *"AC-32, should not put it on the phone, only options to vote on, code and tracing need to be on screen, maybe explanation and summary."* AC-32 asked how well source reads on a phone; the answer is that it should not be there. Rewritten to: neither source nor trace is rendered on any participant device. **Eliminates Direction B** (its assumption is that the phone carries the code) **and Direction A** (*"only options to vote on"* presumes a device), leaving **C** — stated by the client in her own words, not picked off a menu. Open: explanation/summary on the device, and with it §9's private pace. |
+| **A-5** | `PHILOSOPHY.md` (**the one thing**, §5, §7, §8, §9 and principle 2), all four takes | **Client testimony 2026-08-14, and the largest amendment in the arc — it changes the thesis, not a principle.** *"no, work through it. not argument, understanding through repetition and knowledge sharing."* Stage 1 wrote **"the quiz is a pretext, the argument is the product"** and everything downstream was judged against it. **An argument has sides and a winner**, which is what §9 exists to prevent — the room's own feedback is that everything is intimidating and people are not allowed to be wrong, and a newcomer will not enter an argument. The corpus already agreed with the client and nobody noticed: **AC-44**, called the criterion that matters most, is *a beginner can explain the solution to someone else* — knowledge sharing, not debate — and Dimension 6 records an attendee asking unprompted for *"pairs up new people with more experienced engineers."* The origin story is that a memorised bank produced **no conversation at all**; *argument* was an inference drawn from that in Stage 1 and never had evidence behind it. New one thing: **the quiz is a pretext, the understanding is the product, and the room gets there by working through it together — going over it again, and the people who know it telling the people who don't.** |
 | A-2 | `research/06-attendees.md` §2, §6 | Finding *"AC-52's 200 is ~2× the observed ceiling"* **withdrawn**. The 110-RSVP figure is a **venue supply cap, not a demand ceiling** — every event sold out with a waitlist. Client testimony: bigger venues in progress, **Jun 26 Summer Social 200 and sold out**. AC-52 stands at 200. Replaced by a sharper open variable: the **participation rate**, never measured. Original reasoning retained in-file. |
 
 ## Keystone decisions
@@ -652,6 +653,41 @@ old fixed-27px wall was silently truncating. Second reason to adopt full-width.
 usable code area. The first cut omitted the line-number gutter and the well's
 padding and overflowed by 40–80px, which is worth knowing before anyone
 reimplements it.
+
+### Round 2 — the beat the one thing never had
+
+**Found by the client asking one word: *"arguing?"*** The design had no place where
+anyone worked anything out. The split was a *screen*, not a beat: the wall showed
+the camps, said *"no answer yet"*, and the host clicked straight to the reveal.
+The end card said **"Keep arguing."** — the product asking for the thing it never
+made room for. The stage had spent its attention on whether the room could *read*
+the wall and never asked what happens after they have read it.
+
+**The first proposal was wrong and is recorded because it is the obvious one.**
+*"A says `[1, 2, 3]`. E says `[1, 2, 3, 2, 1]`. Someone from each — why?"* That
+asks two people to defend a position in front of the room, which is exactly what
+§9 was minted to prevent. It was proposed one turn after §9 was cited as the
+point. The client rejected it and replaced the frame — see **A-5**.
+
+**Built: phase `5 · work through it`, between the split and the reveal.**
+
+| | |
+|---|---|
+| **Knowledge sharing** | The wall: *"Find someone who picked something else and ask them what they saw — not to settle it, just to hear it."* The phone drops its *"Look up"* prefix here and reads **"Turn to someone near you"** — the only phase that points at the room instead of the wall. |
+| **Repetition** | The room then walks the trace **together, before the answer**. The trace already existed but sat *after* the reveal, where it justified a settled result. Moved in front of it, the second pass through the program is what **produces** the understanding rather than what explains it. |
+| **Still no answer** | The correct option is not marked and the receipt is not shown. Caught during the build: the first cut fell through to the reveal branch and put **E and the verification receipt on the wall during the beat**, which would have made the whole phase pointless. |
+
+Order is **share → repeat → resolve**, and `take-it-home` is the third
+repetition, alone, later. End card is now **"Keep working through it."**
+
+**Cost, and it is real:** AC-89 gives the segment 3–5 minutes and this beat wants
+60–90 seconds of it. That is the first thing in this stage that *spends* the
+budget rather than saving it, and under A-5 it is the part that should be
+protected when something has to give.
+
+**Criterion owed, not yet minted:** working through it is now a named phase of
+the product and nothing in `USER_STORIES.md` requires it. Candidate under Story
+B11, alongside AC-93's ordering rule.
 
 ### The iteration queue on C, in priority order
 
