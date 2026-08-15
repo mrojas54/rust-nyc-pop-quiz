@@ -594,15 +594,48 @@ scrollbar absorb it.
    criterion that the source **fits**, which is a bound on question dimensions,
    not a CSS fix. Candidate kin to **AC-88** (difficulty calibration) and a
    constraint on the generation pipeline.
-3. **The 35-line claim has never been tested, and this design fails it too.**
-   Dimension 1 and **D-6** rest on *"no mainstream live-quiz tool can display a
-   35-line Rust program"* — that is the entire build-vs-borrow argument. The
-   verified bank tops out at 16 lines, so no artifact in this project has ever
-   displayed one. The fixture does, and the wall loses 1140px across and 1029px
-   down. Either the segment never uses sources that long — plausible under D-7,
-   one question in five minutes — **or the type size drops, which trades directly
-   against AC-78**, the criterion C lives on. That trade is real, unmade, and
-   belongs to T-12 and `tone-architect`.
+3. **The 35-line claim has never been tested.** Dimension 1 and **D-6** rest on
+   *"no mainstream live-quiz tool can display a 35-line Rust program"* — the
+   entire build-vs-borrow argument. The verified bank tops out at 16 lines, so no
+   artifact in this project had ever displayed one. The fixture does.
+
+### Correction, same day — the 27px was arbitrary and the numbers above assume it
+
+**Client:** *"it doesn't have to be 27px on a projector 20ft screen does it."*
+**No, and nothing ever derived it** — it was chosen to look right in a browser
+and then every overflow figure above was measured against it. A px in this mock
+is not a physical size: the wall is a 1120×630 canvas standing in for the *whole
+projected image*, so 27px means **each line is 4.3% of screen height** — roughly
+**8.6 inches** on a 20-foot screen, far more type than any room needs.
+
+What governs legibility is cap height against viewing distance. Rule of thumb:
+cap height ≥ distance / 150 for comfortable reading of detailed content, / 200
+for basic legibility. Code is read carefully, so 150 is the honest default.
+
+| 20ft-wide screen (11.25ft tall) | back row 20ft | back row 40ft |
+|---|---|---|
+| Smallest comfortable type, in mock px | **≈10.7px** | ≈21px |
+| Headroom over the as-built 27px | **2.5×** | 1.3× |
+
+**Re-measured at 10.7px, the 35-line fixture nearly fits** — 118px over
+horizontally and 119px over vertically, against **1140px and 1029px at 27px**.
+The earlier figures stand only as *"at 27px"* and are not a verdict on the
+design.
+
+**What that leaves is a layout finding rather than a legibility one.** The wall
+spends ~43% of its width on the options column, so the source gets ~620px of a
+1120px wall. Full-width source with the options beneath it would absorb the
+horizontal overflow outright; the vertical is tighter — 35 lines at 10.7px needs
+~561px against ~426px of code area, and reclaiming the full wall height gets it
+to roughly 10.1px, marginally under the comfortable minimum. So **35 lines is at
+the edge, not beyond it**, and the two-column layout is what decides it.
+
+**Instrument built:** the type size is now derived from screen width, back-row
+distance and the chosen ratio, with *"shrink to the smallest legible"* on the
+wall, and the take states the implied cap height in inches. It is labelled a rule
+of thumb — **AC-78 is `felt`**, and October's field notes are where a real back
+row settles it. But arithmetic beats a squint in a browser, and until now there
+was neither.
 
 `LAYOUT-35` carries no options, no answer and no receipt, and nothing anywhere
 claims what it prints — `PHILOSOPHY.md` §3 holds. It is a layout fixture and the

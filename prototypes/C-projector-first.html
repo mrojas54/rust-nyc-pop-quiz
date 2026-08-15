@@ -42,6 +42,11 @@
              padding: 7px 10px; color: #9b2c2c; background: #fff5f5; }
   .fitwarn[hidden] { display: none; }
 
+  .typenote { margin-top: 6px; font-size: var(--text-xs); line-height: 1.5;
+              border-left: 3px solid var(--border); padding-left: 9px; color: var(--text-secondary); }
+  .typenote.ok  { border-left-color: var(--green); }
+  .typenote.bad { border-left-color: #9b2c2c; color: #9b2c2c; }
+
   .legibility-only { display: flex; flex-direction: column; gap: 12px;
                      border: 2px dashed var(--border); border-radius: var(--radius);
                      padding: 18px 20px; font-size: 19px; line-height: 1.5;
@@ -160,6 +165,15 @@
     <button class="btn" onclick="setSource('q7')">q7 · 69ch wide</button>
     <button class="btn" onclick="setSource('q5')">q5 · 9×50</button>
     <button class="btn" onclick="setSource('L35')">35 lines · not a question</button>
+    <span class="lbl" style="margin-left:14px">Type size · derived, not guessed</span>
+    <button class="btn" onclick="setWallFont(27)">27px (as built)</button>
+    <button class="btn" onclick="applyTypeModel(true)">shrink to the smallest legible</button>
+    <span class="lbl">screen</span>
+    <button class="btn" onclick="setScreen(12)">12ft</button>
+    <button class="btn" onclick="setScreen(20)">20ft</button>
+    <span class="lbl">back row</span>
+    <button class="btn" onclick="setBackRow(20)">20ft</button>
+    <button class="btn" onclick="setBackRow(40)">40ft</button>
     <span class="lbl" style="margin-left:14px">AC-80</span>
     <button class="btn" onclick="setRoom('light')">lights up</button>
     <button class="btn" onclick="setRoom('dim')">lights down</button>
@@ -190,6 +204,7 @@
     <div class="undersize" id="undersize" hidden></div>
     <div class="meta" id="srcNote" style="margin-top:6px"></div>
     <div class="fitwarn" id="fitWarn" hidden></div>
+    <div class="typenote" id="typeNote" style="margin-top:6px"></div>
   </div>
 
   <div class="pair">
@@ -225,7 +240,7 @@
   </div>
 
   <div class="note">
-    <b>Real data.</b> Verified <code>q3</code> from <code>mvp/2026-08-12/</code>, answer at E as drawn. <b>Set at 27px here</b> — roughly double Direction B's phone size — because that is the claim this direction is making and it should be judged, not asserted. The back-row buttons scale the whole frame rather than the type, so what you see is what the room sees.
+    <b>Real data.</b> Verified <code>q3</code> from <code>mvp/2026-08-12/</code>, answer at E as drawn. <b>Type size is derived, not chosen.</b> It was 27px because that looked right in a browser — but a px here is a fraction of the whole projected image, not a physical size, and 27px is about 8.6in of capital letter on a 20ft screen. The controls above compute the smallest comfortable type from screen width and back-row distance (cap height ≥ distance/150) and the note below states the implied inches. Rule of thumb, not a measurement: AC-78 is <code>felt</code> and October settles it. The back-row buttons scale the whole frame rather than the type, so what you see is what the room sees.
   </div>
 </div>
 
@@ -243,6 +258,59 @@ function traceStep(d) {
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
 }
+/* ---- how big does the type actually have to be? -----------------------
+   The wall was set at 27px because it looked right in a browser. Nothing
+   derived it, and the client caught that: a px in this mock is not a physical
+   size. The mock is a 1120×630 canvas standing in for the WHOLE projected
+   image, so 27px means "each line is 4.3% of screen height" — about 8.6 inches
+   on a 20-foot screen, which is far more type than any room needs.
+
+   What governs legibility is character height against viewing distance. The
+   widely used rule of thumb is cap height >= distance / 150 for comfortable
+   reading of detailed content, and / 200 for basic legibility. Code is read
+   carefully, so 150 is the honest default.
+
+   This is a rule of thumb and it is labelled as one. AC-78 is `felt` and the
+   October field notes are where it gets checked against an actual back row —
+   but arithmetic beats a squint in a browser, and until now there was neither. */
+const WALL_CANVAS_H = 630;   /* mock px representing the full image height */
+const CAP_RATIO     = 0.7;   /* cap height as a fraction of font-size, monospace */
+let   screenWidthFt = 20;
+let   backRowFt     = 20;
+let   readRatio     = 150;
+let   wallFontPx    = 27;
+
+function minLegibleFontPx() {
+  const screenHIn = screenWidthFt * 12 * 9 / 16;      /* 16:9 */
+  const capIn     = (backRowFt * 12) / readRatio;     /* required cap height */
+  const fontIn    = capIn / CAP_RATIO;
+  return (fontIn / screenHIn) * WALL_CANVAS_H;
+}
+
+function applyTypeModel(setToMin) {
+  const min = minLegibleFontPx();
+  if (setToMin) wallFontPx = Math.max(6, Math.round(min * 10) / 10);
+  render();
+  const el = document.getElementById("typeNote");
+  const screenHFt = screenWidthFt * 9 / 16;
+  const capIn = (wallFontPx / WALL_CANVAS_H) * (screenHFt * 12) * CAP_RATIO;
+  const ok = wallFontPx >= min - 0.05;
+  el.innerHTML =
+    "<b>" + screenWidthFt + "ft screen, back row at " + backRowFt + "ft, 1/" + readRatio + " rule.</b> " +
+    "Smallest comfortable type is <b>" + (Math.round(min * 10) / 10) + "px</b> in this mock. " +
+    "The wall is at <b>" + wallFontPx + "px</b> — capital letters about <b>" +
+    (Math.round(capIn * 10) / 10) + " inches</b> on that screen. " +
+    (ok ? "<b>Legible from the back row.</b>" : "<b>Too small for the back row.</b>") +
+    " <i>Rule of thumb, not a measurement — AC-78 is <code>felt</code>, and October's field notes " +
+    "are where a real back row settles it.</i>";
+  el.className = ok ? "typenote ok" : "typenote bad";
+}
+
+function setScreen(ft)  { screenWidthFt = ft; applyTypeModel(false); }
+function setBackRow(ft) { backRowFt = ft;     applyTypeModel(false); }
+function setRatio(r)    { readRatio = r;      applyTypeModel(false); }
+function setWallFont(px){ wallFontPx = px;    applyTypeModel(false); }
+
 /* ---- the source under test -------------------------------------------
    Every direction was built and judged against q3 — which is, by measurement,
    the JOINT-SHORTEST question in the bank: 5 lines, 42 characters at its
@@ -419,7 +487,7 @@ function renderProjector() {
     (p === "reveal"
       ? traceSourceHtml(TONIGHT, state.traceStep, { size: "24px", style: "flex:none" }) +
         traceNoteHtml(TONIGHT, state.traceStep, { big: true, noNav: true })
-      : sourceCodeHtml(currentSource(), "What does this program print?", { size: "27px" })) +
+      : sourceCodeHtml(currentSource(), "What does this program print?", { size: wallFontPx + "px" })) +
     '</div>';
 
   let side;
@@ -672,6 +740,7 @@ render();
 /* Defaults to q1, not q3: the point of the instrument is that the layout should
    be judged against the worst source the bank can actually produce. */
 setSource("q1");
+applyTypeModel(false);
 fitWall();
 </script>
 </body>
