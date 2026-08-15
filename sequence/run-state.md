@@ -688,10 +688,14 @@ them"* stated as a thing a person would actually say.
 budget rather than saving it, and under A-5 it is the part that should be
 protected when something has to give.
 
-**Criterion owed, not yet minted:** working through it is now a named phase of
-the product and nothing in `USER_STORIES.md` requires it. Candidate under Story
-B11, alongside AC-93's ordering rule — and it must carry the **no-obligation**
-property explicitly, because that is the half two successive designs got wrong.
+**Minted: AC-97 and AC-98** under Story B11, on the client's instruction the same
+day. **AC-97** requires the walk-through phase to sit between the split and the
+reveal with the answer unmarked and the receipt hidden — a build that runs the
+trace only *after* the answer explains a settled result instead of producing one,
+and does not satisfy it. **AC-98** is written as a prohibition because it is the
+property two successive designs failed: nothing obliges a participant to speak or
+to interact with anyone, a host may take a contribution offered unprompted, and
+the product neither asks for one nor notices when none comes.
 
 ### The iteration queue on C, in priority order
 
@@ -704,6 +708,7 @@ property explicitly, because that is the half two successive designs got wrong.
 
 ### Criteria consequences now binding, none yet minted
 
+- **AC-97 / AC-98 minted** — the walk-through phase and its no-obligation rule.
 - **A sibling to AC-33: the source must FIT the wall.** Container-scroll is a
   phone escape hatch and A-4 took the phone away. This is a bound on question
   dimensions, therefore a constraint on the generation pipeline. Kin to AC-88.

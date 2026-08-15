@@ -271,6 +271,18 @@ specifically for *"pairs up new people with more experienced engineers"*, and
 | **AC-94** | No participant-facing surface marks a participant's **own** answer as incorrect — no ✗, no red, no "you were wrong". The correct option is marked (AC-40 still applies to the *answer*); the participant's own choice is marked only with the number of people who chose the same thing. |
 | **AC-95** | The explanation **names the most-chosen incorrect option**, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — *what happened* / *why the popular wrong answer is tempting* / *the bit worth taking away* — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72. |
 | **AC-96** | The explanation's **first beat** is understandable to someone who knows only beginner Rust, without the other two. `felt` — same instrument as AC-44, sampled by asking one attendee at a real meetup. |
+| **AC-97** | **The room walks the program through together before the answer exists.** A distinct phase sits between the split (AC-93) and the reveal, in which the trace is stepped at the host's pace with the correct option **unmarked** and the verification receipt **not shown**. The reveal cannot be reached without passing through it. Repetition is where the understanding comes from, so a build that runs the trace only *after* the answer does not satisfy this — there it explains a settled result instead of producing one. |
+| **AC-98** | **Nothing in the segment obliges a participant to speak or to interact with another person.** No surface instructs participants to turn to each other, compare answers, or volunteer; nobody is called on by name; and no count, prompt, or absence-of-response is displayed. A host may take a contribution that is offered **unprompted**, and the product neither asks for one nor notices when none comes. |
+
+**AC-98 is the criterion two successive designs failed**, which is why it is
+written as a prohibition rather than a goal. The first put *"A says this, E says
+that — someone from each, why?"* on the wall; the second replaced it with
+*"find someone who picked something else and ask them what they saw."* The second
+is a much smaller ask and it is **the same kind of ask**. Client, cutting it:
+*"none of this... no one needs to volunteer though we'll take it from one
+volunteer."* An instruction is an obligation however gently it is worded, and
+this story's whole subject is the person who does not want to be put on the spot.
+The sharing happens at the bar, and the segment's job is to release them to it.
 
 **The private hint lives at AC-48, not here.** It was raised as a conflict at
 **T-13** and **resolved 2026-08-14 by rewriting AC-48** rather than by minting a
@@ -629,17 +641,16 @@ were closer to the truth than the thesis sentence above them. **AC-44** —
 *a beginner can explain the solution to someone else* — reads as the most
 load-bearing criterion in the file under the new wording, not the old one.
 
-**Owed, and deliberately not minted here:** *working through it* is now a built
-phase of the product — the room shares readings, then walks the trace together,
-before any answer is shown — and nothing in this file requires it. It belongs
-under **Story B11** beside AC-93's ordering rule, and it needs the same care
-AC-93 got: the order **share → repeat → resolve** is the mechanism, not a
-preference. Left for the round that mints it rather than slipped in as a
-consequence.
+**Minted the same day: AC-97 and AC-98** under Story B11. *Working through it*
+is a built phase of the product — the room walks the trace together before any
+answer is shown — and it needed the same care AC-93 got, because the order
+**repeat → resolve → release** is the mechanism rather than a preference. AC-98
+carries the property two successive designs got wrong: **nobody is obliged to
+speak.**
 
 ---
 
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
 fresh IDs and existing IDs never change meaning after handoff. Range is now
-AC-1 … AC-96 across 19 stories.*
+AC-1 … AC-98 across 19 stories.*
