@@ -607,13 +607,51 @@ lines.** `q1`, the longest question in the bank, is **exactly 16**. There is no
 headroom at all, and the 16 rests on a guessed screen width — which is precisely
 why the measurement is now in the field notes.
 
-**35 lines is not reachable here, and that is fine.** It would need ~8.6px
-against a 14.2px legible minimum. **D-6's *"no tool can display a 35-line Rust
-program"* was always a statement about what off-the-shelf tools cannot do, not a
-requirement this segment has** — under D-7 nobody reads 35 lines standing up in
-five minutes. The build-vs-borrow argument is unaffected; what changes is that
-**question length is now a bounded, measurable property** rather than an
-assumption.
+**35 lines is not reachable here, and that is fine.** **D-6's *"no tool can
+display a 35-line Rust program"* was always a statement about what off-the-shelf
+tools cannot do, not a requirement this segment has** — under D-7 nobody reads 35
+lines standing up in five minutes. Build-vs-borrow is unaffected.
+
+### Correction — question length is not bounded, and 27px was never the model
+
+**Client:** *"no question length is not bounded but it has limits, 27px is not
+working, needs to shrink to smallest legible."* Both halves land, and the first
+is a straight correction to what this file said an hour earlier.
+
+**The wrong framing was mine:** *cap source length at whatever October
+measures.* That is a rule in the generator that pre-rejects a perfectly good
+question for being one line too long. **The right model is that the wall sizes
+itself to the question and legibility is the floor** — the type grows to fill the
+wall when the program is short and shrinks toward the smallest legible size when
+it is long. A question is too long **only when it will not fit even at minimum
+legible size**, which makes the limit *emergent and the room's*, not a constant
+imposed on the pipeline. Nothing is rejected up front; a venue with a bigger
+screen or a shallower room simply holds more.
+
+**And 27px was wrong in both directions**, which the fixed size had hidden: too
+small for a short program (`q3` now renders at **35.8px** and fills the wall) and
+too large for a long one. Auto-fit is now the default behaviour rather than a
+button.
+
+Measured, full-width, at the 15ft/20ft assumption — every real question in the
+bank fits, each at the largest size it can:
+
+| Source | Auto type | Verdict |
+|---|---|---|
+| `q3` — 5 lines | **35.8px** | fits |
+| `q5` — 9 lines, 50ch | 28.4px | fits |
+| `q7` — 69ch wide | 22.5px | fits |
+| `q1` — 16 lines | 16px | fits |
+| `LAYOUT-35` | clamped to the 14.2px floor | **too long for this room** |
+
+The same run in the split layout flags **`q7` as too long** — a real question the
+old fixed-27px wall was silently truncating. Second reason to adopt full-width.
+
+**Sizing note for `tone-architect`:** the fit is computed, not measured —
+`lines × 1.5` for height, `(widest + 3.5 gutter) × 0.6em` for width, against the
+usable code area. The first cut omitted the line-number gutter and the well's
+padding and overflowed by 40–80px, which is worth knowing before anyone
+reimplements it.
 
 ### The iteration queue on C, in priority order
 

@@ -175,8 +175,8 @@
     <button class="btn" onclick="setSource('q5')">q5 · 9×50</button>
     <button class="btn" onclick="setSource('L35')">35 lines · not a question</button>
     <span class="lbl" style="margin-left:14px">Type size · derived, not guessed</span>
-    <button class="btn" onclick="setWallFont(27)">27px (as built)</button>
-    <button class="btn" onclick="applyTypeModel(true)">shrink to the smallest legible</button>
+    <button class="btn" onclick="setAuto(true)">auto · fit the question</button>
+    <button class="btn" onclick="setWallFont(27)">hold at 27px</button>
     <span class="lbl">screen</span>
     <button class="btn" onclick="setScreen(12)">12ft</button>
     <button class="btn" onclick="setScreen(15)">15ft</button>
@@ -291,13 +291,18 @@ const CAP_RATIO     = 0.7;   /* cap height as a fraction of font-size, monospace
 let   screenWidthFt = 15;   /* client estimate, "pretty big, maybe 15ft" — HYPOTHESIS, to be measured in October */
 let   backRowFt     = 20;
 let   readRatio     = 150;
+let   autoType      = true;  /* the wall sizes itself to the question — client call */
+const MAX_FONT      = 46;    /* a five-line program should fill the wall, not become a poster */
+/* Usable code area in mock px, measured from the built layouts. */
+const CODE_AREA_H   = { split: 426, full: 384 };
+const CODE_AREA_W   = { split: 596, full: 1010 };
 let   wallFontPx    = 27;
 /* The wall has a fixed area. It can be spent on WIDTH (source full-bleed,
    options beneath) or on HEIGHT (source beside the options). Neither dominates:
    full-width fixes long LINES, split-column fixes long PROGRAMS. Both are built
    so the trade is looked at rather than argued about. */
 let   wallLayout    = "split";   /* "split" | "full" */
-function setLayout(m) { wallLayout = m; render(); applyTypeModel(false); }
+function setLayout(m) { wallLayout = m; applyTypeModel(); }
 
 function minLegibleFontPx() {
   const screenHIn = screenWidthFt * 12 * 9 / 16;      /* 16:9 */
@@ -306,29 +311,58 @@ function minLegibleFontPx() {
   return (fontIn / screenHIn) * WALL_CANVAS_H;
 }
 
-function applyTypeModel(setToMin) {
+function applyTypeModel() {
   const min = minLegibleFontPx();
-  if (setToMin) wallFontPx = Math.max(6, Math.round(min * 10) / 10);
+  const src = currentSource().replace(/\n$/, "").split("\n");
+  const lines = src.length;
+  const maxChars = Math.max.apply(null, src.map(function (l) { return l.length; }));
+
+  /* The wall is sized to the QUESTION, with legibility as the floor.
+
+     Question length is not bounded — nothing rejects a long question up front.
+     The type grows to fill the wall when the program is short and shrinks
+     toward the smallest legible size when it is long. A question is too long
+     only when it will not fit EVEN AT minimum legible size, and that is an
+     emergent limit belonging to the room, not a rule imposed on the generator.
+
+     Two constraints, both real: total height, and the longest single line.
+     Monospace advance width is ~0.6em, and line-height is 1.5. */
+  const availH = CODE_AREA_H[wallLayout];
+  const availW = CODE_AREA_W[wallLayout];
+  const byHeight = availH / (lines * 1.5);
+  /* The well is not all text: the line-number gutter is 2ch wide with 1.5ch of
+     margin, and the scroll region carries padding on both sides. Leaving those
+     out is what made the first cut of this model overflow by 40-80px. */
+  const GUTTER_CH = 3.5, WELL_PAD = 32;
+  const byWidth  = (availW - WELL_PAD) / ((maxChars + GUTTER_CH) * 0.6);
+  const fits     = Math.min(byHeight, byWidth);
+
+  const tooLong = fits < min;
+  if (autoType) wallFontPx = Math.round(Math.max(min, Math.min(fits, MAX_FONT)) * 10) / 10;
+
   render();
+
   const el = document.getElementById("typeNote");
   const screenHFt = screenWidthFt * 9 / 16;
   const capIn = (wallFontPx / WALL_CANVAS_H) * (screenHFt * 12) * CAP_RATIO;
-  const ok = wallFontPx >= min - 0.05;
   el.innerHTML =
-    "<b>" + screenWidthFt + "ft screen, back row at " + backRowFt + "ft, 1/" + readRatio + " rule.</b> " +
-    "Smallest comfortable type is <b>" + (Math.round(min * 10) / 10) + "px</b> in this mock. " +
-    "The wall is at <b>" + wallFontPx + "px</b> — capital letters about <b>" +
-    (Math.round(capIn * 10) / 10) + " inches</b> on that screen. " +
-    (ok ? "<b>Legible from the back row.</b>" : "<b>Too small for the back row.</b>") +
-    " <i>Rule of thumb, not a measurement — AC-78 is <code>felt</code>, and October's field notes " +
-    "are where a real back row settles it.</i>";
-  el.className = ok ? "typenote ok" : "typenote bad";
+    "<b>" + screenWidthFt + "ft screen (assumed), back row " + backRowFt + "ft, 1/" + readRatio + " rule.</b> " +
+    "Floor is <b>" + (Math.round(min * 10) / 10) + "px</b>; this source wants <b>" +
+    (Math.round(fits * 10) / 10) + "px</b> to fit. Wall is at <b>" + wallFontPx + "px</b> — capitals about <b>" +
+    (Math.round(capIn * 10) / 10) + "in</b> on that screen. " +
+    (tooLong
+      ? "<b>Too long for this room:</b> " + lines + " lines and " + maxChars +
+        " characters will not fit at a legible size. The limit is the room's, not the question's."
+      : "<b>Fits, legibly.</b> " + lines + " lines, widest " + maxChars + " characters.") +
+    " <i>Rule of thumb — AC-78 is <code>felt</code> and October settles it.</i>";
+  el.className = tooLong ? "typenote bad" : "typenote ok";
 }
 
-function setScreen(ft)  { screenWidthFt = ft; applyTypeModel(false); }
-function setBackRow(ft) { backRowFt = ft;     applyTypeModel(false); }
-function setRatio(r)    { readRatio = r;      applyTypeModel(false); }
-function setWallFont(px){ wallFontPx = px;    applyTypeModel(false); }
+function setScreen(ft)  { screenWidthFt = ft; applyTypeModel(); }
+function setBackRow(ft) { backRowFt = ft;     applyTypeModel(); }
+function setRatio(r)    { readRatio = r;      applyTypeModel(); }
+function setWallFont(px){ autoType = false; wallFontPx = px; applyTypeModel(); }
+function setAuto(v)     { autoType = v;                    applyTypeModel(); }
 
 /* ---- the source under test -------------------------------------------
    Every direction was built and judged against q3 — which is, by measurement,
@@ -413,7 +447,7 @@ function currentSource() {
 }
 function setSource(key) {
   sourceKey = key;
-  render();
+  applyTypeModel();
   const s = SOURCES.filter(function (x) { return x.key === key; })[0];
   const lines = currentSource().replace(/\n$/, "").split("\n");
   const widest = Math.max.apply(null, lines.map(function (l) { return l.length; }));
@@ -761,7 +795,7 @@ render();
 /* Defaults to q1, not q3: the point of the instrument is that the layout should
    be judged against the worst source the bank can actually produce. */
 setSource("q1");
-applyTypeModel(false);
+applyTypeModel();
 fitWall();
 </script>
 </body>
