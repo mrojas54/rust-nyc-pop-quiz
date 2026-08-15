@@ -349,3 +349,18 @@ body { padding-bottom: 34px; }
                 border:1px solid var(--border-default); background:transparent; }
 .trace-dots i.past { background:var(--text-secondary); border-color:var(--text-secondary); }
 .trace-dots i.on   { background:var(--accent-primary); border-color:var(--accent-hover); }
+
+
+/* ---------------------------------------------------------------------------
+   Rust syntax colour — prototype-only, opt-in, and only in phases with no trace
+   running. See the note in proto.js. Muted on purpose: this is the nostalgic
+   terminal the taste section asks for, not a SaaS editor theme.
+   --------------------------------------------------------------------------- */
+.tk-k { color: #9b2c2c; font-weight: 600; }   /* keywords */
+.tk-t { color: #2c5282; }                     /* types, capitalised paths */
+.tk-m { color: #6b46c1; }                     /* macros */
+.tk-s { color: #276749; }                     /* strings */
+.tk-n { color: #975a16; }                     /* numbers */
+.tk-c { color: #718096; font-style: italic; } /* comments */
+.rn-src-line.dim .tk-k, .rn-src-line.dim .tk-t, .rn-src-line.dim .tk-m,
+.rn-src-line.dim .tk-s, .rn-src-line.dim .tk-n, .rn-src-line.dim .tk-c { color: inherit; }

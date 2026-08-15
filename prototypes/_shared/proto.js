@@ -23,6 +23,44 @@ function escapeHtml(s) {
    opts.focus — [start, end], 1-based inclusive; everything outside is dimmed
    opts.size  — override the 13px body (the wall sets this much larger)
    --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Optional Rust syntax colour — opt-in, and NEVER while the trace is running.
+
+   The design system's SourceCode renders unhighlighted, and the reason is
+   PROJECTOR_SPEC §4.1: the trace signals by highlighting the executing lines and
+   dimming outside the focus region, so a second colour channel underneath
+   competes with the only thing the room is meant to follow.
+
+   That reason is airtight while the trace is running and vacuous when it is
+   not. During `2 · question live` there is no trace — the room is just reading
+   nine lines for thirty seconds — and nothing is competing with anything.
+   Client, on the unhighlighted well: "the code without syntax highlighting looks
+   bleh."
+
+   So colour is scoped to the phases where the trace is absent, and suppressed
+   the moment it starts. This diverges from the design system at the component
+   level and is a proposal to its author, not a decision taken around him.
+   --------------------------------------------------------------------------- */
+const RUST_KW = ("as|break|const|continue|crate|dyn|else|enum|extern|false|fn|for|if|impl|in|let|" +
+  "loop|match|mod|move|mut|pub|ref|return|self|static|struct|super|trait|true|type|unsafe|use|" +
+  "where|while").split("|");
+
+function rustColour(escaped) {
+  /* Runs on already-escaped text. Comments and strings win over everything, so
+     they are matched first and their contents are left alone. */
+  return escaped.replace(
+    /(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|(\b\d[\d_]*(?:\.\d+)?\b)|(\b[a-zA-Z_][a-zA-Z0-9_]*!)|(\b[A-Z][a-zA-Z0-9_]*\b)|(\b[a-zA-Z_][a-zA-Z0-9_]*\b)/g,
+    function (m, comment, str, num, mac, type, word) {
+      if (comment) return '<span class="tk-c">' + comment + '</span>';
+      if (str)     return '<span class="tk-s">' + str + '</span>';
+      if (num)     return '<span class="tk-n">' + num + '</span>';
+      if (mac)     return '<span class="tk-m">' + mac + '</span>';
+      if (type)    return '<span class="tk-t">' + type + '</span>';
+      if (word && RUST_KW.indexOf(word) >= 0) return '<span class="tk-k">' + word + '</span>';
+      return m;
+    });
+}
+
 function sourceCodeHtml(code, label, opts) {
   opts = opts || {};
   const hl = opts.hl || [];
@@ -35,9 +73,10 @@ function sourceCodeHtml(code, label, opts) {
     const cls = ["rn-src-line"];
     if (hl.indexOf(n) >= 0) cls.push("hl");
     else if (focus && (n < focus[0] || n > focus[1])) cls.push("dim");
+    const body = escapeHtml(line || " ");
     return '<span class="' + cls.join(" ") + '">' +
            '<span class="rn-src-ln" aria-hidden="true" style="width:' + width + '">' + n + '</span>' +
-           escapeHtml(line || " ") + '</span>';
+           (opts.syntax ? rustColour(body) : body) + '</span>';
   }).join("");
 
   return '<div class="rn-src"' + (opts.style ? ' style="' + opts.style + '"' : '') + '>' +

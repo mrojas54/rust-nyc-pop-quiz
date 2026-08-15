@@ -174,6 +174,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-10 | 4 | Handoff to `tone-prototype` now vs. hold for October evidence | **Answered** 2026-08-13 — **hand off now.** |
 | T-11 | 2·0 | Exploration directions — which core-assumption forks get built, plus review-surface scope and the Discord seam mock | **Answered** 2026-08-14 — **all three directions**; review surface **in scope as one take**, not fanned out. |
 | T-12 | 2·1 | Drive the five takes and pick a direction to converge on | **Answered** 2026-08-14 — **Direction C.** *"C is it."* |
+| T-16 | 2·2 | **AC-80 — lights up or lights down** | **Answered** 2026-08-14 — **lights up**, endorsed by Cole, author of the brand's Liberty Ferris imagery. No amendment to *no dark mode in v1*. |
+| T-17 | 2·2 | Syntax colour in the reading phases — diverges from the design system's `SourceCode` | **Open** — proposal built; needs the client's eye and **Cole's** call, and would take AC-32 to a third revision. |
 | T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Answered** 2026-08-14 — **AC-48 rewritten**, hints are private. Took **AC-45**'s published-hint control with it. |
 | T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
@@ -696,6 +698,53 @@ and does not satisfy it. **AC-98** is written as a prohibition because it is the
 property two successive designs failed: nothing obliges a participant to speak or
 to interact with anyone, a host may take a contribution offered unprompted, and
 the product neither asks for one nor notices when none comes.
+
+### Round 3 — the client's drive-through answers, 2026-08-14
+
+**1. The last screen is the handover.** *"Last screen should just have link to
+take it home."* `7 · released` now carries **"Let's go to the bar."**, the link at
+40px, one line of what is behind it, and a QR — the link is the hero and the QR
+is there because a link on a wall is useless without a way into a phone. Nothing
+else competes with it. The segment can now be judged end to end.
+
+**2. Room measurements — the client will run the field notes.** The 15ft / 20ft
+figures stay labelled a hypothesis until she does.
+
+**3. AC-80 ANSWERED — lights up. No amendment to the brand.** AC-80 said the
+brand's *no dark mode in v1* is what gets amended **if a dim room wins**. It did
+not. The take keeps the toggle as an instrument, and the default was already
+correct.
+
+> Evidence worth recording rather than paraphrasing: *"lights up — Cole likes it
+> and he's the best designer I know, made Liberty Ferris."* **Cole is the author
+> of the house brand's own imagery**, so this is not a preference collected from
+> a bystander — it is the designer of record endorsing the light treatment on his
+> own system. That is the strongest evidence any `felt` criterion in this arc has
+> been closed with.
+
+**4. *"The code without syntax highlighting looks bleh."*** — and the objection is
+correct on the phase it was made about.
+
+Phase 1c removed colour because `PROJECTOR_SPEC` §4.1's trace signals with
+highlight-and-dim and a second colour channel underneath competes with it. **That
+reason is airtight while the trace is running and vacuous when it is not.**
+During `2 · question live` there is no trace at all — the room is reading nine
+lines for thirty seconds — so nothing is competing with anything, and the well is
+just grey.
+
+**Built as a proposal:** colour is scoped to the phases with no trace, and
+suppressed the instant the walk-through starts. Verified — the reading phases
+carry keyword, macro, type, string, number and comment colour; `work` and
+`reveal` render zero coloured spans. Muted values, not an editor theme: the taste
+section asks for a well-made terminal.
+
+**Deliberately NOT yet propagated to the criteria.** `PHILOSOPHY.md` §5 and
+**AC-32** were amended *this morning* to say the source renders without
+highlighting. If this survives, **AC-32 needs its third revision in one day** and
+§5 a second — so it waits until the client has looked at it, and until **Cole has
+been asked**, because this diverges from the design system at the component level
+and he owns that component. A house brand is *"not up for reinvention"*; going
+around its author quietly would be exactly that.
 
 ### The iteration queue on C, in priority order
 

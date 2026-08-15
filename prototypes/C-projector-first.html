@@ -47,6 +47,12 @@
   .typenote.ok  { border-left-color: var(--green); }
   .typenote.bad { border-left-color: #9b2c2c; color: #9b2c2c; }
 
+  .endcard { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .endlink { font-family: var(--mono); font-size: 40px; color: var(--accent-hover);
+             border: 2px solid var(--accent); border-radius: var(--radius); padding: 10px 22px; }
+  .endsub { font-size: 19px; color: var(--text-secondary); }
+  .endqr { width: 120px; height: 120px; }
+
   .workbeat { display: flex; flex-direction: column; gap: 10px; margin-top: 16px;
               border-left: 4px solid var(--accent); padding-left: 14px; font-size: 21px;
               line-height: 1.45; color: var(--text-secondary); }
@@ -278,6 +284,31 @@ function traceStep(d) {
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
 }
+/* A stand-in QR — real finder squares, deterministic modules. A mock of the
+   handover, not a working code. */
+function renderEndQr() {
+  const el = document.querySelector(".endqr");
+  if (!el) return;
+  const N = 33, cells = [];
+  let seed = 20260812;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  function finder(ox, oy) {
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const edge = x === 0 || y === 0 || x === 6 || y === 6;
+      const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+      if (edge || core) cells.push([ox + x, oy + y]);
+    }
+  }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const inF = (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+    if (!inF && rnd() > 0.52) cells.push([x, y]);
+  }
+  finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+  el.innerHTML = '<rect width="33" height="33" fill="#ffffff"/>' + cells.map(function (c) {
+    return '<rect x="' + c[0] + '" y="' + c[1] + '" width="1" height="1" fill="#1a202c"/>';
+  }).join("");
+}
+
 /* ---- how big does the type actually have to be? -----------------------
    The wall was set at 27px because it looked right in a browser. Nothing
    derived it, and the client caught that: a px in this mock is not a physical
@@ -532,8 +563,16 @@ function renderProjector() {
   if (p === "released") {
     phase.textContent = "that's the night";
     main.className = "title-card";
-    main.innerHTML = '<div><h2>Let\'s go to the bar.</h2><p style="font-size:20px;color:var(--text-secondary);max-width:640px;margin:12px auto 0">' +
-      'The count expired with the room. No names, no scores, nothing to look up tomorrow.</p></div>';
+    /* The last thing on the wall is the way to take it home. Client call: this
+       screen carries the link and nothing else competing with it. The QR is
+       there because a link on a wall is useless without a way into a phone. */
+    main.innerHTML = '<div class="endcard"><h2>Let\'s go to the bar.</h2>' +
+      '<div class="endlink">popquiz.rustnyc.org/last</div>' +
+      '<div class="endsub">Tonight\'s question, and the walk-through, for as long as you want it.</div>' +
+      '<svg class="endqr" viewBox="0 0 33 33" shape-rendering="crispEdges" role="img" ' +
+        'aria-label="QR code to popquiz.rustnyc.org/last"></svg>' +
+      '</div>';
+    renderEndQr();
     strip.style.display = "none";
     return;
   }
@@ -548,7 +587,10 @@ function renderProjector() {
     (p === "reveal" || p === "work"
       ? traceSourceHtml(TONIGHT, state.traceStep, { size: "24px", style: "flex:none" }) +
         traceNoteHtml(TONIGHT, state.traceStep, { big: true, noNav: true })
-      : sourceCodeHtml(currentSource(), "What does this program print?", { size: wallFontPx + "px" })) +
+      /* Colour only here: no trace is running in the reading phases, so nothing
+         competes with it. It is suppressed for 'work' and 'reveal' above. */
+      : sourceCodeHtml(currentSource(), "What does this program print?",
+                       { size: wallFontPx + "px", syntax: true })) +
     '</div>';
 
   let side;
