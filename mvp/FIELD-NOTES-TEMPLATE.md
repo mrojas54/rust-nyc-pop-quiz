@@ -35,8 +35,8 @@ watch.
 
 ### Two measurements of the room itself — take these once, ever
 
-Added 2026-08-14, during `tone-prototype`. **These two numbers decide how long a
-question is allowed to be**, and both are currently guesses.
+Added 2026-08-14, during `tone-prototype`. **These two numbers set the smallest
+type the wall can legibly use**, and both are currently guesses.
 
 - [ ] **How wide is the projected image?** Pacing it heel-to-toe is fine — a
       foot or two of error does not matter. → `______ ft`
