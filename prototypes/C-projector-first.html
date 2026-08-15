@@ -19,7 +19,21 @@
   .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
 
   /* ---- projector: the product --------------------------------------- */
-  .proj-wrap { transition: transform .25s ease; transform-origin: top center; }
+  /* The wall is laid out once at design size and scaled as a unit. Everything
+     inside it is sized in absolute px for a 1120px wall — that is deliberate,
+     because a projector does not reflow. The fit layer is what makes those px
+     survive a narrow window. */
+  /* The height animates with the transform. Snapping it while the wall eases
+     leaves a gap that opens and closes under the frame on every seat change. */
+  .proj-fit  { width: 100%; overflow: hidden; transition: height .25s ease; }
+  .proj-wrap { width: 1120px; transform-origin: top left; transition: transform .25s ease; }
+  .proj-wrap .projector { width: 1120px; max-width: none; }
+
+  /* Shown whenever the wall is rendered below design size, because AC-78 judged
+     on a shrunken mock is not judged at all. */
+  .undersize { margin-top: 6px; font-size: var(--text-xs); color: var(--accent-hover);
+               border-left: 3px solid var(--accent); padding-left: 9px; line-height: 1.5; }
+  .undersize[hidden] { display: none; }
   .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
   .proj-top { display: flex; justify-content: space-between; align-items: baseline;
               flex: none; margin-bottom: 12px; }
@@ -133,8 +147,14 @@
 
   <div class="col" style="width:100%">
     <div class="frame-label">Room display · the product</div>
-    <div class="proj-wrap" id="projWrap" style="width:100%;display:flex;justify-content:center">
-      <div class="projector" id="proj" style="max-width:1120px">
+    <!-- The wall lays out at its design size (1120px) and is scaled to fit as a
+         single unit. Sizing it with width:100% instead let the box shrink while
+         its px-sized contents did not, so at a narrow window the options landed
+         on top of the source. A projector mock that reflows is not a projector
+         mock — proportions are the thing being judged. -->
+    <div class="proj-fit" id="projFit">
+      <div class="proj-wrap" id="projWrap">
+        <div class="projector" id="proj">
         <div class="proj-body">
           <div class="proj-top">
             <span class="proj-brand">Rust NYC · Pop Quiz</span>
@@ -143,9 +163,11 @@
           <div class="proj-main" id="projMain"></div>
           <div class="joinstrip" id="joinStrip"></div>
         </div>
+        </div>
       </div>
     </div>
     <div class="meta" id="distNote">Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs.</div>
+    <div class="undersize" id="undersize" hidden></div>
   </div>
 
   <div class="pair">
@@ -199,9 +221,41 @@ function traceStep(d) {
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
 }
+/* ---- fitting the wall ------------------------------------------------
+   WALL_W is the design width every px inside the projector was drawn for.
+   The frame scales to whatever room it has; `dist` is the back-row test
+   multiplying on top of that fit. Keeping the two factors separate is what
+   makes the seat buttons honest at any window size — they change how far away
+   the wall is, never how it is laid out. */
+const WALL_W = 1120;
+let wallDist = 1;
+
+function fitWall() {
+  const fit = document.getElementById("projFit");
+  const wrap = document.getElementById("projWrap");
+  if (!fit || !wrap) return;
+  const avail = fit.clientWidth;
+  /* Never upscale past design size — a wall bigger than it was drawn for would
+     flatter AC-78 exactly as much as a shrunken one punishes it. */
+  const base = Math.min(avail / WALL_W, 1);
+  const s = base * wallDist;
+  wrap.style.transform = "scale(" + s + ")";
+  wrap.style.marginLeft = Math.round((avail - WALL_W * s) / 2) + "px";
+  fit.style.height = Math.round(wrap.offsetHeight * s) + "px";
+
+  const under = document.getElementById("undersize");
+  const pctOf = Math.round(base * 100);
+  under.hidden = base >= 0.995;
+  under.textContent = "This wall is at " + pctOf + "% of design size, because the window is " +
+    "narrower than the 1120px it was drawn for. The back-row test still compares honestly — " +
+    "front row and six metres back shrink by the same factor — but do not settle AC-78 here. " +
+    "Widen the window until this line disappears.";
+}
+window.addEventListener("resize", fitWall);
+
 function setDistance(scale) {
-  document.getElementById("projWrap").style.transform = "scale(" + scale + ")";
-  document.getElementById("projWrap").style.marginBottom = (scale < 1 ? -(1 - scale) * 620 : 0) + "px";
+  wallDist = scale;
+  fitWall();
   document.getElementById("distNote").textContent = scale === 1
     ? "Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs."
     : scale > 0.4
@@ -431,6 +485,7 @@ mountBadge("Direction C · Projector-first", "no server behind this; the counts 
 state.picked = "A";
 setRoom("light");
 render();
+fitWall();
 </script>
 </body>
 </html>

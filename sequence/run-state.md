@@ -553,6 +553,42 @@ than asserted:
    option would have shipped a five-option question with four real choices.
    Caught in the review surface and fixed there.
 
+## Defect found by the T-12 drive-through — the wall did not fit its window
+
+**Found 2026-08-14 by the client, on a screenshot**, driving Direction C in a
+620px pane. The projector's two columns had collapsed into each other: options
+overlapping the source well, the room code sitting on top of option E, the join
+strip across the middle of the code.
+
+**Cause.** `.projector` is `width:100%; aspect-ratio:16/9`, but everything inside
+it is sized in **absolute px drawn for a 1120px wall** — 27px source, 24px
+options, 62px title. That is correct and deliberate: *a projector does not
+reflow*. What was missing is the consequence — below 1120px the box shrank while
+its contents did not, so they overflowed the 16:9 frame and collided.
+`setDistance()` compounded it by scaling content *inside* an already-overflowing
+box.
+
+**Fix.** The wall now lays out once at its design size and is scaled to fit as a
+single unit: a `.proj-fit` clip layer, `.proj-wrap` fixed at 1120px, and one
+transform carrying **two separate factors** — `fit` (how much room the window
+has) times `dist` (the back-row test). Keeping them separate is what makes the
+seat buttons honest at any window size: they change how far away the wall is,
+never how it is laid out.
+
+**The instrument this bug argued for, and it is the more valuable half.** The
+take now says so on screen whenever the wall is below design size — *"This wall
+is at 52% of design size… the back-row test still compares honestly, but do not
+settle AC-78 here. Widen the window until this line disappears."* AC-78 judged on
+a shrunken mock is not judged at all, and the take should say that itself rather
+than rely on whoever is driving remembering it. Same reasoning as the back-row
+buttons existing at all.
+
+**Not fixed: Direction B's projector mirror has the identical defect** (measured
+143px of overflow at the same width). Left alone deliberately — B was eliminated
+by A-4, and Phase 1c already declined component fidelity on takes that get
+discarded at T-12. **Direction A is unaffected**; its wall is a single column and
+survives shrinking. Recorded so nobody rediscovers it as a new bug.
+
 ## Phase 1b — client testimony reopens the philosophy, 2026-08-14
 
 **The input.** Unprompted, on first sight of the takes: *"i want newbies to be
