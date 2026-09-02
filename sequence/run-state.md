@@ -19,7 +19,8 @@ no build.
 2. `git checkout ai-c11-cc/tone-prototype` — pushed, ~19 commits ahead of `main`,
    **no PR**, because the stage is not finished.
 3. Open `prototypes/C-projector-first.html` and **drive all seven phases**. That
-   is the converged direction. `take-it-home.html` is the second surface. A and B
+   is the converged direction. **`sequence/T-20-drive-guide.md` is the
+   button-by-button guide for the client's closing drive (T-20, open).** `take-it-home.html` is the second surface. A and B
    are historical takes, not candidates — keep them, October compares against
    built things rather than hypotheses.
 4. **The skill is disabled.** `tone-prototype` is `"off"` in
@@ -54,6 +55,7 @@ no build.
 
 | | |
 |---|---|
+| **T-20** | **The drive that closes the stage.** Does the client love C, and what still annoys her. `sequence/T-20-drive-guide.md`, ~20 min, every step names the button. Brings back: love it or not, the annoyance list, AC-93 felt, and colour or not (T-17). *Love it* → `DESIGN.md` and `tone-architect`. |
 | **T-18** | **The rehearsal.** When, where — the venue, if at all possible, because the two room measurements are the highest-value output — and confirm `q3` is the one to spend. Two regulars offered at Rust lunch. Sheet written: `mvp/PRACTICE-RUN.md`. The meetup is **October**; the rehearsal precedes it and has no date yet. Testimony captured (A-6). |
 | **T-19** | `mvp/README.md`'s host script carries the beat AC-98 forbids and the framing A-5 replaced, at five places. It is the script the client actually reads before hosting. Sweep it, or leave the MVP frozen as the pre-A-5 artifact it is? **Recommended: sweep.** |
 | **T-17** | Syntax colour in the trace-free phases. **Built as a proposal, criteria deliberately not updated.** Needs the client's eye **and Cole's call** — he owns the design system's `SourceCode` and made the brand's Liberty Ferris imagery. If it is kept, **AC-32 takes its third revision in one day** and `PHILOSOPHY.md` §5 its second. |
@@ -209,6 +211,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Open** — recommended: sweep. Five places (lines 9, 16, 20, 95, 218). |
+| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Open** 2026-09-02 — guide at `sequence/T-20-drive-guide.md`, opened beside C in c11. Client asked: *"are we done with planning now?!"* — this is the one gate left. |
 
 ## Client interview record (T-2)
 
