@@ -36,10 +36,26 @@ no build.
 - **AC-97 / AC-98 minted.** The walk-through phase, and the prohibition that
   **nothing obliges a participant to speak.**
 
+### What changed 2026-09-02 — Rust lunch, and a rehearsal is on offer
+
+- **First attendee contact of the arc.** Two regulars at Rust lunch, cold —
+  nothing shown. *Remembered the quiz, liked the idea, liked the idea of voting
+  anonymously* (**A-6**). **They offered to help run a practice run** before the
+  October meetup; date open. It retires the host-side unknowns before October's
+  one shot. Sheet: `mvp/PRACTICE-RUN.md`. Full record at the bottom of this
+  file (T-18).
+- **It spends `q3`.** C's vote, split and reveal are bound to `q3`'s mock room
+  data, and the two will be in October's room. Bank 8 → 7, by hand.
+- **`mvp/README.md` was never swept for A-5 or AC-98** — its run-of-show still
+  says *"Someone who said E — why?"* and *"go argue about it downstairs."*
+  Flagged, not fixed (T-19).
+
 ### Open, and the first two need a person rather than an agent
 
 | | |
 |---|---|
+| **T-18** | **The rehearsal.** When, where — the venue, if at all possible, because the two room measurements are the highest-value output — and confirm `q3` is the one to spend. Two regulars offered at Rust lunch. Sheet written: `mvp/PRACTICE-RUN.md`. The meetup is **October**; the rehearsal precedes it and has no date yet. Testimony captured (A-6). |
+| **T-19** | `mvp/README.md`'s host script carries the beat AC-98 forbids and the framing A-5 replaced, at five places. It is the script the client actually reads before hosting. Sweep it, or leave the MVP frozen as the pre-A-5 artifact it is? **Recommended: sweep.** |
 | **T-17** | Syntax colour in the trace-free phases. **Built as a proposal, criteria deliberately not updated.** Needs the client's eye **and Cole's call** — he owns the design system's `SourceCode` and made the brand's Liberty Ferris imagery. If it is kept, **AC-32 takes its third revision in one day** and `PHILOSOPHY.md` §5 its second. |
 | **`felt` never answered** | **AC-93** — does split-before-answer land? **AC-21** — the review-surface clock, never once measured. Both are the client's alone. |
 | **Never collected** | The client's list of what annoyed her in B and C. That list *is* the next iteration rounds and it will evaporate. **Ask for it.** |
@@ -138,6 +154,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | A-3 | `PHILOSOPHY.md` (new §9), `sequence/USER_STORIES.md` (new Story B11 / AC-93…AC-96) | **Client testimony 2026-08-14, unprompted:** *"i want newbies to be able to be wrong. the feedback we get and it's surfaced in women in rust is: everything is very intimidating. people aren't allowed to be wrong."* Principle 6 protected the **record**; nothing protected the **moment**, and they are not the same thing. Nothing anywhere in the corpus had mentioned intimidation — Dimension 6 §4b could see the beginner *want* but had no account of the *cause*. Same evidence class as A-1. Details in Stage 2 Phase 1b below. |
 | A-4 | `sequence/USER_STORIES.md` (**AC-32** rewritten) | **Client call 2026-08-14, during the T-12 drive-through:** *"AC-32, should not put it on the phone, only options to vote on, code and tracing need to be on screen, maybe explanation and summary."* AC-32 asked how well source reads on a phone; the answer is that it should not be there. Rewritten to: neither source nor trace is rendered on any participant device. **Eliminates Direction B** (its assumption is that the phone carries the code) **and Direction A** (*"only options to vote on"* presumes a device), leaving **C** — stated by the client in her own words, not picked off a menu. Open: explanation/summary on the device, and with it §9's private pace. |
 | **A-5** | `PHILOSOPHY.md` (**the one thing**, §5, §7, §8, §9 and principle 2), all four takes | **Client testimony 2026-08-14, and the largest amendment in the arc — it changes the thesis, not a principle.** *"no, work through it. not argument, understanding through repetition and knowledge sharing."* Stage 1 wrote **"the quiz is a pretext, the argument is the product"** and everything downstream was judged against it. **An argument has sides and a winner**, which is what §9 exists to prevent — the room's own feedback is that everything is intimidating and people are not allowed to be wrong, and a newcomer will not enter an argument. The corpus already agreed with the client and nobody noticed: **AC-44**, called the criterion that matters most, is *a beginner can explain the solution to someone else* — knowledge sharing, not debate — and Dimension 6 records an attendee asking unprompted for *"pairs up new people with more experienced engineers."* The origin story is that a memorised bank produced **no conversation at all**; *argument* was an inference drawn from that in Stage 1 and never had evidence behind it. New one thing: **the quiz is a pretext, the understanding is the product, and the room gets there by working through it together — going over it again, and the people who know it telling the people who don't.** |
+| **A-6** | `research/06-attendees.md` (§4a, §7) | **Attendee testimony via the client, 2026-09-02.** Two regulars at Rust lunch, shown nothing: *"remembered the quiz, liked the idea, liked the idea of voting anonymously."* §4a's *nobody asked for a quiz* is narrowed to *nobody in the records*; §7's *no evidence either way* becomes weak evidence for. First attendee-side corroboration of **§9**'s mechanism — anonymity — from the people who least need the cover, and a second source that the dtolnay quiz ran and is remembered (not that it was memorised; A-1 still rests on the client). Original text retained. |
 | A-2 | `research/06-attendees.md` §2, §6 | Finding *"AC-52's 200 is ~2× the observed ceiling"* **withdrawn**. The 110-RSVP figure is a **venue supply cap, not a demand ceiling** — every event sold out with a waitlist. Client testimony: bigger venues in progress, **Jun 26 Summer Social 200 and sold out**. AC-52 stands at 200. Replaced by a sharper open variable: the **participation rate**, never measured. Original reasoning retained in-file. |
 
 ## Keystone decisions
@@ -158,7 +175,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-2 | Work on `ai-c11-cc/tone-initiation` | Initiation may rewrite the PRD; the existing branch shouldn't absorb that silently. |
 | D-3 | Initiation scope = **full re-open** | Client call, Phase 0. |
 | D-4 | `ECONOMICS.md` in scope | Client call. Written; conclusion inverted the client's stated risk. |
-| D-5 | Attendee interviews in scope | Client has access. Not yet conducted — see T-6. |
+| D-5 | Attendee interviews in scope | Client has access. Not yet conducted — see T-6. **First contact 2026-09-02** at Rust lunch: two regulars, cold, no testimony captured; a rehearsal offered → T-18. |
 | D-6 | Borrow option (C) rejected | Code display is disqualifying across all candidates. Recorded rather than escalated because the evidence is one-sided. |
 | D-7 | **Segment = one question, 3–5 min, scheduled last.** Client call, 2026-08-12. | The argument is the product and an argument needs somewhere to go; anywhere but last, finishing on time means interrupting it. Shrinks the build (no navigation, one write-burst, ~5 min room life) and turns the 8 verified questions into ~8 months of supply. Minted Story B10 / AC-89…AC-92 and forced a rewrite of AC-23 — see below. |
 
@@ -178,7 +195,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-3 | 2 | Economic-model dialogue | Folded into T-4 — cost does not decide the fork |
 | T-4 | 2 | Hard fork — build as written / build something else / don't build | **Answered** — decouple generation (option B) |
 | T-5 | 4 | Stories review — AC-1…AC-88 | **Answered** 2026-08-11 |
-| T-6 | 1–2 | Attendee interviews (client has access) | **Records half answered** 2026-08-12 → `research/06-attendees.md`. **Room half slipped to October** — Aug 12 skipped, Aug 20 unavailable, Sept is RustConf → `mvp/FIELD-NOTES-TEMPLATE.md` |
+| T-6 | 1–2 | Attendee interviews (client has access) | **Records half answered** 2026-08-12 → `research/06-attendees.md`. **Room half slipped to October** — Aug 12 skipped, Aug 20 unavailable, Sept is RustConf → `mvp/FIELD-NOTES-TEMPLATE.md`. **First contact 2026-09-02** — two regulars at Rust lunch, cold; a rehearsal offered → T-18, `mvp/PRACTICE-RUN.md` |
 | T-7 | 1b | AC-52's 200-concurrent target — label as hypothesis? | **Answered** 2026-08-12 — **proposal withdrawn**, AC-52 stands at 200. Client testimony: bigger venues being pursued; Jun 26 Summer Social hit 200, sold out. |
 | T-8 | 1b | Calendar fork — delegate Aug 20, slip to Oct, or build ahead of evidence | **Answered** 2026-08-13 — **October, client runs it herself.** Delegation declined: *"it's kind of my project and i don't want it taken from me."* |
 | T-9 | 1b | Did the Aug 12 segment run without the client? (q3 rollback) | **Answered** 2026-08-13 — **nobody ran it.** q3 rolled back, bank restored to 8. |
@@ -190,6 +207,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-13 | 2·1 | Private pull-your-own hint vs. **AC-48** (one hint, everyone, at once) | **Answered** 2026-08-14 — **AC-48 rewritten**, hints are private. Took **AC-45**'s published-hint control with it. |
 | T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
+| T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
+| T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Open** — recommended: sweep. Five places (lines 9, 16, 20, 95, 218). |
 
 ## Client interview record (T-2)
 
@@ -213,6 +232,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 3 | 0 | — | ~35 min |
 | MVP | 0 | — | ~40 min |
 | 1b (T-6) | 0 | 1 open (T-7) | ~20 min |
+| 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
 
 ## Phase 3 output
 
@@ -1137,3 +1157,93 @@ The implementation was already correct.
 in Direction C**, where the phone carries no code. That is a T-12 consequence and
 waits for the direction call. This pass fixed only the highlighting clause, which
 was wrong in every direction.
+
+## Rust lunch, 2026-09-02 — first attendee contact, and a rehearsal is on offer
+
+**What happened.** Client, reported 2026-09-02: *"i interviewed some rust
+members at rust lunch … 2 people. there were only three of us at lunch, both
+regulars. i didn't show them anything but they promised to help me do a
+practice run."*
+
+For the record:
+
+- **First direct attendee contact of the arc.** D-5 put attendee interviews in
+  scope on 2026-08-11; T-6 answered the *records* half and the *room* half
+  slipped to October. This is neither — no room, no records — two conversations
+  at lunch.
+- **n = 2, both regulars, cold.** Nothing shown; the segment described at most.
+  Testimony arrived later the same day — see below.
+- **The offer:** a practice run with the two of them as participants.
+
+**Why it is recorded rather than noted.** The calendar entry of 2026-08-13
+wrote September off — RustConf, no meetup — and that is what put evidence and
+ship date in the same month. **A rehearsal is not a meetup and needs no room,
+so it can land anywhere before the October meetup** — the client confirmed
+the meetup is October and left the rehearsal's date open. It retires exactly the unknowns that
+need a host, a projector and someone looking, but not a crowd:
+
+| Unknown | Standing until now |
+|---|---|
+| **AC-89** — one question, ≤ 5 min end to end | Never clocked with anyone watching. Every phase has been driven by the client alone, at a desk. |
+| **AC-51** — no improvisation or apology | Never run before an audience. |
+| **The wall-fit bound** (AC-33's sibling) | Never seen at a projector's real resolution. |
+| **AC-97** — the walk-through, as a driven thing | Built and clicked through; never stepped with people looking. |
+| **AC-98** — in the host's mouth, not the copy | Cut from two surfaces on 2026-08-14. Never tested in speech. |
+| **The two room measurements** | Still the 15ft / 20ft **hypothesis**. Only need the venue, not a crowd — a rehearsal *at the venue* takes them a month early. |
+
+October's one shot then goes to what only a crowd can answer — participation
+rate, AC-44 / AC-96, §9's moment, Q2 — instead of being spent discovering that
+the segment runs long.
+
+**It does not reopen T-8.** The client hosts; the two are participants, not
+delegates. Authorship stays where she put it.
+
+**Costs and limits, stated up front, and written into the sheet so nobody reads
+a clean rehearsal as a validated design:**
+
+- **It spends `q3`.** C's vote, split and reveal are bound to `q3`'s mock room
+  data — swapping the source swaps only the reading phases — and the two
+  regulars will be in October's room. Bank **8 → 7, by hand**: nothing writes
+  the ledger for a prototype run. That is the AC-92 defect in its other
+  direction — a build that isn't a run wrongly retires a question, and a run
+  that isn't a build retires nothing.
+- **Two regulars are the wrong sample for every criterion about newcomers**,
+  and they are *the people who know it* half of the one thing with nobody to
+  tell. AC-44, AC-96, §9, Q2, Q1 and AC-88 are all listed in the sheet as
+  things it cannot answer, with the reason each.
+- **AC-91 comes back as a lower bound only.** Regulars read fast.
+
+**Instrument:** `mvp/PRACTICE-RUN.md` — instrument and capture form, copied to
+`mvp/<date>/practice-run.md` when filled, narrower than the field notes by
+design. It drives **C, not the MVP deck**, because the deck predates Story B11
+and has neither the split nor the walk-through.
+
+**A stale host script, found while writing the sheet (T-19).** `mvp/README.md`'s
+run-of-show still says *"Someone who said E — why?"* at 1:30 and *"go argue
+about it downstairs"* at 2:30, and the argument thesis survives at lines 9, 16,
+20 and 218. The first is the beat AC-98 forbids and that was cut from two
+surfaces on 2026-08-14 — an instruction is an obligation however gently worded.
+The rest is the framing A-5 replaced. The A-5 sweep covered the takes and the
+philosophy; it never reached the MVP. The MVP is *not the product* and predates
+both, so this is **flagged, not fixed** — but the README is the host script the
+client actually reads before hosting, and a host who rehearses from it
+rehearses the prohibited line. The practice-run sheet says not to.
+**Recommended: sweep it.** The alternative — leave the MVP frozen as a
+pre-A-5 artifact — is defensible only if the README stops being the thing the
+host reads.
+
+### Testimony, same day — three things, and where each lands (A-6)
+
+Client, later on 2026-09-02: *"they remembered the quiz, liked the idea, liked
+the idea of voting anonymously, the event is october."* Her report of what they
+said, not their words; recorded as such.
+
+| They said | Weight | Where it lands |
+|---|---|---|
+| **Remembered the quiz** | A second source that the dtolnay quiz ran and is remembered. **Not** a second source that it was memorised — nobody asked them that, and A-1 still rests on the client alone. | `06-attendees.md` §7. Ask it next time, in those words: *did you get to where you knew the answers?* |
+| **Liked the idea** | The first attendee-side pull anywhere in the corpus. Weak — n = 2, regulars, in person, the organizer asking — and nonzero. | `06-attendees.md` §4a narrowed from *nobody asked for a quiz* to *nobody in the records*; §7 row updated. |
+| **Liked the idea of voting anonymously** | The one with weight. §9 was minted on the client's testimony that *people aren't allowed to be wrong*, and its mechanism is *majority wrongness, anonymous, in public*. This is the first corroboration from the room's side — and from **regulars**, the people who least need the cover. Anonymity is not a newcomer accommodation; the people who know Rust want it too. | Confirms §9 and C's buzzer; no amendment. Adds a **second source to Direction A's strike** (public commitment against §9) — A stays the honest loser with more reason. Gives field-notes **Q2 a prior**, phones over hands, from two people; it is not Q2's answer, and the sheet already says a rehearsal cannot answer Q2. |
+| **The event is October** | The meetup. Read as: the rehearsal precedes it, date open. | T-18 stays open on date and venue only. |
+
+**Open (T-18):** the rehearsal's date and place — venue strongly preferred —
+and confirmation that `q3` is the one to spend.
