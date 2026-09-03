@@ -116,7 +116,9 @@
   .bar-row .letter { flex: none; width: 30px; font-weight: 700; }
   .bar-track { flex: 1; height: 30px; background: var(--input); border: 1px solid var(--border);
                border-radius: var(--radius); overflow: hidden; }
-  .bar-fill { height: 100%; background: var(--text-secondary); }
+  /* A span inside a non-flex track stays inline and ignores its width, so
+     every bar rendered empty — numbers with no bars (client, 2026-09-03). */
+  .bar-fill { display: block; height: 100%; background: var(--text-secondary); }
   .bar-row.is-correct .bar-fill { background: var(--green); }
   .bar-row.is-correct .letter::after { content: " ✓"; }
   .bar-n { flex: none; width: 92px; text-align: right; font-size: 19px; }
