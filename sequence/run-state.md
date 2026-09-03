@@ -211,7 +211,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Open** — recommended: sweep. Five places (lines 9, 16, 20, 95, 218). |
-| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Open** 2026-09-02 — guide at `sequence/T-20-drive-guide.md`, opened beside C in c11. Client asked: *"are we done with planning now?!"* — this is the one gate left. |
+| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Open** 2026-09-02 — guide at `sequence/T-20-drive-guide.md`, opened beside C in c11. Client asked: *"are we done with planning now?!"* — this is the one gate left. **Round 4 came out of it on 2026-09-03** — see below. |
 
 ## Client interview record (T-2)
 
@@ -236,6 +236,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | MVP | 0 | — | ~40 min |
 | 1b (T-6) | 0 | 1 open (T-7) | ~20 min |
 | 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
+| 2·4 round 4 (T-20 drive) | 0 | — | ~45 min |
 
 ## Phase 3 output
 
@@ -1250,3 +1251,38 @@ said, not their words; recorded as such.
 
 **Open (T-18):** the rehearsal's date and place — venue strongly preferred —
 and confirmation that `q3` is the one to spend.
+
+## Round 4 — the client's first clicks, 2026-09-03
+
+Client, driving C from the T-20 guide: *"im clicking lights on but nothing"*,
+then *"so many issues flipping from q3 to q1 and code beside to code full
+width."* The first was not a defect — lights are up by default, so the button
+had nothing to change; the guide now says so. The second was four defects and
+one bad default, all reproduced in the c11 browser with screenshots before
+anything was touched.
+
+| # | What she saw | Cause | Fix |
+|---|---|---|---|
+| 1 | **q1 beside the options ran off the bottom of the wall**, through the join strip. | The source well is a flex item; flex items have `min-height:auto`, so a 16-line well grew past the wall and bled. The fit check measured `proj-body`'s scroll height and reported **zero** while code was drawn over the strip. | The well is bounded — `min-height:0; overflow:hidden`, scroll region `overflow:auto` — so overflow lands *inside* it, and the fit check measures that region. |
+| 2 | **Full-width drew the legibility panel on top of the code.** | The type model's height constant for full-width assumed ~50px beneath the source; the options block is ~200px. Font came out at 16px, the well overflowed the space left, and the panel sat over it. | The constants are now a first guess only. After rendering, the wall is **measured** and the type shrunk until it fits or hits the legibility floor — up to six passes. `"Fits, legibly"` is now a measured claim. |
+| 3 | **Nothing showed which source, layout, seat, or type mode was on.** Two clicks in and the wall's state was a mystery, and `hold at 27px` — sticky by design — looked like a broken layout. | No pressed state on any switcher button. | Every button carries `data-k` and reflects its state as `aria-pressed`; pressed is dark. |
+| 4 | An orange **"98% of design size"** warning under the wall at all times. | Threshold was 99.5%; her pane is 98%. | Hidden above 90%, neutral colour below. |
+| 5 | **The first screen was q1 with no options** — a dashed "legibility test" panel where the answers should be. | The page deliberately opened on q1 so the layout would meet a hard source first. Right instinct for an instrument; wrong first impression for the drive that decides whether she loves it. | Opens on **q3**, the real segment. The hard sources are one click away and now show as pressed. Panel copy shortened. |
+| 6 | *(not reported — found on the way)* Title card: *"Then we all go argue about it."* | A-5 leak in the prototype itself; the sweep missed it. | *"Then we walk through it together."* |
+
+**Honest consequence of #2, now visible instead of hidden:** under full-width
+with five options beneath, `q1` (16 lines) **does not fit this room at a
+legible size** — it clips at line 11 and the note says so in red. Beside the
+options it fits at 14.9px, a hair above the 14.2px floor. Full-width buys line
+width and spends ~200px of height on the options; that trade is what step 8 of
+the guide asks the client to judge, and it was being judged against a wall
+that lied.
+
+**Verified** by re-measuring nine source × layout states after reload — zero
+overflow wherever the note says *fits*, and overflow reported wherever it says
+*too long* — and by screenshots of the initial load, q1 beside, q1 full-width,
+q1 held at 27px, q3 beside, and the title card.
+
+**Not changed:** `_shared/tokens.css` — the well fix is scoped to C's own
+style so the other takes stay as they were judged. AC-33's sibling (the source
+must *fit* the wall) is unchanged in meaning and now has a check that can see.

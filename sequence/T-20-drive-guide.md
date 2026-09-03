@@ -15,12 +15,15 @@ test: *would you keep this if a better option appeared tomorrow?*
 
 ## 0 · Set it to the real room (30 seconds, top bar)
 
-- [ ] **`lights up`** — AC-80 is answered; leave it there.
-- [ ] **`q3 · 5 lines`** — tonight's question. The vote and split are q3's.
+- [ ] Lights are **already up** — that is the default, so **`lights up`** does
+      nothing visible. If you want to see the difference once, press
+      **`lights down`** then **`lights up`**. AC-80 is answered; leave it up.
+- [ ] **`q3 · 5 lines`** is already pressed — the page opens on tonight's
+      question. **A dark button is the one that is on**, in every group.
 - [ ] **`auto · fit the question`**, **`15ft`** screen, **`20ft`** back row —
       the venue guess. The rehearsal replaces these numbers.
-- [ ] **`code full-width`** — the Round 1 layout. You compare the other one in
-      step 8.
+- [ ] Leave **`code beside options`** on for the segment. You compare
+      full-width in step 8.
 
 ---
 

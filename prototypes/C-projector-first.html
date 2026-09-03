@@ -31,8 +31,8 @@
 
   /* Shown whenever the wall is rendered below design size, because AC-78 judged
      on a shrunken mock is not judged at all. */
-  .undersize { margin-top: 6px; font-size: var(--text-xs); color: var(--accent-hover);
-               border-left: 3px solid var(--accent); padding-left: 9px; line-height: 1.5; }
+  .undersize { margin-top: 6px; font-size: var(--text-xs); color: var(--text-secondary);
+               border-left: 3px solid var(--border); padding-left: 9px; line-height: 1.5; }
   .undersize[hidden] { display: none; }
 
   /* Louder than the undersize note, because this one is about the product
@@ -59,19 +59,27 @@
   .workbeat b { color: var(--text); font-size: 30px; font-family: var(--serif); }
   .workbeat .second { font-size: 18px; }
 
-  .legibility-only { display: flex; flex-direction: column; gap: 12px;
+  .legibility-only { display: flex; flex-direction: column; gap: 6px;
                      border: 2px dashed var(--border); border-radius: var(--radius);
-                     padding: 18px 20px; font-size: 19px; line-height: 1.5;
+                     padding: 12px 16px; font-size: 17px; line-height: 1.45;
                      color: var(--text-secondary); }
   .legibility-only b { color: var(--text); }
-  .legibility-only > b:first-child { font-size: 22px; }
+  .legibility-only > b:first-child { font-size: 19px; }
   .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
   .proj-top { display: flex; justify-content: space-between; align-items: baseline;
               flex: none; margin-bottom: 12px; }
   .proj-brand { font-size: 13px; letter-spacing: var(--tracking-caps);
                 text-transform: uppercase; color: var(--text-secondary); }
   .proj-main { flex: 1; display: flex; gap: 28px; min-height: 0; }
-  .proj-code { flex: 1.35; min-width: 0; display: flex; }
+  .proj-code { flex: 1.35; min-width: 0; min-height: 0; display: flex; }
+  /* The well must CLIP, never bleed. A flex item's min-height is auto, so a
+     16-line source grew the well past the wall and drew code through the join
+     strip while the fit check — measuring the wrong box — reported zero
+     overflow (found by the client, 2026-09-03). Bounding the well makes any
+     overflow land inside the scroll region, where it can be measured. */
+  .proj-code .rn-src { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .proj-code .rn-src-head { flex: none; }
+  .proj-code .rn-src-scroll { flex: 1; min-height: 0; overflow: auto; }
   /* The whole bet of this direction: the code is set for the back row. */
   .proj-code .code { flex: 1; font-size: 27px; line-height: 1.5; padding: 18px 20px; }
   .proj-side { flex: 1; display: flex; flex-direction: column; gap: 8px;
@@ -143,6 +151,11 @@
   .switcher { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 6px;
               align-items: center; }
   .switcher .btn { min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+  /* Which source, layout, seat and type mode is on has to be visible, or the
+     wall's state is a mystery the moment two buttons have been pressed. */
+  .switcher .btn[aria-pressed="true"] { background: var(--text); color: var(--white);
+                                        border-color: var(--text); font-weight: 600; }
+  .switcher .btn[aria-pressed="true"]:hover { background: var(--text); }
   .switcher .lbl { font-size: var(--text-xs); text-transform: uppercase;
                    letter-spacing: var(--tracking-caps); color: var(--text-secondary);
                    margin-right: 4px; }
@@ -170,39 +183,39 @@
 
   <div class="switcher">
     <span class="lbl">Drive the segment</span>
-    <button class="btn" onclick="go('idle')">1 · title</button>
-    <button class="btn" onclick="go('live')">2 · question live</button>
-    <button class="btn" onclick="go('closed')">3 · answers closed</button>
-    <button class="btn" onclick="go('split')">4 · the split</button>
-    <button class="btn" onclick="go('work')">5 · work through it</button>
-    <button class="btn" onclick="go('reveal')">6 · reveal</button>
-    <button class="btn" onclick="go('released')">7 · released</button>
+    <button class="btn" data-k="phase:idle" onclick="go('idle')">1 · title</button>
+    <button class="btn" data-k="phase:live" onclick="go('live')">2 · question live</button>
+    <button class="btn" data-k="phase:closed" onclick="go('closed')">3 · answers closed</button>
+    <button class="btn" data-k="phase:split" onclick="go('split')">4 · the split</button>
+    <button class="btn" data-k="phase:work" onclick="go('work')">5 · work through it</button>
+    <button class="btn" data-k="phase:reveal" onclick="go('reveal')">6 · reveal</button>
+    <button class="btn" data-k="phase:released" onclick="go('released')">7 · released</button>
     <span class="lbl" style="margin-left:14px">AC-78 · the back-row test</span>
-    <button class="btn" onclick="setDistance(1)">front row</button>
-    <button class="btn" onclick="setDistance(0.55)">middle</button>
-    <button class="btn" onclick="setDistance(0.33)">6 metres back</button>
+    <button class="btn" data-k="dist:1" onclick="setDistance(1)">front row</button>
+    <button class="btn" data-k="dist:0.55" onclick="setDistance(0.55)">middle</button>
+    <button class="btn" data-k="dist:0.33" onclick="setDistance(0.33)">6 metres back</button>
     <span class="lbl" style="margin-left:14px">Source under test</span>
-    <button class="btn" onclick="setSource('q3')">q3 · 5 lines</button>
-    <button class="btn" onclick="setSource('q1')">q1 · 16 lines</button>
-    <button class="btn" onclick="setSource('q7')">q7 · 69ch wide</button>
-    <button class="btn" onclick="setSource('q5')">q5 · 9×50</button>
-    <button class="btn" onclick="setSource('L35')">35 lines · not a question</button>
+    <button class="btn" data-k="src:q3" onclick="setSource('q3')">q3 · 5 lines</button>
+    <button class="btn" data-k="src:q1" onclick="setSource('q1')">q1 · 16 lines</button>
+    <button class="btn" data-k="src:q7" onclick="setSource('q7')">q7 · 69ch wide</button>
+    <button class="btn" data-k="src:q5" onclick="setSource('q5')">q5 · 9×50</button>
+    <button class="btn" data-k="src:L35" onclick="setSource('L35')">35 lines · not a question</button>
     <span class="lbl" style="margin-left:14px">Type size · derived, not guessed</span>
-    <button class="btn" onclick="setAuto(true)">auto · fit the question</button>
-    <button class="btn" onclick="setWallFont(27)">hold at 27px</button>
+    <button class="btn" data-k="type:auto" onclick="setAuto(true)">auto · fit the question</button>
+    <button class="btn" data-k="type:hold" onclick="setWallFont(27)">hold at 27px</button>
     <span class="lbl">screen</span>
-    <button class="btn" onclick="setScreen(12)">12ft</button>
-    <button class="btn" onclick="setScreen(15)">15ft</button>
-    <button class="btn" onclick="setScreen(20)">20ft</button>
+    <button class="btn" data-k="screen:12" onclick="setScreen(12)">12ft</button>
+    <button class="btn" data-k="screen:15" onclick="setScreen(15)">15ft</button>
+    <button class="btn" data-k="screen:20" onclick="setScreen(20)">20ft</button>
     <span class="lbl">back row</span>
-    <button class="btn" onclick="setBackRow(20)">20ft</button>
-    <button class="btn" onclick="setBackRow(40)">40ft</button>
+    <button class="btn" data-k="back:20" onclick="setBackRow(20)">20ft</button>
+    <button class="btn" data-k="back:40" onclick="setBackRow(40)">40ft</button>
     <span class="lbl" style="margin-left:14px">Wall layout</span>
-    <button class="btn" onclick="setLayout('split')">code beside options</button>
-    <button class="btn" onclick="setLayout('full')">code full-width</button>
+    <button class="btn" data-k="layout:split" onclick="setLayout('split')">code beside options</button>
+    <button class="btn" data-k="layout:full" onclick="setLayout('full')">code full-width</button>
     <span class="lbl" style="margin-left:14px">AC-80</span>
-    <button class="btn" onclick="setRoom('light')">lights up</button>
-    <button class="btn" onclick="setRoom('dim')">lights down</button>
+    <button class="btn" data-k="room:light" onclick="setRoom('light')">lights up</button>
+    <button class="btn" data-k="room:dim" onclick="setRoom('dim')">lights down</button>
   </div>
 
   <div class="col" style="width:100%">
@@ -283,6 +296,21 @@ function traceStep(d) {
 
 function setRoom(mode) {
   document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
+  syncButtons();
+}
+/* Every switcher button reflects the state it sets. */
+function syncButtons() {
+  const proj = document.getElementById("proj");
+  const on = {
+    phase: state.phase, dist: String(wallDist), src: sourceKey,
+    type: autoType ? "auto" : "hold", screen: String(screenWidthFt),
+    back: String(backRowFt), layout: wallLayout,
+    room: (proj && proj.getAttribute("data-room")) || "light"
+  };
+  document.querySelectorAll(".switcher .btn[data-k]").forEach(function (b) {
+    const kv = b.getAttribute("data-k").split(":");
+    b.setAttribute("aria-pressed", on[kv[0]] === kv[1] ? "true" : "false");
+  });
 }
 /* A stand-in QR — real finder squares, deterministic modules. A mock of the
    handover, not a working code. */
@@ -375,10 +403,25 @@ function applyTypeModel() {
   const byWidth  = (availW - WELL_PAD) / ((maxChars + GUTTER_CH) * 0.6);
   const fits     = Math.min(byHeight, byWidth);
 
-  const tooLong = fits < min;
   if (autoType) wallFontPx = Math.round(Math.max(min, Math.min(fits, MAX_FONT)) * 10) / 10;
 
   render();
+
+  /* The constants above are a first guess. The wall is then MEASURED, because
+     the well has a header and padding the constants never knew about, and the
+     options block under a full-width source is ~200px tall, not the ~50px the
+     constant assumed. Both put code through the join strip and under the
+     options on 2026-09-03 while the note beneath said "fits, legibly". */
+  let m = measureWell();
+  if (autoType && m) {
+    for (let i = 0; i < 6 && (m.overX > 2 || m.overY > 2) && wallFontPx > min; i++) {
+      const k = Math.min(m.overX > 2 ? m.cw / m.sw : 1, m.overY > 2 ? m.ch / m.sh : 1);
+      wallFontPx = Math.round(Math.max(min, wallFontPx * k * 0.97) * 10) / 10;
+      render(); m = measureWell();
+    }
+  }
+  const overflows = !!m && (m.overX > 2 || m.overY > 2);
+  const tooLong = autoType ? overflows : fits < min;
 
   const el = document.getElementById("typeNote");
   const screenHFt = screenWidthFt * 9 / 16;
@@ -391,11 +434,20 @@ function applyTypeModel() {
     (tooLong
       ? "<b>Too long for this room:</b> " + lines + " lines and " + maxChars +
         " characters will not fit at a legible size. The limit is the room's, not the question's."
+      : overflows
+      ? "<b>Does not fit at the held size.</b> " + lines + " lines, widest " + maxChars +
+        " characters — press <b>auto</b> and the wall sizes itself."
       : "<b>Fits, legibly.</b> " + lines + " lines, widest " + maxChars + " characters.") +
     " <i>Rule of thumb — AC-78 is <code>felt</code> and October settles it.</i>";
   el.className = tooLong ? "typenote bad" : "typenote ok";
 }
 
+function measureWell() {
+  const sc = document.querySelector("#proj .rn-src-scroll");
+  if (!sc) return null;
+  return { overX: sc.scrollWidth - sc.clientWidth, overY: sc.scrollHeight - sc.clientHeight,
+           cw: sc.clientWidth, ch: sc.clientHeight, sw: sc.scrollWidth, sh: sc.scrollHeight };
+}
 function setScreen(ft)  { screenWidthFt = ft; applyTypeModel(); }
 function setBackRow(ft) { backRowFt = ft;     applyTypeModel(); }
 function setRatio(r)    { readRatio = r;      applyTypeModel(); }
@@ -525,7 +577,7 @@ function fitWall() {
 
   const under = document.getElementById("undersize");
   const pctOf = Math.round(base * 100);
-  under.hidden = base >= 0.995;
+  under.hidden = base >= 0.9;
   under.textContent = "This wall is at " + pctOf + "% of design size, because the window is " +
     "narrower than the 1120px it was drawn for. The back-row test still compares honestly — " +
     "front row and six metres back shrink by the same factor — but do not settle AC-78 here. " +
@@ -536,6 +588,7 @@ window.addEventListener("resize", fitWall);
 function setDistance(scale) {
   wallDist = scale;
   fitWall();
+  syncButtons();
   document.getElementById("distNote").textContent = scale === 1
     ? "Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs."
     : scale > 0.4
@@ -556,7 +609,7 @@ function renderProjector() {
     phase.textContent = "closing segment";
     main.className = "title-card";
     main.innerHTML = '<div><h2>Pop Quiz</h2><p style="font-size:24px;color:var(--text-secondary)">' +
-      'One question. Five minutes.<br>Then we all go argue about it.</p></div>';
+      'One question. Five minutes.<br>Then we walk through it together.</p></div>';
     strip.innerHTML = '<span>join from your phone — you only need the letter</span><b>' + ROOM.code + '</b>';
     return;
   }
@@ -602,11 +655,10 @@ function renderProjector() {
        a real source with answers from a different question. */
     side = '<div class="proj-side"><div class="legibility-only">' +
       '<b>Legibility test — not a question.</b>' +
-      '<span>This is the source from <b>' + escapeHtml(sourceLabel()) + '</b>, on the wall at ' +
-      'the real size. The five options are <code>q3</code>\'s and would be nonsense here, so they ' +
-      'are not shown.</span>' +
-      '<span>Judge one thing only: <b>can you read it from the back of the room?</b> ' +
-      'Go to <b>4 · the split</b> and the wall returns to the real segment.</span>' +
+      '<span>Source from <b>' + escapeHtml(sourceLabel()) + '</b> at real size. The options are ' +
+      '<code>q3</code>\'s, so they are hidden.</span>' +
+      '<span>Judge one thing: <b>can you read it from the back?</b> ' +
+      '<b>q3 · 5 lines</b> or <b>4 · the split</b> returns to the real segment.</span>' +
       '</div></div>';
   } else if (p === "live" || p === "closed") {
     side = '<div class="proj-side">' + TONIGHT.options.map(function (o) {
@@ -792,11 +844,13 @@ function checkWallFit() {
   const el = document.getElementById("fitWarn");
   if (!el) return;
   const sc = document.querySelector("#proj .rn-src-scroll");
-  const body = document.querySelector("#proj .proj-body");
-  if (!sc || !body) { el.hidden = true; return; }
+  if (!sc) { el.hidden = true; return; }
+  /* The well is bounded (see .proj-code .rn-src), so any overflow is inside
+     its scroll region and this is the box to measure. proj-body's scrollHeight
+     said 0 while code was drawn through the join strip. */
   const overX = sc.scrollWidth - sc.clientWidth;
-  const overY = body.scrollHeight - body.offsetHeight;
-  if (overX <= 2 && overY <= 2) {
+  const overY = sc.scrollHeight - sc.clientHeight;
+  if (overX <= 4 && overY <= 4) {
     el.hidden = true;
     return;
   }
@@ -817,9 +871,10 @@ function render() {
      exists to catch, so it must not be the first victim of it. */
   checkWallFit();
   requestAnimationFrame(checkWallFit);
+  syncButtons();
 }
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(function () { checkWallFit(); fitWall(); });
+  document.fonts.ready.then(function () { applyTypeModel(); fitWall(); });
 }
 function go(phase) {
   state.phase = phase;
@@ -854,9 +909,11 @@ mountBadge("Direction C · Projector-first", "no server behind this; the counts 
 state.picked = "A";
 setRoom("light");
 render();
-/* Defaults to q1, not q3: the point of the instrument is that the layout should
-   be judged against the worst source the bank can actually produce. */
-setSource("q1");
+/* Opens on q3 — the real segment. It defaulted to q1 so the layout would be
+   judged against a hard source first, and the client's first screen was a
+   legibility fixture with no options, which read as broken (2026-09-03). The
+   worst sources are one click away and now show as pressed. */
+setSource("q3");
 applyTypeModel();
 fitWall();
 </script>
