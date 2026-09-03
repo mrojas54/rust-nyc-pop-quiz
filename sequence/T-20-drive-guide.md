@@ -62,17 +62,17 @@ Look at the **buzzer**: this is what someone walking in sees. Room code
 - [x] **The question:** did seeing the split first do anything for you, or was
       it a delay before the answer? Say which, in a sentence.
 
-## 5 · Work through it — press **`5 · work through it`** (top bar)
+## 5 · Work through it ✓ done — press **`5 · work through it`** (top bar)
 
 **New since you last drove it.** This is AC-97 — the room walks the program
 before the answer exists.
 
-- [ ] On the **host phone**, press **`→`** to step the trace. Press it until
+- [x] On the **host phone**, press **`→`** to step the trace. Press it until
       the phone says the last step. **`←`** goes back.
-- [ ] Check the wall as you go: **no answer marked, no receipt, no colour**,
+- [x] Check the wall as you go: **no answer marked, no receipt, no colour**,
       just "Step N of M". If you ever see the answer here, that is a defect —
       write it down.
-- [ ] **The question:** is this a pace you would set for a room, and would you
+- [x] **The question:** is this a pace you would set for a room, and would you
       narrate it? The host phone shows you the words for each step.
 
 ## 6 · Reveal ✓ loved — press **`6 · reveal`** (top bar)
