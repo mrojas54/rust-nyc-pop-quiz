@@ -215,6 +215,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
 | T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Answered 2026-09-03 — *"yes i love it."*** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Stage 2 complete.** |
+| T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), D-H (AC-95 actual vs predicted), plus the human track H-1…H-10 | **Open** 2026-09-03 — options and recommendations in `BUILDPLAN.md` §1; the plan assumes the recommendations and is re-cut on her call. |
 
 ## Client interview record (T-2)
 
@@ -241,6 +242,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
 | 2·4 round 4 (T-20 drive) | 0 | — | ~45 min |
 | 2·4 closing the drive (T-19, AC-28, `DESIGN.md` draft) | 0 | 1 answered (T-20: *love it*) | ~40 min |
+| 3·0–3 intake, evaluation, spec, plan | 3 (2 Sonnet inventory, 1 Opus judge) + 1 Sonnet plan review | 1 open (T-21) | ~90 min |
 
 ## Phase 3 output
 
@@ -1392,3 +1394,45 @@ budget, the ~327k requests per room, and the Val Town Business-tier tail were
 all computed for live, three-question rooms. Under D-7 the live room is one
 ~30-second write burst and ~5 minutes of life. The **burst** survives at full
 size (200 votes in a second or two); the totals do not.
+
+### Phases 1–3 — evaluation, spec, plan, 2026-09-03
+
+Full-ahead between touchpoints, as the stage prescribes. Written the same
+afternoon the stage opened:
+
+- **`EVALUATION.md`** — 102 rows, every criterion AC-1…AC-100 (plus 23a/23b)
+  tagged `autonomous` / `operator-assisted` / `external-oracle` / `felt`, eight
+  harness hooks named as contract names (`test` ≤ 60 s hermetic, `test-full`,
+  `verify`, `bank-audit`, `canary`, `burst`, `a11y`, `smoke`), **five
+  human-use checkpoints** HC-0…HC-4 with trigger, driver, instrument, and what
+  each settles, the operator-input table with *when*, and the fifteen `felt`
+  criteria in one list so none can be quietly unit-tested away.
+- **`SPEC.md`** — twelve guardrails G-1…G-12, each with its enforcement and an
+  audit-ticket demand (G-1 and G-10 audit the inherited `mvp/tools/`); the
+  domain model with a writer and reader per field; the seven-phase machine as
+  a table of what each of the three surfaces renders; the wall's geometry and
+  type model as formulas; the binding copy; the static fallback and
+  take-it-home; a criteria index. **D-8 decided and logged:** the hint rides in
+  every buzzer's `live` payload, hidden client-side, so taking it makes no
+  request — AC-48 becomes provable by `canary`, and AC-60's *unpublished hint*
+  clause is read as "before `live`". **D-9, to confirm (T-21 / D-H):** the wall
+  names the room's *actual* most-chosen wrong answer; the host reads the
+  authored beat about the *predicted* one; a miss is recorded for the reviewer.
+- **`BUILDPLAN.md`** — §1 the decisions with options, pros, cons, and a
+  recommendation each; the one **taste fork** is D-A: **Rust (`axum`) on
+  Fly.io, recommended**, reversing Dimension 5's lean toward Durable Objects
+  because D-7 shrank the live problem to one process and the room speaks
+  Rust; TypeScript on Cloudflare is the honest alternative at $0. §3 is 24
+  tickets in four milestones around HC-0…HC-4, the **burst spike T-03 before
+  any room code**, a minimum viable cut for October, §4 the client's own work
+  plan H-1…H-10.
+
+**Brownfield finding worth its own line:** `mvp/tools/verify.py` never calls
+Miri. The `miri` fields in `mvp/2026-08-12/verified.json` came from a pass
+outside the repo, which `mvp/README.md` does say — but the stories mark AC-9
+and AC-10 `MVP`, and that label now reads as *established by a hand-run step*.
+`EVALUATION.md` carries the caveat; T-15 puts Miri in code. Principle 4 —
+say exactly what verification proves — applied to our own receipt.
+
+**Phase 2 judge-gate and Phase 4 review** ran as agents against the committed
+files; findings and what was applied are recorded below when they land.
