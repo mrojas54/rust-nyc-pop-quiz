@@ -6,19 +6,19 @@ room codes, no capacity risk. One HTML file you open on the projector.
 
 This is deliberately not the product. It exists to put fresh verified questions
 in front of real attendees now, and to generate the user evidence the design
-stages need — *does the room actually argue about the answer?*
+stages need — *does the room actually work through the answer together?*
 
 ## The shape: one question, 3–5 minutes, at the very end
 
 Not a quiz round. A closing bit.
 
 The segment runs **after the last talk**, takes **one question**, and is over in
-three minutes — five if the argument catches. That is the whole format.
+three minutes — five if the walk-through catches. That is the whole format.
 
 Three reasons it is this and not a longer round:
 
-1. **The argument does not have to be cut off.** Mid-meetup, you must stop the
-   disagreement to start the next talk — which kills the one thing the segment
+1. **The working-through does not have to be cut off.** Mid-meetup, you must
+   stop it to start the next talk — which kills the one thing the segment
    exists to produce. At the end, it walks to the bar with them and keeps going.
 2. **One question a night is eight months of supply from a single batch.** The
    generation pipeline stops being urgent, which is `PHILOSOPHY.md` §8 paying
@@ -90,16 +90,18 @@ screen **before** you announce it. The clock starts when people can see code.
 |---|---|---|
 | **0:00** | 0:30 | Code up, **say nothing**. Let them read. The silence is the format — if you talk over it, half the room never forms an opinion and the vote is worthless. |
 | **0:30** | 1:00 | *"Hands up for A."* Straight through A to E. No discussion yet. Count out loud, badly. It does not matter. |
-| **1:30** | 0:30 | *"Someone who said E — why?"* One person, twenty seconds. Then someone who said B. **This is the segment.** Everything else is setup for it. |
+| **1:30** | 0:30 | *"Let's walk it. Nobody has to say anything."* Read the program aloud, a line at a time, saying what each line does — no answer yet. If someone offers a reading, take it; if nobody does, nothing is missing (AC-98). **This is the segment.** Everything else is setup for it. |
 | **2:00** | 0:30 | **Reveal** (`Space`). Read the explanation aloud verbatim — it is written to be read aloud, not to be paraphrased. |
-| **2:30** | 0:30 | Receipt only if you want it (`◐` for a dim room). Then: *"That's it — go argue about it downstairs."* |
+| **2:30** | 0:30 | Receipt only if you want it (`◐` for a dim room). Then: *"Let's go to the bar."* |
 
 Three minutes. Let it run to five only if the 1:30 row is going well; that is
 the only row worth spending extra time on.
 
-**If the room is silent at 1:30**, hit **Hint** (`H`) and re-take the vote. A
-silent room is a question that was too hard or a screen nobody could read —
-write down which, because that is exactly the evidence the prototype stage needs.
+**If almost no hands go up at 0:30**, hit **Hint** (`H`) and re-take the vote. A
+room with no opinion is a question that was too hard or a screen nobody could
+read — write down which, because that is exactly the evidence the prototype
+stage needs. A room that is quiet during the walk-through is not a problem;
+nobody has to say anything, and the talking happens at the bar.
 
 Everything works offline. Venue wifi is assumed hostile.
 
@@ -214,8 +216,8 @@ working; see *Anti-gaming*.
 - Question programs are hand-written, not LLM-generated. The generation half of
   the pipeline is October's work; this proves the *verification* and *delivery*
   halves.
-- Voting is by show of hands. That is a feature at this size — it is louder and
-  more argumentative than phones — but it collects no data, so "how the room
+- Voting is by show of hands. That is a feature at this size — it is louder
+  than phones, and everyone sees the split at once — but it collects no data, so "how the room
   voted" is whatever you remember. **Write the split down after each meetup**;
   at one question a night it is four numbers, and it is the only record the
   segment produces.
