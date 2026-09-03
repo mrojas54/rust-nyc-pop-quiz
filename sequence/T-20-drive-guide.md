@@ -1,8 +1,8 @@
 # T-20 — the drive that closes the stage
 
-**Driven 2026-09-03 — every step below is done.** Sixteen items came back and
-were applied the same day (the T-20 list in `run-state.md`). What is left is
-the first line of *What to bring back*: the one word.
+**Driven 2026-09-03 — every step below is done, and the word was said: *"yes i
+love it."*** Sixteen items came back and were applied the same day (the T-20
+list in `run-state.md`). The stage is closed; `DESIGN.md` is binding.
 
 **About 20 minutes.** Two browser tabs on the right: **`C · Projector-first`**
 and **`Take it home`**. This guide on the left. Every step names the exact

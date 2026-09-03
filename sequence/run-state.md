@@ -4,17 +4,14 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 
 ---
 
-## ▶ RESUME HERE — handoff written 2026-09-03, after the T-20 drive
+## ▶ RESUME HERE — handoff written 2026-09-03, Stage 2 COMPLETE
 
-**Stage 2 `tone-prototype`, Round 4 closed. The T-20 drive is DRIVEN — every
-step of the guide, sixteen items back, all applied.** Three "love it"s on the
-record (reveal and release, the layout, the colour) and *"are we done with
-planning now?!"* — but **the one-word verdict on the whole has not been said**,
-and the stage rule is that iteration ends when the client **loves** the take.
-**`DESIGN.md` exists as a draft** — it records what C already does, so the
-verdict is on a page she can read, and it turns binding on the word. **No
-`tone-architect`, no build** until then. Ask for the word; if it is not *love
-it*, ask what would have to change, and that is Round 5.
+**Stage 2 `tone-prototype` is DONE. T-20 answered: *"yes i love it."*** The
+client drove Direction C end to end, sixteen items were applied, and the word
+was said about the whole. **`DESIGN.md` is binding.** The stage handed off to
+**`tone-architect`** the same day — see the Stage 3 section at the bottom of
+this file for where that stands. Work continues on `ai-c11-cc/tone-architect`;
+the prototype branch has a PR to `main` awaiting merge.
 
 **First four things, in order:**
 
@@ -60,7 +57,7 @@ it*, ask what would have to change, and that is Round 5.
 
 | | |
 |---|---|
-| **T-20** | **Driven 2026-09-03.** Sixteen items, all applied; AC-93 answered; T-17 answered; AC-28 rewritten. **What remains is the one word.** `DESIGN.md` is drafted so the word is said about a page. *Love it* → `DESIGN.md` binding, `tone-architect` starts. Anything else → Round 5, from her list. |
+| ~~**T-20**~~ | **Answered 2026-09-03: *"yes i love it."*** Sixteen items, all applied; AC-93 answered; T-17 answered; AC-28 rewritten. `DESIGN.md` binding. Stage closed. |
 | **T-18** | **The rehearsal.** When, where — the venue, if at all possible, because the two room measurements are the highest-value output — and confirm `q3` is the one to spend. Two regulars offered at Rust lunch. Sheet written: `mvp/PRACTICE-RUN.md`. The meetup is **October**; the rehearsal precedes it and has no date yet. Testimony captured (A-6). |
 | ~~**T-19**~~ | **Swept 2026-09-03.** Six places in `mvp/README.md`, plus one leak the A-5 sweep had missed in the product itself: the reveal script's third beat was headed *The bit worth arguing about* — read aloud by the host, shown on take-it-home. Now *talking about*. |
 | ~~**T-17**~~ | **Answered 2026-09-03: keep the colour.** A-7, AC-99 minted, §5 amended. Cole's view is still worth having, and the client carries it; nothing waits on it. |
@@ -101,7 +98,7 @@ the phone away.
 
 | | |
 |---|---|
-| **Stage** | 2 — `tone-prototype`, **opened 2026-08-14**. Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
+| **Stage** | **3 — `tone-architect`, opened 2026-09-03.** Stage 2 (`tone-prototype`) **complete 2026-09-03** — *"yes i love it."* Stage 1 (`tone-initiation`) **complete 2026-08-13**. |
 | **Phase** | **2 — converging on Direction C. T-12 answered 2026-08-14: *"C is it."*** The fan-out is closed and iteration on C has not started. Queue: source full-width with options beneath; type size defaulted to the real venue (**needs the client's screen size and room depth**); the handover into `take-it-home`; and the `felt` judgments still unmade — AC-80, AC-93, AC-21. *Prior:* **1c — takes reconciled onto the house design system, awaiting the drive-through.** Five clickable prototypes in `prototypes/`, all on the real verified batch, all now on the design system's tokens, Cascadia Mono, `SourceCode`, and `PROJECTOR_SPEC` §4.1's trace model. **A-3 amendment: `PHILOSOPHY.md` §9 and Story B11 / AC-93…AC-96** — being wrong has to be the ordinary thing. Answered: T-11, T-13 (AC-48 rewritten), T-14 (A stays), T-15 (trace stepped both ways). **T-12 — the drive-through — is the one still open, and nothing converges without it.** Carried in from Stage 1, none blocking: T-6 room half (October), AC-92 mechanism defect (→ architect), participation rate unmeasured. New gap for architect: the static fallback. **Resume pass 2026-08-14: the reconcile reached the criteria** — `PHILOSOPHY.md` §5 amended, **AC-32 rewritten** (no syntax highlighting), room code now six characters (`KMT4XW`). |
 | **Repo** | `~/rust-nyc-pop-quiz` (canonical) |
 | **Branch** | `ai-c11-cc/tone-prototype`, off `main` @ `9d3fff7`. *(Stage 1 ran on `ai-c11-cc/tone-initiation` and three follow-on branches, all merged to `main` via PRs #1–#4.)* |
@@ -217,7 +214,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
-| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Driven 2026-09-03.** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Open on one word:** the whole-take verdict. Client asked: *"are we done with planning now?!"* |
+| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Answered 2026-09-03 — *"yes i love it."*** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Stage 2 complete.** |
 
 ## Client interview record (T-2)
 
@@ -243,7 +240,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 1b (T-6) | 0 | 1 open (T-7) | ~20 min |
 | 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
 | 2·4 round 4 (T-20 drive) | 0 | — | ~45 min |
-| 2·4 closing the drive (T-19, AC-28, `DESIGN.md` draft) | 0 | 1 open (T-20's word) | ~40 min |
+| 2·4 closing the drive (T-19, AC-28, `DESIGN.md` draft) | 0 | 1 answered (T-20: *love it*) | ~40 min |
 
 ## Phase 3 output
 
@@ -1335,3 +1332,25 @@ need the client and were done; one thing needs only her.
 the direction was picked and it still holds — the stage ends on *love it*, said
 about the whole, not on three *love it*s about parts. Everything that could be
 cleared before that word has been.
+
+## Stage 2 — COMPLETE 2026-09-03. Handed off to `tone-architect`.
+
+Client, on `DESIGN.md` and the drive: ***"yes i love it."*** The stage rule was
+love, not approval, and the working test — *would she keep this if a better
+option appeared tomorrow?* — is answered by a client who asked *"are we done
+with planning now?!"* before the word was even requested.
+
+| | |
+|---|---|
+| **Takes produced** | 5 clickable prototypes (A, B, C, the review surface, the Discord seam) + `take-it-home` + `index` |
+| **Direction** | **C — projector-first, phone as buzzer.** Stated by the client at A-4, confirmed at T-12, loved at T-20. |
+| **Rounds on C** | 4 — full-width and the type model; the walk-through beat; the drive-through answers; the T-20 list of 16 |
+| **Criteria touched** | AC-93…AC-99 minted; AC-23, AC-32, AC-48, AC-28 rewritten; AC-45's host control deleted |
+| **Philosophy** | The one thing rewritten (A-5); §5 amended twice; §9 added |
+| **Touchpoints** | T-11…T-20, all answered; T-18 (the rehearsal) carries into Stage 3 as the client's own work |
+| **Binding** | `DESIGN.md` + `prototypes/C-projector-first.html` + `prototypes/take-it-home.html` |
+
+**Carried into Stage 3, none blocking:** T-18 (rehearsal date, venue, the
+three room measurements); the AC-92 mechanism defect; the static fallback
+(`PROJECTOR_SPEC` §6); the three-field explanation content model; AC-95's count;
+AC-21 unmeasured; font vendoring; the real short link.

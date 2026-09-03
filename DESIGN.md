@@ -1,10 +1,11 @@
 # Design — Rust NYC Pop Quiz
 
-**Status: draft, written 2026-09-03 at the close of the T-20 drive. It becomes
-the binding visual contract on the client's one-word verdict — *love it* — and
-not before.** Everything below describes what `prototypes/C-projector-first.html`
-and `prototypes/take-it-home.html` actually do today; nothing here is a
-proposal the prototype does not already carry.
+**Status: binding. Written 2026-09-03 at the close of the T-20 drive and made
+the build's visual contract the same day on the client's word: *"yes i love
+it."*** Everything below describes what `prototypes/C-projector-first.html` and
+`prototypes/take-it-home.html` actually do; nothing here is a proposal the
+prototype does not already carry. Where this file and the prototype disagree,
+the prototype wins and this file is corrected.
 
 The converged direction is **C — projector-first, phone as buzzer.** The code
 lives on the big screen and nowhere else; the phone is five letters. The client
