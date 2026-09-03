@@ -122,7 +122,7 @@ because the segment is ten minutes long.*
 
 | ID | Criterion |
 |---|---|
-| **AC-28** | Joining requires only a short room code. No account, email, or nickname. |
+| **AC-28** | **Joining requires only a short link or a short room code**, and nothing else. No account, email, or nickname. The link may carry the code so that nobody has to type it. *Rewritten 2026-09-03 on the client's T-20 drive — the wall now says* join @ *a short link and the room code is off the wall in every phase; the buzzer and host phone still show the code as the room's identity. Same promise as before (nothing to install, nothing to sign up for), one more way in. Original: "Joining requires only a short room code. No account, email, or nickname."* |
 | **AC-29** | Every room-code failure states what went wrong and what to do next, distinctly for: malformed, unknown, not yet open, already ended, closed for inactivity, and full. |
 | **AC-30** | A room at capacity says so before creating any session, and reserves nothing. |
 | **AC-31** | Joining, from tapping the field to seeing the lobby, feels immediate on venue wifi. `felt` |
@@ -648,6 +648,31 @@ answer is shown — and it needed the same care AC-93 got, because the order
 **repeat → resolve → release** is the mechanism rather than a preference. AC-98
 carries the property two successive designs got wrong: **nobody is obliged to
 speak.**
+
+### 2026-09-03 — T-20, the closing drive: AC-99 minted, AC-28 rewritten
+
+The client drove Direction C end to end from `sequence/T-20-drive-guide.md`.
+Sixteen items came back and each was applied the same day; the record is the
+T-20 list in `run-state.md`. Two reached the criteria.
+
+**AC-99 minted** under Story B8 (A-7). *"keep the colour, love it."* The source
+carries syntax colour in the reading phases and none while a trace runs.
+`PHILOSOPHY.md` §5 carries the reasoning: the trace's highlight-and-dim is the
+only reason colour was removed, and that reason is vacuous when no trace is
+running. This is minted rather than written as a third revision of AC-32,
+which after A-4 no longer says anything about highlighting.
+
+**AC-28 rewritten** (T-20 item 3). The client's join strip — *join @
+bit.ly/jnfnvd* — put a short link on the wall and took the room code off it.
+AC-28 said the way in is *a short room code*; it now says **a short link or a
+short room code**, and the link may carry the code. The promise the criterion
+protects — nothing to install, nothing to sign up for — is unchanged. AC-29's
+failure states and AC-49's on-screen requirement are unaffected: the code is
+still the room's identity on the buzzer and the host phone.
+
+**Answered, no change:** AC-93 *felt* — *"i like seeing the split before the
+answer."* AC-97 and T-15 from the host's chair — *"as the host i liked setting
+the pace."* AC-48 as rewritten — the private hint passes. AC-80 unchanged.
 
 ---
 
