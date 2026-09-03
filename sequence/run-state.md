@@ -186,6 +186,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-8 | **The hint rides in every buzzer's `live` payload, hidden client-side.** `tone-architect` Phase 2, 2026-09-03. | Taking it makes no request, so AC-48's *tells nobody* is provable by `canary` rather than by policy; AC-60's *unpublished hint* is read as *before `live`*. The smaller mechanism (§8). |
 | D-9 | **No predicted popular wrong answer — every incorrect option carries its own `why_tempting` text.** Phase 2 judge finding, 2026-09-03. | The *predicted vs actual* construction made the host's read-aloud beat violate AC-95 whenever the room surprised the author. With a text per option, wall and host always name the same option. Replaces the D-H client call. |
 | D-11 | **Rust (`axum`) on Fly.io; the client pays.** Client call, T-21, 2026-09-03. | Reverses Dimension 5's lean to Durable Objects: D-7 shrank the live problem to one process, and the room speaks Rust. Cost is single-digit dollars a month, carried by the organizer. |
+| D-12 | **Take-it-home carries no room state — no counts, no most-chosen option.** Phase 2 judge round 2, 2026-09-03. | The client said *no room state* on 2026-08-14 and AC-56 holds unamended; the spec had quietly published a count. With D-9 the page carries *why you might have read it as X* for every incorrect option and loses nothing it could honestly have. |
+| D-13 | **No embedding model in v1; near-duplicates by token-bigram Jaccard.** Phase 2 judge round 2. | The 0.82 threshold named no model. The smaller mechanism, no external dependency, threshold labelled uncalibrated. |
 | D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
 
 ## Conflicts
@@ -1489,3 +1491,29 @@ build it with no decision left. **Score 6/10**, and the findings were right:
 - **Its own lint caught its own copy:** take-it-home said *wrong*.
 
 Re-judged after the fixes — result below.
+
+### Phase 2 judge-gate, round 2 — 7/10, FAIL on three, all applied
+
+Second Opus pass on the revised spec. Three severity-1 findings, all
+right, all applied the same hour:
+
+1. **G-3 sealed the answer *text* before `closed` — but option texts are
+   public in every phase** (AC-62), so a canary in option E would have failed
+   a correct build. G-3 now seals the **join** between options and the
+   verified output; `canary` plants in the join, never in option text.
+2. **Six participant-facing states had no authored string** in a spec whose
+   voice discipline lives in one table: saving / saved / failed, retry,
+   *paused*, the locked buzzer, the hint's privacy line, the ten live-region
+   announcements. All authored in §11.
+3. **Take-it-home published a room count**, contradicting AC-56 and the
+   client's 2026-08-14 *no room state*. **D-12** drops it.
+
+Severity 2 and 3, also applied: `answered_live` as the live counter with
+`answered` frozen at close; §7.5's receipt made the single normative string
+and quoted by AC-43/87; the trace layout's code area as a constant (596 ×
+426, the prototype's split constants) and **font size carved out of the
+prototype's precedence** as behaviour; one forbidden-copy list with patterns,
+cited by the lint; `DESIGN.md` placed in the precedence order and its refit
+sentence corrected; **D-13** replaces the model-less 0.82 embedding threshold;
+`trace_step`'s writers and readers completed; AC-51 re-indexed; AC-5 and
+AC-25 retagged honestly; the code alphabet copy fixed. Round 3 follows.

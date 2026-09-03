@@ -122,8 +122,8 @@ chosen by hand.
    to fill the wall for a short program and shrinks toward the floor for a
    long one.
 3. After rendering, the well is **measured** and the type refitted until it fits
-   or hits the floor, up to six passes; the wall refits on entering *live* or
-   *closed*. *Fits, legibly* is a measured claim.
+   or hits the floor, up to six passes; the wall refits on entering every phase
+   that renders the source. *Fits, legibly* is a measured claim.
 4. When a question will not fit even at the floor, the wall shows a **red edge
    on the side that lost content** and says so. That is the room's limit, not
    the generator's constant.

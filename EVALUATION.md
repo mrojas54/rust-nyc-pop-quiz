@@ -32,7 +32,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | `test-full` | Everything: `test` + browser-driven checks, the Miri fixture suite, the load and burst tests, the accessibility sweep. | Minutes; CI and pre-merge. |
 | `verify <program>` | The pipeline's verifier on one candidate — pinned rustc, N native runs, Miri — emitting a `verified` record. | Per candidate; the Miri wall-clock is measured here (Q-E4). |
 | `bank-audit` | The whole bank against AC-23b (generator uniformity, both tails), AC-24, AC-25, AC-26 (the enumerated tells), AC-27, AC-100 (fits the configured room). | Seconds; runs on every build and every bank change. |
-| `canary` | The secrecy suite, phase-scoped per `SPEC.md` G-3: plant canaries in the correct option's identity, the explanation, the receipt, the hint, and the answer text; assert the identity, explanation, receipt and trace's final step appear in no pre-reveal payload; the hint in no pre-`live` payload; the answer text in no pre-`closed` payload (AC-47, AC-48, AC-60, AC-61, AC-79, AC-97, AC-32, AC-58). | The **in-process** scan (router driven without a socket, every phase) is part of `test`; the scan of the deployed room's real frames and pages is in `test-full`. |
+| `canary` | The secrecy suite, phase-scoped per `SPEC.md` G-3: plant canaries in the **join** (the correct flag/letter, `verified.stdout`, the trace's resolving step), the explanation, the receipt, and the hint; assert the join, explanation, receipt and resolving step appear in no pre-reveal payload and the hint in no pre-`live` payload. Option texts are public and are never canaries (AC-47, AC-48, AC-60, AC-61, AC-79, AC-97, AC-32, AC-58). | The **in-process** scan (router driven without a socket, every phase) is part of `test`; the scan of the deployed room's real frames and pages is in `test-full`. |
 | `burst` | 200 synthetic participants; the deadline write burst in isolation (AC-54); then a full segment (AC-52, AC-53, AC-41). | `test-full`; also run against the deployed room before each checkpoint. |
 | `a11y` | Keyboard reachability, live-region events, contrast, target size, reduced motion, over every surface and phase (AC-82…AC-86). | `test-full`. |
 | `smoke` | The deployed room driven end to end through all seven phases with mock participants — the pre-checkpoint sanity run. | Minutes. |
@@ -47,7 +47,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-2 | `autonomous` | `test-full`: a generation run is killed mid-candidate; re-run with no cleanup completes; the bank contains no partial record and the room app is unaffected. |
 | AC-3 | `autonomous` | `test`: a run asked for *n* questions on topics T at difficulty d yields *n* candidates tagged T and d, or a report naming which of the three it could not honour. |
 | AC-4 | `operator-assisted` | `test`: a fixture title + abstract yields candidates each tagged with a named std/core concept. **Whether the connection is real** is judged by the organizer at the first talk-mode batch (HC-2). |
-| AC-5 | `autonomous` | `test`: the run report carries per-candidate cost and wall-clock; `ECONOMICS.md`'s guess bands (Q-E3, Q-E4) are replaced from the first real run. |
+| AC-5 | `autonomous` + `operator-assisted` | `test`: the run report carries per-candidate cost and wall-clock (fixture run, no API). The real figures come from the first paid run at **HC-2** and replace `ECONOMICS.md`'s guess bands (Q-E3, Q-E4). |
 | AC-6 | `autonomous` `MVP` | `verify`: the record carries `rustc -Vv`, edition, target triple, and the flag set (overflow-checks, debug-assertions, opt-level — the flags the research found unpinned). `test`: a candidate verified under a different pin is rejected as stale. |
 | AC-7 | `autonomous` `MVP` | Static: the only writer of the correct-answer field is the verifier's output reader; `test`: a hand-edited answer in a candidate file fails the build's provenance check. |
 | AC-8 | `autonomous` `MVP` | `test` with fixtures: a program whose output varies (e.g. `HashMap` iteration) is **rejected**, not flagged; a deterministic one passes at N=5. N stays a configured hypothesis and the rejection count is reported (the data AC-8 asks for). |
@@ -56,7 +56,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-11 | `autonomous` `MVP` | `test`: a candidate declared non-compiling must fail with an error code, recorded (E0502 fixture); one that compiles is rejected. |
 | AC-12 | `autonomous` | `test-full`: a fixture program that opens a socket, reads `/etc/passwd`, reads an env var, allocates past the limit, and loops forever — each is contained and reported. Proven on the sandbox actually used, not a stand-in. |
 | AC-13 | `autonomous` `MVP` | `test`: the receipt renders from the `verified` record alone with the toolchain absent. |
-| AC-87 | `autonomous` | `test`: the receipt text names the tested target triple and says the determinism claim is scoped to it. |
+| AC-87 | `autonomous` | `test`: the rendered receipt contains *‹N› byte-identical runs on ‹triple›; that is evidence about ‹triple›, not every machine* (`SPEC.md` §7.5). |
 | AC-14 | `autonomous` | `test`: a byte-identical resubmission is rejected. |
 | AC-15 | `autonomous` | `test`: fixtures with renamed bindings and reformatting are rejected as normalized duplicates. |
 | AC-16 | `autonomous` | `test`: a near-duplicate (above the similarity threshold, below exact) lands in the review queue marked *near-duplicate of q*, neither accepted nor dropped. The threshold is a configured hypothesis. |
@@ -71,7 +71,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-23a | `autonomous` `MVP` | `test`: a 10,000-night simulation with a perfect-memory attendee scores within noise of 20%; static lint: no code path reads prior positions. **Any PR touching this path carries the audit ticket** (`SPEC.md` guardrail G-1). |
 | AC-23b | `autonomous` `MVP` | `bank-audit`: 20,000 synthetic draws, chi-square df=4, both tails, verified to fail on a skewed generator and on a re-balanced one. Carried over. |
 | AC-24 | `autonomous` `MVP` | `bank-audit`: every question has five options and one is *does not compile*. |
-| AC-25 | `autonomous` | `bank-audit` + `test`: no participant-facing artifact (wall, buzzer, take-it-home, README) contains an answer-category distribution; the tell set is documented only in organizer-facing files. |
+| AC-25 | `autonomous` | `bank-audit`: a lint over every participant-facing artifact (wall, buzzer, take-it-home, the public README) for a percentage or ratio within one line of an option-kind word (*compile*, *UB*, *undefined*, *panic*, *output*); the tell audit's own report is written only under `bank/audit/`, which nothing participant-facing includes. |
 | AC-26 | `autonomous` | `bank-audit`: each enumerated tell — `unsafe`, source length, option text length, option position, topic — measured against the accumulated bank; fails above the stated margin. The margin is in `SPEC.md`. |
 | AC-27 | `autonomous` | `bank-audit`: if any accepted question's answer is UB, at least one non-UB accepted question contains `unsafe`. |
 | AC-71 | `autonomous` | `test`: the receipt's text states verification covers the answer and not the explanation, on every surface that renders it. |
@@ -101,7 +101,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-40 | `autonomous` `MVP` | `test`: the correct option carries a ✓ glyph as well as its colour on the wall, the buzzer's *✓ It was X.*, take-it-home, and the review surface. |
 | AC-41 | `autonomous` + `external-oracle` | `burst`: reveal reaches 200 synthetic clients ≤ 2 s at p95. Venue wifi is the oracle at **HC-4**. |
 | AC-42 | `felt` | **HC-2**: the client reads each new explanation aloud at review. **HC-1**: the host reads q3's aloud to the room. |
-| AC-43 | `felt` + `autonomous` | `test`: receipt strings match the approved wording (*on the executed paths*, *N byte-identical runs on ‹triple›*). **HC-2** judges it as not overstated. |
+| AC-43 | `felt` + `autonomous` | `test`: the receipt equals `SPEC.md` §7.5's normative string with the record's values substituted. **HC-2** judges it as not overstated. |
 | AC-44 | `felt` | **HC-4.** One beginner attendee, asked after the reveal. Instrument: `mvp/FIELD-NOTES-TEMPLATE.md`. The criterion that matters most, and it cannot be run before October. |
 | AC-45 | `autonomous` | `test`: the host control exposes exactly the seven transitions; no transition fires without a host action; a phase cannot be skipped. |
 | AC-46 | `autonomous` | `test`: present and answered counts on the host phone update while live. |
@@ -139,10 +139,10 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-92 | `autonomous` | `test`: the used-question record is written at **release**, not at build (the AC-92 defect); building a deck writes nothing; a room that never reaches release records nothing. |
 | AC-93 | `autonomous` | `test`: the phase machine has no transition to reveal except from the walk-through, which is reachable only from the split. |
 | AC-94 | `autonomous` | `test`: no participant surface renders ✗, a red mark, or *wrong* against the participant's own choice, in any phase. |
-| AC-95 | `autonomous` + `operator-assisted` | `test`: affirm refuses a question with any incorrect option lacking a `why_tempting` text; at reveal the wall and the host phone name the **same** most-chosen incorrect option with the same count (fixture where the popular option is not the author's obvious one). **HC-2**: the organizer affirms each text. |
+| AC-95 | `autonomous` + `operator-assisted` | `test`: affirm refuses a question with any incorrect option lacking a `why_tempting` text; at reveal the wall and the host phone name the **same** most-chosen incorrect option with the same count (fixture where the popular option is not the author's obvious one); take-it-home carries no count (AC-56, D-12). **HC-2**: the organizer affirms each text. |
 | AC-96 | `felt` | **HC-4**, same instrument as AC-44. |
 | AC-97 | `autonomous` | `test`: the walk-through phase exists between split and reveal; `canary`: during it the wall carries no ✓, no receipt, no colour, no `stdout` value and no step beyond `M-2`; the trace is host-stepped; reveal enters at `M-1`. |
-| AC-98 | `autonomous` + `felt` | `test`: a forbidden-copy lint over every participant-facing string (*turn to*, *ask someone*, *volunteer*, *who said*, *why?* as an address to the room); no UI counts or waits for a contribution. **HC-1** watches the host's mouth. |
+| AC-98 | `autonomous` + `felt` | `test`: the forbidden-copy lint using exactly the patterns in `SPEC.md` §11's *Forbidden* row over every participant-facing string; no UI counts or waits for a contribution. **HC-1** watches the host's mouth. |
 
 ### C. Authorization
 

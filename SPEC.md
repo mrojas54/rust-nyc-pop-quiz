@@ -13,8 +13,10 @@ the prototype is a mock with known shortcuts (its host phone has one screen
 for `closed`/`split`/`work`, no `←`/`→` in `work`, and a `lights down`
 instrument that is not a product mode). Where the prototype violates a
 criterion, the build follows the criterion and the prototype is patched, not
-copied. `EVALUATION.md` says how each criterion is proven. `BUILDPLAN.md`
-says in what order, on what stack.
+copied. `DESIGN.md` sits beside the prototype on visual detail and below this
+file on behaviour. **Font size is behaviour, not visual detail** — it is
+derived by §5.2 and never read off the prototype. `EVALUATION.md` says how
+each criterion is proven. `BUILDPLAN.md` says in what order, on what stack.
 
 Criteria are cited by ID throughout; §14 indexes every one.
 
@@ -54,7 +56,7 @@ code (`mvp/tools/`), the audit ticket audits that code too.
 |---|---|---|---|
 | **G-1** | The correct-answer position is a pure function of the date. No history, ledger, bank state, or prior position is an input. Balancing, quotas, and *never the same as last time* are prohibited. (AC-23, 23a, 23b) | `slot_for_day(date) → 0..4`, no other parameter; a static lint that no module reading `answer-history` is imported by the slot path; `bank-audit` both tails. | Audit `mvp/tools/build_deck.py` on inheritance; every PR touching the slot path re-runs the perfect-memory simulation. This has regressed four times. |
 | **G-2** | No hand-written answer reaches a deck or a room. (AC-7) | The correct option is derived only from the verifier's recorded output; a provenance field names the verifier run; the build refuses a question whose answer field lacks it. | Audit `mvp/tools/verify.py` and `build_deck.py`; test that a hand-edited `correct` fails. |
-| **G-3** | Nothing pre-reveal carries the **correct option's identity** (letter, ✓, marked option), the explanation, the receipt, or the trace's final step. Before `closed` — while anyone can still vote — nothing carries the **answer text** either. From `closed` on, the trace may carry program state (that is what walking a program is), but its resolving step (any `values` entry named `stdout`, and the final step) is withheld until `reveal`. (AC-47, AC-60, AC-61, AC-79, AC-97; **D-10**) | Answer storage is a separate module/type unreachable from the public state query (compile-time or module boundary); `canary` plants secrets and scans every payload with the phase-scoped rules above. | `canary` in `test`; a ticket that proves AC-61 structurally, not by review. |
+| **G-3** | Nothing pre-reveal carries the **join between the options and the verified output** — which option is correct, by letter, flag, ✓, ordering, or `verified.stdout` itself — nor the explanation, the receipt, or the trace's resolving step (any `values` entry named `stdout`, and the final step), which is withheld until `reveal`. Option **texts** are public in every phase (AC-62); program state in the trace from `closed` on is allowed (that is what walking a program is). (AC-47, AC-60, AC-61, AC-79, AC-97; **D-10**) | Answer storage is a separate module/type unreachable from the public state query (compile-time or module boundary); `canary` plants secrets and scans every payload with the phase-scoped rules above. | `canary` in `test`; a ticket that proves AC-61 structurally, not by review. |
 | **G-4** | Nothing per-person is stored beyond the room, and nothing per-person leaves the phone after close. (AC-56, AC-57, AC-58) | Schema has no per-participant answer table; totals carry an expiry; the recap is client-computed. | Schema audit ticket; `canary` on post-close traffic. |
 | **G-5** | No participant-facing string obliges anyone to speak or interact. (AC-98) | A forbidden-copy lint over every participant-facing string in `test`; no UI element counts, prompts for, or waits on a contribution. | The lint is a ticket; the string list lives in §11 and is the only place copy is authored. |
 | **G-6** | The phase order is `idle → live → closed → split → work → reveal → released`, each transition a host action, none skippable. (AC-45, AC-93, AC-97) | A phase machine with exactly these transitions; the wall, buzzer and host phone render from the same phase value (AC-81). | State-machine test; `canary` that `work` carries no ✓, receipt, or colour. |
@@ -120,9 +122,10 @@ warn when reserve < 2 meetups).
 | `host_resume_url` — a secret link shown on the host phone under *if you lose this phone* | creation | a second host device (AC-50) |
 | `created_at`, `expires_at = created_at + 4h` (AC-69) | creation | lifecycle |
 | `present` — count of live participant sessions | join/leave | host (AC-46), wall strip |
-| `answered` — sessions with an answer, **frozen at `closed`** | the close transition | wall strip (*N of M answered*), host phone |
+| `answered_live` — sessions currently holding an answer | answer upsert / clear | host phone while `live` (AC-46) |
+| `answered` — sessions with an answer, **frozen at `closed`** | the close transition (from `answered_live`) | wall strip (*N of M answered*), host phone |
 | `totals[A..E]` — per-option counts, the only answer data that persists (AC-56) | the close transition, computed from sessions | split, reveal, host, `used` |
-| `trace_step` — in `work` bounded to `0..M-2`; `reveal` enters at `M-1` and may step the whole trace | host `←`/`→` in `work` and `reveal` | wall (D-10) |
+| `trace_step` — in `work` bounded to `0..M-2`; `reveal` enters at `M-1` and may step the whole trace | the `work` transition (`0`), the `reveal` transition (`M-1`), host `←`/`→` | wall, host phone (the step's words) (D-10) |
 | `released_at` | release | `used` writer, take-it-home rebuild |
 
 **Participant session** (ephemeral, dies with the room): `token`,
@@ -228,7 +231,7 @@ cap_in       = back_row_ft * 12 / 150                       # cap height ≥ dis
 font_in      = cap_in / 0.7                                 # monospace cap ratio
 floor_px     = font_in / screen_h_in * 630
 code_area    = reading layout (live, closed, split): 1010 × 384 px
-               trace layout (work, reveal): the source column's measured box
+               trace layout (work, reveal):          596 × 426 px  (source beside the beat/values column)
 by_height    = code_area_h / (lines * 1.5)
 by_width     = (code_area_w - 32) / ((widest_chars + 3.5) * 0.6)
 font_px      = clamp(min(by_height, by_width), floor_px, 46)
@@ -334,8 +337,11 @@ the `correct` field is the join between them.
 ### 7.3 Dedupe (AC-14…AC-18)
 
 Exact hash → reject. Normalized AST (alpha-renamed bindings, formatted) →
-reject. Embedding similarity above a configured threshold (start 0.82,
-labelled uncalibrated) → **review queue**, marked near-duplicate of `q`. The
+reject. Near-duplicates: **Jaccard similarity over the normalized token
+bigrams** of two programs at or above a configured threshold (start 0.6,
+labelled uncalibrated) → **review queue**, marked near-duplicate of `q`. No
+embedding model in v1 — the smaller mechanism, and no external dependency
+(D-13). The
 history persists in the bank and its size is on the organizer's first screen.
 Every uniqueness statement, on every surface, reads *no exact or normalized
 duplicate found* and never *original* (AC-18).
@@ -354,10 +360,12 @@ surface states that the reviewer has seen the answers (AC-22).
 
 Rendered from `verified` by one function:
 
-> ✓ established by the machine — rustc ‹version› (‹edition›), ‹triple›. Ran
-> ‹N›× with byte-identical output. Miri clean on the paths actually executed;
-> output matched the native runs. **Establishes the answer. Not the
-> explanation — that one is human.**
+> ✓ established by the machine — rustc ‹version› (‹edition›). ‹N› byte-identical
+> runs on ‹triple›; that is evidence about ‹triple›, not every machine. Miri
+> clean on the executed paths; output matched the native runs. **Establishes
+> the answer. Not the explanation — that one is human.**
+
+This string is normative; `EVALUATION.md` AC-43 and AC-87 quote it.
 
 ### 7.6 Bank audit (AC-23b…AC-27, AC-100)
 
@@ -443,18 +451,22 @@ everything a participant sees.
 | Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet, including us. |
 | Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way. The why is being read out now — listen, don't read. / You were the only one, which makes yours the most interesting answer in the room. |
 | Buzzer, split → reveal, **no answer given** | **Look up.** · You didn't answer — that's fine. · (split) Where the room landed. / (work) We're walking it through. / (reveal) ✓ It was **‹Y›**. The why is being read out now. |
-| Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, no O or I. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. Ask the host to run it again. · **full:** That room is full. Watch the screen — you can still play along. |
+| Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. Ask the host to run it again. · **full:** That room is full. Watch the screen — you can still play along. |
 | Buzzer, foot (split→reveal) | computed on this phone · never sent anywhere |
 | Buzzer, released | Nothing about you was recorded. Not your answer, not your device, not that you were here. |
-| Buzzer, hint | Show me a hint |
+| Buzzer, hint | Show me a hint · *(once shown)* Only you can see this. Nobody is told you looked. |
+| Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **tap a letter** |
+| Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe |
+| Buzzer, closed | **answers are closed** · you said **‹X›** / you didn't answer |
+| Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
 | Host, actions | Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · The bit worth talking about |
 | Host, first screen | If you lose this phone, open this on another one: ‹resume link› · plus §8.1's two sentences |
-| Take it home | **‹n› people read it as ‹X›.** |
+| Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
 | Uniqueness (organizer-facing, AC-18) | *no exact or normalized duplicate found* — never *original* |
 | Receipt | §7.5 |
-| Forbidden anywhere participant-facing | *turn to*, *ask someone*, *find someone*, *volunteer*, *who said … why*, *wrong*, *incorrect* as an address to a person, ✗ against a participant's choice, *argue* |
+| **Forbidden** anywhere participant-facing — the one normative list; the lint (G-5, AC-98) is these case-insensitive patterns and `EVALUATION.md` cites this row | `turn to`, `ask (someone\|the person\|your neighbou?r)`, `find someone`, `volunteer`, `who (said\|picked\|chose)`, `\bwrong\b`, `\bincorrect\b`, `✗`, `argu`. The wall's *‹n› of us said ‹X›* and the host phone's *Why ‹n› of us said ‹X›* do not match `who (said|picked|chose)` and are allowed. |
 
 ---
 
@@ -473,9 +485,10 @@ spirit when the room itself cannot run.
 
 `/last`: the last released question — source with colour, the trace
 steppable both ways at the reader's pace, the three beats, the receipt, the
-five options with the correct one marked. No room state of its own: the
-release writes the most-chosen incorrect option and its count into the page
-(*‹n› people read it as ‹X›*, §11), and they expire with the next release. Rebuilt at every release.
+five options with the correct one marked. **No room state, of any kind** — AC-56 holds unamended, as the client said on
+2026-08-14 (D-12): no counts, no most-chosen option. The middle beat becomes
+*why you might have read it as ‹X›* for **every** incorrect option, which the
+bank already carries (D-9), so the page loses nothing it could honestly have. Rebuilt at every release.
 Code scrolls in its container on a phone (AC-33).
 
 ---
@@ -489,14 +502,14 @@ Code scrolls in its container on a phone (AC-33).
 | §3 | AC-6, AC-13, AC-14–17, AC-24, AC-46, AC-50, AC-66, AC-68, AC-75, AC-76 |
 | §4 | AC-28–31, AC-34–37, AC-39, AC-40, AC-46–49, AC-81, AC-93, AC-94, AC-97 |
 | §5 | AC-33, AC-38, AC-78, AC-80, AC-99, AC-100 |
-| §6 | AC-32, AC-49, AC-50, AC-83, AC-85 |
+| §6 | AC-32, AC-49, AC-50, AC-51, AC-83, AC-85 |
 | §7 | AC-2–5, AC-8–12, AC-18–22, AC-26, AC-27, AC-73, AC-74, AC-88, AC-91, AC-96 |
 | §8 | AC-64–70 |
 | §9 | AC-41, AC-52–55 |
 | §10 | AC-40, AC-82–86 |
 | §11 | AC-42, AC-44, AC-59, AC-62, AC-63, AC-98 |
 | §12 | AC-77 |
-| §13 | AC-33, AC-51 (host script) |
+| §13 | AC-33, AC-56 |
 
 Every ID in AC-1…AC-100 appears above; `EVALUATION.md` carries the proof.
 
@@ -508,6 +521,7 @@ Stack and substrate for the room; the sandbox for verification; the LLM and
 its spend cap; where the pipeline runs; the short-link domain; hosting for
 take-it-home and the static fallback. `BUILDPLAN.md` records each with the
 options weighed. No design decision is deferred: D-8 (the hint rides in the
-live payload), D-9 (a `why_tempting` per incorrect option, no prediction) and
-D-10 (the trace's resolving step is withheld until reveal) are decided here
-and logged in `run-state.md`.
+live payload), D-9 (a `why_tempting` per incorrect option, no prediction),
+D-10 (the trace's resolving step is withheld until reveal), D-12 (take-it-home
+carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
+near-duplicates) are decided here and logged in `run-state.md`.
