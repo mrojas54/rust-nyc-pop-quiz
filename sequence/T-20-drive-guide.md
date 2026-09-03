@@ -32,7 +32,7 @@ test: *would you keep this if a better option appeared tomorrow?*
 Look at the **buzzer**: this is what someone walking in sees. Room code
 `KMT4XW`. Nothing to judge yet — just know what the first ten seconds look like.
 
-## 2 · Question live — press **`2 · question live`** (top bar)
+## 2 · Question live ✓ done — press **`2 · question live`** (top bar)
 *or* **`Put it on the screen`** on the host phone
 
 - [x] **Read the code as a participant.** Count to thirty in your head. That is
@@ -42,14 +42,14 @@ Look at the **buzzer**: this is what someone walking in sees. Room code
       check, not a re-ask.
 - [ ] **New since you last drove it:** the code has **syntax colour** here.
       Notice it now; you compare it against no-colour in step 5.
-- [ ] On the **buzzer**, tap a letter. You are playing too (§7).
-- [ ] On the **buzzer**, tap **`Show me a hint`**. Nobody is told you took it
+- [x] On the **buzzer**, tap a letter. You are playing too (§7).
+- [x] On the **buzzer**, tap **`Show me a hint`**. Nobody is told you took it
       (AC-48). Look at the host phone — it does not know either.
 
-## 3 · Answers closed — press **`3 · answers closed`** (top bar)
+## 3 · Answers closed ✓ done — press **`3 · answers closed`** (top bar)
 *or* **`Close answers`** on the host phone
 
-- [ ] What does the wall say while it waits? Is it a sentence you would want
+- [x] What does the wall say while it waits? Is it a sentence you would want
       over your head for ten seconds?
 
 ## 4 · The split — press **`4 · the split`** (top bar)
