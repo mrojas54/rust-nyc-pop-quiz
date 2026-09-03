@@ -51,8 +51,8 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-6 | `autonomous` `MVP` | `verify`: the record carries `rustc -Vv`, edition, target triple, and the flag set (overflow-checks, debug-assertions, opt-level — the flags the research found unpinned). `test`: a candidate verified under a different pin is rejected as stale. |
 | AC-7 | `autonomous` `MVP` | Static: the only writer of the correct-answer field is the verifier's output reader; `test`: a hand-edited answer in a candidate file fails the build's provenance check. |
 | AC-8 | `autonomous` `MVP` | `test` with fixtures: a program whose output varies (e.g. `HashMap` iteration) is **rejected**, not flagged; a deterministic one passes at N=5. N stays a configured hypothesis and the rejection count is reported (the data AC-8 asks for). |
-| AC-9 | `autonomous` `MVP` | `test` with fixtures: a UB program is rejected; the same program with UB declared as the intended answer is accepted, and only if Stacked Borrows and Tree Borrows agree. |
-| AC-10 | `autonomous` `MVP` | `test`: Miri stdout ≠ native stdout rejects. |
+| AC-9 | `autonomous` `MVP`* | `test` with fixtures: a UB program is rejected; the same program with UB declared as the intended answer is accepted, and only if Stacked Borrows and Tree Borrows agree. *\*The MVP label rests on a Miri pass run **outside** `verify.py` — the code never calls Miri. Must be re-established in code, not carried over.* |
+| AC-10 | `autonomous` `MVP`* | `test`: Miri stdout ≠ native stdout rejects. *Same caveat as AC-9.* |
 | AC-11 | `autonomous` `MVP` | `test`: a candidate declared non-compiling must fail with an error code, recorded (E0502 fixture); one that compiles is rejected. |
 | AC-12 | `autonomous` | `test-full`: a fixture program that opens a socket, reads `/etc/passwd`, reads an env var, allocates past the limit, and loops forever — each is contained and reported. Proven on the sandbox actually used, not a stand-in. |
 | AC-13 | `autonomous` `MVP` | `test`: the receipt renders from the `verified` record alone with the toolchain absent. |

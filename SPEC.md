@@ -1,0 +1,459 @@
+# Specification — Rust NYC Pop Quiz
+
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03.** This is the
+build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
+`prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
+(`sequence/USER_STORIES.md`, AC-1…AC-100) so that an implementer who has never
+spoken to the client can build it with **no design decision left to make**.
+Where this file and the prototype disagree, the prototype wins and this file is
+corrected. `EVALUATION.md` says how each criterion is proven. `BUILDPLAN.md`
+says in what order, on what stack.
+
+Criteria are cited by ID throughout; §14 indexes every one.
+
+---
+
+## 1. What is being built
+
+Two decoupled components and two small pages:
+
+| Component | What it is | Runs |
+|---|---|---|
+| **The pipeline** | Generate → verify → dedupe → review → a private bank; schedule one question per meetup; audit the bank. | Offline, on an organizer's laptop or a scheduled job. Never inside a room. |
+| **The room** | One room per meetup, created by an organizer, joined by phones, driven through seven phases from the host phone, shown on the wall. | A hosted service, live for ≤ 4 hours. |
+| **Take it home** | A public page holding the *last* meetup's question, explanation, trace and receipt. No room state. | Static, rebuilt at each release. |
+| **The static fallback** | The wall's seven views with the night's question baked in, keyboard-driven, one file, no network. | Opened from a laptop when the room cannot run. |
+
+**The segment** is one question, scheduled last, ≤ 5 minutes end to end
+(AC-89, AC-90). There is no round, no navigation, no second question (§4.6).
+
+### 1.1 Non-goals
+
+No accounts, nicknames, scores, leaderboards, history, or per-person records of
+any kind (AC-57). No dark mode (AC-80, answered). No timer on the wall. No
+public question bank. No live generation. No multi-question rooms. No host
+hint control (AC-45). No instruction to talk to anyone (AC-98). No syntax colour
+while a trace runs (AC-99). No balancing of answer positions, ever (AC-23a).
+
+---
+
+## 2. Guardrails — enforced, never assumed
+
+Each guardrail has a pass/fail criterion and **must** carry its own
+enforcement or audit ticket in `BUILDPLAN.md`. Where the build sits on existing
+code (`mvp/tools/`), the audit ticket audits that code too.
+
+| G | Guardrail | Enforced by | Audit demand |
+|---|---|---|---|
+| **G-1** | The correct-answer position is a pure function of the date. No history, ledger, bank state, or prior position is an input. Balancing, quotas, and *never the same as last time* are prohibited. (AC-23, 23a, 23b) | `slot_for_day(date) → 0..4`, no other parameter; a static lint that no module reading `answer-history` is imported by the slot path; `bank-audit` both tails. | Audit `mvp/tools/build_deck.py` on inheritance; every PR touching the slot path re-runs the perfect-memory simulation. This has regressed four times. |
+| **G-2** | No hand-written answer reaches a deck or a room. (AC-7) | The correct option is derived only from the verifier's recorded output; a provenance field names the verifier run; the build refuses a question whose answer field lacks it. | Audit `mvp/tools/verify.py` and `build_deck.py`; test that a hand-edited `correct` fails. |
+| **G-3** | Nothing pre-reveal carries the answer, the explanation, the receipt, or the trace's resolution. (AC-47, AC-60, AC-61, AC-79) | Answer storage is a separate module/type unreachable from the public state query (compile-time or module boundary); `canary` plants secrets and scans every payload. | `canary` in `test`; a ticket that proves AC-61 structurally, not by review. |
+| **G-4** | Nothing per-person is stored beyond the room, and nothing per-person leaves the phone after close. (AC-56, AC-57, AC-58) | Schema has no per-participant answer table; totals carry an expiry; the recap is client-computed. | Schema audit ticket; `canary` on post-close traffic. |
+| **G-5** | No participant-facing string obliges anyone to speak or interact. (AC-98) | A forbidden-copy lint over every participant-facing string in `test`; no UI element counts, prompts for, or waits on a contribution. | The lint is a ticket; the string list lives in §11 and is the only place copy is authored. |
+| **G-6** | The phase order is `idle → live → closed → split → work → reveal → released`, each transition a host action, none skippable. (AC-45, AC-93, AC-97) | A phase machine with exactly these transitions; the wall, buzzer and host phone render from the same phase value (AC-81). | State-machine test; `canary` that `work` carries no ✓, receipt, or colour. |
+| **G-7** | The receipt claims exactly what verification proved. (AC-43, AC-71, AC-87) | Receipt strings are generated from the `verified` record by one function with approved wording (§7.5). | String test; HC-2 reads it. |
+| **G-8** | Neither source nor trace is rendered on a participant device. (AC-32) | Participant payloads have no source field; `canary`. | `canary` in `test`. |
+| **G-9** | Hosting is authorized by role **ID** in `roles`, checked at room creation. (AC-64, AC-65, AC-69) | One auth function; the Administrator test; the Discord-down test. | Auth audit ticket. |
+| **G-10** | A question is *used* when a room is **released**, not when a deck is built. (AC-92) | The used-question record's only writer is the release transition. Building writes nothing. | Audit and retire `build_deck.py`'s write to `answer-history.json`. |
+| **G-11** | No answer-category distribution is published anywhere an attendee can read. (AC-25) | `bank-audit` scans participant-facing artifacts; organizer docs carry the tells. | Ticket for the scan. |
+| **G-12** | Every question scheduled has an organizer's affirmation of its explanation. (AC-72, AC-95) | Scheduling refuses unaffirmed questions; affirmation records who and when. | Gate test. |
+
+---
+
+## 3. Domain model
+
+Every persisted field has one writer and at least one reader. A field with no
+reader is deleted; a field with no writer is a defect.
+
+### 3.1 Question (the bank)
+
+| Field | Writer | Readers |
+|---|---|---|
+| `id` | generator (or the organizer, for hand-written) | everything |
+| `source` — the Rust program, ≤ the room's fit bound (AC-100) | generator / organizer edit | verifier, dedupe, wall, review, take-it-home, static fallback |
+| `topic`, `difficulty_requested` | generator from the run request | review, `bank-audit` (AC-26, AC-88) |
+| `options[5]` — text, each with `kind ∈ {output, does_not_compile, ub, panic}`; exactly one `does_not_compile` (AC-24) | generator / organizer edit | wall, buzzer, review, take-it-home |
+| `correct` — the option whose text equals the verified output, **derived** (G-2) | the verifier's output reader | reveal, review, take-it-home, `bank-audit` |
+| `hint` | generator / organizer edit | buzzer (live), review |
+| `explains` — three beats: `what`, `why_popular: {option, text}`, `takeaway` (AC-95) | generator / organizer edit | host phone (reveal), take-it-home, review |
+| `trace` — `[{lines, focus, note, values}]` (`PROJECTOR_SPEC` §4.1 model) | generator / organizer edit | wall (work, reveal), take-it-home |
+| `verified` — §3.2 | the verifier only | receipt, `bank-audit`, scheduling |
+| `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
+| `used` — `{meetup_date, room_id, released_at}` | the release transition only (G-10) | reserve count, scheduling (never twice), the ledger |
+
+The `explains` shape replaces the MVP's single `explanation` string; the MVP's
+string is kept verbatim as `explains.legacy` for AC-73's quoted-output check on
+inherited questions. Field names are **English words**, not the prototype's
+`argue` (a Stage-2 leak).
+
+### 3.2 Verified record
+
+Written by `verify` and never edited: `rustc` (full `-Vv`), `edition`,
+`target_triple`, `flags` (`opt-level`, `overflow-checks`, `debug-assertions`),
+`runs` (count, all byte-identical: bool), `stdout`, `exit_code`, `miri`
+(`{version, configs: [stacked_borrows, tree_borrows?], clean: bool, output_matched: bool, seeds}`),
+`compile_error_code?`, `verified_at`, `verifier_version`. AC-6…AC-13, AC-87.
+The receipt renders from this alone (AC-13).
+
+### 3.3 Bank
+
+An append-only store of questions plus `history` (exact hashes, normalized-AST
+fingerprints, embeddings) for AC-14…AC-17. Reserve = accepted ∧ affirmed ∧
+unused (AC-75). Threshold and lead time are configuration (AC-76; default:
+warn when reserve < 2 meetups).
+
+### 3.4 Room
+
+| Field | Writer | Readers |
+|---|---|---|
+| `id`, `code` (6 chars, alphabet without `O 0 I 1`), `join_url` | creation | wall (`join @`), buzzer, host |
+| `question_id` | creation (from the schedule) | every phase |
+| `phase` | host transitions only (G-6) | wall, buzzer, host (AC-81) |
+| `host_session` | creation; rotates on resume (AC-50) | host auth |
+| `created_at`, `expires_at = created_at + 4h` (AC-69) | creation | lifecycle |
+| `present` — count of live participant sessions | join/leave | host (AC-46), wall strip |
+| `totals[A..E]` — per-option counts, the only answer data that persists (AC-56) | the close transition, computed from sessions | split, reveal, host, `used` |
+| `trace_step` | host `←`/`→` in `work` and `reveal` | wall |
+| `released_at` | release | `used` writer, take-it-home rebuild |
+
+**Participant session** (ephemeral, dies with the room): `token`,
+`answer ∈ A..E | none`, `saved_at`. **No** hint flag (AC-48 — the hint is in
+the live payload, §4.2), **no** identity, **no** device record (AC-57).
+Totals are computed at `closed` and the sessions' answers are then
+irrelevant to any reader; they are dropped at release.
+
+### 3.5 Organizer
+
+`discord_user_id`, `access_token`, `refresh_token` (rotated and persisted on
+every refresh, AC-66), `token_expires_at`. Rooms reference their creating
+organizer (AC-68). Nothing else.
+
+---
+
+## 4. The room — the phase machine
+
+`idle → live → closed → split → work → reveal → released`. Transitions are
+host-phone actions only. No timer, no auto-advance, no skipping (G-6). `←`/`→`
+inside `work` and `reveal` step the trace and are not phase transitions.
+
+| Phase | Host action to enter | Wall | Buzzer | Host phone |
+|---|---|---|---|---|
+| **idle** | *create room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in. Everything happens on the screen at the front — look up.*; foot `no account · no name · no score` | *Put it on the screen*; present count; the code |
+| **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; present and answered counts (AC-46); **no answer** (AC-47) |
+| **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
+| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | *Look up. Where the room landed.* — the count `n`, *people said X, including you.*; foot `computed on this phone · never sent anywhere` | *Let's walk it* |
+| **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` (highlight-and-dim, *Step N of M* + dots); beat panel: **Let's walk it. / Still no answer. / Nobody has to say anything.** **No ✓, no receipt** (AC-97) | *Look up. We're walking it through.* — the count; *Nothing to do. Nobody knows the answer yet, including us.* | `←` `→`; the step's words; *Reveal* |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5) with provenance *established by the machine*; trace steppable, no colour | *The answer is on the screen.* — the count; **It was X.**; *You and n other people read it the same way. The why is being read out now — listen, don't read.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`), provenance *human*; `←` `→`; *Release the room* |
+| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px, one line of what is behind it, a QR. Nothing else (T-20 item 13) | ✓ *Nothing about you was recorded. Not your answer, not your device, not that you were here.* | *Run it again* → a new room (never the same question, G-10) |
+
+### 4.1 Joining (AC-28…AC-31)
+
+Join via the short link (which carries the code) or by typing the six-character
+code. One field, no other input. Failure states, each with its own sentence and
+next step: **malformed**, **unknown**, **not yet open**, **already ended**,
+**closed for inactivity**, **full** (AC-29). Capacity is checked before a
+session is created and reserves nothing (AC-30). Capacity: 200 (AC-52),
+configurable.
+
+### 4.2 The hint (AC-48)
+
+The hint text is part of every buzzer's `live` payload, rendered hidden.
+*Show me a hint* reveals it client-side. **No request is made, so nothing can
+be recorded and no signal can reach the host or the wall.** This is the smaller
+mechanism (§8 of the philosophy) and it makes AC-48 provable by `canary`.
+AC-60's *unpublished hint* clause is read as: before `live` no payload carries
+the hint; from `live` it is published to everyone by construction. Recorded as
+D-8 in `run-state.md`.
+
+### 4.3 Answering (AC-34…AC-37)
+
+Answers are upserted per session while `live`; the last write wins; a write
+after `closed` is refused with the saved answer restated. The buzzer shows
+exactly one of *saving / saved / failed*; failed says the last saved answer is
+safe and offers retry. A dropped socket re-attaches with the same session
+token; controls show *paused* until fresh state arrives.
+
+### 4.4 Closing and totals
+
+`closed` computes `totals` from sessions once and freezes them. `present`
+keeps counting; *N of M in the room answered* uses the frozen `answered` count.
+Zero votes on an option renders an empty bar with `0 · 0%`.
+
+### 4.5 The most-chosen incorrect option (AC-95)
+
+The wall names the room's **actual** most-chosen incorrect option and its
+count. The authored `explains.why_popular.option` is the *predicted* one. When
+they differ, the wall still names the actual; the host reads the authored beat
+(it is about the tempting reading, and it remains true); the difference is
+recorded on the question's `review` as a prediction miss for the organizer.
+Ties: the option with the lower letter. **Decision to confirm with the client:
+T-21.**
+
+### 4.6 Lifecycle
+
+A room lives ≤ 4 h from creation (AC-69) and is deleted with its sessions at
+release or expiry; only `totals`, `question_id`, and `released_at` persist, and
+those expire after the next meetup's release. Creating a room requires a live
+Discord check; running one does not (§8). *Run it again* creates a **new**
+room and the schedule refuses a used question (G-10).
+
+---
+
+## 5. The wall
+
+### 5.1 Geometry
+
+The wall lays out at a **1120 × 630 design canvas** and scales as a unit
+(`transform: scale`) to the projector's actual pixels — never `width: 100%`
+on the box. Brand line top-left, `PROTOTYPE` badge removed in the build,
+the join strip at the bottom.
+
+### 5.2 Layout and the type model (AC-100, AC-78)
+
+Source full-width, options beneath in two columns. Type size is **derived**:
+
+```
+screen_h_in  = screen_width_ft * 12 * (screen_height_ft / screen_width_ft)   # measured, default 16:9
+cap_in       = back_row_ft * 12 / 150                                        # cap height ≥ distance/150
+font_in      = cap_in / 0.7                                                  # monospace cap ratio
+floor_px     = font_in / screen_h_in * 630
+by_height    = code_area_h / (lines * 1.5)
+by_width     = (code_area_w - 32) / ((widest_chars + 3.5) * 0.6)
+font_px      = clamp(min(by_height, by_width), floor_px, 46)
+```
+
+Then the well is **measured** after render and `font_px` reduced (×0.97 per
+pass, ≤ 6 passes, never below `floor_px`) until nothing overflows. If it still
+overflows at the floor, the well clips and shows a **red edge on the side that
+lost content**, and the host phone reports *does not fit this room*. Room
+configuration (`screen_width_ft`, `screen_height_ft`, `back_row_ft`) is
+organizer-set, defaults `15 / 8.44 / 20`, labelled hypothesis until HC-1.
+Refit on entering `live` and `closed`.
+
+### 5.3 The source well
+
+Cascadia Mono, line numbers in a 2ch gutter, white well, 1.5 line-height.
+**Syntax colour** (keyword, macro, type, string, number, comment; muted
+values) in `idle`, `live`, `closed`, `split`, `released`; **none** in `work`
+and `reveal` (AC-99). The trace renders by highlight-and-dim over the focus
+region with *Step N of M* and dots; the number is the accessible signal.
+
+### 5.4 The split
+
+Five horizontal bars, one per option, `display: block` fills, count and
+percentage beside each, correct option unmarked. On reveal the correct bar
+gains the ✓ and the green border; no bar is ever marked wrong.
+
+### 5.5 Released
+
+*Let's go to the bar.* in Instrument Serif; the link in 40 px monospace; the
+QR encoding the same link; one line: *the question, the walk-through and the
+why — at your own pace.*
+
+---
+
+## 6. The buzzer and the host phone
+
+**Buzzer:** 375 px design width, 44 px targets (AC-85), letters as
+`ChoiceButton`s, the code in the header, the foot line per phase (§4). Never
+source, never trace (G-8). Live region announces each phase and the hint
+reveal (AC-83).
+
+**Host phone:** one screen per phase with the phase label, **one primary
+action**, present/answered counts, the room code (AC-49). In `work` and
+`reveal`, `←` `→` and the step's words. In `reveal`, the three beats under
+**Read it aloud**. Resumable from any device with the host session (AC-50).
+No answer preview before `reveal` (AC-47, G-3).
+
+---
+
+## 7. The pipeline
+
+### 7.1 Generate (AC-1…AC-5)
+
+A CLI run: `count`, `topics[]`, `difficulty`, optional `talk {title, abstract}`.
+Emits candidates in the §3.1 shape minus `verified` and `review`, plus a run
+report: per-candidate cost, tokens, wall-clock, and which of the three
+requests it could not honour. Re-runnable with no cleanup (AC-2). Talk mode
+tags each candidate with a named std/core concept (AC-4). **Never invoked by
+the room** (AC-1, static check).
+
+### 7.2 Verify (AC-6…AC-13, AC-87, AC-12)
+
+Inherits `mvp/tools/verify.py`'s procedure: pinned rustc and edition, **N=5**
+native runs (byte-identical or **rejected**, AC-8), expected compile-failure
+must fail with its error code recorded (AC-11). **Brownfield fact: `verify.py`
+never invokes Miri** — the `miri` fields in `mvp/2026-08-12/verified.json`
+were written by a pass outside the repo (`mvp/README.md` says so). The `MVP`
+label on AC-9 and AC-10 therefore rests on a hand-run step, and the build must
+put Miri **in the verifier**: strict provenance, output compared to native
+(AC-9, AC-10), Tree Borrows as a second config for UB-intended candidates.
+Adds: the flag set in the record (AC-6), a sandbox with no network, no secrets,
+no host filesystem, CPU/memory/time limits (AC-12), and `target_triple` in the
+receipt (AC-87). `verified.json` gains no field that code did not write (G-2's
+spirit: never overstate verification).
+
+The MVP's `content.json` keeps distractors and explanation apart from the
+verified facts; the build keeps that separation — §3.1's `options`, `hint`,
+`explains`, `trace` are authored content, `verified` is machine-written, and
+the `correct` field is the join between them.
+
+### 7.3 Dedupe (AC-14…AC-18)
+
+Exact hash → reject. Normalized AST (alpha-renamed bindings, formatted) →
+reject. Embedding similarity above a configured threshold (start 0.82,
+labelled uncalibrated) → **review queue**, marked near-duplicate of `q`. The
+history persists in the bank and its size is on the organizer's first screen.
+
+### 7.4 Review (AC-19…AC-22, AC-72…AC-74, AC-88, AC-95)
+
+One screen per candidate: source, five options, verified answer, three beats,
+receipt, near-duplicate note, difficulty requested and a control to record
+difficulty judged. Actions: accept, reject (reason required), edit (re-verify
+on any source or option change). **Affirm** is separate and blocking (G-12):
+records who and when; the middle beat must name an option and be non-empty
+(AC-95); quoted output is checked against `verified.stdout` (AC-73). The
+surface states that the reviewer has seen the answers (AC-22).
+
+### 7.5 The receipt (G-7)
+
+Rendered from `verified` by one function:
+
+> ✓ established by the machine — rustc ‹version› (‹edition›), ‹triple›. Ran
+> ‹N›× with byte-identical output. Miri clean on the paths actually executed;
+> output matched the native runs. **Establishes the answer. Not the
+> explanation — that one is human.**
+
+### 7.6 Bank audit (AC-23b…AC-27, AC-100)
+
+Runs on every build and bank change: generator uniformity (20,000 synthetic
+draws, χ² df=4, both tails); five options with one *does not compile*; the
+enumerated tells — `unsafe` presence, source length, option text length,
+option position, topic — each against the accumulated bank, failing above
+**1.5× chance** (the stated margin; revisit as the bank grows); AC-27's
+`unsafe` parity; and fit against the configured room at the floor (AC-100).
+
+### 7.7 Schedule and use (AC-89…AC-92, G-1, G-10)
+
+One question per meetup, chosen by the organizer from the reserve. The
+answer's position is `slot_for_day(meetup_date)`, a pure uniform draw from the
+date. The `used` record is written at **release** and nowhere else. The
+organizer's screen shows reserve count and trend (AC-75) and warns below
+threshold (AC-76). A meetup runs from reserve with no generation and no
+outbound network beyond serving the room (AC-77).
+
+---
+
+## 8. Authorization (AC-64…AC-70)
+
+Discord OAuth2 with scopes `identify guilds.members.read`. On *create room*:
+`GET /users/@me/guilds/{guild}/member` with the organizer's bearer token; host
+iff `roles` contains the configured role **ID** (never a name, never the
+`permissions` bitfield, AC-65). Refresh tokens rotate; every rotation is
+persisted before the old one is discarded (AC-66). Participants never
+authenticate (AC-67). Only the creating organizer reads or controls a room
+(AC-68). No check after creation; a room runs to release with Discord down,
+bounded at 4 h (AC-69). Denials say *wrong server* or *wrong role* and never
+whether the user is a member (AC-70). Retries are bounded and backed off —
+the 10,000-invalid-requests ban is IP-wide.
+
+---
+
+## 9. Capacity and realtime (AC-41, AC-52…AC-55)
+
+200 concurrent sessions per room. Answer writes p95 < 500 ms **including the
+deadline burst**; the burst — 200 writes inside 2 s — is a standalone test and
+a spike ticket that runs before the walking skeleton. Reveal reaches all
+connected buzzers ≤ 2 s p95. Substrate is decided in Phase 3; the contract is
+one authoritative state per room with server-push to the wall and buzzers.
+
+---
+
+## 10. Accessibility (AC-40, AC-82…AC-86)
+
+Keyboard operable with visible focus; polite live region per state change;
+AA contrast; 44 px targets; `prefers-reduced-motion` disables all animation
+with every state still legible; colour never the only signal.
+
+---
+
+## 11. Copy — the binding strings
+
+Authored here and only here; the forbidden-copy lint (G-5) runs over
+everything a participant sees.
+
+| Where | String |
+|---|---|
+| Wall, idle | **Time for a pop quiz.** · `join @ ‹link›` |
+| Wall, live | `join @ ‹link› · still open` |
+| Wall, closed | **answers are closed** |
+| Wall, split on | `‹answered› of ‹present› in the room answered` |
+| Wall, work | **Let's walk it.** / Still no answer. / Nobody has to say anything. |
+| Wall, reveal | `‹n› of us said ‹X›` beside the named incorrect option |
+| Wall, released | **Let's go to the bar.** · ‹link› · *the question, the walk-through and the why — at your own pace.* |
+| Buzzer, idle | You're in. Everything happens on the screen at the front — look up. |
+| Buzzer, foot | no account · no name · no score |
+| Buzzer, split | **Look up.** Where the room landed. · `‹n›` · people said **‹X›**, including you. · Five different readings. Nobody knows who picked what — including us. |
+| Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet, including us. |
+| Buzzer, reveal | **Look up.** The answer is on the screen. · It was **‹Y›**. · You and ‹n−1› other people read it the same way. The why is being read out now — listen, don't read. / You were the only one, which makes yours the most interesting answer in the room. |
+| Buzzer, foot (split→reveal) | computed on this phone · never sent anywhere |
+| Buzzer, released | Nothing about you was recorded. Not your answer, not your device, not that you were here. |
+| Buzzer, hint | Show me a hint |
+| Host, actions | Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
+| Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› · The bit worth talking about |
+| Receipt | §7.5 |
+| Forbidden anywhere participant-facing | *turn to*, *ask someone*, *find someone*, *volunteer*, *who said … why*, *wrong*, ✗ against a participant's choice, *argue* |
+
+---
+
+## 12. The static fallback
+
+The wall's seven views with one question's data baked in, one HTML file,
+keyboard-driven (`→` next phase, `←`/`→` inside work and reveal, `Esc` back),
+no network, no phones. Built by the same wall code with `mode: "static"` and a
+fixture, so it is never a second design. Produced for the scheduled question
+at scheduling time; the organizer carries it to every meetup. Satisfies AC-77's
+spirit when the room itself cannot run.
+
+---
+
+## 13. Take it home
+
+`/last`: the last released question — source with colour, the trace
+steppable both ways at the reader's pace, the three beats, the receipt, the
+five options with the correct one marked. No room state; no counts (AC-95's
+count is a room fact — the page says *the room's most common wrong answer was X*
+only if the release wrote the totals into the page at build time, which it
+does; the count expires with the next release). Rebuilt at every release.
+Code scrolls in its container on a phone (AC-33).
+
+---
+
+## 14. Criteria index
+
+| Section | Criteria |
+|---|---|
+| §1 | AC-1, AC-77, AC-89, AC-90 |
+| §2 | AC-7, AC-23/23a/23b, AC-25, AC-32, AC-43, AC-45, AC-47, AC-56–58, AC-60, AC-61, AC-64, AC-65, AC-69, AC-71, AC-72, AC-79, AC-87, AC-92, AC-93, AC-95, AC-97, AC-98 |
+| §3 | AC-6, AC-13, AC-14–17, AC-24, AC-46, AC-50, AC-66, AC-68, AC-75, AC-76 |
+| §4 | AC-28–31, AC-34–37, AC-39, AC-40, AC-46–49, AC-81, AC-93, AC-94, AC-97 |
+| §5 | AC-33, AC-38, AC-78, AC-80, AC-99, AC-100 |
+| §6 | AC-32, AC-49, AC-50, AC-83, AC-85 |
+| §7 | AC-2–5, AC-8–12, AC-18–22, AC-26, AC-27, AC-73, AC-74, AC-88, AC-91, AC-96 |
+| §8 | AC-64–70 |
+| §9 | AC-41, AC-52–55 |
+| §10 | AC-40, AC-82–86 |
+| §11 | AC-42, AC-44, AC-59, AC-62, AC-63, AC-98 |
+| §12 | AC-77 |
+| §13 | AC-33, AC-51 (host script) |
+
+Every ID in AC-1…AC-100 appears above; `EVALUATION.md` carries the proof.
+
+---
+
+## 15. Decided in Phase 3, not here
+
+Stack and substrate for the room; the sandbox for verification; the LLM and
+its spend cap; where the pipeline runs; the short-link domain; hosting for
+take-it-home and the static fallback. `BUILDPLAN.md` records each with the
+options weighed.
