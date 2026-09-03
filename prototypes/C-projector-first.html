@@ -597,6 +597,14 @@ function setDistance(scale) {
 }
 
 /* ---- projector ------------------------------------------------------- */
+/* Client copy, 2026-09-03, item 3 off the T-20 drive: "join @ bit.ly/jnfnvd".
+   The way in is a short link on the wall, not a code to type — so the code
+   comes off the wall. The URL is her placeholder. AC-28 says "a short room
+   code"; whether it becomes "a short link" is logged for the criteria. */
+const JOIN_URL = "bit.ly/jnfnvd";
+function joinLine(prefix) {
+  return '<span>' + prefix + 'join @ <b>' + JOIN_URL + '</b></span>';
+}
 function renderProjector() {
   const main = document.getElementById("projMain");
   const strip = document.getElementById("joinStrip");
@@ -608,11 +616,10 @@ function renderProjector() {
   if (p === "idle") {
     phase.textContent = "closing segment";
     main.className = "title-card";
-    /* Client copy, 2026-09-03, first item off the T-20 drive. The brand line
-       already sits top-left of the wall, so the hero says what is happening. */
-    main.innerHTML = '<div><h2>Time for a pop quiz.</h2><p style="font-size:24px;color:var(--text-secondary)">' +
-      'One question. Five minutes.<br>Then we walk through it together.</p></div>';
-    strip.innerHTML = '<span>join from your phone — you only need the letter</span><b>' + ROOM.code + '</b>';
+    /* Client copy, 2026-09-03, items 1 and 2 off the T-20 drive: the hero says
+       what is happening and nothing else. The brand line is already top-left. */
+    main.innerHTML = '<div><h2>Time for a pop quiz.</h2></div>';
+    strip.innerHTML = joinLine("");
     return;
   }
   if (p === "released") {
@@ -698,9 +705,11 @@ function renderProjector() {
 
   main.className = mainCls;
   main.innerHTML = code + side;
-  strip.innerHTML = (p === "live" || p === "closed")
-    ? '<span>' + (p === "live" ? "still open — join and pick a letter" : "answers are closed") + '</span><b>' + ROOM.code + '</b>'
-    : '<span>' + ROOM.answered + ' of ' + ROOM.present + ' in the room answered</span><b>' + ROOM.code + '</b>';
+  strip.innerHTML = p === "live"
+    ? joinLine("still open — ")
+    : p === "closed"
+    ? '<span>answers are closed</span>'
+    : '<span>' + ROOM.answered + ' of ' + ROOM.present + ' in the room answered</span>';
 }
 
 /* ---- buzzer phone ---------------------------------------------------- */
