@@ -52,14 +52,14 @@ Look at the **buzzer**: this is what someone walking in sees. Room code
 - [x] What does the wall say while it waits? Is it a sentence you would want
       over your head for ten seconds?
 
-## 4 · The split — press **`4 · the split`** (top bar)
+## 4 · The split ✓ done — press **`4 · the split`** (top bar)
 *or* **`Show the room its split`** on the host phone
 
 **This is AC-93, and it is `felt` — yours alone.** The room sees how it voted
 *before* it sees the answer.
 
-- [ ] Look at the **buzzer**: your letter gets a **count**, not a ✗.
-- [ ] **The question:** did seeing the split first do anything for you, or was
+- [x] Look at the **buzzer**: your letter gets a **count**, not a ✗.
+- [x] **The question:** did seeing the split first do anything for you, or was
       it a delay before the answer? Say which, in a sentence.
 
 ## 5 · Work through it — press **`5 · work through it`** (top bar)
