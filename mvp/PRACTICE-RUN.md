@@ -65,6 +65,10 @@ Copied from `FIELD-NOTES-TEMPLATE.md` because they only need the venue, not a
 crowd, and a rehearsal at the venue is the earliest chance to take them.
 
 - [ ] **How wide is the projected image?** Pace it. → `______ ft`
+- [ ] **How tall?** → `______ ft`. The type model assumes 16:9 and derives
+      height from width; a 4:3 projector or a TV breaks that, and it is the
+      height that decides how many lines fit. Client, mid-drive: *"practice
+      will let us know how tall the screen is."*
 - [ ] **How far back is the last row anyone actually sits in?** Not the back
       wall — the last row that fills at a normal meetup. → `______ ft`
 
