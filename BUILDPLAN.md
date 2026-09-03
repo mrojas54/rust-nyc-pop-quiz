@@ -81,12 +81,14 @@ Under D-A option 1 the unsponsored cost is single-digit dollars a month at
 most; under option 2 it is zero. Either is inside *one organizer absorbs it
 without thinking about it*. **The client confirms** which she prefers to carry.
 
-### D-H · AC-95 — the actual versus the predicted popular wrong answer
+### D-H · AC-95 — decided as D-9, no longer a client call
 
-`SPEC.md` §4.5: the wall names the room's actual most-chosen incorrect option;
-the host reads the authored beat about the predicted one; a miss is recorded
-for the reviewer. **The client confirms** this is how she wants the beat to
-behave when the room surprises the author.
+The spec judge found the *predicted versus actual* construction incoherent
+with the read-aloud beat. `SPEC.md` §4.5 now has **no prediction**: every
+incorrect option carries its own short *why you'd pick it* text, review
+refuses a question missing one, and at reveal the wall and the host phone name
+the room's actual most-chosen incorrect option and read that option's text.
+Cheap to reverse; decided and logged.
 
 ---
 
@@ -231,7 +233,7 @@ The client's work plan, in dependency order. None of it goes to the fleet.
 | H-5 | Set a rehearsal date and venue (T-18); take the three measurements | HC-1, AC-100 config |
 | H-6 | Drive HC-0 against the prototype | M2 |
 | H-7 | Review and affirm the first batch (HC-2); time it | AC-21, AC-72, October's question |
-| H-8 | Confirm D-H (AC-95 behaviour) | T-05, T-07 copy |
+| H-8 | ~~Confirm D-H~~ decided as D-9; nothing to do | — |
 | H-9 | Cole, on the colour — not blocking | — |
 | H-10 | Host in October with a co-organizer holding `FIELD-NOTES-TEMPLATE.md` | HC-4 |
 

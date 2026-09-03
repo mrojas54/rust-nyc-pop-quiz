@@ -183,6 +183,9 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-5 | Attendee interviews in scope | Client has access. Not yet conducted — see T-6. **First contact 2026-09-02** at Rust lunch: two regulars, cold, no testimony captured; a rehearsal offered → T-18. |
 | D-6 | Borrow option (C) rejected | Code display is disqualifying across all candidates. Recorded rather than escalated because the evidence is one-sided. |
 | D-7 | **Segment = one question, 3–5 min, scheduled last.** Client call, 2026-08-12. | The argument is the product and an argument needs somewhere to go; anywhere but last, finishing on time means interrupting it. Shrinks the build (no navigation, one write-burst, ~5 min room life) and turns the 8 verified questions into ~8 months of supply. Minted Story B10 / AC-89…AC-92 and forced a rewrite of AC-23 — see below. |
+| D-8 | **The hint rides in every buzzer's `live` payload, hidden client-side.** `tone-architect` Phase 2, 2026-09-03. | Taking it makes no request, so AC-48's *tells nobody* is provable by `canary` rather than by policy; AC-60's *unpublished hint* is read as *before `live`*. The smaller mechanism (§8). |
+| D-9 | **No predicted popular wrong answer — every incorrect option carries its own `why_tempting` text.** Phase 2 judge finding, 2026-09-03. | The *predicted vs actual* construction made the host's read-aloud beat violate AC-95 whenever the room surprised the author. With a text per option, wall and host always name the same option. Replaces the D-H client call. |
+| D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
 
 ## Conflicts
 
@@ -215,7 +218,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
 | T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Answered 2026-09-03 — *"yes i love it."*** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Stage 2 complete.** |
-| T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), D-H (AC-95 actual vs predicted), plus the human track H-1…H-10 | **Open** 2026-09-03 — options and recommendations in `BUILDPLAN.md` §1; the plan assumes the recommendations and is re-cut on her call. |
+| T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), plus the human track H-1…H-10. *(D-H was decided as D-9 after the judge.)* | **Open** 2026-09-03 — options and recommendations in `BUILDPLAN.md` §1; the plan assumes the recommendations and is re-cut on her call. |
 
 ## Client interview record (T-2)
 
@@ -1451,3 +1454,37 @@ and the inherited `mvp/tools/`. Seven findings, all valid, all applied:
 | 5 | Six tickets add `justfile` recipes and three edit `pyproject.toml` with no serialization flag. | Each is flagged in its Notes column; `pyproject.toml` and CI config named as aggregators. |
 | 6 | T-04 bundled four nontrivial pieces and blocked all of M1; T-15 bundled the verifier with the sandbox image. | T-04a/b/c (phase machine + sealed module; sessions and answers; transport) and T-15a/b (sandbox; verifier). |
 | 7 | `canary` in a 60 s hermetic `test` implies a running server. | In-process scan in `test`; the deployed-room scan in `test-full`; T-01 states the harness. |
+
+### Phase 2 judge-gate, 2026-09-03 — 6/10, sixteen findings, applied
+
+An Opus judge read `SPEC.md` against the prototype, the criteria and the
+philosophy, asking whether an implementer who never met the client could
+build it with no decision left. **Score 6/10**, and the findings were right:
+
+- **The precedence rule was importing the prototype's shortcuts.** *"The
+  prototype wins"* would have shipped a host phone with no control to enter
+  `work` and no `←`/`→` in it (the mock has one screen for three phases), a
+  reveal wall that never names the popular wrong answer, and `lights down` as
+  a product mode. Now: criteria outrank both; the prototype wins on visual
+  detail; the spec wins on behaviour, state, payloads, copy.
+- **The walk-through was leaking the answer.** The bank's last trace step
+  carries `stdout: [1, 2, 3, 2, 1]` — the correct option's text — so a canary
+  in the answer would have appeared in the `work` payload. **D-10.** The
+  prototype was patched the same way.
+- **`canary` and AC-99's tests would have failed a correct build** — one
+  contradicted D-8, the other demanded colour on title cards that render no
+  source. Both rows rewritten.
+- **§4.5 deferred a decision** it claimed not to. **D-9** removes the
+  prediction entirely.
+- **Silent holes:** `answered` had readers and no field; a prediction-miss
+  had a writer and no field; host resume said *rotates* and never said how a
+  second device got the token. Fixed (a resume link; no rotation mid-room).
+- **Underspecified:** the type model's area constants and the refit formula
+  (the spec's literal loop could not converge on `q7`); no refit in the trace
+  phases; no strings for AC-29's six failures or a participant who never
+  answered; the trace model's semantics were cited to a file not in the repo;
+  AC-18's phrasing and AC-88's drift gate were tested but never specified;
+  AC-62/63 had nothing to assert. All written in.
+- **Its own lint caught its own copy:** take-it-home said *wrong*.
+
+Re-judged after the fixes — result below.
