@@ -1286,3 +1286,13 @@ q1 held at 27px, q3 beside, and the title card.
 **Not changed:** `_shared/tokens.css` — the well fix is scoped to C's own
 style so the other takes stay as they were judged. AC-33's sibling (the source
 must *fit* the wall) is unchanged in meaning and now has a check that can see.
+
+### The T-20 list, as it arrives
+
+The guide asks for *everything that annoyed you*. Logged here in the order it
+comes, each applied the same day so the next look at the wall is the corrected
+one.
+
+| # | Client said | Applied |
+|---|---|---|
+| 1 | *"One question. Five minutes. Then we walk through it together." — time for a pop quiz* | Title card hero is now **"Time for a pop quiz."**, with the two lines beneath it. The brand line already sits top-left of the wall, so the big "Pop Quiz" was saying it twice. |

@@ -608,7 +608,9 @@ function renderProjector() {
   if (p === "idle") {
     phase.textContent = "closing segment";
     main.className = "title-card";
-    main.innerHTML = '<div><h2>Pop Quiz</h2><p style="font-size:24px;color:var(--text-secondary)">' +
+    /* Client copy, 2026-09-03, first item off the T-20 drive. The brand line
+       already sits top-left of the wall, so the hero says what is happening. */
+    main.innerHTML = '<div><h2>Time for a pop quiz.</h2><p style="font-size:24px;color:var(--text-secondary)">' +
       'One question. Five minutes.<br>Then we walk through it together.</p></div>';
     strip.innerHTML = '<span>join from your phone — you only need the letter</span><b>' + ROOM.code + '</b>';
     return;
