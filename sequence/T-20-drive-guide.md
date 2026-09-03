@@ -13,21 +13,21 @@ test: *would you keep this if a better option appeared tomorrow?*
 
 ---
 
-## 0 · Set it to the real room (30 seconds, top bar)
+## 0 · Set it to the real room ✓ done
 
-- [ ] Lights are **already up** — that is the default, so **`lights up`** does
+- [x] Lights are **already up** — that is the default, so **`lights up`** does
       nothing visible. If you want to see the difference once, press
       **`lights down`** then **`lights up`**. AC-80 is answered; leave it up.
-- [ ] **`q3 · 5 lines`** is already pressed — the page opens on tonight's
+- [x] **`q3 · 5 lines`** is already pressed — the page opens on tonight's
       question. **A dark button is the one that is on**, in every group.
-- [ ] **`auto · fit the question`**, **`15ft`** screen, **`20ft`** back row —
+- [x] **`auto · fit the question`**, **`15ft`** screen, **`20ft`** back row —
       the venue guess. The rehearsal replaces these numbers.
-- [ ] Leave **`code beside options`** on for the segment. You compare
+- [x] Leave **`code beside options`** on for the segment. You compare
       full-width in step 8.
 
 ---
 
-## 1 · Title — press **`1 · title`** (top bar)
+## 1 · Title ✓ done
 
 Look at the **buzzer**: this is what someone walking in sees. Room code
 `KMT4XW`. Nothing to judge yet — just know what the first ten seconds look like.
@@ -35,9 +35,9 @@ Look at the **buzzer**: this is what someone walking in sees. Room code
 ## 2 · Question live — press **`2 · question live`** (top bar)
 *or* **`Put it on the screen`** on the host phone
 
-- [ ] **Read the code as a participant.** Count to thirty in your head. That is
+- [x] **Read the code as a participant.** Count to thirty in your head. That is
       AC-91's whole budget. Did you have an opinion by thirty?
-- [ ] Press **`6 metres back`** (top bar). Still readable? Press **`front row`**
+- [x] Press **`6 metres back`** (top bar). Still readable? Press **`front row`**
       to come back. One click each; AC-78 was judged in August — this is a
       check, not a re-ask.
 - [ ] **New since you last drove it:** the code has **syntax colour** here.

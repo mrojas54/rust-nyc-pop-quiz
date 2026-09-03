@@ -80,6 +80,12 @@
   .proj-code .rn-src { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
   .proj-code .rn-src-head { flex: none; }
   .proj-code .rn-src-scroll { flex: 1; min-height: 0; overflow: auto; }
+  /* When the well clips, the wall says so ON the wall — a red edge on the side
+     that lost content. The note beneath scrolls out of view at six metres
+     back, and "cut off" with no visible cause is what the client saw. */
+  .proj-code .rn-src.clip-x { box-shadow: inset -6px 0 0 var(--red); }
+  .proj-code .rn-src.clip-y { box-shadow: inset 0 -6px 0 var(--red); }
+  .proj-code .rn-src.clip-x.clip-y { box-shadow: inset -6px 0 0 var(--red), inset 0 -6px 0 var(--red); }
   /* The whole bet of this direction: the code is set for the back row. */
   .proj-code .code { flex: 1; font-size: 27px; line-height: 1.5; padding: 18px 20px; }
   .proj-side { flex: 1; display: flex; flex-direction: column; gap: 8px;
@@ -861,6 +867,8 @@ function checkWallFit() {
      said 0 while code was drawn through the join strip. */
   const overX = sc.scrollWidth - sc.clientWidth;
   const overY = sc.scrollHeight - sc.clientHeight;
+  const well = document.querySelector("#proj .rn-src");
+  if (well) { well.classList.toggle("clip-x", overX > 4); well.classList.toggle("clip-y", overY > 4); }
   if (overX <= 4 && overY <= 4) {
     el.hidden = true;
     return;
