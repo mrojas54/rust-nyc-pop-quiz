@@ -1436,3 +1436,18 @@ say exactly what verification proves — applied to our own receipt.
 
 **Phase 2 judge-gate and Phase 4 review** ran as agents against the committed
 files; findings and what was applied are recorded below when they land.
+
+### Phase 4 — plan review, 2026-09-03 (applied)
+
+A Sonnet adversarial pass read `BUILDPLAN.md` against `SPEC.md`'s guardrails
+and the inherited `mvp/tools/`. Seven findings, all valid, all applied:
+
+| # | Finding | Applied |
+|---|---|---|
+| 1 | The minimum viable cut named T-14 and T-20 but the slot mechanism lives in T-19 and the copy lint in T-22 — the cut violated G-1 and G-5. | The cut now names T-18, T-19, T-22 explicitly and says what waits. |
+| 2 | G-7 and AC-62/63/71 had no owning ticket; eight `felt` IDs were absent without a stated reason. | G-7/AC-71/74 on T-05 and T-07; AC-62/63 on T-24; a *settled at a checkpoint, no ticket, by design* line for the eight. |
+| 3 | T-01 scaffolded a Rust crate before the client had decided D-A. | T-01 depends on H-1 and scaffolds whichever stack she chose. |
+| 4 | `slot_for_meetup`, the ledger-writing wrapper, sits one function below the pure `slot_for_day` — the exact adjacency behind four G-1 regressions. | T-19: port `slot_for_day` only; the wrapper is not ported under any name; T-11 is the ledger's only writer. |
+| 5 | Six tickets add `justfile` recipes and three edit `pyproject.toml` with no serialization flag. | Each is flagged in its Notes column; `pyproject.toml` and CI config named as aggregators. |
+| 6 | T-04 bundled four nontrivial pieces and blocked all of M1; T-15 bundled the verifier with the sandbox image. | T-04a/b/c (phase machine + sealed module; sessions and answers; transport) and T-15a/b (sandbox; verifier). |
+| 7 | `canary` in a 60 s hermetic `test` implies a running server. | In-process scan in `test`; the deployed-room scan in `test-full`; T-01 states the harness. |
