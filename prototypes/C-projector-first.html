@@ -375,7 +375,7 @@ let   wallFontPx    = 27;
    options beneath) or on HEIGHT (source beside the options). Neither dominates:
    full-width fixes long LINES, split-column fixes long PROGRAMS. Both are built
    so the trade is looked at rather than argued about. */
-let   wallLayout    = "split";   /* "split" | "full" */
+let   wallLayout    = "full";    /* "split" | "full" — client call 2026-09-03: "i love the options under, so code full width" */
 function setLayout(m) { wallLayout = m; applyTypeModel(); }
 
 function minLegibleFontPx() {
@@ -908,7 +908,11 @@ function go(phase) {
     setSource("q3");
     announce("Back to the real segment — q3.");
   }
-  render();
+  /* The type is fitted by MEASURING the well, and there is no well on the
+     title card — so a size computed there is the model's guess (35.8px for q3
+     under full-width) and overflows the moment the question goes live. Refit
+     on entering a phase that has a well. */
+  if (phase === "live" || phase === "closed") applyTypeModel(); else render();
   announce(({
     idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",
     closed: "Answers are closed.", split: "The room's split is shown. No answer yet.",

@@ -22,8 +22,7 @@ test: *would you keep this if a better option appeared tomorrow?*
       question. **A dark button is the one that is on**, in every group.
 - [x] **`auto · fit the question`**, **`15ft`** screen, **`20ft`** back row —
       the venue guess. The rehearsal replaces these numbers.
-- [x] Leave **`code beside options`** on for the segment. You compare
-      full-width in step 8.
+- [x] **`code full-width`** is the default now — your call in step 8.
 
 ---
 
@@ -104,11 +103,11 @@ link, the QR.
 
 **Layout.** On **`2 · question live`**:
 
-- [ ] Press **`q1 · 16 lines`**, then **`code beside options`**, then
+- [x] Press **`q1 · 16 lines`**, then **`code beside options`**, then
       **`code full-width`**. Which one?
-- [ ] Press **`q7 · 69ch wide`** and do the same. Long lines are what
+- [x] Press **`q7 · 69ch wide`** and do the same. Long lines are what
       full-width was built for.
-- [ ] Back to **`q3 · 5 lines`**.
+- [x] Back to **`q3 · 5 lines`**.
 
 **Syntax colour (T-17).** Colour is **on** in steps 1–4 and 7 and **off** in
 5–6, where the trace runs. There is no toggle; the comparison is the phases.
