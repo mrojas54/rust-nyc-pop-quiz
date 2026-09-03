@@ -80,7 +80,12 @@ not here.
 
 ## Who pays
 
-Unresolved, and it is a client call. Options, in order of durability:
+**Resolved 2026-09-03 (T-21, `tone-architect`): option 2 — the client, personally.**
+*"rust on fly, i'll pay."* At the decided substrate (Rust on Fly.io, `BUILDPLAN.md`
+D-A) that is single-digit dollars a month at most, inside the design target
+below. Recorded rather than rewritten: the options as they were weighed.
+
+Options, in order of durability:
 
 1. **Rust NYC's own funds / existing sponsor budget** — most durable, survives
    any one person leaving. Requires the segment to be worth a line item.
@@ -97,9 +102,9 @@ Town Pro with live generation, it is not.
 
 ## Open questions
 
-- **Q-E1** — Does Rust NYC have a budget line that could carry ~$250/yr, or is
-  the practical ceiling closer to $0? This decides whether Val Town Pro is even
-  on the table. *Client.*
+- ~~**Q-E1**~~ — *Answered 2026-09-03: moot.* The substrate is Rust on Fly.io at
+  single-digit dollars a month and the client carries it; Val Town was never
+  chosen, so its ~$250/yr was never asked for.
 - **Q-E2** — Are the Modal and Pydantic sponsor relationships committed for a
   defined term, or informal? Informal is fine given the $3–15/yr exposure; worth
   knowing so we never architect around them. *Client.*

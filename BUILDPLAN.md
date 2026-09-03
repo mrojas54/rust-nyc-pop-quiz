@@ -1,8 +1,8 @@
 # Build plan — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 3. Drafted 2026-09-03. The decisions
-in §1 are recommendations put to the client at T-21; the plan below assumes
-them and is re-cut if she decides otherwise.** Reads with `SPEC.md` (what) and
+**Status: Stage 3 `tone-architect`, Phase 3. Drafted 2026-09-03; T-21 answered
+the same day — *"rust on fly, i'll pay, D-H is fine."* The decisions in §1
+are decided.** Reads with `SPEC.md` (what) and
 `EVALUATION.md` (how judged). Consumed by `lattice-orchestrator`.
 
 ---
@@ -18,15 +18,14 @@ them and is re-cut if she decides otherwise.** Reads with `SPEC.md` (what) and
 | 3. Val Town | — | Rejected by the research: undocumented concurrency ceiling, single-writer SQLite under the burst, $252/yr. | ~$252 |
 | 4. PartyKit | DO with a friendlier SDK | Same language objection; smaller project, less certain lifespan | ~$0 |
 
-**Recommendation: option 1, Rust on Fly.io.** This reverses Dimension 5's lean
+**Decided 2026-09-03 (T-21): option 1, Rust on Fly.io.** *"rust on fly."* This reverses Dimension 5's lean
 and the reason is D-7: the research sized a three-question, 15-minute room
 with ~327k requests; the segment is now one 30-second burst and five minutes
 of life, and for that the smallest mechanism (§8) is one process. Durable
 Objects buys resilience the problem no longer needs at the price of a language
 the room does not speak. The burst is proven either way by the spike (T-03)
-before anything depends on it. **The client decides** — it is a taste call
-about whose project this is, and the cost difference is inside what she said
-she can absorb.
+before anything depends on it. It was the client's call — a taste call about
+whose project this is — and she made it.
 
 ### D-B · The front-end — wall, buzzer, host phone
 
@@ -78,8 +77,8 @@ Fly-provided hostname and her placeholder short link.
 ### D-G · Budget (Q-E1) and who pays
 
 Under D-A option 1 the unsponsored cost is single-digit dollars a month at
-most; under option 2 it is zero. Either is inside *one organizer absorbs it
-without thinking about it*. **The client confirms** which she prefers to carry.
+most. **Decided 2026-09-03 (T-21): the client carries it** — *"i'll pay."*
+`ECONOMICS.md` §Who pays is amended.
 
 ### D-H · AC-95 — decided as D-9, no longer a client call
 
@@ -88,7 +87,7 @@ with the read-aloud beat. `SPEC.md` §4.5 now has **no prediction**: every
 incorrect option carries its own short *why you'd pick it* text, review
 refuses a question missing one, and at reveal the wall and the host phone name
 the room's actual most-chosen incorrect option and read that option's text.
-Cheap to reverse; decided and logged.
+Cheap to reverse; decided and logged. **Client, T-21: *"D-H is fine."***
 
 ---
 
@@ -226,7 +225,7 @@ The client's work plan, in dependency order. None of it goes to the fleet.
 
 | # | Do | Unblocks |
 |---|---|---|
-| H-1 | Decide D-A (Rust on Fly, or TypeScript on Cloudflare) and confirm D-G | **T-01**, T-03 |
+| ~~H-1~~ | Decided 2026-09-03: Rust on Fly; the client pays | — |
 | H-2 | DNS: `popquiz.rustnyc.org` → the app | T-09 |
 | H-3 | Discord: create the application, record app id, secret, guild id, organizer role id | T-10 |
 | H-4 | An Anthropic API key and a monthly cap | T-16 |
