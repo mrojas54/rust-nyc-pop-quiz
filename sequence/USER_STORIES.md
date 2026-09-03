@@ -211,6 +211,7 @@ the room display is where fifty people look at the same nine lines together.
 | ID | Criterion |
 |---|---|
 | **AC-78** | The room display is a distinct surface with its own layout, legible at 6+ metres. `felt` |
+| **AC-99** | **The source carries syntax colour in the reading phases and none while a trace is running.** Colour is present on the room display from the title through the split, and absent in the walk-through and the reveal, where the trace signals by highlight-and-dim and nothing may compete with it. Colour never carries a signal by itself (AC-40). *Minted 2026-09-03 on the client's call — "keep the colour, love it" — during the T-20 drive. It diverges from the design system's `SourceCode`, which renders unhighlighted; the divergence is deliberate and the client carries it to the component's owner.* |
 | **AC-79** | It requires no interaction beyond host controls, and never shows the correct answer, the explanation, or an unpublished hint before reveal. |
 | **AC-80** | It is readable with the room lights down. This needs either a dim-room mode or an amendment to the brand's *no dark mode in v1* non-goal — **the brand is what gets amended if a dim room wins.** `felt` |
 | **AC-81** | The room display and the participant view never disagree about the current phase. |
@@ -653,4 +654,4 @@ speak.**
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
 fresh IDs and existing IDs never change meaning after handoff. Range is now
-AC-1 … AC-98 across 19 stories.*
+AC-1 … AC-99 across 19 stories.*

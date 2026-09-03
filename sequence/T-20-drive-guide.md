@@ -99,7 +99,7 @@ link, the QR.
 
 ---
 
-## 8 · Two comparisons, one click each (3 minutes, top bar)
+## 8 · Two comparisons ✓ done — full-width, colour stays
 
 **Layout.** On **`2 · question live`**:
 
@@ -112,7 +112,7 @@ link, the QR.
 **Syntax colour (T-17).** Colour is **on** in steps 1–4 and 7 and **off** in
 5–6, where the trace runs. There is no toggle; the comparison is the phases.
 
-- [ ] Press **`2 · question live`** (colour), then **`5 · work through it`**
+- [x] Press **`2 · question live`** (colour), then **`5 · work through it`**
       (no colour), then back. **Keep the colour in the reading phases?** Cole
       gets a say too — this diverges from his `SourceCode` component.
 

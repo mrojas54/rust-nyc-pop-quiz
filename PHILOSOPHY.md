@@ -139,6 +139,14 @@ being asked to look at. **Legibility is the principle; highlighting was an
 implementation of it that turned out to work against the trace.** Colour still
 never carries a signal by itself — that constraint is unchanged.
 
+*Amended again 2026-09-03, during the T-20 drive — client call: "keep the
+colour, love it."* The reason above is airtight while a trace is running and
+vacuous when it is not: in the reading phases nothing is competing with
+anything, and the room is reading nine lines for thirty seconds. So colour
+**returns to the reading phases** and stays **off wherever a trace runs** —
+AC-99. This diverges from the design system's `SourceCode` on purpose; the
+client carries that to its owner.
+
 ### 6. Nothing per-person is recorded
 
 No accounts, no nicknames, no leaderboard, no history. Anonymous totals that
