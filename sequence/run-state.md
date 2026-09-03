@@ -1354,3 +1354,41 @@ with planning now?!"* before the word was even requested.
 three room measurements); the AC-92 mechanism defect; the static fallback
 (`PROJECTOR_SPEC` §6); the three-field explanation content model; AC-95's count;
 AC-21 unmeasured; font vendoring; the real short link.
+
+## Stage 3 — `tone-architect`, opened 2026-09-03
+
+Invoked the moment Stage 2 closed, on the same day, on the client's *"yes i
+love it."* Branch `ai-c11-cc/tone-architect`, off the prototype branch (PR #5
+to `main` open, unmerged — the architect's inputs are on it).
+
+### Phase 0 — Intake, 2026-09-03
+
+Corpus read cold: `run-state.md`, `PHILOSOPHY.md`, `USER_STORIES.md` (AC-1…AC-99),
+`DESIGN.md`, `ECONOMICS.md`, `00-synthesis.md`, both prototypes' code, and the
+technical dimensions (02, 04, 05) and the MVP tooling via two Sonnet agents.
+
+**Inputs complete, with one gap named:** the design corpus's `PROJECTOR_SPEC.md`
+and the design system live at claude.ai/design and are not in the repo. The
+prototype and `DESIGN.md` carry everything the spec needs from them except the
+**static fallback** (§6), which the arc has only ever described second-hand.
+Not blocking; specced from the description in Phase 1c and flagged.
+
+**Living artifacts — six criteria caught up with Direction C.** Codification
+found five criteria still written for a phone that carries code or a round of
+several questions. All are consequences of calls the client already upheld
+(A-4, T-13, D-7), so they were rewritten in place with originals kept and
+recorded in `USER_STORIES.md` → Amendments, not escalated: **AC-33** (the wall
+fits; scroll only where code is still on a small screen), **AC-38** (answerable
+on a phone = the five options), **AC-39** (explanation is read aloud, lives on
+take-it-home; buzzer shows the letter and the count), **AC-45** (the seven
+transitions), **AC-83** (live-region events name the real phases and the
+private hint). **AC-100 minted:** the source fits the room display at a
+legible size or the wall says so — the AC-33 sibling `tone-prototype` recorded
+as binding and never minted, now with the review-time pipeline flag it implies.
+Range is AC-1…AC-100.
+
+**Stale research numbers, flagged so nobody sizes to them:** the 187 s UB-path
+budget, the ~327k requests per room, and the Val Town Business-tier tail were
+all computed for live, three-question rooms. Under D-7 the live room is one
+~30-second write burst and ~5 minutes of life. The **burst** survives at full
+size (200 votes in a second or two); the totals do not.

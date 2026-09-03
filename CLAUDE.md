@@ -9,7 +9,7 @@ room.
 | Artifact | What it is |
 |---|---|
 | [`PHILOSOPHY.md`](PHILOSOPHY.md) | **The one thing, and the principles.** Read before changing anything user-facing. |
-| [`sequence/USER_STORIES.md`](sequence/USER_STORIES.md) | Stories with stable acceptance-criteria IDs (**AC-1 … AC-99**, 19 stories). IDs never change meaning. |
+| [`sequence/USER_STORIES.md`](sequence/USER_STORIES.md) | Stories with stable acceptance-criteria IDs (**AC-1 … AC-100**, 19 stories). IDs never change meaning. |
 | [`ECONOMICS.md`](ECONOMICS.md) | What it costs to run and who absorbs it. |
 | [`DESIGN.md`](DESIGN.md) | **The converged design — Direction C, voice, aesthetic, the wall's type model.** The binding visual contract; the build reproduces `prototypes/C-projector-first.html` one-to-one. |
 | [`sequence/run-state.md`](sequence/run-state.md) | Where the Tone arc is. **Read on every invoke.** |

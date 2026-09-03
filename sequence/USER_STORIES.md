@@ -134,12 +134,12 @@ to an answer.*
 | ID | Criterion |
 |---|---|
 | **AC-32** | **Neither the source nor its trace is rendered on any participant device.** Both live on the room display only, where AC-38 and AC-78 govern their legibility. A participant device carries the options to vote on. *Rewritten twice on 2026-08-14 — first the highlighting clause (Phase 1c), then the whole premise (A-4, client call). Was: "monospace, syntax-highlighted, legible without pinch-zoom on a 375px-wide phone." See Amendments.* |
-| **AC-33** | Code that exceeds the viewport scrolls inside its own container; the page never scrolls horizontally. |
+| **AC-33** | **On the room display the source never scrolls — it fits (AC-100).** On every other surface that renders code (organizer review, the take-it-home page), code that exceeds the viewport scrolls inside its own container; the page never scrolls horizontally. *Rewritten 2026-09-03, `tone-architect` Phase 0: container-scroll was a phone escape hatch and A-4 took the phone away, so on the wall this criterion's sibling — the source must fit — is what binds. Original: "Code that exceeds the viewport scrolls inside its own container; the page never scrolls horizontally."* |
 | **AC-34** | An answer can be changed freely until the server closes the question. |
 | **AC-35** | Submission state is always visible and unambiguous: saving, saved, or failed. |
 | **AC-36** | A failed submission states that the last saved answer is safe and offers a retry; it never silently discards a choice. |
 | **AC-37** | A dropped connection re-attaches without losing the saved answer, and controls are visibly paused until state is fresh. |
-| **AC-38** | The question is legible and answerable from the back of a room on a projector as well as on a phone. `felt` |
+| **AC-38** | The question is legible from the back of the room on the projector, and answerable on a phone — the five options on the buzzer are readable and tappable **without** the source, which is not there. `felt` *Rewritten 2026-09-03, `tone-architect` Phase 0, to agree with AC-32 as rewritten at A-4. Original: "The question is legible and answerable from the back of a room on a projector as well as on a phone."* |
 
 ### Story B3 — The reveal
 *As an attendee, I want to see the answer, why, and what the room thought — that
@@ -147,7 +147,7 @@ is the moment the room starts working it out together.*
 
 | ID | Criterion |
 |---|---|
-| **AC-39** | Reveal shows the correct option, the explanation, anonymous per-option totals, and the verification receipt. |
+| **AC-39** | Reveal shows, on the room display, the correct option, the anonymous per-option totals, the most-chosen incorrect option named and counted, and the verification receipt. **The explanation is delivered by the host reading it aloud** from the host control (AC-42) and is available in full on the take-it-home page afterwards; the room display does not render it. The buzzer shows the correct letter and the participant's own count (AC-94), nothing more. *Rewritten 2026-09-03, `tone-architect` Phase 0, to match Direction C as loved. Original: "Reveal shows the correct option, the explanation, anonymous per-option totals, and the verification receipt."* |
 | **AC-40** | Correct and incorrect are conveyed by shape or glyph as well as colour, never by colour alone. `MVP` |
 | **AC-41** | Reveal reaches connected participants within 2 seconds at p95. |
 | **AC-42** | The explanation reads well **aloud** — a host can read it to the room verbatim and be understood. `felt` |
@@ -160,7 +160,7 @@ fifty people.*
 
 | ID | Criterion |
 |---|---|
-| **AC-45** | The host controls the room code, question start, early close, reveal, and advance. *Amended 2026-08-14 (T-13): "an optional published hint" removed — the hint is no longer a host action at all. See AC-48.* |
+| **AC-45** | The host controls room creation, putting the question on the screen, closing answers, showing the split, stepping the walk-through, reveal, and release. **Every phase transition is a host action; nothing advances on its own** (AC-93, AC-97). *Amended 2026-08-14 (T-13): "an optional published hint" removed — the hint is no longer a host action at all. See AC-48. Rewritten 2026-09-03, `tone-architect` Phase 0: "early close, reveal, and advance" named a multi-question round; the seven-phase segment names its transitions. Original: "The host controls the room code, question start, early close, reveal, and advance."* |
 | **AC-46** | The host sees participant count and answers-in while a question is live. |
 | **AC-47** | The host receives no answer preview before reveal. |
 | **AC-48** | **The hint is available to every participant, on their own device, for as long as the question is open — and taking it tells nobody.** Not the host, not the room, not the totals. There is no host-published hint and no signal that anyone used one. *Rewritten 2026-08-14 (T-13). Was: "publishing a hint shows the same hint to everyone, at once."* |
@@ -215,6 +215,7 @@ the room display is where fifty people look at the same nine lines together.
 | **AC-79** | It requires no interaction beyond host controls, and never shows the correct answer, the explanation, or an unpublished hint before reveal. |
 | **AC-80** | It is readable with the room lights down. This needs either a dim-room mode or an amendment to the brand's *no dark mode in v1* non-goal — **the brand is what gets amended if a dim room wins.** `felt` |
 | **AC-81** | The room display and the participant view never disagree about the current phase. |
+| **AC-100** | **The source fits the room display at a legible size, or the wall says so.** Type size is derived — from the question's line count and widest line, and from the configured room (screen width and height, back-row distance) — never chosen by hand: it grows to fill the wall for a short program and shrinks toward the legibility floor for a long one, and *fits* is a measured claim after layout, not a computed guess. When a question will not fit even at the floor, the wall shows a visible edge on the side that lost content and the host control reports it; nothing is silently clipped. This is a bound on question dimensions and therefore a fact the pipeline surfaces at review, kin to AC-88: a question that does not fit the configured room at the floor is flagged before it can be scheduled. *Minted 2026-09-03, `tone-architect` Phase 0, from the AC-33 sibling that `tone-prototype` recorded as binding and never minted. The floor is a rule of thumb (cap height ≥ viewing distance / 150) until the rehearsal measures the room.* |
 
 ### Story B9 — Usable by everyone in the room
 *As an attendee using a keyboard, a screen reader, or just a phone in bright
@@ -227,7 +228,7 @@ draft of these stories dropped.
 | ID | Criterion |
 |---|---|
 | **AC-82** | Every interactive element is reachable and operable by keyboard, with a visible focus indicator. |
-| **AC-83** | Every state change — question open, saving, saved, failed, closed, hint published, revealed — is announced through a polite live region. |
+| **AC-83** | Every state change — question open, saving, saved, failed, closed, the split, the walk-through, revealed, released, and a hint shown to *this* participant — is announced through a polite live region. *Amended 2026-09-03, `tone-architect` Phase 0: "hint published" named the host action AC-48 deleted; the phases minted since are listed.* |
 | **AC-84** | Text and essential UI meet WCAG AA contrast, in both the light and the dim-room presentations. |
 | **AC-85** | Touch targets are at least 44px. |
 | **AC-86** | Motion respects `prefers-reduced-motion`; no animation is required to understand state. |
@@ -676,7 +677,29 @@ the pace."* AC-48 as rewritten — the private hint passes. AC-80 unchanged.
 
 ---
 
+### 2026-09-03 — `tone-architect` Phase 0: the criteria catch up with Direction C
+
+Codifying the loved prototype found five criteria still written for a phone
+that carries code or a round that has several questions — all consequences of
+decisions the client already upheld (A-4, T-13, D-7), none of them new calls.
+Each is rewritten in place with its original kept, and one is minted.
+
+| ID | What changed | Upheld by |
+|---|---|---|
+| **AC-33** | On the wall the source *fits*; container-scroll survives only where code is still rendered on a small screen (review, take-it-home) | A-4 |
+| **AC-38** | Answerable on a phone now means the five options, without the source | A-4 |
+| **AC-39** | The explanation is read aloud and lives on take-it-home; the wall carries answer, totals, the named wrong answer, receipt; the buzzer carries the letter and the count | T-12, T-20 item 13 |
+| **AC-45** | The host's controls are the seven-phase segment's transitions | D-7, AC-93, AC-97 |
+| **AC-83** | Live-region events name the phases that exist and the private hint | T-13, AC-97 |
+| **AC-100** | *Minted.* The source fits the room display at a legible size, or the wall says so — the type model as built, and a review-time flag for the pipeline | Rounds 1–4 |
+
+Story B2's title still says *"read a Rust program comfortably on my phone"*;
+it is left as the story's origin, and its criteria now say where the program
+is read.
+
+---
+
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
 fresh IDs and existing IDs never change meaning after handoff. Range is now
-AC-1 … AC-99 across 19 stories.*
+AC-1 … AC-100 across 19 stories.*
