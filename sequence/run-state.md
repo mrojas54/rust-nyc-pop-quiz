@@ -4,25 +4,30 @@ The resume anchor for the whole Tone arc. Every stage reads this first on invoke
 
 ---
 
-## ▶ RESUME HERE — handoff written 2026-08-14, evening
+## ▶ RESUME HERE — handoff written 2026-09-03, after the T-20 drive
 
-**Stage 2 `tone-prototype`, Round 3. T-12 is ANSWERED — the direction is C.**
-**The stage is not done.** The rule is explicit: iteration ends when the client
-**loves** the take, not when she picks it. No `DESIGN.md`, no `tone-architect`,
-no build.
+**Stage 2 `tone-prototype`, Round 4 closed. The T-20 drive is DRIVEN — every
+step of the guide, sixteen items back, all applied.** Three "love it"s on the
+record (reveal and release, the layout, the colour) and *"are we done with
+planning now?!"* — but **the one-word verdict on the whole has not been said**,
+and the stage rule is that iteration ends when the client **loves** the take.
+**`DESIGN.md` exists as a draft** — it records what C already does, so the
+verdict is on a page she can read, and it turns binding on the word. **No
+`tone-architect`, no build** until then. Ask for the word; if it is not *love
+it*, ask what would have to change, and that is Round 5.
 
 **First four things, in order:**
 
 1. Read this file top to bottom. **`PHILOSOPHY.md`'s one thing CHANGED today
    (A-5)** — read it before touching anything user-facing, because every stage
    before this one was written against the old sentence.
-2. `git checkout ai-c11-cc/tone-prototype` — pushed, ~19 commits ahead of `main`,
+2. `git checkout ai-c11-cc/tone-prototype` — pushed, ~50 commits ahead of `main`,
    **no PR**, because the stage is not finished.
 3. Open `prototypes/C-projector-first.html` and **drive all seven phases**. That
-   is the converged direction. **`sequence/T-20-drive-guide.md` is the
-   button-by-button guide for the client's closing drive (T-20, open).** `take-it-home.html` is the second surface. A and B
-   are historical takes, not candidates — keep them, October compares against
-   built things rather than hypotheses.
+   is the converged direction, and `DESIGN.md` describes it. **`sequence/T-20-drive-guide.md`
+   is the client's closing drive, now fully driven.** `take-it-home.html` is the
+   second surface. A and B are historical takes, not candidates — keep them,
+   October compares against built things rather than hypotheses.
 4. **The skill is disabled.** `tone-prototype` is `"off"` in
    `~/.claude/settings.json` → `skillOverrides`, so the Skill tool refuses it.
    Read `~/.claude/skills/tone-prototype/SKILL.md` directly.
@@ -51,13 +56,13 @@ no build.
   says *"Someone who said E — why?"* and *"go argue about it downstairs."*
   Flagged, not fixed (T-19).
 
-### Open, and the first two need a person rather than an agent
+### Open, and both need a person rather than an agent
 
 | | |
 |---|---|
-| **T-20** | **The drive that closes the stage.** Does the client love C, and what still annoys her. `sequence/T-20-drive-guide.md`, ~20 min, every step names the button. Brings back: love it or not, the annoyance list, AC-93 felt, and colour or not (T-17). *Love it* → `DESIGN.md` and `tone-architect`. |
+| **T-20** | **Driven 2026-09-03.** Sixteen items, all applied; AC-93 answered; T-17 answered; AC-28 rewritten. **What remains is the one word.** `DESIGN.md` is drafted so the word is said about a page. *Love it* → `DESIGN.md` binding, `tone-architect` starts. Anything else → Round 5, from her list. |
 | **T-18** | **The rehearsal.** When, where — the venue, if at all possible, because the two room measurements are the highest-value output — and confirm `q3` is the one to spend. Two regulars offered at Rust lunch. Sheet written: `mvp/PRACTICE-RUN.md`. The meetup is **October**; the rehearsal precedes it and has no date yet. Testimony captured (A-6). |
-| **T-19** | `mvp/README.md`'s host script carries the beat AC-98 forbids and the framing A-5 replaced, at five places. It is the script the client actually reads before hosting. Sweep it, or leave the MVP frozen as the pre-A-5 artifact it is? **Recommended: sweep.** |
+| ~~**T-19**~~ | **Swept 2026-09-03.** Six places in `mvp/README.md`, plus one leak the A-5 sweep had missed in the product itself: the reveal script's third beat was headed *The bit worth arguing about* — read aloud by the host, shown on take-it-home. Now *talking about*. |
 | ~~**T-17**~~ | **Answered 2026-09-03: keep the colour.** A-7, AC-99 minted, §5 amended. Cole's view is still worth having, and the client carries it; nothing waits on it. |
 | **`felt` never answered** | ~~**AC-93** — does split-before-answer land?~~ **Answered 2026-09-03: *"i like seeing the split before the answer."*** **AC-21** — the review-surface clock, never once measured — remains, and is the client's alone. |
 | **Never collected** | The client's list of what annoyed her in B and C. That list *is* the next iteration rounds and it will evaporate. **Ask for it.** |
@@ -211,8 +216,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-14 | 2·1 | Does Direction A stay in the fan-out now that public commitment is the named problem? | **Answered** 2026-08-14 — **stays, as the honest loser.** Costs nothing to keep; becomes October's built comparison rather than a hypothetical. |
 | T-15 | 2·1c | Who steps the trace — host-driven only (`PROJECTOR_SPEC` §4.2, resolved) vs. each participant at their own pace (`PHILOSOPHY` §9, minted a day ago) | **Answered** 2026-08-14 — **both.** Wall host-stepped, phones step freely. |
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
-| T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Open** — recommended: sweep. Five places (lines 9, 16, 20, 95, 218). |
-| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Open** 2026-09-02 — guide at `sequence/T-20-drive-guide.md`, opened beside C in c11. Client asked: *"are we done with planning now?!"* — this is the one gate left. **Round 4 came out of it on 2026-09-03** — see below. |
+| T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
+| T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Driven 2026-09-03.** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Open on one word:** the whole-take verdict. Client asked: *"are we done with planning now?!"* |
 
 ## Client interview record (T-2)
 
@@ -238,6 +243,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 1b (T-6) | 0 | 1 open (T-7) | ~20 min |
 | 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
 | 2·4 round 4 (T-20 drive) | 0 | — | ~45 min |
+| 2·4 closing the drive (T-19, AC-28, `DESIGN.md` draft) | 0 | 1 open (T-20's word) | ~40 min |
 
 ## Phase 3 output
 
@@ -1312,3 +1318,20 @@ one.
 | 14 | *"yes actually as the host i liked setting the pace"* | **AC-97 as built, and T-15's answer, confirmed from the host's chair:** the walk-through is host-stepped on the wall, and the host likes holding the pace. Step 5 clean — no answer, no receipt, no colour while the trace runs. |
 | 15 | *"i love the options under, so code full width"* | **Layout decided: source full-width, options beneath in two columns.** Now C's default. **What it costs, measured at the 15ft / 20ft guess:** the options block takes ~200px of the wall's height, so the source gets ~250px — `q3` (5 lines) sits at 21.9px, `q5` (9 lines) at 15.5px, and **`q1` (16 lines) does not fit at a legible size**; it clips at line 11 with the red edge showing. Long lines are no longer the problem: `q7`'s 69 characters fit at 22.5px. **So the generator's bound under this layout is roughly 11 lines at the guess**, and wide is fine. That is well under dtolnay's median of 19 lines (item 5) — the rehearsal's screen height (item 4) is the number that moves it. Found on the way: a size fitted on the title card — where there is no well to measure — was the model's guess and overflowed the moment the question went live; the wall now refits on entering `live` or `closed`. |
 | 16 | *"keep the colour, love it"* | **T-17 answered.** Colour stays in the reading phases, off while a trace runs. Propagated: **AC-99** minted under Story B8, `PHILOSOPHY.md` §5 amended a second time, `CLAUDE.md`'s AC range now 1…99. Recorded as **A-7**. Nothing in the prototype changes — it was already built this way as the proposal. |
+
+### Closing the drive, 2026-09-03 — what an agent could do without her
+
+The guide is fully driven and the list stands at sixteen. Three things did not
+need the client and were done; one thing needs only her.
+
+| # | What | Applied |
+|---|---|---|
+| 17 | **AC-28 rewritten** (item 3's deferred consequence). | *Joining requires only a short link or a short room code.* The link may carry the code. Original text kept in the criterion; entry in `USER_STORIES.md` → Amendments, together with AC-99's. |
+| 18 | **T-19 swept.** | `mvp/README.md`: *does the room argue* → *work through it together*; *if the argument catches* → *the walk-through*; *the argument does not have to be cut off* → *the working-through*; the 1:30 row — *"Someone who said E — why?"* — is now *"Let's walk it. Nobody has to say anything."* with the host reading the program aloud a line at a time (AC-98); *go argue about it downstairs* → **"Let's go to the bar."**; *more argumentative than phones* → *everyone sees the split at once*. The *silent room at 1:30* advice became *few hands at 0:30*, because under AC-98 a quiet walk-through is not a symptom. |
+| 19 | **An A-5 leak in the product**, not the docs. | The reveal script's third beat — the one the host reads aloud, and the one take-it-home ends on — was headed **"The bit worth arguing about"** in `_shared/proto.js` and `take-it-home.html`. Now **"The bit worth talking about."** The field is still called `argue` in `_shared/data.js`; renaming it is the content-model change already flagged for `tone-architect`, not a copy fix. |
+| — | **`DESIGN.md` drafted.** | Records what C does — the three surfaces, the seven phases, voice, aesthetic, the type model, what is deliberately absent, the design-system divergences, the hypotheses, and what is open for the architect. Marked draft; binding on the word. `CLAUDE.md` points at it. |
+
+**Not done, on purpose:** `tone-architect`. The handoff rule was written the day
+the direction was picked and it still holds — the stage ends on *love it*, said
+about the whole, not on three *love it*s about parts. Everything that could be
+cleared before that word has been.

@@ -1,5 +1,9 @@
 # T-20 — the drive that closes the stage
 
+**Driven 2026-09-03 — every step below is done.** Sixteen items came back and
+were applied the same day (the T-20 list in `run-state.md`). What is left is
+the first line of *What to bring back*: the one word.
+
 **About 20 minutes.** Two browser tabs on the right: **`C · Projector-first`**
 and **`Take it home`**. This guide on the left. Every step names the exact
 button and where it is: **top bar** (the row of grey buttons above the wall),
@@ -39,7 +43,7 @@ Look at the **buzzer**: this is what someone walking in sees. Room code
 - [x] Press **`6 metres back`** (top bar). Still readable? Press **`front row`**
       to come back. One click each; AC-78 was judged in August — this is a
       check, not a re-ask.
-- [ ] **New since you last drove it:** the code has **syntax colour** here.
+- [x] **New since you last drove it:** the code has **syntax colour** here.
       Notice it now; you compare it against no-colour in step 5.
 - [x] On the **buzzer**, tap a letter. You are playing too (§7).
 - [x] On the **buzzer**, tap **`Show me a hint`**. Nobody is told you took it
