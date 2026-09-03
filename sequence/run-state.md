@@ -1307,3 +1307,4 @@ one.
 | 10 | *"show me a hint, good"* | **AC-48 as rewritten (T-13) passes the client's eye:** the hint is pulled privately on the buzzer, the host phone does not know. No change. |
 | 11 | *"question closed, good"* | **`3 · answers closed` passes.** The strip says *answers are closed* and nothing else. No change. |
 | 12 | *"i like seeing the split before the answer"* | **AC-93 ANSWERED — `felt`, the client's alone, and it lands.** Split-before-answer stays as §9's mechanism, order and all. The first of the two never-answered `felt` calls is closed; **AC-21** (the review clock) remains, and is measured at the first real batch, not on this wall. |
+| 13 | *"6 and 7 - love it"* | **The reveal and the release: loved.** The ✓ on the answer, the most-chosen wrong answer named and counted, the receipt, the read-aloud script; and the handover — *Let's go to the bar.*, the link, the QR. Both built since her last drive; both pass on first sight. |

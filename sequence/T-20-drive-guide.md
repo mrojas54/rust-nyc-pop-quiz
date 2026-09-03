@@ -75,28 +75,28 @@ before the answer exists.
 - [ ] **The question:** is this a pace you would set for a room, and would you
       narrate it? The host phone shows you the words for each step.
 
-## 6 · Reveal — press **`6 · reveal`** (top bar)
+## 6 · Reveal ✓ loved — press **`6 · reveal`** (top bar)
 *or* **`Reveal`** on the host phone
 
-- [ ] Wall: correct option gets ✓, the most-chosen wrong answer is named and
+- [x] Wall: correct option gets ✓, the most-chosen wrong answer is named and
       counted (§9), receipt underneath.
-- [ ] **Host phone says `Read it aloud`. Read the first paragraph out loud.**
+- [x] **Host phone says `Read it aloud`. Read the first paragraph out loud.**
       Under C the explanation is spoken, not shown, so if it does not survive
       your voice it fails here.
-- [ ] The trace is on the wall again with **`←` `→`** on the host phone. Step it
+- [x] The trace is on the wall again with **`←` `→`** on the host phone. Step it
       once to see the difference from step 5 — here the answer is settled.
 
-## 7 · Released — press **`7 · released`** (top bar)
+## 7 · Released ✓ loved — press **`7 · released`** (top bar)
 *or* **`Release the room`** on the host phone
 
 **New since you last drove it:** the handover. *"Let's go to the bar."*, the
 link, the QR.
 
-- [ ] Is the link the only thing that matters on this screen? Anything
+- [x] Is the link the only thing that matters on this screen? Anything
       competing with it?
-- [ ] Click the **`Take it home`** tab. That is what is behind the link. Read
+- [x] Click the **`Take it home`** tab. That is what is behind the link. Read
       it the way someone would on the train home. Come back to the C tab.
-- [ ] On the **host phone**, press **`Run it again`**. Back to title.
+- [x] On the **host phone**, press **`Run it again`**. Back to title.
 
 ---
 
