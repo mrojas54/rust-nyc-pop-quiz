@@ -98,8 +98,8 @@ token files verbatim.
   **Lights up** — the light treatment, endorsed by the brand's own imagery
   author (AC-80 answered; *no dark mode in v1* stands). Colour is never the
   only signal (AC-40).
-- **Syntax colour, scoped** (AC-99, A-7). Present in phases 1–4 and 7, muted
-  values rather than an editor theme. Absent in 5 and 6, where the trace
+- **Syntax colour, scoped** (AC-99, A-7). Present in phases 2–4, muted
+  values rather than an editor theme; phases 1 and 7 render no source. Absent in 5 and 6, where the trace
   signals by highlight-and-dim and nothing may compete with it. This diverges
   from the design system's `SourceCode`, on purpose; the client carries it to
   the component's owner.
@@ -162,7 +162,7 @@ no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
 |---|---|---|
 | Syntax colour in the reading phases (`SourceCode` renders none) | the trace reason only holds while a trace runs — §5, AC-99 | the client, to Cole |
 | Room code off the wall; a short link instead | the client's join strip; the link can carry the code | AC-28 rewritten |
-| `explanation` becomes three fields | AC-44 needs a beat a beginner can repeat, and §9 needs the popular wrong answer named | `tone-architect`, needs a criterion |
+| `explanation` becomes three fields | AC-44 needs a beat a beginner can repeat, and §9 needs the popular wrong answer named | `SPEC.md` §3.1 (`explains`), AC-95 as read by D-9 |
 
 ## Hypotheses this design rests on
 
@@ -177,11 +177,11 @@ no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
 
 The converged take is reproduced **one-to-one**: every designed control present,
 even if it only toasts *not yet implemented (AC-x)*. The prototype, not this
-file, is the reference where they disagree. **Open for `tone-architect`:** the
-static fallback (`PROJECTOR_SPEC` §6 — build the view apart from its data
-source); the AC-92 mechanism defect (a built deck is not a run segment); the
-three-field explanation content model; AC-21, never measured; font vendoring; the real short link behind the
-placeholder `bit.ly/jnfnvd`, and whether it carries the code.
+file, is the reference where they disagree. Everything this file once listed
+as open for `tone-architect` is settled in `SPEC.md` (the static fallback §12,
+the used-question ledger G-10, the explanation model §3.1, fonts D-14, AC-21's
+measurement at HC-2); the real short link behind the placeholder
+`bit.ly/jnfnvd` is the client's, `BUILDPLAN.md` H-2.
 
 ---
 

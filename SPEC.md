@@ -89,7 +89,7 @@ reader is deleted; a field with no writer is a defect.
 | `trace` — `{steps: [{lines, focus, note, values, pivot?}]}` — §5.3 defines the semantics; the last step is the one whose `values` names `stdout` | generator / organizer edit | wall (work, reveal), take-it-home |
 | `verified` — §3.2 | the verifier only | receipt, `bank-audit`, scheduling |
 | `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
-| `used` — `{meetup_date, room_id, released_at}` | the release transition only (G-10) | reserve count, scheduling (never twice), the ledger |
+| `used` — `{meetup_date, room_id, released_at, fit}` where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the ledger |
 
 The `explains` shape replaces the MVP's single `explanation` string; the MVP's
 string is kept verbatim as `explains.legacy` for AC-73's quoted-output check on
@@ -128,7 +128,7 @@ warn when reserve < 2 meetups).
 | `totals[A..E]` — per-option counts, the only answer data that persists (AC-56) | the close transition, computed from sessions | split, reveal, host, `used` |
 | `trace_step` — in `work` bounded to `0..M-2`; `reveal` enters at `M-1` and may step the whole trace | the `work` transition (`0`), the `reveal` transition (`M-1`), host `←`/`→` | wall, host phone (the step's words) (D-10) |
 | `released_at` | release | `used` writer, take-it-home rebuild |
-| `fit ∈ {fits, clipped_x, clipped_y, clipped_xy}` — the wall's measured verdict after refit (§5.2) | the wall, after each refit | host phone (*fit* line, §11), the `used` record (AC-100 evidence) |
+| `fit ∈ {fits, clipped_x, clipped_y, clipped_xy}` — the wall's measured verdict after refit (§5.2) | the wall, after each refit | host phone (*fit* line, §11); the release transition copies the `reveal` verdict into `used` (AC-100 evidence) |
 
 **Participant session** (ephemeral, dies with the room): `token`,
 `answer ∈ A..E | none`. **No** hint flag (AC-48 — the hint is in
@@ -236,7 +236,12 @@ cap_in       = back_row_ft * 12 / 150                       # cap height ≥ dis
 font_in      = cap_in / 0.7                                 # monospace cap ratio
 floor_px     = font_in / screen_h_in * 630
 code_area    = reading layout (live, closed, split): 1010 × 384 px
-               trace layout (work, reveal):          596 × 426 px  (source beside the beat/values column)
+               trace layout (work, reveal):          1010 wide × the height left above the step note
+                                                    and values table, which render BENEATH the source
+                                                    inside the same column — measured after they render.
+               The wall is full-width in every phase (T-20 item 15); nothing is ever beside the source.
+               `bank-audit` (§7.6) fits against the SMALLER of the two heights, the trace layout's,
+               and reports both.
 by_height    = code_area_h / (lines * 1.5)
 by_width     = (code_area_w - 32) / ((widest_chars + 3.5) * 0.6)
 font_px      = max(floor_px, min(by_height, by_width, 46))   # the floor wins over the 46 cap; if floor > 46 the wall reports it
@@ -251,8 +256,8 @@ font_px  = max(floor_px, font_px * k * 0.97)
 ```
 
 If it still overflows at the floor, the well clips and shows a **red edge on
-the side that lost content**, and the host phone reports *does not fit this
-room*. Room configuration (`screen_width_ft`, `screen_height_ft`,
+the side that lost content**, and the host phone shows the matching fit line
+from §11. Room configuration (`screen_width_ft`, `screen_height_ft`,
 `back_row_ft`) is organizer-set, defaults `15 / 8.44 / 20`, labelled
 hypothesis until HC-1. **Refit on entering every phase that renders the
 source** — `live`, `closed`, `split`, `work`, `reveal` — against that phase's
@@ -379,7 +384,9 @@ draws, χ² df=4, both tails); five options with one *does not compile*; the
 enumerated tells — `unsafe` presence, source length, option text length,
 option position, topic — each against the accumulated bank, failing above
 **1.5× chance** (the stated margin; revisit as the bank grows); AC-27's
-`unsafe` parity; fit against the configured room at the floor (AC-100); and
+`unsafe` parity; fit against the configured room at the floor in the **trace
+layout's** code area, the smaller one (AC-100, §5.2), reporting the reading
+layout's verdict beside it; and
 **difficulty drift** — across a run's accepted questions, `difficulty_judged`
 more than one level from `difficulty_requested` on average fails the **run**
 (AC-88), not the question.
@@ -438,8 +445,11 @@ with every state still legible; colour never the only signal.
 
 ## 11. Copy — the binding strings
 
-Authored here and only here; the forbidden-copy lint (G-5) runs over
-everything a participant sees.
+Authored here and only here; the forbidden-copy lint (G-5) runs over every
+**authored** participant-facing string — this table, and each question's
+`explains`, `why_tempting` and `hint` — and **not** over `source` or
+`options[].text`, which are program text and may legitimately contain *argument*
+in a compiler diagnostic.
 
 | Where | String |
 |---|---|
@@ -456,7 +466,7 @@ everything a participant sees.
 | Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet, including us. |
 | Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way. The why is being read out now — listen, don't read. / You were the only one, which makes yours the most interesting answer in the room. |
 | Buzzer, split → reveal, **no answer given** | **Look up.** · You didn't answer — that's fine. · (split) Where the room landed. / (work) We're walking it through. / (reveal) ✓ It was **‹Y›**. The why is being read out now. |
-| Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. Ask the host to run it again. · **full:** That room is full. Watch the screen — you can still play along. |
+| Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
 | Buzzer, foot (split→reveal) | computed on this phone · never sent anywhere |
 | Buzzer, released | Nothing about you was recorded. Not your answer, not your device, not that you were here. |
 | Buzzer, hint | Show me a hint · *(once shown)* Only you can see this. Nobody is told you looked. |
@@ -464,6 +474,8 @@ everything a participant sees.
 | Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe |
 | Buzzer, closed | **answers are closed** · you said **‹X›** / you didn't answer |
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
+| Host, phase labels (AC-49), one per screen | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
+| Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **The bit worth talking about** · **Walk it yourself** · **How this was checked** |
 | Host, actions | Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · The bit worth talking about |
 | Host, fit line (AC-100), shown from `live` on | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
@@ -530,4 +542,6 @@ options weighed. No design decision is deferred: D-8 (the hint rides in the
 live payload), D-9 (a `why_tempting` per incorrect option, no prediction),
 D-10 (the trace's resolving step is withheld until reveal), D-12 (take-it-home
 carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
-near-duplicates) are decided here and logged in `run-state.md`.
+near-duplicates) are decided here and logged in `run-state.md`. **Fonts** are vendored: Cascadia Mono and
+Instrument Serif ship in `web/shared/fonts/` from the design system's
+`assets/fonts/`, self-hosted, no font CDN (D-14).

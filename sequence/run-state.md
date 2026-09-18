@@ -188,6 +188,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-11 | **Rust (`axum`) on Fly.io; the client pays.** Client call, T-21, 2026-09-03. | Reverses Dimension 5's lean to Durable Objects: D-7 shrank the live problem to one process, and the room speaks Rust. Cost is single-digit dollars a month, carried by the organizer. |
 | D-12 | **Take-it-home carries no room state — no counts, no most-chosen option.** Phase 2 judge round 2, 2026-09-03. | The client said *no room state* on 2026-08-14 and AC-56 holds unamended; the spec had quietly published a count. With D-9 the page carries *why you might have read it as X* for every incorrect option and loses nothing it could honestly have. |
 | D-13 | **No embedding model in v1; near-duplicates by token-bigram Jaccard.** Phase 2 judge round 2. | The 0.82 threshold named no model. The smaller mechanism, no external dependency, threshold labelled uncalibrated. |
+| D-14 | **Fonts vendored, self-hosted.** Round 4, 2026-09-18. | Cascadia Mono and Instrument Serif from the design system's `assets/fonts/` into `web/shared/fonts/`; no font CDN. Was open in `DESIGN.md` and settled nowhere. |
 | D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
 
 ## Conflicts
@@ -1517,3 +1518,38 @@ cited by the lint; `DESIGN.md` placed in the precedence order and its refit
 sentence corrected; **D-13** replaces the model-less 0.82 embedding threshold;
 `trace_step`'s writers and readers completed; AC-51 re-indexed; AC-5 and
 AC-25 retagged honestly; the code alphabet copy fixed. Round 3 follows.
+
+### Phase 2 judge-gate, round 3 — 7/10, FAIL on two, applied 2026-09-18
+
+Both blocking findings were mine, not the spec's idea: **D-12 was applied in
+§13 and §11 but not in §4.5**, which still said take-it-home carries the count;
+and the buzzer's split line *"Nobody knows who picked what"* matched the
+forbidden pattern `who (said|picked|chose)` that round 2 had just made
+normative. Fixed. Also applied: a `fit` room field written by the wall after
+refit and read by the host phone (*fits the room* / *too long — clipped at the
+bottom* …); *closed for inactivity* given a number (30 min idle, 20 min in any
+later phase); the floor now wins over the 46 px cap; `saved_at` dropped for
+having no reader; the font-size precedence scoped to the source well; the
+canary row split from AC-61's structural proof (letters and option text are
+public, so the correct *flag* is proven by module boundary plus a payload-shape
+assertion, not by canary); AC-45's actions enumerated; `DESIGN.md`'s open list
+retired of the AC-95 count. Round 4 follows.
+
+### Phase 2 judge-gate, round 4 — 7/10, FAIL on two, applied 2026-09-18
+
+Both blocking findings were defects in round 3's fixes. **The canary row
+planted `verified.stdout`** — but for every output-kind question that string
+*is* an option text, public from `live` on, so the row fires on a correct
+build. Now the resolving step's *note* is the canary and the join is proven by
+shape (every pre-reveal option object is exactly `{letter, text}`; no
+pre-reveal `values` entry named `stdout`). **The trace layout was given the
+rejected split layout's constants** (596 × 426) — the wall is full-width in
+every phase, and under 596 a verified bank question would have clipped during
+the walk-through. Now 1010 wide, height measured beneath the step note, and
+`bank-audit` fits against that smaller area. Also: a fifth fit string deleted;
+`fit` given a slot in `used` (the `reveal` verdict); the copy lint scoped to
+authored strings, not program text; *ask the host* removed from the inactivity
+message (an instruction to interact with a person); host phase labels and
+take-it-home headings authored; `DESIGN.md`'s open list actually retired and
+its colour sentence corrected; **D-14** fonts; the prototype's split line
+updated. Round 5 follows.
