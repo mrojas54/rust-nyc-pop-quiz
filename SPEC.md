@@ -14,8 +14,9 @@ for `closed`/`split`/`work`, no `←`/`→` in `work`, and a `lights down`
 instrument that is not a product mode). Where the prototype violates a
 criterion, the build follows the criterion and the prototype is patched, not
 copied. `DESIGN.md` sits beside the prototype on visual detail and below this
-file on behaviour. **Font size is behaviour, not visual detail** — it is
-derived by §5.2 and never read off the prototype. `EVALUATION.md` says how
+file on behaviour. **The source well's font size is behaviour, not visual detail** — it is
+derived by §5.2 and never read off the prototype; every other size (options,
+bars, beats, strips) is visual detail and is the prototype's. `EVALUATION.md` says how
 each criterion is proven. `BUILDPLAN.md` says in what order, on what stack.
 
 Criteria are cited by ID throughout; §14 indexes every one.
@@ -127,9 +128,10 @@ warn when reserve < 2 meetups).
 | `totals[A..E]` — per-option counts, the only answer data that persists (AC-56) | the close transition, computed from sessions | split, reveal, host, `used` |
 | `trace_step` — in `work` bounded to `0..M-2`; `reveal` enters at `M-1` and may step the whole trace | the `work` transition (`0`), the `reveal` transition (`M-1`), host `←`/`→` | wall, host phone (the step's words) (D-10) |
 | `released_at` | release | `used` writer, take-it-home rebuild |
+| `fit ∈ {fits, clipped_x, clipped_y, clipped_xy}` — the wall's measured verdict after refit (§5.2) | the wall, after each refit | host phone (*fit* line, §11), the `used` record (AC-100 evidence) |
 
 **Participant session** (ephemeral, dies with the room): `token`,
-`answer ∈ A..E | none`, `saved_at`. **No** hint flag (AC-48 — the hint is in
+`answer ∈ A..E | none`. **No** hint flag (AC-48 — the hint is in
 the live payload, §4.2), **no** identity, **no** device record (AC-57).
 Totals are computed at `closed` and the sessions' answers are then
 irrelevant to any reader; they are dropped at release.
@@ -200,12 +202,15 @@ There is no prediction. Every incorrect option carries its own authored
 and the **host phone's** middle beat is headed *Why ‹n› of us said ‹X›* for
 the **same** option, followed by that option's `why_tempting` text. Wall and
 host phone can never name different options; `test` asserts they agree.
-Take-it-home carries the same option and count, written at release.
+Take-it-home carries neither the option nor the count (D-12, §13).
 
 ### 4.6 Lifecycle
 
 A room lives ≤ 4 h from creation (AC-69) and is deleted with its sessions at
-release or expiry; only `totals`, `question_id`, and `released_at` persist, and
+release or expiry. **Closed for inactivity:** a room in `idle` with no host
+action for **30 minutes**, or in any later phase with no host action for **20
+minutes**, closes; joins after that return the inactivity message (AC-29).
+At release or expiry, only `totals`, `question_id`, and `released_at` persist, and
 those expire after the next meetup's release. Creating a room requires a live
 Discord check; running one does not (§8). *Run it again* creates a **new**
 room and the schedule refuses a used question (G-10).
@@ -234,7 +239,7 @@ code_area    = reading layout (live, closed, split): 1010 × 384 px
                trace layout (work, reveal):          596 × 426 px  (source beside the beat/values column)
 by_height    = code_area_h / (lines * 1.5)
 by_width     = (code_area_w - 32) / ((widest_chars + 3.5) * 0.6)
-font_px      = clamp(min(by_height, by_width), floor_px, 46)
+font_px      = max(floor_px, min(by_height, by_width, 46))   # the floor wins over the 46 cap; if floor > 46 the wall reports it
 ```
 
 Then the well is **measured** after render. While anything overflows and
@@ -447,7 +452,7 @@ everything a participant sees.
 | Wall, released | **Let's go to the bar.** · ‹link› · *the question, the walk-through and the why — at your own pace.* |
 | Buzzer, idle | You're in. Everything happens on the screen at the front — look up. |
 | Buzzer, foot | no account · no name · no score |
-| Buzzer, split | **Look up.** Where the room landed. · `‹n›` · people said **‹X›**, including you. · Five different readings. Nobody knows who picked what — including us. |
+| Buzzer, split | **Look up.** Where the room landed. · `‹n›` · people said **‹X›**, including you. · Five different readings. Nobody knows what anyone picked — including us. |
 | Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet, including us. |
 | Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way. The why is being read out now — listen, don't read. / You were the only one, which makes yours the most interesting answer in the room. |
 | Buzzer, split → reveal, **no answer given** | **Look up.** · You didn't answer — that's fine. · (split) Where the room landed. / (work) We're walking it through. / (reveal) ✓ It was **‹Y›**. The why is being read out now. |
@@ -461,6 +466,7 @@ everything a participant sees.
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
 | Host, actions | Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · The bit worth talking about |
+| Host, fit line (AC-100), shown from `live` on | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
 | Host, first screen | If you lose this phone, open this on another one: ‹resume link› · plus §8.1's two sentences |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |

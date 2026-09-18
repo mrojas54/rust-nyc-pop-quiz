@@ -153,8 +153,8 @@ scales as a unit.
 The second surface, behind the link on the released wall: the last meetup's
 question, alone, at the reader's own pace — the trace steppable both ways,
 the three-beat explanation, the receipt. §9's private pace lives here (T-15:
-wall host-stepped, phones step freely). It carries no room state; AC-95's
-count is an open conflict for `tone-architect`.
+wall host-stepped, phones step freely). It carries no room state, and
+no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
 
 ## The design-system divergences, all deliberate
 
@@ -180,8 +180,7 @@ even if it only toasts *not yet implemented (AC-x)*. The prototype, not this
 file, is the reference where they disagree. **Open for `tone-architect`:** the
 static fallback (`PROJECTOR_SPEC` §6 — build the view apart from its data
 source); the AC-92 mechanism defect (a built deck is not a run segment); the
-three-field explanation content model; AC-95's count on a page with no room
-state; AC-21, never measured; font vendoring; the real short link behind the
+three-field explanation content model; AC-21, never measured; font vendoring; the real short link behind the
 placeholder `bit.ly/jnfnvd`, and whether it carries the code.
 
 ---
