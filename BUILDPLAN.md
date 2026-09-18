@@ -18,7 +18,7 @@ are decided.** Reads with `SPEC.md` (what) and
 | 3. Val Town | — | Rejected by the research: undocumented concurrency ceiling, single-writer SQLite under the burst, $252/yr. | ~$252 |
 | 4. PartyKit | DO with a friendlier SDK | Same language objection; smaller project, less certain lifespan | ~$0 |
 
-**Decided 2026-09-03 (T-21): option 1, Rust on Fly.io.** *"rust on fly."* This reverses Dimension 5's lean
+**Decided 2026-09-03 (touchpoint T-21): option 1, Rust on Fly.io.** *"rust on fly."* This reverses Dimension 5's lean
 and the reason is D-7: the research sized a three-question, 15-minute room
 with ~327k requests; the segment is now one 30-second burst and five minutes
 of life, and for that the smallest mechanism (§8) is one process. Durable
@@ -77,7 +77,7 @@ Fly-provided hostname and her placeholder short link.
 ### D-G · Budget (Q-E1) and who pays
 
 Under D-A option 1 the unsponsored cost is single-digit dollars a month at
-most. **Decided 2026-09-03 (T-21): the client carries it** — *"i'll pay."*
+most. **Decided 2026-09-03 (touchpoint T-21): the client carries it** — *"i'll pay."*
 `ECONOMICS.md` §Who pays is amended.
 
 ### D-H · AC-95 — decided as D-9, no longer a client call
@@ -87,7 +87,7 @@ with the read-aloud beat. `SPEC.md` §4.5 now has **no prediction**: every
 incorrect option carries its own short *why you'd pick it* text, review
 refuses a question missing one, and at reveal the wall and the host phone name
 the room's actual most-chosen incorrect option and read that option's text.
-Cheap to reverse; decided and logged. **Client, T-21: *"D-H is fine."***
+Cheap to reverse; decided and logged. **Client, touchpoint T-21: *"D-H is fine."***
 
 ---
 
@@ -200,7 +200,7 @@ stopwatch running, reads each explanation aloud, affirms what passes.
 
 **Settled at a checkpoint, no ticket, by design:** AC-20, AC-21, AC-42, AC-43, AC-44, AC-80, AC-91, AC-96 are `felt` or operator-measured and land at HC-1, HC-2, and HC-4 (`EVALUATION.md`). Their absence from the ticket tables is a decision, not an omission.
 
-**HC-1** (the rehearsal, T-18 on the client's calendar) runs on the built room
+**HC-1** (the rehearsal, touchpoint T-18, on the client's calendar) runs on the built room
 if M1 has passed HC-0, else on the prototype; it sets AC-100's room
 configuration. **HC-3** the client opens take-it-home on the train. **HC-4**
 is October.
@@ -229,7 +229,7 @@ The client's work plan, in dependency order. None of it goes to the fleet.
 | H-2 | DNS: `popquiz.rustnyc.org` → the app | T-09 |
 | H-3 | Discord: create the application, record app id, secret, guild id, organizer role id | T-10 |
 | H-4 | An Anthropic API key and a monthly cap | T-16 |
-| H-5 | Set a rehearsal date and venue (T-18); take the three measurements | HC-1, AC-100 config |
+| H-5 | Set a rehearsal date and venue (touchpoint T-18); take the three measurements | HC-1, AC-100 config |
 | H-6 | Drive HC-0 against the prototype | M2 |
 | H-7 | Review and affirm the first batch (HC-2); time it | AC-21, AC-72, October's question |
 | H-8 | ~~Confirm D-H~~ decided as D-9; nothing to do | — |

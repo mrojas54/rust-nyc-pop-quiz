@@ -115,7 +115,7 @@ The wall **sizes itself to the question; legibility is the floor.** Nothing is
 chosen by hand.
 
 1. The layout is **source full-width, options beneath in two columns** — the
-   client's call, T-20 item 15. Full-width buys line width; the options block
+   client's call, touchpoint T-20, item 15. Full-width buys line width; the options block
    spends ~200px of height.
 2. The smallest comfortable size is **derived** from screen width and back-row
    distance (the 15ft / 20ft venue guess gives a 14.2px floor). The type grows
@@ -128,7 +128,7 @@ chosen by hand.
    on the side that lost content** and says so. That is the room's limit, not
    the generator's constant.
 
-At the venue guess: `q3` (5 lines) at ~22px, `q7` (69 characters) at 22.5px,
+At the venue guess: `q3` (5 lines) at ~22px, `q7` (69 characters) at 22.1px,
 `q1` (16 lines) does not fit — the bound is set by `SPEC.md` §5.2 and it is the
 **rehearsal's screen measurements** (width *and* height; the projector may not
 be 16:9) that set the real number. The wall lays out at 1120px design size and
@@ -139,7 +139,7 @@ scales as a unit.
 - No code or trace on any phone. No timer on the wall. No scoreboard, name,
   account, or history (§6).
 - No public hint: the hint is pulled privately on the buzzer and the host phone
-  does not know (AC-48 as rewritten, T-13). The host has no hint control.
+  does not know (AC-48 as rewritten, touchpoint T-13). The host has no hint control.
 - No answer preview for the host (§7).
 - No ✗, anywhere. No congratulating anyone.
 - No instruction to talk to anyone (AC-98).
@@ -152,7 +152,7 @@ scales as a unit.
 
 The second surface, behind the link on the released wall: the last meetup's
 question, alone, at the reader's own pace — the trace steppable both ways,
-the three-beat explanation, the receipt. §9's private pace lives here (T-15:
+the three-beat explanation, the receipt. §9's private pace lives here (touchpoint T-15:
 wall host-stepped, phones step freely). It carries no room state, and
 no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
 

@@ -13,6 +13,15 @@ was said about the whole. **`DESIGN.md` is binding.** The stage handed off to
 this file for where that stands. Work continues on `ai-c11-cc/tone-architect`;
 the prototype branch has a PR to `main` awaiting merge.
 
+**Stage 3 as of 2026-09-18:** Phases 0–4 are done and the build contract
+(`EVALUATION.md`, `SPEC.md`, `BUILDPLAN.md`) **passed the adversarial judge gate
+in round 8 at 8/10 with no blocking finding**. The client answered touchpoint
+T-21 (Rust on Fly, she pays). **Open:** touchpoint **T-22** — the built wall
+cannot show an option longer than one 29-character line, so seven of the eight
+verified questions need re-authoring; the plan proceeds on that constraint and
+nothing waits. **Phase 5, the handoff to `lattice-orchestrator`, spawns a build
+fleet and waits for the client's explicit go.**
+
 **First four things, in order:**
 
 1. Read this file top to bottom. **`PHILOSOPHY.md`'s one thing CHANGED today
@@ -251,7 +260,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
 | 2·4 round 4 (T-20 drive) | 0 | — | ~45 min |
 | 2·4 closing the drive (T-19, AC-28, `DESIGN.md` draft) | 0 | 1 answered (T-20: *love it*) | ~40 min |
-| 3·0–3 intake, evaluation, spec, plan | 3 (2 Sonnet inventory, 1 Opus judge) + 1 Sonnet plan review | 1 open (T-21) | ~90 min |
+| 3·0–3 intake, evaluation, spec, plan | 3 (2 Sonnet inventory, 1 Opus judge) + 1 Sonnet plan review | 1 answered (T-21) | ~90 min |
+| 3·2 spec judge gate, rounds 2–8 | 7 Opus judges | 1 open (T-22) | hours, mostly waiting on judges |
 
 ## Phase 3 output
 
@@ -1634,3 +1644,30 @@ figure was an ad hoc run — so it is now specified (three past-only strategies,
 10,000 nights, 18–22% band) and marked written-new; AC-25's lint scoped to
 authored copy, since a room's split legitimately prints a share beside an
 option's text; `used.fit` given a reader.
+
+### Phase 2 judge-gate, round 8 — 8/10, PASS, 2026-09-18
+
+**The gate is passed.** Scores across the eight rounds: 6, 7, 7, 7, 7, 7, 7, 8.
+Round 8 independently re-derived §5.2 from the bank files, ran AC-23a's
+simulation against the real `slot_for_day` (19.9%, 20.3%, 20.2% — all inside
+the 18–22% band), confirmed all 102 criterion rows present, and found no
+blocking issue. Its nine remaining findings were applied afterwards and **were
+not re-judged**: the `T-nn` collision between client touchpoints and BUILDPLAN
+tickets (touchpoints now say so wherever they appear outside the plan); §4's
+copy re-pointed at §11, with the *Create a room* and *‹n−1› other people*
+mismatches fixed and a singular *1 other person* form authored; AC-6 marked
+`MVP`* because `verify.py` records `rustc --version` and the edition only;
+AC-23b's carried-over claim narrowed to the audit function, its two
+failure-mode tests marked written-new; `DESIGN.md`'s stale 22.5 px; **AC-95
+amended in `USER_STORIES.md`** with its original kept, and the take-it-home
+open item closed there; a two-step minimum for the trace (`work` shows `0..M-2`);
+G-1's signature stated as `slot_for_day(date, n_options=5)`; the copy lint
+scoped to the ported copy module rather than the spec document.
+
+**What eight rounds were for.** Every blocking finding was a claim in one file
+contradicted by another, or a number nobody had measured — never a missing
+feature. The two that mattered most were found by measuring: the prototype's
+options block is 190 px only for q3, and the type model's height constant was
+the well's outer box. The lesson for `tone-architect`: a spec's numbers should
+be measured from the artifact they describe before a judge is asked to check
+them.

@@ -12,6 +12,7 @@ room.
 | [`sequence/USER_STORIES.md`](sequence/USER_STORIES.md) | Stories with stable acceptance-criteria IDs (**AC-1 … AC-100**, 19 stories). IDs never change meaning. |
 | [`ECONOMICS.md`](ECONOMICS.md) | What it costs to run and who absorbs it. |
 | [`DESIGN.md`](DESIGN.md) | **The converged design — Direction C, voice, aesthetic, the wall's type model.** The binding visual contract; the build reproduces `prototypes/C-projector-first.html` one-to-one. |
+| [`SPEC.md`](SPEC.md) · [`EVALUATION.md`](EVALUATION.md) · [`BUILDPLAN.md`](BUILDPLAN.md) | **The build contract** (`tone-architect`): what to build and its twelve enforced guardrails; how every criterion is proven and the five human-use checkpoints; the decided stack and the ticket path. Passed the adversarial judge gate 2026-09-18. |
 | [`sequence/run-state.md`](sequence/run-state.md) | Where the Tone arc is. **Read on every invoke.** |
 | [`sequence/research/00-synthesis.md`](sequence/research/00-synthesis.md) | Phase 2 fold-back — what the research changed and why the shape is what it is. |
 | [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate, attendees. |
@@ -31,7 +32,7 @@ Specifically superseded:
   not a runtime problem.
 - **A fixed, published answer-category distribution** → no distribution is ever
   published. It was a learnable shortcut (see `PHILOSOPHY.md` §2).
-- **Val Town as participant host** → open, leaning Cloudflare Durable Objects.
+- **Val Town as participant host** → **Rust (`axum`) on Fly.io**, decided at touchpoint T-21 (`BUILDPLAN.md` D-A); the client pays.
 
 Still good and still load-bearing: the Experience State Contract, the pre-reveal
 answer-isolation requirements, the Discord authorization model, and the brand
@@ -81,6 +82,6 @@ reviewing a batch.
 ## Tone arc
 
 `tone-initiation` (done) → `tone-prototype` (done, **2026-09-03: *"yes i love it"***)
-→ `tone-architect` → `lattice-orchestrator`. Each stage reads `sequence/run-state.md` first and is
+→ `tone-architect` (contract written and judged 2026-09-18; handoff waits on the client) → `lattice-orchestrator`. Each stage reads `sequence/run-state.md` first and is
 licensed to reopen upstream artifacts — if a client answer contradicts one,
 the artifact is what's wrong.

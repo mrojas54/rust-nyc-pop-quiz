@@ -55,7 +55,7 @@ code (`mvp/tools/`), the audit ticket audits that code too.
 
 | G | Guardrail | Enforced by | Audit demand |
 |---|---|---|---|
-| **G-1** | The correct-answer position is a pure function of the date. No history, ledger, bank state, or prior position is an input. Balancing, quotas, and *never the same as last time* are prohibited. (AC-23, 23a, 23b) | `slot_for_day(date) → 0..4`, no other parameter; a static lint that no module reading `answer-history` is imported by the slot path; `bank-audit` both tails. | Audit `mvp/tools/build_deck.py` on inheritance; every PR touching the slot path re-runs the perfect-memory simulation. This has regressed four times. |
+| **G-1** | The correct-answer position is a pure function of the date. No history, ledger, bank state, or prior position is an input. Balancing, quotas, and *never the same as last time* are prohibited. (AC-23, 23a, 23b) | `slot_for_day(date, n_options=5) → 0..4`, no other parameter, and `n_options` is the constant 5, never derived from data; a static lint that no module reading `answer-history` is imported by the slot path; `bank-audit` both tails. | Audit `mvp/tools/build_deck.py` on inheritance; every PR touching the slot path re-runs the perfect-memory simulation. This has regressed four times. |
 | **G-2** | No hand-written answer reaches a deck or a room. (AC-7) | The correct option is derived only from the verifier's recorded output; a provenance field names the verifier run; the build refuses a question whose answer field lacks it. | Audit `mvp/tools/verify.py` and `build_deck.py`; test that a hand-edited `correct` fails. |
 | **G-3** | Nothing pre-reveal carries the **join between the options and the verified output** — which option is correct, by letter, flag, ✓, ordering, or `verified.stdout` itself — nor the explanation, the receipt, or the trace's resolving step (any `values` entry named `stdout`, and the final step), which is withheld until `reveal`. Option **texts** are public in every phase (AC-62); program state in the trace from `closed` on is allowed (that is what walking a program is). (AC-47, AC-60, AC-61, AC-79, AC-97; **D-10**) | Answer storage is a separate module/type unreachable from the public state query (compile-time or module boundary); `canary` plants secrets and scans every payload with the phase-scoped rules above. | `canary` in `test`; a ticket that proves AC-61 structurally, not by review. |
 | **G-4** | Nothing per-person is stored beyond the room, and nothing per-person leaves the phone after close. (AC-56, AC-57, AC-58) | Schema has no per-participant answer table; totals carry an expiry; the recap is client-computed. | Schema audit ticket; `canary` on post-close traffic. |
@@ -148,17 +148,18 @@ organizer (AC-68). Nothing else.
 
 `idle → live → closed → split → work → reveal → released`. Transitions are
 host-phone actions only. No timer, no auto-advance, no skipping (G-6). `←`/`→`
-inside `work` and `reveal` step the trace and are not phase transitions.
+inside `work` and `reveal` step the trace and are not phase transitions. Strings
+quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
-| **idle** | *create room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in. Everything happens on the screen at the front — look up.*; foot `no account · no name · no score` | *Put it on the screen*; present count; the code |
+| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in. Everything happens on the screen at the front — look up.*; foot `no account · no name · no score` | *Put it on the screen*; present count; the code |
 | **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; present and answered counts (AC-46); **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
 | **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | *Look up. Where the room landed.* — the count `n`, *people said X, including you.*; foot `computed on this phone · never sent anywhere` | *Let's walk it* |
 | **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots); beat panel: **Let's walk it. / Still no answer. / Nobody has to say anything.** **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | *Look up. We're walking it through.* — the count; *Nothing to do. Nobody knows the answer yet, including us.* | `←` `→`; the step's words; *Reveal* |
-| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5) with provenance *established by the machine*; the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | *The answer is on the screen.* — the count; **✓ It was X.**; *You and n other people read it the same way. The why is being read out now — listen, don't read.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
-| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px, one line of what is behind it, a QR. Nothing else (T-20 item 13) | ✓ *Nothing about you was recorded. Not your answer, not your device, not that you were here.* | *Run it again* → a new room (never the same question, G-10) |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5) with provenance *established by the machine*; the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | *The answer is on the screen.* — the count; **✓ It was X.**; *You and ‹n−1› other people read it the same way. The why is being read out now — listen, don't read.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
+| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px, one line of what is behind it, a QR. Nothing else (touchpoint T-20, item 13) | ✓ *Nothing about you was recorded. Not your answer, not your device, not that you were here.* | *Run it again* → a new room (never the same question, G-10) |
 
 ### 4.1 Joining (AC-28…AC-31)
 
@@ -248,7 +249,7 @@ code_area    = reading layout (live, closed, split):  994 × 177 px   (the TEXT 
                under a 203 px beat block). These are text boxes, not outer boxes — the
                header, borders and padding are already subtracted, so no further chrome
                is deducted below. The wall is full-width in
-               every phase (T-20 item 15); nothing is ever beside the source. The block
+               every phase (touchpoint T-20, item 15); nothing is ever beside the source. The block
                beneath the source is a FIXED reserve — 190 px for the options, 203 px for
                the step note (clamped to three lines) and values table — so both areas are
                constants an offline auditor can use. `bank-audit` (§7.6) fits against the
@@ -407,7 +408,9 @@ receipt, near-duplicate note, difficulty requested and a control to record
 difficulty judged. Actions: accept, reject (reason required), edit (re-verify
 on any source or option change). **Affirm** is separate and blocking (G-12):
 records who and when; **every incorrect option must have a non-empty
-`why_tempting` text** (AC-95, §4.5); quoted output is checked against `verified.stdout` (AC-73). The
+`why_tempting` text** (AC-95, §4.5); **the trace has at least two steps** — `work`
+shows steps `0..M-2`, so a one-step trace would leave the walk-through empty
+(D-10); quoted output is checked against `verified.stdout` (AC-73). The
 surface states that the reviewer has seen the answers (AC-22).
 
 ### 7.5 The receipt (G-7)
@@ -449,7 +452,7 @@ outbound network beyond serving the room (AC-77).
 
 ## 8. Authorization (AC-64…AC-70)
 
-Discord OAuth2 with scopes `identify guilds.members.read`. On *create room*:
+Discord OAuth2 with scopes `identify guilds.members.read`. On *Create a room*:
 `GET /users/@me/guilds/{guild}/member` with the organizer's bearer token; host
 iff `roles` contains the configured role **ID** (never a name, never the
 `permissions` bitfield, AC-65). Refresh tokens rotate; every rotation is
@@ -490,8 +493,10 @@ with every state still legible; colour never the only signal.
 
 ## 11. Copy — the binding strings
 
-Authored here and only here; the forbidden-copy lint (G-5) runs over every
-**authored** participant-facing string — this table, and each question's
+Authored here and only here. The forbidden-copy lint (G-5) runs over the
+**ported copy module** (`web/shared/copy`, ticket T-22) — every authored
+participant-facing string as its own entry, taken from the strings in this table
+and not from its row labels, notes or *Forbidden* row — and over each question's
 `explains` (except `explains.legacy`, which is never rendered), `why_tempting`
 and `hint` — and **not** over `source` or
 `options[].text`, which are program text and may legitimately contain *argument*
@@ -512,7 +517,7 @@ in a compiler diagnostic.
 | Buzzer, foot | no account · no name · no score |
 | Buzzer, split | **Look up.** Where the room landed. · `‹n›` · people said **‹X›**, including you. · Five different readings. Nobody knows what anyone picked — including us. |
 | Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet, including us. |
-| Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way. The why is being read out now — listen, don't read. / You were the only one, which makes yours the most interesting answer in the room. |
+| Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way *(when n−1 is 1: **You and 1 other person read it the same way.**)*. The why is being read out now — listen, don't read. / You were the only one, which makes yours the most interesting answer in the room. |
 | Buzzer, split → reveal, **no answer given** | **Look up.** · You didn't answer — that's fine. · (split) Where the room landed. / (work) We're walking it through. / (reveal) ✓ It was **‹Y›**. The why is being read out now. |
 | Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
 | Buzzer, foot (split→reveal) | computed on this phone · never sent anywhere |
