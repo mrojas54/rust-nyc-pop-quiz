@@ -371,8 +371,10 @@ let   readRatio     = 150;
 let   autoType      = true;  /* the wall sizes itself to the question — client call */
 const MAX_FONT      = 46;    /* a five-line program should fill the wall, not become a poster */
 /* Usable code area in mock px, measured from the built layouts. */
-const CODE_AREA_H   = { split: 426, full: 247, trace: 252 };   /* full/trace MEASURED 2026-09-18 at design size; 384 was a guess (SPEC §5.2) */
-const CODE_AREA_W   = { split: 596, full: 1010 };
+const CODE_AREA_H   = { split: 426, full: 177, trace: 190 };   /* full/trace are the source well's TEXT box, MEASURED 2026-09-18 at design size — outer box minus header, borders and padding; 384 and then 247 were the outer box (SPEC §5.2) */
+const CODE_AREA_W   = { split: 564, full: 994 };   /* text-box widths; split keeps its old effective width (596 - 32).
+   CAVEAT: for any source other than tonight's the side panel is the 139 px legibility fixture, not the
+   190 px options block, so long non-tonight sources look ~51 px more generous here than on the built wall. */
 let   wallFontPx    = 27;
 /* The wall has a fixed area. It can be spent on WIDTH (source full-bleed,
    options beneath) or on HEIGHT (source beside the options). Neither dominates:
@@ -406,11 +408,11 @@ function applyTypeModel() {
      Monospace advance width is ~0.6em, and line-height is 1.5. */
   const availH = CODE_AREA_H[wallLayout];
   const availW = CODE_AREA_W[wallLayout];
-  const byHeight = availH / (lines * 1.5);
+  const byHeight = availH / (lines * 1.6);   /* the well's line-height is 1.6, measured 2026-09-18 */
   /* The well is not all text: the line-number gutter is 2ch wide with 1.5ch of
      margin, and the scroll region carries padding on both sides. Leaving those
      out is what made the first cut of this model overflow by 40-80px. */
-  const GUTTER_CH = 3.5, WELL_PAD = 32;
+  const GUTTER_CH = 3.5, WELL_PAD = 0;   /* chrome is already subtracted from CODE_AREA_* */
   const byWidth  = (availW - WELL_PAD) / ((maxChars + GUTTER_CH) * 0.6);
   const fits     = Math.min(byHeight, byWidth);
 

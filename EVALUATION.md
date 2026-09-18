@@ -114,7 +114,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-53 | `autonomous` | `burst`: answer-write p95 < 500 ms including the deadline burst. Run against the deployed substrate, not a local mock. |
 | AC-54 | `autonomous` | `burst`: the deadline burst is its own test — 200 writes inside a 2 s window — reported separately from the full run. **This is the one real engineering risk and it is proven before the walking-skeleton checkpoint** (spike ticket in `BUILDPLAN.md`). |
 | AC-55 | `external-oracle` | Venue wifi at **HC-4**; the client reports failed-request rate from the room's own logs. Synthetic runs cannot prove it. |
-| AC-56 | `autonomous` | `test`: after release, storage holds only per-option totals with an expiry; static: the schema has no per-participant answer table. |
+| AC-56 | `autonomous` | `test`: after release the room record and every session are gone (`SPEC.md` §4.6); the only survivors are the pipeline's `used` record and the take-it-home page, neither carrying a count; static: the schema has no per-participant answer table. |
 | AC-57 | `autonomous` | Static + `test`: no participant identity, nickname, score, or cross-room key exists in schema, API, or client state. |
 | AC-58 | `autonomous` | `canary`: the buzzer's *n people said A, including you* is computed client-side; no request carries the participant's answer after close. |
 | AC-59 | `felt` | **HC-1, HC-3.** The released buzzer's *nothing about you was recorded* read by a participant. |
@@ -127,7 +127,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-79 | `autonomous` | `canary` on wall payloads; `test`: the wall has no interactive control. |
 | AC-80 | `felt` (answered) | Light is the default and the only presentation; `test` asserts no dark mode ships. Re-opened only if a real room contradicts T-16. |
 | AC-81 | `autonomous` | `test-full`: the wall and 200 buzzers report the same phase within one broadcast of every transition. |
-| AC-100 | `autonomous` | `test-full`: for every bank question and the configured room, the wall's measured overflow is zero where it reports *fits*, and the clipped edge renders where it does not; `bank-audit` flags questions that do not fit at the floor in the reading layout's 1010 × 247 area (§5.2). |
+| AC-100 | `autonomous` | `test-full`: for every bank question and the configured room, the wall's measured overflow is zero where it reports *fits*, and the clipped edge renders where it does not; `bank-audit` flags questions that do not fit at the floor in the reading layout's 994 × 177 text box and any option over one line of 29 characters (§5.2, D-15); a fixture set with one too-long program, one too-long option, and one passing question proves the flag fires on each and only on those. |
 | AC-82 | `autonomous` | `a11y`: every control reachable and operable by keyboard with a visible focus ring. |
 | AC-83 | `autonomous` | `a11y`: each listed state change emits a polite live-region announcement. |
 | AC-84 | `autonomous` | `a11y`: AA contrast over every surface and phase. |

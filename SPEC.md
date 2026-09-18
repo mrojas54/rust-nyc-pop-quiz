@@ -108,7 +108,7 @@ The receipt renders from this alone (AC-13).
 ### 3.3 Bank
 
 An append-only store of questions plus `history` (exact hashes, normalized-AST
-fingerprints, embeddings) for AC-14…AC-17. Reserve = accepted ∧ affirmed ∧
+fingerprints, token-bigram sets) for AC-14…AC-17. Reserve = accepted ∧ affirmed ∧
 unused (AC-75). Threshold and lead time are configuration (AC-76; default:
 warn when reserve < 2 meetups).
 
@@ -125,7 +125,7 @@ warn when reserve < 2 meetups).
 | `present` — count of live participant sessions | join/leave | host (AC-46), wall strip |
 | `answered_live` — sessions currently holding an answer | answer upsert / clear | host phone while `live` (AC-46) |
 | `answered` — sessions with an answer, **frozen at `closed`** | the close transition (from `answered_live`) | wall strip (*N of M answered*), host phone |
-| `totals[A..E]` — per-option counts, the only answer data that persists (AC-56) | the close transition, computed from sessions | split, reveal, host, `used` |
+| `totals[A..E]` — per-option counts, the only answer data the room ever holds; die with the room (AC-56, D-12) | the close transition, computed from sessions | split, reveal, host |
 | `trace_step` — in `work` bounded to `0..M-2`; `reveal` enters at `M-1` and may step the whole trace | the `work` transition (`0`), the `reveal` transition (`M-1`), host `←`/`→` | wall, host phone (the step's words) (D-10) |
 | `released_at` | release | `used` writer, take-it-home rebuild |
 | `fit ∈ {fits, clipped_x, clipped_y, clipped_xy}` — the wall's measured verdict after refit (§5.2) | the wall, after each refit | host phone (*fit* line, §11); the release transition copies the `reveal` verdict into `used` (AC-100 evidence) |
@@ -213,8 +213,9 @@ A room lives ≤ 4 h from creation (AC-69) and is deleted with its sessions at
 release or expiry. **Closed for inactivity:** a room in `idle` with no host
 action for **30 minutes**, or in any later phase with no host action for **20
 minutes**, closes; joins after that return the inactivity message (AC-29).
-At release or expiry, only `totals`, `question_id`, and `released_at` persist, and
-those expire after the next meetup's release. Creating a room requires a live
+At release or expiry the room record and its sessions are deleted whole —
+`totals` included, since D-12 left them no reader. What outlives the room is
+the pipeline's `used` record (G-10) and the rebuilt take-it-home page. Creating a room requires a live
 Discord check; running one does not (§8). *Run it again* creates a **new**
 room and the schedule refuses a used question (G-10).
 
@@ -238,21 +239,45 @@ screen_h_in  = screen_height_ft * 12                        # measured; default 
 cap_in       = back_row_ft * 12 / 150                       # cap height ≥ distance/150
 font_in      = cap_in / 0.7                                 # monospace cap ratio
 floor_px     = font_in / screen_h_in * 630
-code_area    = reading layout (live, closed, split): 1010 × 247 px
-               trace layout (work, reveal):          1010 × 252 px
+code_area    = reading layout (live, closed, split):  994 × 177 px   (the TEXT box)
+               trace layout (work, reveal):           994 × 190 px
                Both MEASURED 2026-09-18 from the prototype at its 1120 × 630 design size
-               (`.proj-code` box: 1028 × 247 in `live` under a 190 px options block;
-               1028 × 252 in `work` under a 203 px beat block). The wall is full-width in
+               (the well's scroll region minus its 16 px padding: 1026 × 209 → 994 × 177 in
+               `live`, where the `.proj-code` box is 1028 × 247 under a 190 px options block
+               and the well's 36 px header sits above; 1026 × 222 → 994 × 190 in `work`
+               under a 203 px beat block). These are text boxes, not outer boxes — the
+               header, borders and padding are already subtracted, so no further chrome
+               is deducted below. The wall is full-width in
                every phase (T-20 item 15); nothing is ever beside the source. The block
                beneath the source is a FIXED reserve — 190 px for the options, 203 px for
                the step note (clamped to three lines) and values table — so both areas are
                constants an offline auditor can use. `bank-audit` (§7.6) fits against the
                reading layout's 247 px, the smaller, and reports the trace verdict beside it.
-               The prototype's former 384 was a first guess and passed q1 (16 lines) at
-               16 px; at 247 px q1 wants 10.3 px against a 14.2 px floor and does not fit —
-               which is what the wall actually does (run-state, T-20 item 15).
-by_height    = code_area_h / (lines * 1.5)
-by_width     = (code_area_w - 32) / ((widest_chars + 3.5) * 0.6)
+               THE OPTIONS BLOCK IS A CONSTANT because options are constrained (D-15): each
+               option is ONE line of at most 29 characters at the wall's 24 px option size
+               (510 px cell − 40 px letter chip − 14 px gap − 2 × 14 px padding = 428 px =
+               29 chars of 14.4 px). Three rows (A B / C D / E) of 58 px with two 8 px
+               gaps = 190 px. The wall has no design for a wrapped option — the loved
+               prototype only ever showed q3's — so an option over 29 characters is a
+               `bank-audit` failure (§7.6), never a layout the wall improvises.
+               Line height in the well is 1.6 (MEASURED: `.rn-src pre { line-height: 1.6 }`).
+               Worked at the 15 ft / 20 ft guess (floor 14.2 px; the reading layout holds
+               floor(177 / (14.2 × 1.6)) = 7 lines at the floor, the trace layout 8):
+                 q3  5 × 42 → min(177/8.0, 994/27.3) = 22.1 px  fits   (prototype measured 22.0)
+                 q4  6 × 56 → min(177/9.6, 994/35.7) = 18.4 px  fits as a program
+                 q7  5 × 69 → min(177/8.0, 994/43.5) = 22.1 px  fits as a program
+                 q8  6 × 30 → 18.4 px                           fits as a program
+                 q5  9 × 50 → 177/14.4 = 12.3 px  below the floor: too long
+                 q6  9 × 32 → 12.3 px             too long
+                 q2 10 × 38 → 11.1 px             too long
+                 q1 16 × 36 →  6.9 px             too long
+               By source length only q3, q4, q7, q8 fit. By option length only q3 passes as
+               authored: the other seven have at least one option over 29 characters
+               (multi-line printed outputs), so they need re-authoring before they can run
+               on the built wall. The rehearsal's screen and back-row measurements (H-5)
+               are what move the floor, and with it every number here.
+by_height    = code_area_h / (lines * 1.6)
+by_width     = code_area_w / ((widest_chars + 3.5) * 0.6)
 font_px      = max(floor_px, min(by_height, by_width, 46))   # the floor wins over the 46 cap; if floor > 46 the wall reports it
 ```
 
@@ -274,7 +299,7 @@ code area; the trace phases never use a hard-coded size.
 
 ### 5.3 The source well
 
-Cascadia Mono, line numbers in a 2ch gutter, white well, 1.5 line-height.
+Cascadia Mono, line numbers in a 2ch gutter, white well, 1.6 line-height (measured).
 **Syntax colour** (keyword, macro, type, string, number, comment; muted
 values) in `live`, `closed`, `split`; **none** in `work` and `reveal`
 (AC-99). `idle` and `released` render no source. The trace renders by
@@ -326,7 +351,11 @@ No answer preview before `reveal` (AC-47, G-3).
 
 ### 7.1 Generate (AC-1…AC-5)
 
-A CLI run: `count`, `topics[]`, `difficulty`, optional `talk {title, abstract}`.
+A CLI run: `count`, `topics[]`, `difficulty`, optional `talk {title, abstract}`,
+and the **room's capacity** read from the room configuration (§5.2): the most
+source lines the wall holds at the floor (7 at the default guess) and the
+longest option (29 characters). The generator is told both and asked to honour
+them; a candidate that exceeds either is reported, not silently trimmed (D-15).
 Emits candidates in the §3.1 shape minus `verified` and `review`, plus a run
 report: per-candidate cost, tokens, wall-clock, and which of the three
 requests it could not honour. Re-runnable with no cleanup (AC-2). Talk mode
@@ -393,9 +422,10 @@ draws, χ² df=4, both tails); five options with one *does not compile*; the
 enumerated tells — `unsafe` presence, source length, option text length,
 option position, topic — each against the accumulated bank, failing above
 **1.5× chance** (the stated margin; revisit as the bank grows); AC-27's
-`unsafe` parity; fit against the configured room at the floor in the **trace
-layout's** code area, the smaller one (AC-100, §5.2), reporting the reading
-layout's verdict beside it; and
+`unsafe` parity; fit against the configured room at the floor in the
+**reading layout's** text box, 994 × 177, the smaller (AC-100, §5.2),
+reporting the trace layout's verdict beside it; **option length** — every
+option one line of at most 29 characters (§5.2, D-15); and
 **difficulty drift** — across a run's accepted questions, `difficulty_judged`
 more than one level from `difficulty_requested` on average fails the **run**
 (AC-88), not the question.
@@ -464,7 +494,9 @@ in a compiler diagnostic.
 | Where | String |
 |---|---|
 | Wall, idle | **Time for a pop quiz.** · `join @ ‹link›` |
-| Wall, live | `join @ ‹link› · still open` |
+| Wall, live | `join @ ‹link› · still open` · well header: **What does this program print?** |
+| Wall, trace (work, reveal) | **Step ‹N› of ‹M›** with dots · *the one worth stopping on* on a `pivot` step |
+| Buzzer, join form | label **room code** · button **join** · beneath: *or open the link on the screen* |
 | Wall, closed | **answers are closed** |
 | Wall, split on | `‹answered› of ‹present› in the room answered` |
 | Wall, work | **Let's walk it.** / Still no answer. / Nobody has to say anything. |
@@ -481,7 +513,7 @@ in a compiler diagnostic.
 | Buzzer, released | Nothing about you was recorded. Not your answer, not your device, not that you were here. |
 | Buzzer, hint | Show me a hint · *(once shown)* Only you can see this. Nobody is told you looked. |
 | Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **tap a letter** |
-| Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe |
+| Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe / *(no answer yet)* **paused — reconnecting…** |
 | Buzzer, closed | **answers are closed** · you said **‹X›** / you didn't answer |
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
 | Host, phase labels (AC-49), one per screen | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
@@ -551,7 +583,9 @@ its spend cap; where the pipeline runs; the short-link domain; hosting for
 take-it-home and the static fallback. `BUILDPLAN.md` records each with the
 options weighed. No design decision is deferred: D-8 (the hint rides in the
 live payload), D-9 (a `why_tempting` per incorrect option, no prediction),
-D-10 (the trace's resolving step is withheld until reveal), D-12 (take-it-home
+D-10 (the trace's resolving step is withheld until reveal), D-15 (options are
+one line of at most 29 characters, so the wall's options block is a constant
+190 px), D-12 (take-it-home
 carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
 near-duplicates) are decided here and logged in `run-state.md`. **Fonts** are vendored: Cascadia Mono and
 Instrument Serif ship in `web/shared/fonts/` from the design system's
