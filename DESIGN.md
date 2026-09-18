@@ -129,7 +129,7 @@ chosen by hand.
    the generator's constant.
 
 At the venue guess: `q3` (5 lines) at ~22px, `q7` (69 characters) at 22.5px,
-`q1` (16 lines) does not fit — the bound is roughly 11 lines, and it is the
+`q1` (16 lines) does not fit — the bound is set by `SPEC.md` §5.2 and it is the
 **rehearsal's screen measurements** (width *and* height; the projector may not
 be 16:9) that set the real number. The wall lays out at 1120px design size and
 scales as a unit.

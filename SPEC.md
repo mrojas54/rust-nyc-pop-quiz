@@ -89,7 +89,7 @@ reader is deleted; a field with no writer is a defect.
 | `trace` — `{steps: [{lines, focus, note, values, pivot?}]}` — §5.3 defines the semantics; the last step is the one whose `values` names `stdout` | generator / organizer edit | wall (work, reveal), take-it-home |
 | `verified` — §3.2 | the verifier only | receipt, `bank-audit`, scheduling |
 | `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
-| `used` — `{meetup_date, room_id, released_at, fit}` where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the ledger |
+| `used` — `{meetup_date, room_id, released_at, fit}` where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the organizer's ledger report (`popquiz sync`), which lists any room whose `fit` was not *fits* |
 
 The `explains` shape replaces the MVP's single `explanation` string; the MVP's
 string is kept verbatim as `explains.legacy` for AC-73's quoted-output check on
@@ -252,7 +252,7 @@ code_area    = reading layout (live, closed, split):  994 × 177 px   (the TEXT 
                beneath the source is a FIXED reserve — 190 px for the options, 203 px for
                the step note (clamped to three lines) and values table — so both areas are
                constants an offline auditor can use. `bank-audit` (§7.6) fits against the
-               reading layout's 247 px, the smaller, and reports the trace verdict beside it.
+               reading layout's 177 px text box, the smaller, and reports the trace verdict beside it.
                THE OPTIONS BLOCK IS A CONSTANT because options are constrained (D-15): each
                option is ONE line of at most 29 characters at the wall's 24 px option size
                (510 px cell − 40 px letter chip − 14 px gap − 2 × 14 px padding = 428 px =
@@ -271,10 +271,13 @@ code_area    = reading layout (live, closed, split):  994 × 177 px   (the TEXT 
                  q6  9 × 32 → 12.3 px             too long
                  q2 10 × 38 → 11.1 px             too long
                  q1 16 × 36 →  6.9 px             too long
-               By source length only q3, q4, q7, q8 fit. By option length only q3 passes as
-               authored: the other seven have at least one option over 29 characters
-               (multi-line printed outputs), so they need re-authoring before they can run
-               on the built wall. The rehearsal's screen and back-row measurements (H-5)
+               By source length only q3, q4, q7, q8 fit. By the option rule only q3 passes as
+               authored. Six questions print output that spans lines (q1, q2, q4, q5, q6,
+               q8 — each has a multi-line option, none over 29 characters on any one line
+               except q1 and q2's whole options at 32 and 45), and q7 has a single option
+               line of 48 characters. So seven of the eight need re-authoring before they
+               can run on the built wall, four of them (q1, q2, q5, q6) also being too
+               long as programs. The rehearsal's screen and back-row measurements (H-5)
                are what move the floor, and with it every number here.
 by_height    = code_area_h / (lines * 1.6)
 by_width     = code_area_w / ((widest_chars + 3.5) * 0.6)
@@ -352,10 +355,13 @@ No answer preview before `reveal` (AC-47, G-3).
 ### 7.1 Generate (AC-1…AC-5)
 
 A CLI run: `count`, `topics[]`, `difficulty`, optional `talk {title, abstract}`,
-and the **room's capacity** read from the room configuration (§5.2): the most
-source lines the wall holds at the floor (7 at the default guess) and the
-longest option (29 characters). The generator is told both and asked to honour
-them; a candidate that exceeds either is reported, not silently trimmed (D-15).
+and the **room's capacity** read from the room configuration (§5.2), which is
+three facts: the most source lines the wall holds at the floor (7 at the
+default guess); that **each option is a single line** — a program whose printed
+output spans lines is rewritten to print on one line, never joined or wrapped —
+and that no option is longer than **29 characters**. The generator is told all
+three and asked to honour them; a candidate that breaks any is reported, not
+silently trimmed (D-15).
 Emits candidates in the §3.1 shape minus `verified` and `review`, plus a run
 report: per-candidate cost, tokens, wall-clock, and which of the three
 requests it could not honour. Re-runnable with no cleanup (AC-2). Talk mode

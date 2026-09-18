@@ -189,7 +189,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-12 | **Take-it-home carries no room state — no counts, no most-chosen option.** Phase 2 judge round 2, 2026-09-03. | The client said *no room state* on 2026-08-14 and AC-56 holds unamended; the spec had quietly published a count. With D-9 the page carries *why you might have read it as X* for every incorrect option and loses nothing it could honestly have. |
 | D-13 | **No embedding model in v1; near-duplicates by token-bigram Jaccard.** Phase 2 judge round 2. | The 0.82 threshold named no model. The smaller mechanism, no external dependency, threshold labelled uncalibrated. |
 | D-14 | **Fonts vendored, self-hosted.** Round 4, 2026-09-18. | Cascadia Mono and Instrument Serif from the design system's `assets/fonts/` into `web/shared/fonts/`; no font CDN. Was open in `DESIGN.md` and settled nowhere. |
-| D-15 | **Options are one line of at most 29 characters; the wall's options block is a constant 190 px.** Round 6, 2026-09-18. **Flagged to the client as T-22 — she can overturn it.** | The loved prototype only ever showed q3's options (all under 22 characters). Measuring showed the options block is 190 px only when every option fits one line at 24 px; a longer option wraps and the block grows, which shrinks the source and makes the offline audit depend on which slot the date draws. The default keeps the loved design, gives `bank-audit` constants, and turns the limit into a generator brief. Cost: seven of the eight MVP questions have an option over 29 characters and need re-authoring for the built wall. |
+| D-15 | **Options are one line of at most 29 characters; the wall's options block is a constant 190 px.** Round 6, 2026-09-18. **Flagged to the client as T-22 — she can overturn it.** | The loved prototype only ever showed q3's options (all under 22 characters). Measuring showed the options block is 190 px only when every option fits one line at 24 px; a longer option wraps and the block grows, which shrinks the source and makes the offline audit depend on which slot the date draws. The default keeps the loved design, gives `bank-audit` constants, and turns the limit into a generator brief. Cost: seven of the eight MVP questions need re-authoring for the built wall — six print output that spans lines, one has a 48-character option line. |
 | D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
 
 ## Conflicts
@@ -224,7 +224,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
 | T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Answered 2026-09-03 — *"yes i love it."*** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Stage 2 complete.** |
 | T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), D-H (AC-95) | **Answered 2026-09-03: *"rust on fly, i'll pay, D-H is fine."*** D-A option 1; the client carries the cost (`ECONOMICS.md` amended, Q-E1 moot); D-9 stands. Plan unchanged — it assumed the recommendations. |
-| T-22 | 3·4 | **Options must be one short line on the built wall** (D-15). Only q3 of the eight verified questions passes as authored; seven have an option over 29 characters, four are also too long as programs at the guessed venue. Keep the constraint, or take a design round for wrapped or multi-line options? | **Open** 2026-09-18 — the plan proceeds on the constraint; nothing waits. The rehearsal's screen and back-row measurements move the numbers either way. |
+| T-22 | 3·4 | **Options must be one short line on the built wall** (D-15). Only q3 of the eight verified questions passes as authored; six print multi-line output, one has a 48-character option, and four are also too long as programs at the guessed venue. **A middle path exists:** render multi-line output joined on one line with a visible ⏎, which would let q3, q4 and q8 run as authored — a new visual element she has not seen, so it is her call. Keep the constraint, or take a design round for wrapped or multi-line options? | **Open** 2026-09-18 — the plan proceeds on the constraint; nothing waits. The rehearsal's screen and back-row measurements move the numbers either way. |
 
 ## Client interview record (T-2)
 
@@ -1615,3 +1615,22 @@ Also applied from round 6: §7.6's label corrected; the stored `embeddings` fiel
 dropped; `totals` given no post-release life; the wall's *What does this program
 print?* header, the trace strings, the join form and the no-answer *paused* line
 authored in §11; AC-56's row scoped to the room record.
+
+### Phase 2 judge-gate, round 7 — 7/10, FAIL on one, applied 2026-09-18
+
+The judge recomputed §5.2's table from `verified.json` and `content.json` and
+**confirmed every number**. It failed the round on a sentence under the table
+that was mine and wrong: it said seven questions have *an option over 29
+characters*; only q1, q2 and q7 do. The other four fail the **one-line** rule
+because their printed output spans lines. Corrected here and in the spec — and
+in what I told the client, which said the same wrong thing. The blocking
+consequence was real: the generator's brief carried two of D-15's three facts
+and omitted *one line*, so a correct generator would have produced a bank its
+own audit refuses. Now all three. Also applied: a stale 247 px in §5.2; T-17
+still telling the implementer to build **embeddings** that D-13 removed;
+`DESIGN.md`'s pre-measurement *roughly 11 lines*; **AC-23a's evaluation row was
+claiming a simulation that does not exist** in `build_deck.py` — the 17.5%
+figure was an ad hoc run — so it is now specified (three past-only strategies,
+10,000 nights, 18–22% band) and marked written-new; AC-25's lint scoped to
+authored copy, since a room's split legitimately prints a share beside an
+option's text; `used.fit` given a reader.
