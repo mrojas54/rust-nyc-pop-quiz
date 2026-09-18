@@ -63,8 +63,8 @@ the pace."* On 6 and 7: *"love it."*
 happened, plain enough for a beginner to repeat (AC-44); why *N of us* read it
 the other way, with the count, which is the beat that makes being wrong ordinary;
 then the bit worth talking about — the real decision, which carries on at the
-bar. This makes `explanation` three fields rather than one, a content-model
-change for `tone-architect` (see *Open*).
+bar. This makes `explanation` three fields rather than one; `SPEC.md` §3.1
+carries the model (`what`, a `why_tempting` per incorrect option, `takeaway`).
 
 ## Voice
 

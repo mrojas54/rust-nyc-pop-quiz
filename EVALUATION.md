@@ -65,7 +65,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-19 | `autonomous` | `test`: accept / reject-with-reason / edit each round-trip; a rejection reason is readable back by the generator's next run. |
 | AC-20 | `felt` | **HC-2.** Source, options, verified answer, explanation (three beats), receipt on one screen — the organizer reviews a real batch. Reference: `prototypes/review-surface.html`. |
 | AC-21 | `operator-assisted` | **HC-2.** The client times her own review of the first real batch; the number replaces the 15-minute hypothesis. Nothing else in the arc has ever measured it. |
-| AC-22 | `autonomous` | `test`: the host and review surfaces carry the statement that the reviewer has seen the answers. |
+| AC-22 | `autonomous` | `test`: the review surface carries the statement that the reviewer has seen the answers (`SPEC.md` §7.4). |
 | AC-88 | `operator-assisted` | The review surface records organizer-judged difficulty per question; `bank-audit` fails the **run** when mean drift exceeds one level (`SPEC.md` §7.6). **HC-2** supplies the first sample. |
 | AC-23 | `autonomous` `MVP` | `test`: `slot_for_day` (or its successor) is a pure function of the date; static: no history file, ledger, or bank state is an input to it. Carried over from `mvp/tools/build_deck.py`. |
 | AC-23a | `autonomous` `MVP` | `test`: a 10,000-night simulation with a perfect-memory attendee scores within noise of 20%; static lint: no code path reads prior positions. **Any PR touching this path carries the audit ticket** (`SPEC.md` guardrail G-1). |
@@ -127,7 +127,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-79 | `autonomous` | `canary` on wall payloads; `test`: the wall has no interactive control. |
 | AC-80 | `felt` (answered) | Light is the default and the only presentation; `test` asserts no dark mode ships. Re-opened only if a real room contradicts T-16. |
 | AC-81 | `autonomous` | `test-full`: the wall and 200 buzzers report the same phase within one broadcast of every transition. |
-| AC-100 | `autonomous` | `test-full`: for every bank question and the configured room, the wall's measured overflow is zero where it reports *fits*, and the clipped edge renders where it does not; `bank-audit` flags questions that do not fit at the floor. |
+| AC-100 | `autonomous` | `test-full`: for every bank question and the configured room, the wall's measured overflow is zero where it reports *fits*, and the clipped edge renders where it does not; `bank-audit` flags questions that do not fit at the floor in the reading layout's 1010 × 247 area (§5.2). |
 | AC-82 | `autonomous` | `a11y`: every control reachable and operable by keyboard with a visible focus ring. |
 | AC-83 | `autonomous` | `a11y`: each listed state change emits a polite live-region announcement. |
 | AC-84 | `autonomous` | `a11y`: AA contrast over every surface and phase. |

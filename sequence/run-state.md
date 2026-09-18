@@ -1553,3 +1553,24 @@ message (an instruction to interact with a person); host phase labels and
 take-it-home headings authored; `DESIGN.md`'s open list actually retired and
 its colour sentence corrected; **D-14** fonts; the prototype's split line
 updated. Round 5 follows.
+
+### Phase 2 judge-gate, round 5 — 7/10, FAIL on two, applied 2026-09-18
+
+Both blocking findings were about the type model's constants, and the fix was
+to **measure instead of guess**: the C prototype was opened in the c11 browser
+at design size and `.proj-code` measured per phase. Reading layout **1010 ×
+247** (the options block beneath is 190 px), walk-through **1010 × 252** (the
+beat block is 203 px). The prototype's own 384 was a first guess made when the
+options block was assumed ~50 px; it passed q1 at 16 px while the wall clipped
+q1 at line 11. At 247, q1 wants 10.3 px against the 14.2 px floor and is
+reported as too long — the audit now agrees with the wall. The block beneath
+the source is a fixed reserve (note clamped to three lines), so both areas are
+constants an offline `bank-audit` can use; the wall still measures at runtime.
+Verified after the change: q3 21.8 px, q7 22.5 px, q1 at the floor. **Prototype
+shortcut recorded, not fixed here:** in `reveal` the mock's side panel takes
+402 px and leaves the source 53 px; T-05 builds reveal on the trace layout's
+252 px with the panel bounded to 203 px. Also applied: `values` render beneath
+the source (§5.3 said beside); `explains.legacy` excluded from the copy lint
+(the MVP's q1 prose says *arguing*); AC-22 scoped to the review surface; a
+*nobody read it another way* variant for a room with no incorrect votes;
+*Create a room* authored; `DESIGN.md`'s dangling *see Open* removed.

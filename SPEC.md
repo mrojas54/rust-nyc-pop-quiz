@@ -202,6 +202,9 @@ There is no prediction. Every incorrect option carries its own authored
 and the **host phone's** middle beat is headed *Why ‹n› of us said ‹X›* for
 the **same** option, followed by that option's `why_tempting` text. Wall and
 host phone can never name different options; `test` asserts they agree.
+**When no incorrect option received a vote** — everyone right, or nobody
+answered — the wall's middle line and the host's middle beat are replaced by
+the §11 *nobody read it another way* string, and `test` asserts that variant.
 Take-it-home carries neither the option nor the count (D-12, §13).
 
 ### 4.6 Lifecycle
@@ -235,13 +238,19 @@ screen_h_in  = screen_height_ft * 12                        # measured; default 
 cap_in       = back_row_ft * 12 / 150                       # cap height ≥ distance/150
 font_in      = cap_in / 0.7                                 # monospace cap ratio
 floor_px     = font_in / screen_h_in * 630
-code_area    = reading layout (live, closed, split): 1010 × 384 px
-               trace layout (work, reveal):          1010 wide × the height left above the step note
-                                                    and values table, which render BENEATH the source
-                                                    inside the same column — measured after they render.
-               The wall is full-width in every phase (T-20 item 15); nothing is ever beside the source.
-               `bank-audit` (§7.6) fits against the SMALLER of the two heights, the trace layout's,
-               and reports both.
+code_area    = reading layout (live, closed, split): 1010 × 247 px
+               trace layout (work, reveal):          1010 × 252 px
+               Both MEASURED 2026-09-18 from the prototype at its 1120 × 630 design size
+               (`.proj-code` box: 1028 × 247 in `live` under a 190 px options block;
+               1028 × 252 in `work` under a 203 px beat block). The wall is full-width in
+               every phase (T-20 item 15); nothing is ever beside the source. The block
+               beneath the source is a FIXED reserve — 190 px for the options, 203 px for
+               the step note (clamped to three lines) and values table — so both areas are
+               constants an offline auditor can use. `bank-audit` (§7.6) fits against the
+               reading layout's 247 px, the smaller, and reports the trace verdict beside it.
+               The prototype's former 384 was a first guess and passed q1 (16 lines) at
+               16 px; at 247 px q1 wants 10.3 px against a 14.2 px floor and does not fit —
+               which is what the wall actually does (run-state, T-20 item 15).
 by_height    = code_area_h / (lines * 1.5)
 by_width     = (code_area_w - 32) / ((widest_chars + 3.5) * 0.6)
 font_px      = max(floor_px, min(by_height, by_width, 46))   # the floor wins over the 46 cap; if floor > 46 the wall reports it
@@ -276,7 +285,7 @@ signal.
 executing now (highlighted); `focus` — `[first, last]` 1-based inclusive
 range kept at full contrast, everything outside it dimmed; `note` — the
 words the host reads for this step; `values` — `[{name, was, now}]` shown as
-a small table beside the source, `was`/`now` verbatim strings, `—` for
+a small table beneath the source, inside the reserved block, `was`/`now` verbatim strings, `—` for
 absent; `pivot` — optional, marks the one step worth stopping on (the wall
 adds *the one worth stopping on*). The last step's `values` names `stdout`
 and is the resolving step (D-10).
@@ -447,7 +456,8 @@ with every state still legible; colour never the only signal.
 
 Authored here and only here; the forbidden-copy lint (G-5) runs over every
 **authored** participant-facing string — this table, and each question's
-`explains`, `why_tempting` and `hint` — and **not** over `source` or
+`explains` (except `explains.legacy`, which is never rendered), `why_tempting`
+and `hint` — and **not** over `source` or
 `options[].text`, which are program text and may legitimately contain *argument*
 in a compiler diagnostic.
 
@@ -476,7 +486,8 @@ in a compiler diagnostic.
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
 | Host, phase labels (AC-49), one per screen | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **The bit worth talking about** · **Walk it yourself** · **How this was checked** |
-| Host, actions | Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
+| Host, actions | Create a room · Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
+| Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · The bit worth talking about |
 | Host, fit line (AC-100), shown from `live` on | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
 | Host, first screen | If you lose this phone, open this on another one: ‹resume link› · plus §8.1's two sentences |
