@@ -11,7 +11,15 @@ client drove Direction C end to end, sixteen items were applied, and the word
 was said about the whole. **`DESIGN.md` is binding.** The stage handed off to
 **`tone-architect`** the same day — see the Stage 3 section at the bottom of
 this file for where that stands. Work continues on `ai-c11-cc/tone-architect`;
-the prototype branch has a PR to `main` awaiting merge.
+PR #5 (Stage 2) and PR #6 (Stage 3, stacked on it) carry both stages to `main`.
+
+**Stage 3 as of 2026-09-18:** Phases 0–4 are done and the build contract
+(`EVALUATION.md`, `SPEC.md`, `BUILDPLAN.md`) **passed the adversarial judge gate
+in round 8 at 8/10 with no blocking finding**. The client answered touchpoint
+T-21 (Rust on Fly, she pays). **Touchpoint T-22 answered 2026-09-18: *"keep the constraint"*** — the built wall
+shows options as one line of at most 29 characters, so seven of the eight
+verified questions need re-authoring for it (D-15). **Phase 5, the handoff to `lattice-orchestrator`, spawns a build
+fleet and waits for the client's explicit go.**
 
 **First four things, in order:**
 
@@ -183,6 +191,14 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-5 | Attendee interviews in scope | Client has access. Not yet conducted — see T-6. **First contact 2026-09-02** at Rust lunch: two regulars, cold, no testimony captured; a rehearsal offered → T-18. |
 | D-6 | Borrow option (C) rejected | Code display is disqualifying across all candidates. Recorded rather than escalated because the evidence is one-sided. |
 | D-7 | **Segment = one question, 3–5 min, scheduled last.** Client call, 2026-08-12. | The argument is the product and an argument needs somewhere to go; anywhere but last, finishing on time means interrupting it. Shrinks the build (no navigation, one write-burst, ~5 min room life) and turns the 8 verified questions into ~8 months of supply. Minted Story B10 / AC-89…AC-92 and forced a rewrite of AC-23 — see below. |
+| D-8 | **The hint rides in every buzzer's `live` payload, hidden client-side.** `tone-architect` Phase 2, 2026-09-03. | Taking it makes no request, so AC-48's *tells nobody* is provable by `canary` rather than by policy; AC-60's *unpublished hint* is read as *before `live`*. The smaller mechanism (§8). |
+| D-9 | **No predicted popular wrong answer — every incorrect option carries its own `why_tempting` text.** Phase 2 judge finding, 2026-09-03. | The *predicted vs actual* construction made the host's read-aloud beat violate AC-95 whenever the room surprised the author. With a text per option, wall and host always name the same option. Replaces the D-H client call. |
+| D-11 | **Rust (`axum`) on Fly.io; the client pays.** Client call, T-21, 2026-09-03. | Reverses Dimension 5's lean to Durable Objects: D-7 shrank the live problem to one process, and the room speaks Rust. Cost is single-digit dollars a month, carried by the organizer. |
+| D-12 | **Take-it-home carries no room state — no counts, no most-chosen option.** Phase 2 judge round 2, 2026-09-03. | The client said *no room state* on 2026-08-14 and AC-56 holds unamended; the spec had quietly published a count. With D-9 the page carries *why you might have read it as X* for every incorrect option and loses nothing it could honestly have. |
+| D-13 | **No embedding model in v1; near-duplicates by token-bigram Jaccard.** Phase 2 judge round 2. | The 0.82 threshold named no model. The smaller mechanism, no external dependency, threshold labelled uncalibrated. |
+| D-14 | **Fonts vendored, self-hosted.** Round 4, 2026-09-18. | Cascadia Mono and Instrument Serif from the design system's `assets/fonts/` into `web/shared/fonts/`; no font CDN. Was open in `DESIGN.md` and settled nowhere. |
+| D-15 | **Options are one line of at most 29 characters; the wall's options block is a constant 190 px.** Round 6, 2026-09-18. **Confirmed by the client, touchpoint T-22, 2026-09-18: *"keep the constraint."*** | The loved prototype only ever showed q3's options (all under 22 characters). Measuring showed the options block is 190 px only when every option fits one line at 24 px; a longer option wraps and the block grows, which shrinks the source and makes the offline audit depend on which slot the date draws. The default keeps the loved design, gives `bank-audit` constants, and turns the limit into a generator brief. Cost: seven of the eight MVP questions need re-authoring for the built wall — six print output that spans lines, one has a 48-character option line. |
+| D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
 
 ## Conflicts
 
@@ -215,6 +231,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-18 | 2·3 | **A rehearsal with two regulars** — when, where, and spend `q3`? Offered at Rust lunch, reported 2026-09-02. | **Open** — sheet written: `mvp/PRACTICE-RUN.md`. Client's call on date and venue; venue strongly preferred. **Meetup is October, rehearsal before it.** Testimony captured → A-6. |
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
 | T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Answered 2026-09-03 — *"yes i love it."*** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Stage 2 complete.** |
+| T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), D-H (AC-95) | **Answered 2026-09-03: *"rust on fly, i'll pay, D-H is fine."*** D-A option 1; the client carries the cost (`ECONOMICS.md` amended, Q-E1 moot); D-9 stands. Plan unchanged — it assumed the recommendations. |
+| T-22 | 3·4 | **Options must be one short line on the built wall** (D-15). Only q3 of the eight verified questions passes as authored; six print multi-line output, one has a 48-character option, and four are also too long as programs at the guessed venue. **A middle path exists:** render multi-line output joined on one line with a visible ⏎, which would let q3, q4 and q8 run as authored — a new visual element she has not seen, so it is her call. Keep the constraint, or take a design round for wrapped or multi-line options? | **Answered 2026-09-18: *"keep the constraint."*** D-15 stands. No ⏎ join and no design round for wrapped options. Consequences below. |
 
 ## Client interview record (T-2)
 
@@ -241,6 +259,8 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | 2·3 lunch (T-18) | 0 | 2 open (T-18, T-19) | ~30 min |
 | 2·4 round 4 (T-20 drive) | 0 | — | ~45 min |
 | 2·4 closing the drive (T-19, AC-28, `DESIGN.md` draft) | 0 | 1 answered (T-20: *love it*) | ~40 min |
+| 3·0–3 intake, evaluation, spec, plan | 3 (2 Sonnet inventory, 1 Opus judge) + 1 Sonnet plan review | 1 answered (T-21) | ~90 min |
+| 3·2 spec judge gate, rounds 2–8 | 7 Opus judges | 1 open (T-22) | hours, mostly waiting on judges |
 
 ## Phase 3 output
 
@@ -1354,3 +1374,321 @@ with planning now?!"* before the word was even requested.
 three room measurements); the AC-92 mechanism defect; the static fallback
 (`PROJECTOR_SPEC` §6); the three-field explanation content model; AC-95's count;
 AC-21 unmeasured; font vendoring; the real short link.
+
+## Stage 3 — `tone-architect`, opened 2026-09-03
+
+Invoked the moment Stage 2 closed, on the same day, on the client's *"yes i
+love it."* Branch `ai-c11-cc/tone-architect`, off the prototype branch (PR #5
+to `main` open, unmerged — the architect's inputs are on it).
+
+### Phase 0 — Intake, 2026-09-03
+
+Corpus read cold: `run-state.md`, `PHILOSOPHY.md`, `USER_STORIES.md` (AC-1…AC-99),
+`DESIGN.md`, `ECONOMICS.md`, `00-synthesis.md`, both prototypes' code, and the
+technical dimensions (02, 04, 05) and the MVP tooling via two Sonnet agents.
+
+**Inputs complete, with one gap named:** the design corpus's `PROJECTOR_SPEC.md`
+and the design system live at claude.ai/design and are not in the repo. The
+prototype and `DESIGN.md` carry everything the spec needs from them except the
+**static fallback** (§6), which the arc has only ever described second-hand.
+Not blocking; specced from the description in Phase 1c and flagged.
+
+**Living artifacts — six criteria caught up with Direction C.** Codification
+found five criteria still written for a phone that carries code or a round of
+several questions. All are consequences of calls the client already upheld
+(A-4, T-13, D-7), so they were rewritten in place with originals kept and
+recorded in `USER_STORIES.md` → Amendments, not escalated: **AC-33** (the wall
+fits; scroll only where code is still on a small screen), **AC-38** (answerable
+on a phone = the five options), **AC-39** (explanation is read aloud, lives on
+take-it-home; buzzer shows the letter and the count), **AC-45** (the seven
+transitions), **AC-83** (live-region events name the real phases and the
+private hint). **AC-100 minted:** the source fits the room display at a
+legible size or the wall says so — the AC-33 sibling `tone-prototype` recorded
+as binding and never minted, now with the review-time pipeline flag it implies.
+Range is AC-1…AC-100.
+
+**Stale research numbers, flagged so nobody sizes to them:** the 187 s UB-path
+budget, the ~327k requests per room, and the Val Town Business-tier tail were
+all computed for live, three-question rooms. Under D-7 the live room is one
+~30-second write burst and ~5 minutes of life. The **burst** survives at full
+size (200 votes in a second or two); the totals do not.
+
+### Phases 1–3 — evaluation, spec, plan, 2026-09-03
+
+Full-ahead between touchpoints, as the stage prescribes. Written the same
+afternoon the stage opened:
+
+- **`EVALUATION.md`** — 102 rows, every criterion AC-1…AC-100 (plus 23a/23b)
+  tagged `autonomous` / `operator-assisted` / `external-oracle` / `felt`, eight
+  harness hooks named as contract names (`test` ≤ 60 s hermetic, `test-full`,
+  `verify`, `bank-audit`, `canary`, `burst`, `a11y`, `smoke`), **five
+  human-use checkpoints** HC-0…HC-4 with trigger, driver, instrument, and what
+  each settles, the operator-input table with *when*, and the fifteen `felt`
+  criteria in one list so none can be quietly unit-tested away.
+- **`SPEC.md`** — twelve guardrails G-1…G-12, each with its enforcement and an
+  audit-ticket demand (G-1 and G-10 audit the inherited `mvp/tools/`); the
+  domain model with a writer and reader per field; the seven-phase machine as
+  a table of what each of the three surfaces renders; the wall's geometry and
+  type model as formulas; the binding copy; the static fallback and
+  take-it-home; a criteria index. **D-8 decided and logged:** the hint rides in
+  every buzzer's `live` payload, hidden client-side, so taking it makes no
+  request — AC-48 becomes provable by `canary`, and AC-60's *unpublished hint*
+  clause is read as "before `live`". **D-9, to confirm (T-21 / D-H):** the wall
+  names the room's *actual* most-chosen wrong answer; the host reads the
+  authored beat about the *predicted* one; a miss is recorded for the reviewer.
+- **`BUILDPLAN.md`** — §1 the decisions with options, pros, cons, and a
+  recommendation each; the one **taste fork** is D-A: **Rust (`axum`) on
+  Fly.io, recommended**, reversing Dimension 5's lean toward Durable Objects
+  because D-7 shrank the live problem to one process and the room speaks
+  Rust; TypeScript on Cloudflare is the honest alternative at $0. §3 is 24
+  tickets in four milestones around HC-0…HC-4, the **burst spike T-03 before
+  any room code**, a minimum viable cut for October, §4 the client's own work
+  plan H-1…H-10.
+
+**Brownfield finding worth its own line:** `mvp/tools/verify.py` never calls
+Miri. The `miri` fields in `mvp/2026-08-12/verified.json` came from a pass
+outside the repo, which `mvp/README.md` does say — but the stories mark AC-9
+and AC-10 `MVP`, and that label now reads as *established by a hand-run step*.
+`EVALUATION.md` carries the caveat; T-15 puts Miri in code. Principle 4 —
+say exactly what verification proves — applied to our own receipt.
+
+**Phase 2 judge-gate and Phase 4 review** ran as agents against the committed
+files; findings and what was applied are recorded below when they land.
+
+### Phase 4 — plan review, 2026-09-03 (applied)
+
+A Sonnet adversarial pass read `BUILDPLAN.md` against `SPEC.md`'s guardrails
+and the inherited `mvp/tools/`. Seven findings, all valid, all applied:
+
+| # | Finding | Applied |
+|---|---|---|
+| 1 | The minimum viable cut named T-14 and T-20 but the slot mechanism lives in T-19 and the copy lint in T-22 — the cut violated G-1 and G-5. | The cut now names T-18, T-19, T-22 explicitly and says what waits. |
+| 2 | G-7 and AC-62/63/71 had no owning ticket; eight `felt` IDs were absent without a stated reason. | G-7/AC-71/74 on T-05 and T-07; AC-62/63 on T-24; a *settled at a checkpoint, no ticket, by design* line for the eight. |
+| 3 | T-01 scaffolded a Rust crate before the client had decided D-A. | T-01 depends on H-1 and scaffolds whichever stack she chose. |
+| 4 | `slot_for_meetup`, the ledger-writing wrapper, sits one function below the pure `slot_for_day` — the exact adjacency behind four G-1 regressions. | T-19: port `slot_for_day` only; the wrapper is not ported under any name; T-11 is the ledger's only writer. |
+| 5 | Six tickets add `justfile` recipes and three edit `pyproject.toml` with no serialization flag. | Each is flagged in its Notes column; `pyproject.toml` and CI config named as aggregators. |
+| 6 | T-04 bundled four nontrivial pieces and blocked all of M1; T-15 bundled the verifier with the sandbox image. | T-04a/b/c (phase machine + sealed module; sessions and answers; transport) and T-15a/b (sandbox; verifier). |
+| 7 | `canary` in a 60 s hermetic `test` implies a running server. | In-process scan in `test`; the deployed-room scan in `test-full`; T-01 states the harness. |
+
+### Phase 2 judge-gate, 2026-09-03 — 6/10, sixteen findings, applied
+
+An Opus judge read `SPEC.md` against the prototype, the criteria and the
+philosophy, asking whether an implementer who never met the client could
+build it with no decision left. **Score 6/10**, and the findings were right:
+
+- **The precedence rule was importing the prototype's shortcuts.** *"The
+  prototype wins"* would have shipped a host phone with no control to enter
+  `work` and no `←`/`→` in it (the mock has one screen for three phases), a
+  reveal wall that never names the popular wrong answer, and `lights down` as
+  a product mode. Now: criteria outrank both; the prototype wins on visual
+  detail; the spec wins on behaviour, state, payloads, copy.
+- **The walk-through was leaking the answer.** The bank's last trace step
+  carries `stdout: [1, 2, 3, 2, 1]` — the correct option's text — so a canary
+  in the answer would have appeared in the `work` payload. **D-10.** The
+  prototype was patched the same way.
+- **`canary` and AC-99's tests would have failed a correct build** — one
+  contradicted D-8, the other demanded colour on title cards that render no
+  source. Both rows rewritten.
+- **§4.5 deferred a decision** it claimed not to. **D-9** removes the
+  prediction entirely.
+- **Silent holes:** `answered` had readers and no field; a prediction-miss
+  had a writer and no field; host resume said *rotates* and never said how a
+  second device got the token. Fixed (a resume link; no rotation mid-room).
+- **Underspecified:** the type model's area constants and the refit formula
+  (the spec's literal loop could not converge on `q7`); no refit in the trace
+  phases; no strings for AC-29's six failures or a participant who never
+  answered; the trace model's semantics were cited to a file not in the repo;
+  AC-18's phrasing and AC-88's drift gate were tested but never specified;
+  AC-62/63 had nothing to assert. All written in.
+- **Its own lint caught its own copy:** take-it-home said *wrong*.
+
+Re-judged after the fixes — result below.
+
+### Phase 2 judge-gate, round 2 — 7/10, FAIL on three, all applied
+
+Second Opus pass on the revised spec. Three severity-1 findings, all
+right, all applied the same hour:
+
+1. **G-3 sealed the answer *text* before `closed` — but option texts are
+   public in every phase** (AC-62), so a canary in option E would have failed
+   a correct build. G-3 now seals the **join** between options and the
+   verified output; `canary` plants in the join, never in option text.
+2. **Six participant-facing states had no authored string** in a spec whose
+   voice discipline lives in one table: saving / saved / failed, retry,
+   *paused*, the locked buzzer, the hint's privacy line, the ten live-region
+   announcements. All authored in §11.
+3. **Take-it-home published a room count**, contradicting AC-56 and the
+   client's 2026-08-14 *no room state*. **D-12** drops it.
+
+Severity 2 and 3, also applied: `answered_live` as the live counter with
+`answered` frozen at close; §7.5's receipt made the single normative string
+and quoted by AC-43/87; the trace layout's code area as a constant (596 ×
+426, the prototype's split constants) and **font size carved out of the
+prototype's precedence** as behaviour; one forbidden-copy list with patterns,
+cited by the lint; `DESIGN.md` placed in the precedence order and its refit
+sentence corrected; **D-13** replaces the model-less 0.82 embedding threshold;
+`trace_step`'s writers and readers completed; AC-51 re-indexed; AC-5 and
+AC-25 retagged honestly; the code alphabet copy fixed. Round 3 follows.
+
+### Phase 2 judge-gate, round 3 — 7/10, FAIL on two, applied 2026-09-18
+
+Both blocking findings were mine, not the spec's idea: **D-12 was applied in
+§13 and §11 but not in §4.5**, which still said take-it-home carries the count;
+and the buzzer's split line *"Nobody knows who picked what"* matched the
+forbidden pattern `who (said|picked|chose)` that round 2 had just made
+normative. Fixed. Also applied: a `fit` room field written by the wall after
+refit and read by the host phone (*fits the room* / *too long — clipped at the
+bottom* …); *closed for inactivity* given a number (30 min idle, 20 min in any
+later phase); the floor now wins over the 46 px cap; `saved_at` dropped for
+having no reader; the font-size precedence scoped to the source well; the
+canary row split from AC-61's structural proof (letters and option text are
+public, so the correct *flag* is proven by module boundary plus a payload-shape
+assertion, not by canary); AC-45's actions enumerated; `DESIGN.md`'s open list
+retired of the AC-95 count. Round 4 follows.
+
+### Phase 2 judge-gate, round 4 — 7/10, FAIL on two, applied 2026-09-18
+
+Both blocking findings were defects in round 3's fixes. **The canary row
+planted `verified.stdout`** — but for every output-kind question that string
+*is* an option text, public from `live` on, so the row fires on a correct
+build. Now the resolving step's *note* is the canary and the join is proven by
+shape (every pre-reveal option object is exactly `{letter, text}`; no
+pre-reveal `values` entry named `stdout`). **The trace layout was given the
+rejected split layout's constants** (596 × 426) — the wall is full-width in
+every phase, and under 596 a verified bank question would have clipped during
+the walk-through. Now 1010 wide, height measured beneath the step note, and
+`bank-audit` fits against that smaller area. Also: a fifth fit string deleted;
+`fit` given a slot in `used` (the `reveal` verdict); the copy lint scoped to
+authored strings, not program text; *ask the host* removed from the inactivity
+message (an instruction to interact with a person); host phase labels and
+take-it-home headings authored; `DESIGN.md`'s open list actually retired and
+its colour sentence corrected; **D-14** fonts; the prototype's split line
+updated. Round 5 follows.
+
+### Phase 2 judge-gate, round 5 — 7/10, FAIL on two, applied 2026-09-18
+
+Both blocking findings were about the type model's constants, and the fix was
+to **measure instead of guess**: the C prototype was opened in the c11 browser
+at design size and `.proj-code` measured per phase. Reading layout **1010 ×
+247** (the options block beneath is 190 px), walk-through **1010 × 252** (the
+beat block is 203 px). The prototype's own 384 was a first guess made when the
+options block was assumed ~50 px; it passed q1 at 16 px while the wall clipped
+q1 at line 11. At 247, q1 wants 10.3 px against the 14.2 px floor and is
+reported as too long — the audit now agrees with the wall. The block beneath
+the source is a fixed reserve (note clamped to three lines), so both areas are
+constants an offline `bank-audit` can use; the wall still measures at runtime.
+Verified after the change: q3 21.8 px, q7 22.5 px, q1 at the floor. **Prototype
+shortcut recorded, not fixed here:** in `reveal` the mock's side panel takes
+402 px and leaves the source 53 px; T-05 builds reveal on the trace layout's
+252 px with the panel bounded to 203 px. Also applied: `values` render beneath
+the source (§5.3 said beside); `explains.legacy` excluded from the copy lint
+(the MVP's q1 prose says *arguing*); AC-22 scoped to the review surface; a
+*nobody read it another way* variant for a room with no incorrect votes;
+*Create a room* authored; `DESIGN.md`'s dangling *see Open* removed.
+
+### Phase 2 judge-gate, round 6 — 7/10, FAIL on one, and what measuring found, 2026-09-18
+
+The blocking finding was arithmetic: the spec's three verified numbers could not
+all be true. It was right, and the cause was the same class of error as round 5's
+— **the height constant was the well's outer box, not its text box**, while the
+width formula already subtracted the chrome. Measured properly: reading text box
+**994 × 177**, walk-through **994 × 190**, and the well's line height is **1.6**,
+not the model's 1.5. The prototype's model was corrected to match; q3 now lands
+at 22.1 px on the first guess with no runtime shrink, agreeing with the spec.
+
+**Measuring found something larger, and it is recorded plainly.** For any source
+other than tonight's, the prototype puts a 139 px *legibility test* panel where
+the 190 px options block belongs, so **every long-source figure measured in the
+prototype was flattered by about 51 px** — including T-20 item 15's *"q5 at 15.5
+px"* and *"q7's 69 characters fit at 22.5 px"*. Against the real bank
+(`mvp/2026-08-12/verified.json`), at the guessed 15 ft / 20 ft room:
+
+| Question | Source | As a program | Longest option |
+|---|---|---|---|
+| q3 | 5 × 42 | fits, 22.1 px | one line |
+| q4, q7, q8 | 6 × 56, 5 × 69, 6 × 30 | fit | wrap to two lines |
+| q5, q6 | 9 lines | **too long** (capacity is 7 lines) | wrap |
+| q2, q1 | 10, 16 lines | **too long** | wrap |
+
+The design was loved on the strength of one short question. Seven of the eight
+bank questions print multi-line or long answers that the wall's option buttons
+cannot hold on one line, and the prototype never had to show one. **D-15 / T-22:**
+the spec keeps the loved layout and constrains the content — one line, 29
+characters — and gives the generator that limit. Nothing here touches the October
+meetup, which runs on the MVP deck. It does mean the built bank needs authoring to
+the wall, and it is one more reason the rehearsal's screen and back-row
+measurements matter: a bigger screen or a shallower room lowers the floor and
+raises every capacity above.
+
+Also applied from round 6: §7.6's label corrected; the stored `embeddings` field
+dropped; `totals` given no post-release life; the wall's *What does this program
+print?* header, the trace strings, the join form and the no-answer *paused* line
+authored in §11; AC-56's row scoped to the room record.
+
+### Phase 2 judge-gate, round 7 — 7/10, FAIL on one, applied 2026-09-18
+
+The judge recomputed §5.2's table from `verified.json` and `content.json` and
+**confirmed every number**. It failed the round on a sentence under the table
+that was mine and wrong: it said seven questions have *an option over 29
+characters*; only q1, q2 and q7 do. The other four fail the **one-line** rule
+because their printed output spans lines. Corrected here and in the spec — and
+in what I told the client, which said the same wrong thing. The blocking
+consequence was real: the generator's brief carried two of D-15's three facts
+and omitted *one line*, so a correct generator would have produced a bank its
+own audit refuses. Now all three. Also applied: a stale 247 px in §5.2; T-17
+still telling the implementer to build **embeddings** that D-13 removed;
+`DESIGN.md`'s pre-measurement *roughly 11 lines*; **AC-23a's evaluation row was
+claiming a simulation that does not exist** in `build_deck.py` — the 17.5%
+figure was an ad hoc run — so it is now specified (three past-only strategies,
+10,000 nights, 18–22% band) and marked written-new; AC-25's lint scoped to
+authored copy, since a room's split legitimately prints a share beside an
+option's text; `used.fit` given a reader.
+
+### Phase 2 judge-gate, round 8 — 8/10, PASS, 2026-09-18
+
+**The gate is passed.** Scores across the eight rounds: 6, 7, 7, 7, 7, 7, 7, 8.
+Round 8 independently re-derived §5.2 from the bank files, ran AC-23a's
+simulation against the real `slot_for_day` (19.9%, 20.3%, 20.2% — all inside
+the 18–22% band), confirmed all 102 criterion rows present, and found no
+blocking issue. Its nine remaining findings were applied afterwards and **were
+not re-judged**: the `T-nn` collision between client touchpoints and BUILDPLAN
+tickets (touchpoints now say so wherever they appear outside the plan); §4's
+copy re-pointed at §11, with the *Create a room* and *‹n−1› other people*
+mismatches fixed and a singular *1 other person* form authored; AC-6 marked
+`MVP`* because `verify.py` records `rustc --version` and the edition only;
+AC-23b's carried-over claim narrowed to the audit function, its two
+failure-mode tests marked written-new; `DESIGN.md`'s stale 22.5 px; **AC-95
+amended in `USER_STORIES.md`** with its original kept, and the take-it-home
+open item closed there; a two-step minimum for the trace (`work` shows `0..M-2`);
+G-1's signature stated as `slot_for_day(date, n_options=5)`; the copy lint
+scoped to the ported copy module rather than the spec document.
+
+**What eight rounds were for.** Every blocking finding was a claim in one file
+contradicted by another, or a number nobody had measured — never a missing
+feature. The two that mattered most were found by measuring: the prototype's
+options block is 190 px only for q3, and the type model's height constant was
+the well's outer box. The lesson for `tone-architect`: a spec's numbers should
+be measured from the artifact they describe before a judge is asked to check
+them.
+
+### Touchpoint T-22 answered — *"keep the constraint,"* 2026-09-18
+
+D-15 stands as the spec wrote it: every option is one line of at most 29
+characters, the wall's options block is a constant 190 px, and the two
+alternatives put to the client — joining multi-line output with a visible ⏎, or
+a design round for wrapped options — are declined. Consequences, propagated the
+same day:
+
+- **Migration (BUILDPLAN T-14).** Only q3 migrates as authored. q4, q7 and q8
+  fit as programs and need one-line options, re-verified. q1, q2, q5 and q6
+  exceed the wall's seven-line capacity at the guessed room and stay MVP-only
+  until re-authored or until the rehearsal's measurements raise the capacity.
+- **Supply.** The *one question a night is eight months of supply* argument
+  (D-7) assumed the whole bank. The built bank starts at one question and
+  reaches at most four after re-authoring. That is four meetups until the
+  generator refills it, which it is now told the wall's limits to do
+  (`SPEC.md` §7.1). Recorded in the minimum-viable-cut paragraph so nobody
+  discovers it in October. The October meetup itself runs on the MVP deck,
+  which carries all eight in its own layout, and is unaffected.
+- **Nothing else changes.** No criterion is touched; AC-100 already carried the
+  fit rule and the generator brief already carried all three limits.
