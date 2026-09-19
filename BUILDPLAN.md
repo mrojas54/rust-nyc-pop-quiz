@@ -177,7 +177,7 @@ all seven phases with mock participants. Drift from the prototype is a defect.
 
 | # | Ticket | Criteria | Depends on | Notes |
 |---|---|---|---|---|
-| **T-14** | Bank format (`SPEC.md` §3.1–3.3) and migration of the eight MVP questions: verified facts carried over, `explains` three beats and `trace` drafted for organizer affirmation, `explanation` kept as `legacy` | AC-13, AC-17, AC-73 | T-01 | |
+| **T-14** | Bank format (`SPEC.md` §3.1–3.3) and migration of the eight MVP questions: verified facts carried over, `explains` three beats and `trace` drafted for organizer affirmation, `explanation` kept as `legacy` | AC-13, AC-17, AC-73 | T-01 | **Only q3 migrates as authored** (touchpoint T-22, D-15). q4, q7 and q8 fit as programs but their options must be re-authored to one line of at most 29 characters and re-verified (the machine decides the new answer). q1, q2, q5 and q6 exceed the wall's 7-line capacity at the guessed room and stay in the MVP bank only, until re-authored or until the rehearsal's measurements raise the capacity. |
 | **T-15a** | The sandbox: a Docker image with the pinned toolchain and nightly Miri, run with no network, memory/CPU/pids limits, read-only root, tmpfs work dir, hard timeout; the AC-12 fixture suite proven on it | AC-12 | T-01 | Serialized on `justfile` |
 | **T-15b** | The verifier in code: inherit `verify.py`'s procedure after audit; **add Miri** (strict provenance, Tree Borrows for UB-intended), the flag set, target triple, the §3.2 record; `verify <program>` | AC-6–11, AC-13, AC-87, G-2 | T-14, T-15a | Audit ticket for `verify.py`. Serialized on `pyproject.toml` with T-16, T-17 |
 | **T-16** | The generator: Claude Opus 5 via Message Batches, structured outputs into the §3.1 shape, count/topics/difficulty honoured or reported, talk mode, per-candidate cost and wall-clock, re-runnable | AC-1–5 | T-14 | Human track: API key, spend cap. Serialized on `pyproject.toml` The generator's brief carries the room's capacity — source lines at the floor, each option a single line, at most 29 characters (`SPEC.md` §7.1, D-15). |
@@ -207,13 +207,15 @@ is October.
 
 ### Minimum viable cut
 
-If October arrives before M3: **M0 + M1 + M2, plus T-14 (the eight MVP
-questions migrated), T-18 (affirm — G-12), T-19 (the slot mechanism and
+If October arrives before M3: **M0 + M1 + M2, plus T-14 (the MVP questions that
+fit the wall: q3 as authored, and q4, q7 and q8 after re-authoring), T-18 (affirm — G-12), T-19 (the slot mechanism and
 `bank-audit` — G-1, G-11), T-22 (the copy lint — G-5), and T-20's push half.**
 That is the smallest set that meets every non-negotiable; generation (T-16),
 dedupe (T-17), the sandbox (T-15a) and the in-code verifier (T-15b) wait, and
-the eight questions carry their August verification with the Miri caveat
-stated on the receipt. If October arrives before M2: the prototype's
+those questions carry their August verification with the Miri caveat
+stated on the receipt. **Supply is short until the generator refills it:** one
+question a night from at most four questions is four meetups, not eight months
+(D-7), which is exactly the job the generator, now told the wall's limits, exists to do. If October arrives before M2: the prototype's
 static fallback (§12) built from T-02 and T-05, driven from a laptop — the
 built wall with no phones, which is the MVP deck with the new phases.
 

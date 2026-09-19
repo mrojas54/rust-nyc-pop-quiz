@@ -16,10 +16,9 @@ the prototype branch has a PR to `main` awaiting merge.
 **Stage 3 as of 2026-09-18:** Phases 0–4 are done and the build contract
 (`EVALUATION.md`, `SPEC.md`, `BUILDPLAN.md`) **passed the adversarial judge gate
 in round 8 at 8/10 with no blocking finding**. The client answered touchpoint
-T-21 (Rust on Fly, she pays). **Open:** touchpoint **T-22** — the built wall
-cannot show an option longer than one 29-character line, so seven of the eight
-verified questions need re-authoring; the plan proceeds on that constraint and
-nothing waits. **Phase 5, the handoff to `lattice-orchestrator`, spawns a build
+T-21 (Rust on Fly, she pays). **Touchpoint T-22 answered 2026-09-18: *"keep the constraint"*** — the built wall
+shows options as one line of at most 29 characters, so seven of the eight
+verified questions need re-authoring for it (D-15). **Phase 5, the handoff to `lattice-orchestrator`, spawns a build
 fleet and waits for the client's explicit go.**
 
 **First four things, in order:**
@@ -198,7 +197,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-12 | **Take-it-home carries no room state — no counts, no most-chosen option.** Phase 2 judge round 2, 2026-09-03. | The client said *no room state* on 2026-08-14 and AC-56 holds unamended; the spec had quietly published a count. With D-9 the page carries *why you might have read it as X* for every incorrect option and loses nothing it could honestly have. |
 | D-13 | **No embedding model in v1; near-duplicates by token-bigram Jaccard.** Phase 2 judge round 2. | The 0.82 threshold named no model. The smaller mechanism, no external dependency, threshold labelled uncalibrated. |
 | D-14 | **Fonts vendored, self-hosted.** Round 4, 2026-09-18. | Cascadia Mono and Instrument Serif from the design system's `assets/fonts/` into `web/shared/fonts/`; no font CDN. Was open in `DESIGN.md` and settled nowhere. |
-| D-15 | **Options are one line of at most 29 characters; the wall's options block is a constant 190 px.** Round 6, 2026-09-18. **Flagged to the client as T-22 — she can overturn it.** | The loved prototype only ever showed q3's options (all under 22 characters). Measuring showed the options block is 190 px only when every option fits one line at 24 px; a longer option wraps and the block grows, which shrinks the source and makes the offline audit depend on which slot the date draws. The default keeps the loved design, gives `bank-audit` constants, and turns the limit into a generator brief. Cost: seven of the eight MVP questions need re-authoring for the built wall — six print output that spans lines, one has a 48-character option line. |
+| D-15 | **Options are one line of at most 29 characters; the wall's options block is a constant 190 px.** Round 6, 2026-09-18. **Confirmed by the client, touchpoint T-22, 2026-09-18: *"keep the constraint."*** | The loved prototype only ever showed q3's options (all under 22 characters). Measuring showed the options block is 190 px only when every option fits one line at 24 px; a longer option wraps and the block grows, which shrinks the source and makes the offline audit depend on which slot the date draws. The default keeps the loved design, gives `bank-audit` constants, and turns the limit into a generator brief. Cost: seven of the eight MVP questions need re-authoring for the built wall — six print output that spans lines, one has a 48-character option line. |
 | D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
 
 ## Conflicts
@@ -233,7 +232,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-19 | 2·3 | `mvp/README.md` run-of-show — sweep for AC-98 and A-5, or leave the MVP frozen? | **Answered by default 2026-09-03 — swept**, on the standing recommendation. Six places, and the beat heading in the prototypes' own reveal script. |
 | T-20 | 2·3 | **The closing drive** — love C or list what annoys; AC-93 felt; colour or not | **Answered 2026-09-03 — *"yes i love it."*** Guide at `sequence/T-20-drive-guide.md`, every step done. Sixteen items applied (below). AC-93 *felt* and answered; T-17 answered; AC-28 rewritten. **Stage 2 complete.** |
 | T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), D-H (AC-95) | **Answered 2026-09-03: *"rust on fly, i'll pay, D-H is fine."*** D-A option 1; the client carries the cost (`ECONOMICS.md` amended, Q-E1 moot); D-9 stands. Plan unchanged — it assumed the recommendations. |
-| T-22 | 3·4 | **Options must be one short line on the built wall** (D-15). Only q3 of the eight verified questions passes as authored; six print multi-line output, one has a 48-character option, and four are also too long as programs at the guessed venue. **A middle path exists:** render multi-line output joined on one line with a visible ⏎, which would let q3, q4 and q8 run as authored — a new visual element she has not seen, so it is her call. Keep the constraint, or take a design round for wrapped or multi-line options? | **Open** 2026-09-18 — the plan proceeds on the constraint; nothing waits. The rehearsal's screen and back-row measurements move the numbers either way. |
+| T-22 | 3·4 | **Options must be one short line on the built wall** (D-15). Only q3 of the eight verified questions passes as authored; six print multi-line output, one has a 48-character option, and four are also too long as programs at the guessed venue. **A middle path exists:** render multi-line output joined on one line with a visible ⏎, which would let q3, q4 and q8 run as authored — a new visual element she has not seen, so it is her call. Keep the constraint, or take a design round for wrapped or multi-line options? | **Answered 2026-09-18: *"keep the constraint."*** D-15 stands. No ⏎ join and no design round for wrapped options. Consequences below. |
 
 ## Client interview record (T-2)
 
@@ -1671,3 +1670,25 @@ options block is 190 px only for q3, and the type model's height constant was
 the well's outer box. The lesson for `tone-architect`: a spec's numbers should
 be measured from the artifact they describe before a judge is asked to check
 them.
+
+### Touchpoint T-22 answered — *"keep the constraint,"* 2026-09-18
+
+D-15 stands as the spec wrote it: every option is one line of at most 29
+characters, the wall's options block is a constant 190 px, and the two
+alternatives put to the client — joining multi-line output with a visible ⏎, or
+a design round for wrapped options — are declined. Consequences, propagated the
+same day:
+
+- **Migration (BUILDPLAN T-14).** Only q3 migrates as authored. q4, q7 and q8
+  fit as programs and need one-line options, re-verified. q1, q2, q5 and q6
+  exceed the wall's seven-line capacity at the guessed room and stay MVP-only
+  until re-authored or until the rehearsal's measurements raise the capacity.
+- **Supply.** The *one question a night is eight months of supply* argument
+  (D-7) assumed the whole bank. The built bank starts at one question and
+  reaches at most four after re-authoring. That is four meetups until the
+  generator refills it, which it is now told the wall's limits to do
+  (`SPEC.md` §7.1). Recorded in the minimum-viable-cut paragraph so nobody
+  discovers it in October. The October meetup itself runs on the MVP deck,
+  which carries all eight in its own layout, and is unaffected.
+- **Nothing else changes.** No criterion is touched; AC-100 already carried the
+  fit rule and the generator brief already carried all three limits.

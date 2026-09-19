@@ -596,7 +596,7 @@ options weighed. No design decision is deferred: D-8 (the hint rides in the
 live payload), D-9 (a `why_tempting` per incorrect option, no prediction),
 D-10 (the trace's resolving step is withheld until reveal), D-15 (options are
 one line of at most 29 characters, so the wall's options block is a constant
-190 px), D-12 (take-it-home
+190 px; **confirmed by the client at touchpoint T-22**), D-12 (take-it-home
 carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
 near-duplicates) are decided here and logged in `run-state.md`. **Fonts** are vendored: Cascadia Mono and
 Instrument Serif ship in `web/shared/fonts/` from the design system's
