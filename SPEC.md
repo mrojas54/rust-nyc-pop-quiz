@@ -1,6 +1,6 @@
 # Specification — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-23).** This is the
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-24).** This is the
 build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
 `prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
 (`sequence/USER_STORIES.md`, AC-1…AC-102) so that an implementer who has never
@@ -118,8 +118,9 @@ inferred** (G-2 — nothing may be written that no code observed). A legacy reco
 renders the legacy receipt (§7.5), is exempt from the stale-pin check (§7.2), and
 is replaced whole — never merged — when T-15b re-verifies its question, so the
 bank never holds both. A legacy record whose answer is *does not compile* (q8)
-carries `rustc`, `edition` and the compiler's `error_codes` and none of `runs`,
-`stdout` or `miri`; it renders the third string (D-22).
+carries `rustc`, `edition` and `compile_error_code` (T-14 renames the MVP's
+`error_codes` field to it; the codes are the compiler's, unchanged) and none of
+`runs`, `stdout` or `miri`; it renders the third string (D-22).
 
 ### 3.3 Bank
 
@@ -450,7 +451,7 @@ warning; it blocks neither accept nor affirm (D-23).
 ### 7.5 The receipt (G-7)
 
 Rendered from `verified` by one function, in plain words a room can read: a
-label, two or three short sentences, then the same closing pair. The compiler
+label, one to three short sentences, then the same closing pair. The compiler
 line, edition, target triple and Miri configuration stay off the wall and are
 shown on the take-it-home page under *How we know* (§13, AC-87).
 
@@ -465,8 +466,8 @@ string, which claims only what that record holds and says what it lacks (D-16):
 > **✓ Established by the machine**
 > Run ‹N› times, same output every time. We did not record which computer. Miri,
 > Rust's checker for undefined behavior, was run separately and found no
-> problems; that run is not repeated here. The machine checked the answer only.
-> An organizer approved the explanation.
+> problems in the code that ran; that run is not repeated here. The machine
+> checked the answer only. An organizer approved the explanation.
 
 For a record whose answer is *does not compile*, complete or `legacy`, the same
 function renders the third approved string. Such a record has no runs and no
@@ -692,11 +693,17 @@ room's phase rules: `work` shows no ✓, no receipt, no colour and steps `0..M-2
 only, and `reveal` enters at `M-1` (AC-97, AC-99). `popquiz schedule` calls the
 T-26 build for the scheduled question (T-20).
 
-**Open — touchpoint T-24.** With no host phone there is nowhere to read the
-three beats and each step's words from, and the wall must not show them (AC-39).
-Recommended: `popquiz schedule` also writes a host sheet beside the fallback
-file — the `explains` beats and each step's `note`, as plain text to print or
-read on a phone. Until the client answers, T-26 builds the wall file only.
+**The host sheet — touchpoint T-24, answered 2026-09-19 (yes, the printable
+sheet).** With no host phone there is nowhere to read the three beats and each
+step's words from, and the wall must not show them (AC-39). `popquiz schedule`
+therefore writes a host sheet beside the fallback file: plain text, one block per
+phase in the room's phase order, holding the question's `explains` beats and each
+trace step's `note` verbatim, for the host to print or read on a phone. T-26 owns
+the function that turns a question record into the sheet; T-20 calls it beside
+the wall build. Like the wall file, the sheet contains the answer, lives on the
+organizer's laptop and is never served, so no room route carries it and the wall
+still shows none of it. It adds no words: every line is text the organizer
+already affirmed (AC-72, AC-95).
 
 ---
 
@@ -743,12 +750,12 @@ Every ID in AC-1…AC-102 appears above; `EVALUATION.md` carries the proof.
 Stack and substrate for the room; the sandbox for verification; the LLM and
 its spend cap; where the pipeline runs; the short-link domain; hosting for
 take-it-home and the static fallback. `BUILDPLAN.md` records each with the
-options weighed. No design decision is deferred except touchpoint T-24 (§12). D-8 (the hint rides in the
+options weighed. No design decision is deferred. D-8 (the hint rides in the
 live payload), D-9 (a `why_tempting` per incorrect option, no prediction),
 D-10 (the trace's resolving step is withheld until reveal), D-15 (options are
 one line of at most 29 characters, so the wall's options block is a constant
 190 px; **confirmed by the client at touchpoint T-22**), D-12 (take-it-home
 carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
-near-duplicates) are decided here and logged in `run-state.md`, and so are D-16…D-23 (the 2026-09-19 amendments: the legacy receipt, the enforced pin, the stub runner, the M1 host stand-in, the pipeline channel, the static fallback's owner, the does-not-compile receipt, plain spoken room copy with a trope check). **Fonts** are vendored: Cascadia Mono and
+near-duplicates) are decided here and logged in `run-state.md`, and so are D-16…D-24 (the 2026-09-19 amendments: the legacy receipt, the enforced pin, the stub runner, the M1 host stand-in, the pipeline channel, the static fallback's owner, the does-not-compile receipt, plain spoken room copy with a trope check, the printable host sheet). **Fonts** are vendored: Cascadia Mono and
 Instrument Serif ship in `web/shared/fonts/` from the design system's
 `assets/fonts/`, self-hosted, no font CDN (D-14).

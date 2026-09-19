@@ -111,7 +111,7 @@ day, because the segment dies the first time it does.*
 | **AC-75** | The bank maintains a **reserve** of verified, reviewed, unused questions. The reserve size and its trend are visible at a glance. |
 | **AC-76** | Falling below the reserve threshold warns the organizer with enough lead time to act — not on the day. |
 | **AC-77** | A meetup can run entirely from reserve with **zero generation that day**, using no network beyond serving the room. |
-| **AC-102** | **If the room cannot run, the segment still can.** The wall's views for the scheduled question are available as one file that opens on the organizer's laptop with no network, is stepped from the keyboard in the room's phase order, and obeys the same rules as the room's wall: no answer, receipt, ✓ or colour before the views that may show them (AC-97, AC-99). *Minted 2026-09-19, `tone-architect`, from the static fallback that `SPEC.md` §12 specified and no criterion covered — AC-77's spirit, made testable.* |
+| **AC-102** | **If the room cannot run, the segment still can.** The wall's views for the scheduled question are available as one file that opens on the organizer's laptop with no network, is stepped from the keyboard in the room's phase order, and obeys the same rules as the room's wall: no answer, receipt, ✓ or colour before the views that may show them (AC-97, AC-99). It comes with a plain-text host sheet of the explanation beats and each step's words, so the host has something to read when there is no host phone (AC-39). *Minted 2026-09-19, `tone-architect`, from the static fallback that `SPEC.md` §12 specified and no criterion covered — AC-77's spirit, made testable.* |
 
 ---
 
@@ -722,7 +722,7 @@ re-judged.
 | **AC-6** | **Status corrected, text unchanged.** The `MVP` tag is withdrawn. | The MVP records `rustc --version` and pins nothing: it runs whichever `rustc` is on `PATH` and compares no version. A criterion cannot be *satisfied by the deck* when the deck never did the thing it names. |
 | **AC-87** | **Amended twice.** A record that predates triple capture says the machine was not recorded and claims nothing wider; a does-not-compile record makes no determinism claim (D-22); and the receipt now scopes the claim in plain words, with the triple on take-it-home (D-23). Original kept in the row. **Answered 2026-09-19 — touchpoint T-23.** | The eight MVP verifications have no target triple, and back-filling one would be a hand-written fact (AC-7's spirit). Without an exception the receipt either overstates or cannot render. |
 | **AC-101** | **Minted**, Story C2. | The laptop-to-server push had no credential and no owner. |
-| **AC-102** | **Minted**, Story A7. | The static fallback was specified and had no criterion, and the minimum viable cut leans on it. |
+| **AC-102** | **Minted**, Story A7; **amended the same day** after touchpoint T-24 (*yes, the printable sheet*) to include the host sheet. | The static fallback was specified and had no criterion, and the minimum viable cut leans on it. With no host phone the host had nowhere to read the beats from, and the wall must not show them. |
 
 **Reviewed and left standing:** AC-9 and AC-10 keep their `MVP` tag. The MVP did
 satisfy them, by a hand-run Miri pass outside `verify.py`; `EVALUATION.md`

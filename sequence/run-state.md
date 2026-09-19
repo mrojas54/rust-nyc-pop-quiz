@@ -20,8 +20,8 @@ T-21 (Rust on Fly, she pays). **Touchpoint T-22 answered 2026-09-18: *"keep the 
 shows options as one line of at most 29 characters, so seven of the eight
 verified questions need re-authoring for it (D-15). **Phase 5, the handoff to `lattice-orchestrator`, spawns a build
 fleet and waits for the client's explicit go.** **Amended 2026-09-19** after
-the build stage's contract check of 2026-09-18: D-16…D-23, AC-101 and AC-102 minted, tickets
-T-25 and T-26 added, touchpoint T-24 open (touchpoint T-23 answered) (see the section at
+the build stage's contract check of 2026-09-18: D-16…D-24, AC-101 and AC-102 minted, tickets
+T-25 and T-26 added, touchpoint T-24 answered (*yes, the printable sheet*) (see the section at
 the bottom).
 
 **First four things, in order:**
@@ -172,7 +172,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | **A-6** | `research/06-attendees.md` (§4a, §7) | **Attendee testimony via the client, 2026-09-02.** Two regulars at Rust lunch, shown nothing: *"remembered the quiz, liked the idea, liked the idea of voting anonymously."* §4a's *nobody asked for a quiz* is narrowed to *nobody in the records*; §7's *no evidence either way* becomes weak evidence for. First attendee-side corroboration of **§9**'s mechanism — anonymity — from the people who least need the cover, and a second source that the dtolnay quiz ran and is remembered (not that it was memorised; A-1 still rests on the client). Original text retained. |
 | **A-7** | `PHILOSOPHY.md` §5, `sequence/USER_STORIES.md` (**AC-99** minted) | **Client call 2026-09-03, T-20 drive: *"keep the colour, love it."*** §5's 08-14 amendment removed highlighting because it competes with the trace; that reason holds only while a trace runs. Colour returns to the reading phases and stays off in the walk-through and reveal. Minted as **AC-99** under Story B8 rather than a third revision of AC-32, which no longer says anything about highlighting. Deliberate divergence from the design system's `SourceCode`; the client carries it to Cole. **T-17 closed.** |
 | A-2 | `research/06-attendees.md` §2, §6 | Finding *"AC-52's 200 is ~2× the observed ceiling"* **withdrawn**. The 110-RSVP figure is a **venue supply cap, not a demand ceiling** — every event sold out with a waitlist. Client testimony: bigger venues in progress, **Jun 26 Summer Social 200 and sold out**. AC-52 stands at 200. Replaced by a sharper open variable: the **participation rate**, never measured. Original reasoning retained in-file. |
-| **A-8** | `sequence/USER_STORIES.md` (**AC-6** `MVP` tag withdrawn; **AC-87** amended; **AC-101** and **AC-102** minted), `SPEC.md`, `EVALUATION.md`, `BUILDPLAN.md`, `CLAUDE.md` | **Build-stage contract check, 2026-09-18; applied 2026-09-19.** `lattice-orchestrator`'s Phase 0 read the contract cold against the code it sits on and found six defects: a receipt that would overstate on migrated questions (D-16), a *pinned* rustc that is only recorded (D-17), `test` rows that need a toolchain `test` may not have (D-18), no auth in M1 and a live-Discord check that could not precede the checkpoint it was scheduled before (D-19), a laptop-to-server channel with no owner or credential (D-20), and a static fallback with no ticket or criterion (D-21). The orchestrator validated and did not author; `tone-architect` amended. Two criteria reached the stories and two were minted; the range is now AC-1…AC-102 across 20 stories. **Not re-judged.** Details in the Stage 3 section at the bottom. |
+| **A-8** | `sequence/USER_STORIES.md` (**AC-6** `MVP` tag withdrawn; **AC-87** amended; **AC-101** and **AC-102** minted), `SPEC.md`, `EVALUATION.md`, `BUILDPLAN.md`, `CLAUDE.md` | **Build-stage contract check, 2026-09-18; applied 2026-09-19.** `lattice-orchestrator`'s Phase 0 read the contract cold against the code it sits on and found six defects: a receipt that would overstate on migrated questions (D-16), a *pinned* rustc that is only recorded (D-17), `test` rows that need a toolchain `test` may not have (D-18), no auth in M1 and a live-Discord check that could not precede the checkpoint it was scheduled before (D-19), a laptop-to-server channel with no owner or credential (D-20), and a static fallback with no ticket or criterion (D-21). The orchestrator validated and did not author; `tone-architect` amended. Two criteria reached the stories and two were minted; the range is now AC-1…AC-102 across 20 stories. **Judged 2026-09-19: round 1 6/10 fail, round 2 8/10 pass, no blocking finding.** Details in the Stage 3 section at the bottom. |
 
 ## Keystone decisions
 
@@ -211,6 +211,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-21 | **The static fallback has an owner (T-26) and a criterion (AC-102).** 2026-09-19. | SPEC §12 specified it, only T-20 "pushed" it, no ticket built `mode: "static"`, the keyboard driver or the one-file build, and AC-77 tests the room, not the file — while the minimum viable cut leans on it entirely. Where the host reads the script from when there is no host phone is not settled: touchpoint T-24. |
 | D-22 | **A does-not-compile record renders a third receipt string; there are three, and no fourth.** `tone-architect`, 2026-09-19, found on re-reading the amendments before they were committed. **Answered by D-23 (touchpoint T-23).** | q8's record (E0502) has no runs and no Miri result — `runs` is null and `miri` is *n/a (does not compile)*. Both approved strings assert byte-identical runs and a Miri pass, so q8, one of the three questions the plan expects to migrate, would have rendered a false receipt or none, and so would any does-not-compile question the generator produces (AC-11, AC-24). The third string claims only the compiler's refusal and makes no determinism claim. |
 | D-23 | **Room-facing copy is plain, spoken and unrhetorical, and a trope check guards it.** `tone-architect`, 2026-09-19, on the client's word that the receipt wording was *"not readable to humans"* and her request to audit for AI writing tropes; she approved the rewrite (*"apply"*). **Answers touchpoint T-23.** | The three receipt strings were written for engineers reading a log: *byte-identical*, a compiler hash and date, a target triple. The wall is read by a room. They are now plain, with the technical detail on take-it-home (AC-87 amended). The audit then found contrast framing (*"Not the explanation — that one is human"*, *"that is not a room getting it wrong — that is…"*), a padded triplet, reassurance and flattery (*"that's fine"*, *"the most interesting answer in the room"*), signposts (*"worth talking about"*), a repeated *Nobody… including us*, and filler in the sample explanation the generator would imitate. All rewritten. `SPEC.md` §11.1 adds a two-tier check (hard fail on the copy module, review warning on question prose) and §7.1 gives the generator a style brief. **Two deviations from what the client was shown:** the receipt closer keeps AC-71's statement in the positive (*The machine checked the answer only*) instead of dropping it, and the canned second sentence under the reveal beat is deleted, not reworded, because it named `dedup` and would be false on any other question. |
+| D-24 | **When the room cannot run, `popquiz schedule` also writes a printable host sheet beside the static fallback file.** `tone-architect`, 2026-09-19, on the client's word *"yes, recommendation for printable."* **Answers touchpoint T-24.** | With no host phone the host had nowhere to read the three beats and each step's words from, and the wall must not show them (AC-39). The sheet is plain text in phase order: the `explains` beats and each step's `note`, verbatim, no new words. It holds the answer, stays on the organizer's laptop and is never served. T-26 owns the function that writes it, T-20 calls it, and AC-102 and HC-0 carry its proof. |
 
 ## Conflicts
 
@@ -246,7 +247,7 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | T-21 | 3·3 | **The architecture dialogue** — D-A (Rust on Fly vs TypeScript on Cloudflare), D-G (who pays), D-H (AC-95) | **Answered 2026-09-03: *"rust on fly, i'll pay, D-H is fine."*** D-A option 1; the client carries the cost (`ECONOMICS.md` amended, Q-E1 moot); D-9 stands. Plan unchanged — it assumed the recommendations. |
 | T-22 | 3·4 | **Options must be one short line on the built wall** (D-15). Only q3 of the eight verified questions passes as authored; six print multi-line output, one has a 48-character option, and four are also too long as programs at the guessed venue. **A middle path exists:** render multi-line output joined on one line with a visible ⏎, which would let q3, q4 and q8 run as authored — a new visual element she has not seen, so it is her call. Keep the constraint, or take a design round for wrapped or multi-line options? | **Answered 2026-09-18: *"keep the constraint."*** D-15 stands. No ⏎ join and no design round for wrapped options. Consequences below. |
 | T-23 | 3·5 | **The legacy receipt, and the does-not-compile receipt.** The eight MVP verifications recorded no target triple, so SPEC §7.5's receipt cannot be rendered for them without overstating, and AC-87 says the receipt names the triple. Approve a second receipt string that says *the machine they ran on was not recorded* and that Miri was run outside the verifier (D-16, AC-87 amended), or render no receipt for those questions until they are re-verified? Recommended: the second string — it keeps the reveal's shape and claims only what is known. **A third string covers a does-not-compile question (q8), whose record has no runs and no Miri result (D-22); it is offered on the same terms.** | **Answered 2026-09-19.** The client called the technical wording unreadable to a room and approved the plain rewrite ("apply"); see D-23. |
-| T-24 | 3·5 | **The host's script when the room cannot run.** With no host phone there is nowhere to read the three beats and each step's words from, and the wall must not show them (AC-39). Recommended: `popquiz schedule` also writes a host sheet beside the static fallback file — the `explains` beats and each step's `note`, as plain text to print or read on a phone. Or is that too much to carry to the venue? | **Open** — T-26 builds the wall file only until the client answers. |
+| T-24 | 3·5 | **The host's script when the room cannot run.** With no host phone there is nowhere to read the three beats and each step's words from, and the wall must not show them (AC-39). Recommended: `popquiz schedule` also writes a host sheet beside the static fallback file — the `explains` beats and each step's `note`, as plain text to print or read on a phone. Or is that too much to carry to the venue? | **Answered 2026-09-19: *yes, recommendation for printable*.** D-24. |
 
 ## Client interview record (T-2)
 
@@ -1770,3 +1771,55 @@ prototype's client-facing annotation panels; the MVP deck, which is frozen; the
 legacy `explanation` string kept verbatim for AC-73; em-dashes; the client's own
 lines. **Known gap:** the prototype's take-it-home still shows one heading
 rather than one per incorrect option, which the spec has said since D-9 and D-12.
+
+### Amendments judge round 1 (D-16…D-23) — 6/10, FAIL on two, applied 2026-09-19
+
+The first judge of the 2026-09-19 amendments, an Opus pass over commit `206a435`
+alone. Two blocking findings, both right:
+
+1. **The legacy receipt dropped Miri's scope.** It said Miri *found no problems*
+   with no *in the code that ran*, for the weakest record in the bank. Now
+   *found no problems in the code that ran* (`SPEC.md` §7.5). This is a wording
+   change to a string the client approved at touchpoint T-23; it adds the scope
+   the complete string already had, and is flagged to the client for sight.
+2. **AC-87's record classes were not disjoint.** A does-not-compile record is
+   complete, so the test as written demanded both the determinism sentence and
+   its absence, and q8 is both `legacy` and does-not-compile. AC-87 now tests in
+   the precedence order of §7.5, so each record renders exactly one string.
+
+Applied as well: `canary` and `test` own AC-101's token plant and repo scan
+(T-25 extends both); the `test` hook no longer claims *no `rustc`*, which a Rust
+crate cannot meet (it never runs the *pinned* toolchain as a verification step);
+AC-101 is tagged `external-oracle` and AC-102 `felt`, so the `felt` list is now
+sixteen; a legacy compile-failure record carries `compile_error_code`, renamed
+from the MVP's `error_codes` by T-14; the third receipt is *one to three*
+sentences; `SPEC.md`'s header names touchpoint T-24 as the one open decision;
+`BUILDPLAN.md` no longer lists AC-42 as ticketless.
+
+**Not applied:** the judge asked to reword q3's hint in `_shared/data.js` because
+*the key word* matches a signpost pattern. That hint is q3 as authored and as
+the MVP ran it, the trope check on question prose is a warning and blocks
+nothing, and §7.1 does not tell the generator to imitate the prototype's sample.
+Recorded so the next judge does not raise it again.
+
+Re-judged after the fixes — result below.
+
+### Amendments judge round 2 (D-16…D-23) — 8/10, PASS, 2026-09-19
+
+A fresh Opus judge over the working tree with round 1's fixes applied. All nine
+round-1 fixes resolved; no blocking finding. Six lesser findings, all applied:
+
+- **AC-43 had the same non-disjoint rule AC-87 had.** q8 is both `legacy` and
+  does-not-compile, so *for a legacy record its second, for a does-not-compile
+  record its third* asked for two strings. AC-43 now picks in §7.5's order.
+- **T-25 now edits the `justfile`** (the token scan lands in `test`) and says so:
+  *Serialized on `justfile`*. It also depends on T-08, whose `canary` suite it
+  extends. The graph is still acyclic and the longest chain is still 8.
+- **AC-101's repo scan** looks for a planted canary value and secret-shaped
+  literals, not the token's name, which `.env.example` carries by design.
+- **AC-102 is in HC-0's judged column**, not only the instrument column.
+- **T-14 names the `error_codes` → `compile_error_code` rename.**
+
+**Standing:** q3's hint stays as authored (round 1, declined). Stopped at a pass
+in round 2 of the three allowed. Findings 7–10 of the contract check are still
+unrouted and were kept out of both rounds.
