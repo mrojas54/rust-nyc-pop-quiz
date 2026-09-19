@@ -11,7 +11,7 @@ client drove Direction C end to end, sixteen items were applied, and the word
 was said about the whole. **`DESIGN.md` is binding.** The stage handed off to
 **`tone-architect`** the same day — see the Stage 3 section at the bottom of
 this file for where that stands. Work continues on `ai-c11-cc/tone-architect`;
-the prototype branch has a PR to `main` awaiting merge.
+PR #5 (Stage 2) and PR #6 (Stage 3, stacked on it) carry both stages to `main`.
 
 **Stage 3 as of 2026-09-18:** Phases 0–4 are done and the build contract
 (`EVALUATION.md`, `SPEC.md`, `BUILDPLAN.md`) **passed the adversarial judge gate
