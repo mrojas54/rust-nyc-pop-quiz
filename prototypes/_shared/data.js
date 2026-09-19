@@ -60,12 +60,12 @@ const TONIGHT = {
      copy change, and it needs a criterion of its own.
      -------------------------------------------------------------------- */
   explains: {
-    what: "dedup only removes duplicates that are sitting next to each other. The 2,2 in the middle and the 1,1 at the end were adjacent, so they collapsed into one. The other 2 and the other 1 weren't next to their twins, so they stayed exactly where they were.",
+    what: "dedup only removes duplicates that are sitting next to each other. The 2,2 in the middle and the 1,1 at the end were adjacent, so they collapsed into one. The other 2 and the other 1 weren't next to their twins, so they stayed where they were.",
     whyWrong: {
       option: "A",
-      text: "In almost every other language, a method called dedup means unique — give me each value once. Rust's doesn't. The word doing all the work is consecutive, it appears once in the docs, and it is extremely easy to read straight past."
+      text: "In almost every other language, a method called dedup means unique: give me each value once. Rust's doesn't. It removes only consecutive duplicates. That word appears once in the docs and is easy to read past."
     },
-    argue: "If you want genuinely unique elements you have to sort first — which makes the duplicates adjacent — or reach for a HashSet. Which of those you pick is a real decision, and it is mostly about whether you care about order."
+    argue: "To get each value once, either sort first, which puts the duplicates next to each other, or use a HashSet. Which you pick depends on whether you care about order."
   },
   receipt: {
     rustc: RUSTC,

@@ -4,6 +4,9 @@
 the same day — *"rust on fly, i'll pay, D-H is fine."* The decisions in §1
 are decided.** Reads with `SPEC.md` (what) and
 `EVALUATION.md` (how judged). Consumed by `lattice-orchestrator`.
+**Amended 2026-09-19 (D-16…D-23) after the build stage's contract check of 2026-09-18: tickets
+T-25 and T-26 added; T-01, T-07, T-09, T-10, T-14, T-15a, T-15b and T-20 amended;
+H-11 added.**
 
 ---
 
@@ -65,7 +68,7 @@ The laptop holds the bank; the server holds one question at a time.
 included — the server needs it to reveal, behind AC-61's boundary) to the
 room server and writes the static fallback file. At **release** the server
 writes `used` and rebuilds take-it-home; `popquiz sync` pulls the `used`
-record into the bank. Every field in `SPEC.md` §3 keeps one writer.
+record into the bank. Both ride one authenticated admin channel — two routes, one bearer token, built by T-25 (`SPEC.md` §8.3, D-20). Every field in `SPEC.md` §3 keeps one writer.
 Decide-and-log.
 
 ### D-F · Domain and the short link (AC-28)
@@ -123,7 +126,9 @@ serialized on it by the orchestrator. Names checked: Rust modules `auth`, `rooms
 
 | Item | Status | Where |
 |---|---|---|
-| Pinned rustc, N=5 byte-identical runs, compile-failure with error code, `verified.json` written by code | DONE | `verify.py:166-216` |
+| N=5 byte-identical runs, compile-failure with error code, `verified.json` written by code | DONE | `verify.py:166-216` |
+| Pinned rustc | **PARTIAL — recorded, not pinned.** `rustc --version` is written to the record, but `rustc` is resolved from `PATH`, nothing is compared, and no toolchain file exists. The pin is written new: defined once in T-15a's image, enforced by T-15b (D-17) | `verify.py:160-163,172,238` |
+| Full `-Vv`, target triple and flag set in the record | **MISSING** — `mvp/2026-08-12/verified.json` has none of them, and its `miri` field is a free-text result from an out-of-repo pass. T-14 marks migrated records `legacy` and back-fills nothing (`SPEC.md` §3.2, D-16) | `mvp/2026-08-12/verified.json` |
 | Miri in the verifier | **MISSING** — never called in code; the on-disk `miri` fields came from an out-of-repo pass | `verify.py` (no `miri` invocation); `README.md:193-195` |
 | Sandbox | MISSING | — |
 | `slot_for_day` pure, both-tails audit, repeat check | DONE — inherit | `build_deck.py:162-217` |
@@ -144,7 +149,7 @@ user-facing is done on green tests alone.
 
 | # | Ticket | Criteria | Depends on | Notes |
 |---|---|---|---|---|
-| **T-01** | Repo scaffold: `room/` in whichever stack **H-1 decided** (Rust crate, or a Workers project), `pipeline/` (uv project, Python 3.12), `web/`, `bank/`, `justfile` with `test` (≤60 s, hermetic) and `test-full`, CI running both. States what `canary` runs as in `test`: an **in-process** harness (the router driven without a socket), with the deployed scan in `test-full` | — | **H-1** | Shared files: `justfile`, `pyproject.toml`, CI config |
+| **T-01** | Repo scaffold: `room/` in whichever stack **H-1 decided** (Rust crate, or a Workers project), `pipeline/` (uv project, Python 3.12), `web/`, `bank/`, `justfile` with `test` (≤60 s, hermetic) and `test-full`, CI running both. States what `canary` runs as in `test`: an **in-process** harness (the router driven without a socket), with the deployed scan in `test-full`. States that `test` never invokes `rustc`, Miri or Docker — the verifier is reached through a stub `Runner` with recorded fixtures (`SPEC.md` §7.2, D-18) — and that `test-full` re-runs those cases on the T-15a image, so CI installs Docker for `test-full` only | — | **H-1** | Shared files: `justfile`, `pyproject.toml`, CI config |
 | **T-02** | `web/shared/`: tokens and fonts vendored from the design system; port `proto.js` — source well, syntax colour, trace renderer, the type model with measured refit and the clipped-edge, the phase strings from `SPEC.md` §11 | AC-99, AC-100, AC-40 | T-01 | Built alone; three tickets consume it |
 | **T-03** | **Spike — the burst.** Minimal `axum` WebSocket room with 200 synthetic clients; the deadline burst in isolation; p95 write and reveal-fan-out measured on a deployed Fly machine. Go/no-go on D-A. | AC-52, AC-53, AC-54, AC-41 | T-01 | **Blocks M1.** If p95 fails, D-A option 2 is re-opened before any room code is written. |
 
@@ -157,34 +162,38 @@ user-facing is done on green tests alone.
 | **T-04c** | Transport: one broadcast per room over WebSockets, reconnect with the same session token, host and wall subscriptions | AC-37, AC-41, AC-81 | T-04a | |
 | **T-05** | The wall: seven phases on the 1120×630 canvas, full-width source with options beneath, type model, split bars, reveal with **the receipt rendered by the one approved-wording function** (§7.5), released with link + QR, no interaction | AC-33, AC-39, AC-40, AC-71, AC-74, AC-78, AC-79, AC-99, AC-100, G-7 | T-02, T-04a–c | |
 | **T-06** | The buzzer: join by link or code, six failure states, capacity refusal, letters, saving/saved/failed, reconnect, the hint hidden in the live payload, the count on split/work/reveal, the released line | AC-28–32, AC-34–38, AC-48, AC-58, AC-83, AC-85, AC-94 | T-02, T-04a–c | |
-| **T-07** | The host phone: one screen per phase, one primary action, counts, trace stepping, the read-aloud script with the receipt's provenance line (G-7), resume on refresh/device change | AC-45–47, AC-49, AC-50, AC-71, AC-74 | T-02, T-04a–c | |
+| **T-07** | The host phone: one screen per phase, one primary action, counts, trace stepping, the read-aloud script with the receipt's provenance line (G-7), resume on refresh/device change; in M1 *Create a room* presents the stand-in host token carried in the page URL (`SPEC.md` §8.2) | AC-45–47, AC-49, AC-50, AC-71, AC-74 | T-02, T-04a–c | |
 | **T-08** | `canary`: plant secrets in answer, explanation, receipt, hint-before-live; scan every payload, frame, and page in every phase; post-close traffic carries no answer | AC-32, AC-47, AC-48, AC-58, AC-60, AC-79, G-3, G-4, G-8 | T-04a–07 | In-process scan in `test`; the deployed-room scan in `test-full`. Serialized on `justfile` |
-| **T-09** | Deploy: Fly app, `popquiz.rustnyc.org` (or fallback host), the short link carrying the code, `smoke` | AC-28 | T-05–07 | Human track: DNS. Serialized on `justfile` (`smoke`) |
+| **T-09** | Deploy: Fly app, `popquiz.rustnyc.org` (or fallback host), the short link carrying the code, `smoke`; the skeleton is built with the `dev-host-token` feature, `HOST_DEV_TOKEN` is set as a Fly secret, and the host URL is printed once (`SPEC.md` §8.2, D-19) | AC-28, AC-64 (stand-in) | T-05–07 | Human track: DNS. Serialized on `justfile` (`smoke`). Adds the name `HOST_DEV_TOKEN`, never a value, to `.env.example` |
+| **T-26** | The static fallback: `mode: "static"` in the wall (no socket, the phase held locally, the question baked in), the `Space`/`←`/`→`/`Esc` driver, and a one-file build with fonts and tokens inlined that makes no network request; the same fixture renders identically in both modes (`SPEC.md` §12, D-21) | AC-102, AC-97, AC-99 | T-02, T-05 | Not part of HC-0's trigger, but the client opens the file offline at HC-0. Touchpoint T-24 (the host's script) is open — until it is answered, the wall file only. Edits `web/wall/`; consumes `web/shared/` |
 
 **HC-0:** the client drives the deployed skeleton beside the prototype through
 all seven phases with mock participants. Drift from the prototype is a defect.
+The skeleton is deployed behind the §8.2 host stand-in, and the client also opens
+the static fallback (T-26) with the network off and steps it from the keyboard.
 
 ### M2 · Real rooms
 
 | # | Ticket | Criteria | Depends on | Notes |
 |---|---|---|---|---|
-| **T-10** | Discord OAuth: scopes, member lookup, role-**ID** check at room creation, the Administrator test, refresh-token rotation persisted, bounded retries, denial wording | AC-64–70, G-9 | T-04a–b | Human track: app id, secret, guild id, role id |
+| **T-10** | Discord OAuth: scopes, member lookup, role-**ID** check at room creation, the Administrator test, refresh-token rotation persisted, bounded retries, denial wording; **deletes the M1 stand-in** (the `dev-host-token` feature) and adds the test that a build without it accepts no stand-in token (`SPEC.md` §8.2) | AC-64–70, G-9 | T-04a–b | Human track: app id, secret, guild id, role id. The live check against the client's account is this ticket's exit criterion and gates HC-1 |
 | **T-11** | Lifecycle: 4 h expiry, room deleted at release, totals with expiry, **`used` written at release**, take-it-home rebuild at release, *Run it again* refuses a used question | AC-56, AC-57, AC-69, AC-92, G-4, G-10 | T-04b | **The only writer of the used-question ledger.** |
 | **T-12** | Take it home: the last question with colour, the free-stepping trace, three beats, receipt, options with ✓, container-scroll on a phone | AC-33, AC-95 (count from release), `SPEC.md` §13 | T-02, T-11 | |
 | **T-13** | `a11y`: keyboard, live regions per phase and the private hint, AA contrast, 44 px, reduced motion, over every surface and phase | AC-82–86 | T-05–07 | Serialized on `justfile` (`a11y`) |
+| **T-25** | The pipeline channel, server side: `PUT /admin/questions/{id}` into the sealed `answers` module and `GET /admin/used`, one constant-time bearer check on `POPQUIZ_ADMIN_TOKEN`, a route-table test that nothing else is served under the admin prefix and no other route reads the token (`SPEC.md` §8.3, D-20) | AC-101, AC-61, G-9 | T-04a, T-11 | Human track: H-11, for the deployed check only. Adds the name `POPQUIZ_ADMIN_TOKEN`, never a value, to `.env.example` |
 
 ### M3 · The pipeline → **HC-2**
 
 | # | Ticket | Criteria | Depends on | Notes |
 |---|---|---|---|---|
-| **T-14** | Bank format (`SPEC.md` §3.1–3.3) and migration of the eight MVP questions: verified facts carried over, `explains` three beats and `trace` drafted for organizer affirmation, `explanation` kept as `legacy` | AC-13, AC-17, AC-73 | T-01 | **Only q3 migrates as authored** (touchpoint T-22, D-15). q4, q7 and q8 fit as programs but their options must be re-authored to one line of at most 29 characters and re-verified (the machine decides the new answer). q1, q2, q5 and q6 exceed the wall's 7-line capacity at the guessed room and stay in the MVP bank only, until re-authored or until the rehearsal's measurements raise the capacity. |
-| **T-15a** | The sandbox: a Docker image with the pinned toolchain and nightly Miri, run with no network, memory/CPU/pids limits, read-only root, tmpfs work dir, hard timeout; the AC-12 fixture suite proven on it | AC-12 | T-01 | Serialized on `justfile` |
-| **T-15b** | The verifier in code: inherit `verify.py`'s procedure after audit; **add Miri** (strict provenance, Tree Borrows for UB-intended), the flag set, target triple, the §3.2 record; `verify <program>` | AC-6–11, AC-13, AC-87, G-2 | T-14, T-15a | Audit ticket for `verify.py`. Serialized on `pyproject.toml` with T-16, T-17 |
-| **T-16** | The generator: Claude Opus 5 via Message Batches, structured outputs into the §3.1 shape, count/topics/difficulty honoured or reported, talk mode, per-candidate cost and wall-clock, re-runnable | AC-1–5 | T-14 | Human track: API key, spend cap. Serialized on `pyproject.toml` The generator's brief carries the room's capacity — source lines at the floor, each option a single line, at most 29 characters (`SPEC.md` §7.1, D-15). |
+| **T-14** | Bank format (`SPEC.md` §3.1–3.3) and migration of the eight MVP questions: verified facts carried over **as `legacy` records — only the fields the MVP wrote, nothing back-filled** (`SPEC.md` §3.2, D-16), `explains` three beats and `trace` drafted for organizer affirmation, `explanation` kept as `legacy` | AC-13, AC-17, AC-73, AC-87 | T-01 | **Only q3 migrates as authored** (touchpoint T-22, D-15). q4, q7 and q8 fit as programs but their options must be re-authored to one line of at most 29 characters and re-verified (the machine decides the new answer). q1, q2, q5 and q6 exceed the wall's 7-line capacity at the guessed room and stay in the MVP bank only, until re-authored or until the rehearsal's measurements raise the capacity. |
+| **T-15a** | The sandbox: a Docker image with the pinned toolchain and nightly Miri — **the pin (`rustc -Vv` release and commit-hash, the nightly's date) is defined here, once** (`SPEC.md` §7.2, D-17) — run with no network, memory/CPU/pids limits, read-only root, tmpfs work dir, hard timeout; the AC-12 fixture suite proven on it | AC-12 | T-01 | Serialized on `justfile` |
+| **T-15b** | The verifier in code: inherit `verify.py`'s procedure after audit; **add Miri** (strict provenance, Tree Borrows for UB-intended), the flag set, target triple, the §3.2 record, **the pin comparison and stale rejection, and the `Runner` seam with its stub and recorded fixtures** (`SPEC.md` §7.2, D-17, D-18); `verify <program>` | AC-6–11, AC-13, AC-87, G-2 | T-14, T-15a | Audit ticket for `verify.py`. Serialized on `pyproject.toml` with T-16, T-17 |
+| **T-16** | The generator: Claude Opus 5 via Message Batches, structured outputs into the §3.1 shape, count/topics/difficulty honoured or reported, talk mode, per-candidate cost and wall-clock, re-runnable | AC-1–5 | T-14 | Human track: API key, spend cap. Serialized on `pyproject.toml`. The generator's brief carries the room's capacity — source lines at the floor, each option a single line, at most 29 characters (`SPEC.md` §7.1, D-15). The brief also carries the style rules and the §11.1 patterns (D-23). |
 | **T-17** | Dedupe: exact hash, normalized-AST fingerprint, near-duplicates by token-bigram Jaccard at the configured threshold (D-13) to the review queue, persistent history with visible size | AC-14–18 | T-14 | Serialized on `pyproject.toml` |
-| **T-18** | Review surface (local, served by the CLI): one screen per candidate, accept/reject-with-reason/edit-and-reverify, difficulty judged, **affirm** as a blocking gate with who/when, middle-beat and quoted-output checks | AC-19–22, AC-72–74, AC-88, AC-95, G-12 | T-14, T-15b | |
-| **T-19** | `bank-audit`: inherit `slot_for_day` and the both-tails audit after audit; **retire** `build_deck.py`'s ledger write; the five enumerated tells at 1.5× chance; `unsafe` parity; five options with one *does not compile*; no published distribution; fit against the configured room | AC-23–27, AC-100, G-1, G-11 | T-14, T-02 (type model) | Audit ticket for `build_deck.py` — G-1 has regressed four times. **Port `slot_for_day` only.** `slot_for_meetup`, the wrapper one function below it that writes the ledger, is **not** ported under any name; the ledger's only writer is T-11's release transition. Serialized on `justfile` (`bank-audit`) Adds the **option-length** rule: every option one line of at most 29 characters (`SPEC.md` §5.2, D-15). |
-| **T-20** | `popquiz schedule` / `sync`: push the affirmed question and the **static fallback** to the server; pull `used`; reserve count, trend, and the low-reserve warning; a meetup from reserve with no generation | AC-75–77, AC-89, AC-92, `SPEC.md` §12, G-12 | T-11, T-18, T-19 | |
+| **T-18** | Review surface (local, served by the CLI): one screen per candidate, accept/reject-with-reason/edit-and-reverify, difficulty judged, **affirm** as a blocking gate with who/when, middle-beat and quoted-output checks; §11.1 trope matches highlighted beside `explains`, `why_tempting` and `hint` as warnings that block nothing (`SPEC.md` §7.4, D-23) | AC-19–22, AC-72–74, AC-88, AC-95, G-12 | T-14, T-15b | |
+| **T-19** | `bank-audit`: inherit `slot_for_day` and the both-tails audit after audit; **retire** `build_deck.py`'s ledger write; the five enumerated tells at 1.5× chance; `unsafe` parity; five options with one *does not compile*; no published distribution; fit against the configured room | AC-23–27, AC-100, G-1, G-11 | T-14, T-02 (type model) | Audit ticket for `build_deck.py` — G-1 has regressed four times. **Port `slot_for_day` only.** `slot_for_meetup`, the wrapper one function below it that writes the ledger, is **not** ported under any name; the ledger's only writer is T-11's release transition. Serialized on `justfile` (`bank-audit`). Adds the **option-length** rule: every option one line of at most 29 characters (`SPEC.md` §5.2, D-15). |
+| **T-20** | `popquiz schedule` / `sync`: push the affirmed question to the server over the §8.3 channel and write the **static fallback** file with T-26's build; pull `used`; reserve count, trend, and the low-reserve warning; a meetup from reserve with no generation | AC-75–77, AC-89, AC-92, AC-101, `SPEC.md` §12, G-12 | T-11, T-18, T-19, T-25, T-26 | Human track: H-11, for the first deployed push |
 
 **HC-2:** the client reviews the first generated batch on the review surface,
 stopwatch running, reads each explanation aloud, affirms what passes.
@@ -194,14 +203,14 @@ stopwatch running, reads each explanation aloud, affirms what passes.
 | # | Ticket | Criteria | Depends on | Notes |
 |---|---|---|---|---|
 | **T-21** | `burst` and `smoke` in `test-full`, run against the deployed room in CI; failed-request logging the client can read after a meetup | AC-41, AC-52–55 | T-09 | Serialized on `justfile` (`burst`, `test-full`) |
-| **T-22** | The copy freeze: every participant-facing string from `SPEC.md` §11 in one module; the forbidden-copy lint in `test` | AC-98, AC-59, G-5 | T-05–07, T-12 | |
+| **T-22** | The copy freeze: every participant-facing string from `SPEC.md` §11 in one module; the forbidden-copy lint and the §11.1 trope check in `test`, the trope check failing the build on any match in the copy module (D-23) | AC-98, AC-59, AC-42, G-5 | T-05–07, T-12 | |
 | **T-23** | **Guardrail audit** — an adversarial read of all merged code against G-1…G-12 and the phase invariants; files gap tickets | G-1…G-12 | everything above | The Phase-4 pass, re-run on the built tree |
 | **T-24** | The organizer runbook: successor to `mvp/README.md`'s run-of-show for the built room; host script per phase; the statements that option text is public and that a Rust-expert host can infer the answer; the rehearsal and field-notes sheets pointed at the build | AC-51, AC-62, AC-63, AC-90 | T-09, T-20 | |
 
 **Settled at a checkpoint, no ticket, by design:** AC-20, AC-21, AC-42, AC-43, AC-44, AC-80, AC-91, AC-96 are `felt` or operator-measured and land at HC-1, HC-2, and HC-4 (`EVALUATION.md`). Their absence from the ticket tables is a decision, not an omission.
 
 **HC-1** (the rehearsal, touchpoint T-18, on the client's calendar) runs on the built room
-if M1 has passed HC-0, else on the prototype; it sets AC-100's room
+if M1 has passed HC-0 **and T-10's live Discord check has passed**, else on the prototype; it sets AC-100's room
 configuration. **HC-3** the client opens take-it-home on the train. **HC-4**
 is October.
 
@@ -209,14 +218,13 @@ is October.
 
 If October arrives before M3: **M0 + M1 + M2, plus T-14 (the MVP questions that
 fit the wall: q3 as authored, and q4, q7 and q8 after re-authoring), T-18 (affirm — G-12), T-19 (the slot mechanism and
-`bank-audit` — G-1, G-11), T-22 (the copy lint — G-5), and T-20's push half.**
+`bank-audit` — G-1, G-11), T-22 (the copy lint — G-5), and T-20's push half with T-25, its receiving side.**
 That is the smallest set that meets every non-negotiable; generation (T-16),
 dedupe (T-17), the sandbox (T-15a) and the in-code verifier (T-15b) wait, and
-those questions carry their August verification with the Miri caveat
-stated on the receipt. **Supply is short until the generator refills it:** one
+those questions carry their August verification as `legacy` records and render the legacy receipt (`SPEC.md` §7.5, D-16), which says the machine was not recorded and that Miri was run outside the verifier. **Supply is short until the generator refills it:** one
 question a night from at most four questions is four meetups, not eight months
 (D-7), which is exactly the job the generator, now told the wall's limits, exists to do. If October arrives before M2: the prototype's
-static fallback (§12) built from T-02 and T-05, driven from a laptop — the
+static fallback (§12), built by T-26 from T-02 and T-05 and driven from a laptop — the
 built wall with no phones, which is the MVP deck with the new phases.
 
 ---
@@ -237,6 +245,7 @@ The client's work plan, in dependency order. None of it goes to the fleet.
 | H-8 | ~~Confirm D-H~~ decided as D-9; nothing to do | — |
 | H-9 | Cole, on the colour — not blocking | — |
 | H-10 | Host in October with a co-organizer holding `FIELD-NOTES-TEMPLATE.md` | HC-4 |
+| H-11 | Generate the pipeline's admin token: `fly secrets set POPQUIZ_ADMIN_TOKEN=…` and keep the same value in the pipeline's local config, never in the repository (`SPEC.md` §8.3) | T-25's deployed check; T-20's first push |
 
 ---
 
@@ -248,6 +257,6 @@ The client's work plan, in dependency order. None of it goes to the fleet.
 | Drift from the loved prototype | HC-0, before auth or pipeline work |
 | The room measurements are wrong and the bank does not fit | HC-1 sets them; T-19's fit flag reports the bound |
 | Miri wall-clock and cost unknown | T-15 measures on the first migrated question |
-| Discord specifics unverified (member shape, approval for the scope) | T-10 against the client's real account, first thing |
+| Discord specifics unverified (member shape, approval for the scope) | T-10 against the client's real account, first thing; it gates HC-1 (`SPEC.md` §8.2) |
 | G-1 regresses a fifth time | T-19's audit ticket; the simulation in `test` on every PR touching the slot path |
 | October arrives first | The minimum viable cut above |

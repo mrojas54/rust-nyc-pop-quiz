@@ -37,7 +37,7 @@ ship a question whose answer I guessed.*
 
 | ID | Criterion |
 |---|---|
-| **AC-6** | Every candidate is compiled with a **pinned** rustc and edition, both recorded. `MVP` |
+| **AC-6** | Every candidate is compiled with a **pinned** rustc and edition, both recorded. *`MVP` withdrawn 2026-09-19: the MVP records the compiler version but pins nothing — see Amendments.* |
 | **AC-7** | The correct answer is read from the program's actual output. No code path allows a hand-written answer to reach a deck. `MVP` |
 | **AC-8** | Each candidate is run at least 5 times; any candidate whose output is not byte-identical across all runs is **rejected**, not flagged. `MVP` — *5 is a starting hypothesis, not a derived figure; revisit once rejection data exists.* |
 | **AC-9** | Each candidate is run under Miri; a Miri-reported UB finding rejects the candidate unless UB is the intended answer. `MVP` |
@@ -45,7 +45,7 @@ ship a question whose answer I guessed.*
 | **AC-11** | A candidate expected not to compile must actually fail, and its error code is recorded. `MVP` |
 | **AC-12** | Candidate programs are compiled and executed in a sandbox with no network, no secrets, no host filesystem access, and enforced CPU/memory/time limits. |
 | **AC-13** | The recorded verification facts are sufficient to render a receipt without re-running anything. `MVP` |
-| **AC-87** | The determinism claim is **scoped to the target triple actually tested**, and the receipt says so. Five identical runs on one architecture is evidence about that architecture. |
+| **AC-87** | The determinism claim is **scoped to the kind of machine actually tested**, and the receipt says so in words a room can read (*on one kind of computer*); the exact target triple, compiler and Miri configuration are on the take-it-home page under *How we know*. **A record that predates triple capture — the eight MVP verifications — has no machine to name, so its receipt says *We did not record which computer* and claims nothing wider; it is replaced whole when the question is re-verified. A does-not-compile record makes no determinism claim.** *Amended twice on 2026-09-19, `tone-architect`: first from the build stage's contract check, for records that predate triple capture; then on the client's word that the receipt was unreadable to a room (touchpoint T-23, answered), to scope the claim in plain words and move the triple to take-it-home. Original: "The determinism claim is **scoped to the target triple actually tested**, and the receipt says so. Five identical runs on one architecture is evidence about that architecture."* |
 
 ### Story A3 — Never repeat a question
 *As an organizer, I want confidence that tonight's questions have not been asked
@@ -111,6 +111,7 @@ day, because the segment dies the first time it does.*
 | **AC-75** | The bank maintains a **reserve** of verified, reviewed, unused questions. The reserve size and its trend are visible at a glance. |
 | **AC-76** | Falling below the reserve threshold warns the organizer with enough lead time to act — not on the day. |
 | **AC-77** | A meetup can run entirely from reserve with **zero generation that day**, using no network beyond serving the room. |
+| **AC-102** | **If the room cannot run, the segment still can.** The wall's views for the scheduled question are available as one file that opens on the organizer's laptop with no network, is stepped from the keyboard in the room's phase order, and obeys the same rules as the room's wall: no answer, receipt, ✓ or colour before the views that may show them (AC-97, AC-99). *Minted 2026-09-19, `tone-architect`, from the static fallback that `SPEC.md` §12 specified and no criterion covered — AC-77's spirit, made testable.* |
 
 ---
 
@@ -271,7 +272,7 @@ specifically for *"pairs up new people with more experienced engineers"*, and
 |---|---|
 | **AC-93** | The room's split is shown **before** the correct answer, as its own phase, and the reveal cannot be reached without passing through it. Order is the mechanism, not a preference: a split shown *after* the answer is a scoreboard. |
 | **AC-94** | No participant-facing surface marks a participant's **own** answer as incorrect — no ✗, no red, no "you were wrong". The correct option is marked (AC-40 still applies to the *answer*); the participant's own choice is marked only with the number of people who chose the same thing. |
-| **AC-95** | **At reveal, the wall and the host's read-aloud both name the room's most-chosen incorrect option and how many chose it, and the middle beat says why it is a reasonable reading.** Every incorrect option carries its own authored *why you might have read it as this* text, so the beat exists whichever option the room picks; the explanation is a structured artifact — *what happened* / *why you might have read it as X* / *the bit worth talking about* — and the middle beat cannot be empty for any incorrect option. Checked at review; blocking, alongside AC-72. **Take-it-home carries those texts but no count** (AC-56, D-12). *Amended 2026-09-18, `tone-architect`: D-9 replaced the predicted popular wrong answer with a text per incorrect option, and D-12 settled the take-it-home conflict. Original: "The explanation names the most-chosen incorrect option, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — what happened / why the popular wrong answer is tempting / the bit worth taking away — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72."* |
+| **AC-95** | **At reveal, the wall and the host's read-aloud both name the room's most-chosen incorrect option and how many chose it, and the middle beat says why it is a reasonable reading.** Every incorrect option carries its own authored *why you might have read it as this* text, so the beat exists whichever option the room picks; the explanation is a structured artifact — *what happened* / *why you might have read it as X* / *what to remember* — and the middle beat cannot be empty for any incorrect option. Checked at review; blocking, alongside AC-72. **Take-it-home carries those texts but no count** (AC-56, D-12). *Amended 2026-09-18, `tone-architect`: D-9 replaced the predicted popular wrong answer with a text per incorrect option, and D-12 settled the take-it-home conflict. Original: "The explanation names the most-chosen incorrect option, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — what happened / why the popular wrong answer is tempting / the bit worth taking away — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72."* |
 | **AC-96** | The explanation's **first beat** is understandable to someone who knows only beginner Rust, without the other two. `felt` — same instrument as AC-44, sampled by asking one attendee at a real meetup. |
 | **AC-97** | **The room walks the program through together before the answer exists.** A distinct phase sits between the split (AC-93) and the reveal, in which the trace is stepped at the host's pace with the correct option **unmarked** and the verification receipt **not shown**. The reveal cannot be reached without passing through it. Repetition is where the understanding comes from, so a build that runs the trace only *after* the answer does not satisfy this — there it explains a settled result instead of producing one. |
 | **AC-98** | **Nothing in the segment obliges a participant to speak or to interact with another person.** No surface instructs participants to turn to each other, compare answers, or volunteer; nobody is called on by name; and no count, prompt, or absence-of-response is displayed. A host may take a contribution that is offered **unprompted**, and the product neither asks for one nor notices when none comes. |
@@ -319,6 +320,15 @@ without maintaining a second list of people.*
 | **AC-68** | Only the organizer who created a room can view or control it; no room state leaks to another organizer. |
 | **AC-69** | **Authorization is checked when a room is created, not continuously.** A room whose host was authorized at creation runs to completion regardless of provider availability, bounded by a maximum room lifetime of 4 hours. Creating a *new* room always requires a live check. This replaces the PRD's 15-minute grace window, which was shorter than most observed Discord incidents (20 minutes to 3+ hours) and required a degraded partial-service state to be designed, built and tested for no benefit. |
 | **AC-70** | A denial says which condition failed — wrong server, wrong role — without leaking membership information. |
+
+### Story C2 — Only the organizer's pipeline loads and reads questions
+*As an organizer, I want the room server to take a scheduled question, and to
+release its used-question record, only from my own pipeline, so the answer to
+tonight's question is never reachable by anyone else.*
+
+| ID | Criterion |
+|---|---|
+| **AC-101** | **The room server accepts a scheduled question — answer included — and returns its used-question record only over an authenticated admin channel used by the organizer's pipeline.** No participant, wall or host route serves those routes or accepts that credential; a missing or wrong credential is refused with no information about what is stored; the credential is never in the repository, a payload, a page or a log. *Minted 2026-09-19, `tone-architect`: the build plan's laptop-to-server push (D-E) named no credential and no owner, and every other credential path in the corpus (AC-64…AC-70) is Discord's.* |
 
 ---
 
@@ -700,7 +710,27 @@ is read.
 
 ---
 
+### 2026-09-19 — `tone-architect` amendment pass, after the build stage's contract check
+
+`lattice-orchestrator`'s Phase 0 read the build contract cold against the code it
+sits on (2026-09-18) and found six defects, recorded as D-16…D-21 in
+`run-state.md`. Two reached existing criteria and two were minted. Nothing was
+re-judged.
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-6** | **Status corrected, text unchanged.** The `MVP` tag is withdrawn. | The MVP records `rustc --version` and pins nothing: it runs whichever `rustc` is on `PATH` and compares no version. A criterion cannot be *satisfied by the deck* when the deck never did the thing it names. |
+| **AC-87** | **Amended twice.** A record that predates triple capture says the machine was not recorded and claims nothing wider; a does-not-compile record makes no determinism claim (D-22); and the receipt now scopes the claim in plain words, with the triple on take-it-home (D-23). Original kept in the row. **Answered 2026-09-19 — touchpoint T-23.** | The eight MVP verifications have no target triple, and back-filling one would be a hand-written fact (AC-7's spirit). Without an exception the receipt either overstates or cannot render. |
+| **AC-101** | **Minted**, Story C2. | The laptop-to-server push had no credential and no owner. |
+| **AC-102** | **Minted**, Story A7. | The static fallback was specified and had no criterion, and the minimum viable cut leans on it. |
+
+**Reviewed and left standing:** AC-9 and AC-10 keep their `MVP` tag. The MVP did
+satisfy them, by a hand-run Miri pass outside `verify.py`; `EVALUATION.md`
+already carries that caveat and nothing about them changed.
+
+---
+
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
 fresh IDs and existing IDs never change meaning after handoff. Range is now
-AC-1 … AC-100 across 19 stories.*
+AC-1 … AC-102 across 20 stories.*

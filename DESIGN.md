@@ -62,7 +62,7 @@ the pace."* On 6 and 7: *"love it."*
 **The reveal script has three beats**, and the order is the point: what
 happened, plain enough for a beginner to repeat (AC-44); why *N of us* read it
 the other way, with the count, which is the beat that makes being wrong ordinary;
-then the bit worth talking about — the real decision, which carries on at the
+then what to remember, the real decision, which carries on at the
 bar. This makes `explanation` three fields rather than one; `SPEC.md` §3.1
 carries the model (`what`, a `why_tempting` per incorrect option, `takeaway`).
 
@@ -82,8 +82,9 @@ to talk **to** the person who got it wrong, never **about** them. In practice:
   something else* — were written, cut, and are recorded as the shape to avoid.
 - **The client's own lines where they exist.** *Time for a pop quiz.* *Let's go
   to the bar.* They beat anything written for them.
-- **The verification receipt says exactly what it proves** (§4): Miri clean on
-  the executed paths, five byte-identical runs. Never more.
+- **The verification receipt says exactly what it proves** (§4): in plain words: run five
+  times on one kind of computer with the same output, Miri found no problems in
+  the code that ran, and the machine checked the answer only. Never more.
 
 ## Aesthetic
 

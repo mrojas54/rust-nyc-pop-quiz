@@ -238,14 +238,11 @@ function explainNoRoomHtml(q) {
       '<p>' + escapeHtml(e.what) + '</p>' +
     '</div>' +
     '<div class="beat beat-company">' +
-      '<h3>Why ' + L + ' — <code>' + escapeHtml(chosen.text) + '</code> — is the reading almost everyone brings</h3>' +
+      '<h3>Why you might have read it as ' + L + ': <code>' + escapeHtml(chosen.text) + '</code></h3>' +
       '<p>' + escapeHtml(e.whyWrong.text) + '</p>' +
-      '<p class="meta" style="margin:6px 0 0">If you read it that way, nothing is missing from your Rust. ' +
-        'This is the one place <code>dedup</code> disagrees with every other language you have used, and ' +
-        'the disagreement is one word long.</p>' +
     '</div>' +
     '<div class="beat">' +
-      '<h3>The bit worth talking about</h3>' +
+      '<h3>What to remember</h3>' +
       '<p>' + escapeHtml(e.argue) + '</p>' +
     '</div>';
 }

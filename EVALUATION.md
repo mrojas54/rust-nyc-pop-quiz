@@ -1,7 +1,7 @@
 # Evaluation contract — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 1. Written 2026-09-03 against
-`sequence/USER_STORIES.md` AC-1…AC-100, `DESIGN.md`, and the loved prototype.**
+**Status: Stage 3 `tone-architect`, Phase 1. Written 2026-09-03, amended 2026-09-19 (D-16…D-23), against
+`sequence/USER_STORIES.md` AC-1…AC-102, `DESIGN.md`, and the loved prototype.**
 This is what *done* means for the build, and exactly how an agent proves each
 criterion without a human in the loop — or, where it cannot, who proves it,
 with what, and when. `SPEC.md` says what to build; this file says how it is
@@ -28,8 +28,8 @@ decided in Phase 3. The orchestrator requires the first two.
 
 | Hook | Contract | Budget |
 |---|---|---|
-| `test` | Hermetic, parallel, no network, no toolchain beyond the repo's own. Every `autonomous` row that says `test` runs here. | **≤ 60 s** wall-clock. A slower default suite is a defect. |
-| `test-full` | Everything: `test` + browser-driven checks, the Miri fixture suite, the load and burst tests, the accessibility sweep. | Minutes; CI and pre-merge. |
+| `test` | Hermetic, parallel, no network, and **no `rustc`, Miri or Docker** — none is needed. Every `autonomous` row that says `test` runs here. Pipeline rows run the verifier's decision logic against a **stub `Runner`** that replays recorded compiler, binary and Miri outputs (fixtures committed with the tests, each recorded once from the real toolchain on the T-15a image); the same cases re-run on the real toolchain in `test-full` (D-18). | **≤ 60 s** wall-clock. A slower default suite is a defect. |
+| `test-full` | Everything: `test` + the pipeline rows re-run on the **real toolchain in the T-15a image** (pinned `rustc`, nightly Miri) + browser-driven checks, the Miri fixture suite, the load and burst tests, the accessibility sweep. CI installs Docker and the image for this hook only. | Minutes; CI and pre-merge. |
 | `verify <program>` | The pipeline's verifier on one candidate — pinned rustc, N native runs, Miri — emitting a `verified` record. | Per candidate; the Miri wall-clock is measured here (Q-E4). |
 | `bank-audit` | The whole bank against AC-23b (generator uniformity, both tails), AC-24, AC-25, AC-26 (the enumerated tells), AC-27, AC-100 (fits the configured room). | Seconds; runs on every build and every bank change. |
 | `canary` | The secrecy suite, phase-scoped per `SPEC.md` G-3: plant canaries in the resolving trace step's `note`, the explanation, the receipt, and the hint; assert the first three appear in no pre-reveal payload and the hint in no pre-`live` payload. `verified.stdout` is never a canary — for every output-kind question it **is** an option text, and option texts and the letters A–E are public. The join itself — which option equals the output — is proven structurally: AC-61's module boundary, plus a payload-shape assertion that every pre-reveal option object is exactly `{letter, text}` in bank order, and that no pre-reveal payload carries a `values` entry named `stdout` (AC-47, AC-48, AC-60, AC-61, AC-79, AC-97, AC-32, AC-58). | The **in-process** scan (router driven without a socket, every phase) is part of `test`; the scan of the deployed room's real frames and pages is in `test-full`. |
@@ -48,15 +48,15 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-3 | `autonomous` | `test`: a run asked for *n* questions on topics T at difficulty d yields *n* candidates tagged T and d, or a report naming which of the three it could not honour. |
 | AC-4 | `operator-assisted` | `test`: a fixture title + abstract yields candidates each tagged with a named std/core concept. **Whether the connection is real** is judged by the organizer at the first talk-mode batch (HC-2). |
 | AC-5 | `autonomous` + `operator-assisted` | `test`: the run report carries per-candidate cost and wall-clock (fixture run, no API). The real figures come from the first paid run at **HC-2** and replace `ECONOMICS.md`'s guess bands (Q-E3, Q-E4). |
-| AC-6 | `autonomous` `MVP`* | `verify`: the record carries `rustc -Vv`, edition, target triple, and the flag set (overflow-checks, debug-assertions, opt-level — the flags the research found unpinned). `test`: a candidate verified under a different pin is rejected as stale. *\*The MVP label overstates it: `verify.py` records `rustc --version` and the edition only. The full `-Vv`, the target triple and the flag set are **written new**.* |
+| AC-6 | `autonomous` | `verify`: the record carries `rustc -Vv`, edition, target triple, and the flag set (overflow-checks, debug-assertions, opt-level — the flags the research found unpinned). `test` (stub runner) and `test-full` (real toolchain): a candidate verified under a different pin is rejected as stale, a `legacy` record is exempt, and `verify` refuses to run under a compiler that does not match the pin (`SPEC.md` §7.2, D-17). *The `MVP` label is withdrawn: `verify.py` records `rustc --version` and the edition and **pins nothing** — it runs whichever `rustc` is on `PATH`. The pin, its comparison and stale rejection, the full `-Vv`, the target triple and the flag set are all **written new**.* |
 | AC-7 | `autonomous` `MVP` | Static: the only writer of the correct-answer field is the verifier's output reader; `test`: a hand-edited answer in a candidate file fails the build's provenance check. |
-| AC-8 | `autonomous` `MVP` | `test` with fixtures: a program whose output varies (e.g. `HashMap` iteration) is **rejected**, not flagged; a deterministic one passes at N=5. N stays a configured hypothesis and the rejection count is reported (the data AC-8 asks for). |
-| AC-9 | `autonomous` `MVP`* | `test` with fixtures: a UB program is rejected; the same program with UB declared as the intended answer is accepted, and only if Stacked Borrows and Tree Borrows agree. *\*The MVP label rests on a Miri pass run **outside** `verify.py` — the code never calls Miri. Must be re-established in code, not carried over.* |
-| AC-10 | `autonomous` `MVP`* | `test`: Miri stdout ≠ native stdout rejects. *Same caveat as AC-9.* |
-| AC-11 | `autonomous` `MVP` | `test`: a candidate declared non-compiling must fail with an error code, recorded (E0502 fixture); one that compiles is rejected. |
+| AC-8 | `autonomous` `MVP` | `test` (stub runner replaying recorded outputs that differ between runs) and `test-full` (a real `HashMap`-iteration program on the T-15a image): a program whose output varies is **rejected**, not flagged; a deterministic one passes at N=5. N stays a configured hypothesis and the rejection count is reported (the data AC-8 asks for). |
+| AC-9 | `autonomous` `MVP`* | `test` (stub runner replaying recorded Miri output) and `test-full` (real Miri, both borrow models): a UB program is rejected; the same program with UB declared as the intended answer is accepted, and only if Stacked Borrows and Tree Borrows agree. *\*The MVP label rests on a Miri pass run **outside** `verify.py` — the code never calls Miri. Must be re-established in code, not carried over.* |
+| AC-10 | `autonomous` `MVP`* | `test` (stub) and `test-full` (real): Miri stdout ≠ native stdout rejects. *Same caveat as AC-9.* |
+| AC-11 | `autonomous` `MVP` | `test` (stub: a recorded E0502 diagnostic) and `test-full` (real `rustc`): a candidate declared non-compiling must fail with an error code, recorded (E0502 fixture); one that compiles is rejected; the recorded failure renders the does-not-compile receipt (`SPEC.md` §7.5). |
 | AC-12 | `autonomous` | `test-full`: a fixture program that opens a socket, reads `/etc/passwd`, reads an env var, allocates past the limit, and loops forever — each is contained and reported. Proven on the sandbox actually used, not a stand-in. |
 | AC-13 | `autonomous` `MVP` | `test`: the receipt renders from the `verified` record alone with the toolchain absent. |
-| AC-87 | `autonomous` | `test`: the rendered receipt contains *‹N› byte-identical runs on ‹triple›; that is evidence about ‹triple›, not every machine* (`SPEC.md` §7.5). |
+| AC-87 | `autonomous` | `test`: the rendered receipt for a complete record contains *on one kind of computer, same output every time*; for a `legacy` record it contains *We did not record which computer* and names no kind of computer; a does-not-compile record renders the third string and makes no determinism claim; a record that is none of complete, `legacy` or does-not-compile renders no receipt (`SPEC.md` §7.5; D-16, D-22, D-23). For every complete record the take-it-home page's *How we know* renders the compiler's full `-Vv` line, the edition, the target triple and the Miri configuration (`SPEC.md` §13). |
 | AC-14 | `autonomous` | `test`: a byte-identical resubmission is rejected. |
 | AC-15 | `autonomous` | `test`: fixtures with renamed bindings and reformatting are rejected as normalized duplicates. |
 | AC-16 | `autonomous` | `test`: a near-duplicate (above the similarity threshold, below exact) lands in the review queue marked *near-duplicate of q*, neither accepted nor dropped. The threshold is a configured hypothesis. |
@@ -74,13 +74,14 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-25 | `autonomous` | `bank-audit`: a lint over every **authored** participant-facing file — the copy table, take-it-home's authored text, the public README, the organizer docs — for a percentage or ratio within one line of an option-kind word (*compile*, *UB*, *undefined*, *panic*, *output*); rendered wall text is excluded because a room's split legitimately prints a share beside an option's own text; the tell audit's own report is written only under `bank/audit/`, which nothing participant-facing includes. |
 | AC-26 | `autonomous` | `bank-audit`: each enumerated tell — `unsafe`, source length, option text length, option position, topic — measured against the accumulated bank; fails above the stated margin. The margin is in `SPEC.md`. |
 | AC-27 | `autonomous` | `bank-audit`: if any accepted question's answer is UB, at least one non-UB accepted question contains `unsafe`. |
-| AC-71 | `autonomous` | `test`: the receipt's text states verification covers the answer and not the explanation, on every surface that renders it. |
+| AC-71 | `autonomous` | `test`: the receipt's text contains *The machine checked the answer only.* on every surface that renders it (`SPEC.md` §7.5). |
 | AC-72 | `autonomous` | `test`: scheduling an unaffirmed question is refused; affirmation records who and when; the refusal is a hard error, not a warning; a question whose trace has fewer than two steps cannot be affirmed (`SPEC.md` §7.4). |
 | AC-73 | `autonomous` | `test`: any output quoted in the explanation is checked against the verified output; a mismatch blocks acceptance (fixture with a wrong quote). |
 | AC-74 | `autonomous` + `felt` | `test`: machine-established and human-reviewed content carry distinct provenance markup on wall, host phone, take-it-home. **HC-1** confirms it reads as two things. |
 | AC-75 | `autonomous` | `test`: the reserve (verified, affirmed, unused) count and its trend are on the organizer's first screen. |
 | AC-76 | `autonomous` | `test`: dropping below threshold raises a warning with the configured lead time (default: two meetups). |
 | AC-77 | `autonomous` | `test-full`: with outbound network blocked except the room's own host, a segment runs from the bank end to end. |
+| AC-102 | `autonomous` | `test-full`: the one-file build opens in a browser with **every network request blocked** and makes none; `Space` advances the seven views in order, `←`/`→` step the trace only in `work` and `reveal`, `Esc` goes back a phase; `work` carries no ✓, no receipt, no colour and no step beyond `M-2`, and `reveal` enters at `M-1` (AC-97, AC-99); a fixture question renders identically in `mode: "static"` and in the room's wall (`SPEC.md` §12). **HC-0** has the client open the file offline and step it. |
 
 ### B. The live room
 
@@ -100,8 +101,8 @@ decided in Phase 3. The orchestrator requires the first two.
 | AC-39 | `autonomous` | `test`: at reveal the wall carries the ✓, the totals, the named most-chosen incorrect option with its count, the receipt, and **no explanation text**; the host phone carries the three-beat script; the buzzer carries the correct letter and the participant's count. |
 | AC-40 | `autonomous` `MVP` | `test`: the correct option carries a ✓ glyph as well as its colour on the wall, the buzzer's *✓ It was X.*, take-it-home, and the review surface. |
 | AC-41 | `autonomous` + `external-oracle` | `burst`: reveal reaches 200 synthetic clients ≤ 2 s at p95. Venue wifi is the oracle at **HC-4**. |
-| AC-42 | `felt` | **HC-2**: the client reads each new explanation aloud at review. **HC-1**: the host reads q3's aloud to the room. |
-| AC-43 | `felt` + `autonomous` | `test`: the receipt equals `SPEC.md` §7.5's normative string with the record's values substituted. **HC-2** judges it as not overstated. |
+| AC-42 | `felt` + `autonomous` | `test`: the trope check (`SPEC.md` §11.1) over the copy module fails on any match, and a fixture of the retired strings — *That is not a room getting it wrong — that is a room…*, *Not the explanation — that one is human*, *listen, don't read*, *that's fine*, *the most interesting answer in the room*, *The word doing all the work*, *The bit worth talking about* — proves every pattern group fires; over `explains`, `why_tempting` and `hint` it produces warnings on the review screen and never a failure. **HC-2**: the client reads each new explanation aloud at review. **HC-1**: the host reads q3's aloud to the room. |
+| AC-43 | `felt` + `autonomous` | `test`: the receipt equals `SPEC.md` §7.5's normative string — for a `legacy` record its second, for a does-not-compile record its third — with the record's values substituted; a fixture with a compile-failure record (q8's E0502) asserts the third and that neither of the others is rendered for it. **HC-2** judges all three as not overstated; the client rejected the first technical wording as unreadable and approved the plain wording on 2026-09-19 (touchpoint T-23). |
 | AC-44 | `felt` | **HC-4.** One beginner attendee, asked after the reveal. Instrument: `mvp/FIELD-NOTES-TEMPLATE.md`. The criterion that matters most, and it cannot be run before October. |
 | AC-45 | `autonomous` | `test`: the host control exposes exactly these actions and no others — *Create a room*, *Put it on the screen*, *Close answers*, *Show the room its split*, *Let's walk it*, *Reveal*, *Release the room*, *Run it again*, plus `←`/`→` in `work` and `reveal`; no phase transition fires without one; a phase cannot be skipped. |
 | AC-46 | `autonomous` | `test`: present and answered counts on the host phone update while live. |
@@ -148,13 +149,14 @@ decided in Phase 3. The orchestrator requires the first two.
 
 | ID | Tag | How it is proven |
 |---|---|---|
-| AC-64 | `autonomous` + `external-oracle` | `test` against a Discord mock: member with the role hosts, member without is denied. **Live**: the client's own account against the real guild before the first deployed checkpoint. |
+| AC-64 | `autonomous` + `external-oracle` | `test` against a Discord mock: member with the role hosts, member without is denied; `test`: a build without the `dev-host-token` feature contains no path that accepts the M1 token, and a stand-in build refuses *Create a room* without it (`SPEC.md` §8.2). **Live**: the client's own account against the real guild — **T-10's exit criterion, before HC-1**. HC-0 runs on the §8.2 stand-in, so the live check cannot precede it. |
 | AC-65 | `autonomous` | `test`: an Administrator whose `roles` lacks the ID is denied; the check reads `roles`, never `permissions`. |
 | AC-66 | `autonomous` | `test`: each refresh persists the rotated token; a replayed old token is detected and does not lock the organizer out of an open room. |
 | AC-67 | `autonomous` | Static: no participant route touches the auth module; `test`: no participant request carries a credential. |
 | AC-68 | `autonomous` | `test`: organizer B cannot read or control organizer A's room. |
 | AC-69 | `autonomous` | `test-full`: with the Discord mock down, an open room runs to release; a new room cannot be created; a room dies at 4 h. |
 | AC-70 | `autonomous` | `test`: denial names wrong server or wrong role, and never says whether the user is in the guild. |
+| AC-101 | `autonomous` | `test`: `PUT /admin/questions/{id}` and `GET /admin/used` accept the right token and refuse a missing or wrong one with no information about what is stored; a route-table test asserts the admin prefix is served to the token check alone and that no participant, wall, host or auth-module route reads it (`SPEC.md` §8.3); a pushed question's answer is reachable only through the sealed module (AC-61). Static: the token appears nowhere in the repository. `canary` plants it and finds it in no payload, page or log line. Live: one push from the client's laptop to the deployed server succeeds before the first real batch is scheduled. |
 
 ## Human-use checkpoints
 
@@ -163,8 +165,8 @@ prototype is the reference at every one.
 
 | HC | Trigger | Who | Instrument | Settles |
 |---|---|---|---|---|
-| **HC-0 · Walking skeleton** | Wall + buzzer + host phone deployed on the chosen substrate, mock data, all seven phases, `burst` green | The client, at a desk, against `prototypes/C-projector-first.html` side by side | The touchpoint T-20 drive guide, re-run | Fidelity to the loved take; AC-45, AC-49, AC-74, AC-93/94/97 as *felt*; anything that drifted from the prototype is a defect |
-| **HC-1 · The rehearsal (touchpoint T-18)** | Two regulars, the client, a projector — the venue if at all possible. The built room if HC-0 has passed, else the prototype | The client | `mvp/PRACTICE-RUN.md` | The two room measurements → AC-100's configuration; AC-78, AC-38, AC-31, AC-51, AC-59, AC-89 timing, AC-91 lower bound, AC-98 host behaviour, AC-42 aloud |
+| **HC-0 · Walking skeleton** | Wall + buzzer + host phone deployed on the chosen substrate behind the §8.2 host stand-in, mock data, all seven phases, `burst` green | The client, at a desk, against `prototypes/C-projector-first.html` side by side | The touchpoint T-20 drive guide, re-run; then the static fallback file (T-26) opened with the network off and stepped from the keyboard (AC-102) | Fidelity to the loved take; AC-45, AC-49, AC-74, AC-93/94/97 as *felt*; anything that drifted from the prototype is a defect |
+| **HC-1 · The rehearsal (touchpoint T-18)** | Two regulars, the client, a projector — the venue if at all possible. The built room if HC-0 has passed **and T-10's live Discord check has passed** (AC-64), else the prototype | The client | `mvp/PRACTICE-RUN.md` | The two room measurements → AC-100's configuration; AC-78, AC-38, AC-31, AC-51, AC-59, AC-89 timing, AC-91 lower bound, AC-98 host behaviour, AC-42 aloud |
 | **HC-2 · First real batch** | The pipeline produces its first LLM-generated batch | The client, alone | The review surface; a stopwatch | AC-20, AC-21, AC-88, AC-4, AC-42, AC-43, AC-95 affirmation, AC-72's first affirmations |
 | **HC-3 · Take it home** | The released wall's link resolves to the real page | The client, on a phone, not at a desk | The page | AC-33 on a phone, AC-59, the second repetition's pace |
 | **HC-4 · October** | The meetup | The client hosting; a co-organizer holding the notes | `mvp/FIELD-NOTES-TEMPLATE.md` | AC-44, AC-96, AC-91, AC-31, AC-51, AC-55, AC-89, the participation rate, AC-92's first real record |
@@ -177,6 +179,8 @@ prototype is the reference at every one.
 | The three room measurements (screen width, screen height, back-row distance) | HC-1 sets them; AC-100 needs them configured before HC-4 | 15 ft / 16:9 / 20 ft, labelled hypothesis |
 | The short-link domain behind *join @* | AC-28's link path; before HC-0 | A placeholder link that carries the code |
 | An LLM API key and a spend cap | Story A1 tickets dispatch | None; the pipeline can be built and tested on fixtures |
+| The pipeline's admin token (`POPQUIZ_ADMIN_TOKEN`): generate it, `fly secrets set` it, and keep the same value in the pipeline's local config (H-11) | T-25's deployed check; T-20's first push to the deployed server | None — the pipeline can be built and tested against a local server with a test token |
+| The M1 host token: T-09 generates it and prints the host URL once; the client keeps that URL | HC-0 | None — the deployed skeleton cannot be driven without it (`SPEC.md` §8.2) |
 | Q-E1 — is ~$250/yr on the table | Phase 3's substrate decision | Assume no; single-digit dollars is the target |
 | The first batch's affirmations (AC-72) | Any deployed room with a real question | The verified MVP bank, already affirmed by use |
 | Cole's view on colour (AC-99) | Never blocking | AC-99 stands |
