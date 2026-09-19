@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B — Phone-first · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 14px; }
+  .direction-head { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap;
+                    align-items: baseline; gap: 12px; }
+  .direction-head h1 { font-size: 28px; }
+  .assumption { font-size: var(--text-sm); color: var(--text-secondary);
+                border-left: 3px solid var(--accent); padding-left: 10px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start;
+          justify-content: center; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+  /* ---- participant phone ------------------------------------------- */
+  .p-head { flex: none; display: flex; justify-content: space-between;
+            align-items: baseline; padding-bottom: 8px; margin-bottom: 10px;
+            border-bottom: 1px solid var(--border); }
+  .p-brand { font-size: var(--text-xs); text-transform: uppercase;
+             letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .p-code { font-size: var(--text-xs); color: var(--text-secondary); }
+  .p-code b { color: var(--text); }
+
+  .code-phone { font-size: 13.5px; line-height: 1.55; max-height: 210px; }
+
+  .choice {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: var(--touch); padding: 8px 10px; margin: 0;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--white); color: var(--text);
+    font-family: var(--mono); font-size: var(--text-sm); text-align: left;
+    cursor: pointer;
+  }
+  .choice .letter { flex: none; width: 28px; height: 28px; display: grid;
+                    place-items: center; border: 1px solid var(--border);
+                    border-radius: var(--radius); font-weight: 700; background: var(--panel); }
+  .choice .otext { white-space: pre-wrap; word-break: break-word; }
+  .choice[aria-pressed="true"] { border-color: var(--accent); border-width: 3px; padding: 6px 8px;
+                                 background: var(--accent-subtle); }
+  .choice[aria-pressed="true"] .letter { background: var(--accent); border-color: var(--accent); }
+  .choice.correct { border-color: var(--green); border-width: 3px; padding: 6px 8px; }
+  .choice.correct .letter::after { content: " ✓"; }
+  /* Your own choice is marked as YOURS, never as wrong. There is no ✗ in this
+     product — the answer gets a ✓, the person gets nothing to be ashamed of. */
+  .choice.was-mine { background: var(--accent-subtle); }
+  .choice.was-mine::before { content: "yours"; position: absolute; }
+  .choice { position: relative; }
+  .choice.was-mine::before { top: -7px; left: 8px; font-size: 10px;
+    letter-spacing: var(--tracking-caps); text-transform: uppercase;
+    background: var(--accent); color: #2d3748; padding: 0 4px; border-radius: 2px; }
+  .choice:disabled { cursor: default; opacity: 1; }
+  .choice .share { margin-left: auto; font-size: var(--text-xs); color: var(--text-secondary); }
+
+  .savebar { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs);
+             padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+             background: var(--white); }
+  .savebar.saving  { border-left: 3px solid var(--blue);   background: var(--blue-subtle); }
+  .savebar.saved   { border-left: 3px solid var(--green);  background: var(--green-subtle); }
+  .savebar.failed  { border-left: 3px solid var(--red);    background: var(--red-subtle); }
+  .savebar.paused  { border-left: 3px solid var(--orange); background: var(--orange-subtle); }
+
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .grow { flex: 1; }
+  .field { width: 100%; min-height: var(--touch); padding: 10px 12px;
+           font-family: var(--mono); font-size: 18px; letter-spacing: 0.1em;
+           text-align: center; text-transform: uppercase;
+           border: 1px solid var(--border); border-radius: var(--radius);
+           background: var(--white); color: var(--text); }
+  .lobby { flex: 1; display: grid; place-items: center; text-align: center; }
+
+  /* ---- projector (secondary in this direction) --------------------- */
+  /* Same fit as Direction C, at this wall's own design width. Everything inside
+     is px-sized for a 940px mirror; without the fit layer the box shrinks below
+     that and its contents overflow the 16:9 frame and collide. No back-row
+     factor here — this wall is a mirror, not the surface AC-78 is judged on. */
+  .proj-fit  { width: 100%; overflow: hidden; transition: height .25s ease; }
+  .proj-wrap { width: 940px; transform-origin: top left; transition: transform .25s ease; }
+  .proj-wrap .projector { width: 940px; max-width: none; }
+
+  /* .proj-main carries min-height:0; its children did not, so a flex item never
+     shrank below its content and the reveal phase pushed ~43px out of the frame
+     even at design width. The source well scrolls inside itself (AC-33) rather
+     than growing the wall. */
+  .proj-main > * { min-height: 0; }
+  .proj-main .rn-src { display: flex; flex-direction: column; }
+  .proj-main .rn-src-scroll { overflow-y: auto; }
+  /* The reveal stacks brand + split bars + a long prose block into a fixed 16:9
+     frame; the prose was 343px of it and pushed the rest out. It scrolls in its
+     own container instead (AC-33's rule, applied to the wall). In this direction
+     that is the honest shape anyway — the explanation belongs on the phone here,
+     and the wall is only mirroring it. */
+  .joinbox { display: flex; flex-direction: column; min-height: 0; }
+  .joinbox > *:last-child { min-height: 0; overflow-y: auto; }
+
+  .proj-body { flex: 1; display: flex; flex-direction: column; padding: 22px 28px; min-height: 0; }
+  .proj-top { display: flex; justify-content: space-between; align-items: baseline; flex: none;
+              margin-bottom: 12px; }
+  .proj-brand { font-size: 12px; letter-spacing: var(--tracking-caps);
+                text-transform: uppercase; color: var(--text-secondary); }
+  .proj-main { flex: 1; display: flex; gap: 22px; min-height: 0; }
+  .proj-main .code { flex: 1; font-size: 18px; line-height: 1.5; }
+  .joinbox { flex: none; width: 260px; display: flex; flex-direction: column;
+             justify-content: center; text-align: center; gap: 6px; }
+  .joinbox .big { font-family: var(--serif); font-size: 46px; line-height: 1; color: var(--accent); }
+  .joinbox .cnt { font-size: 30px; font-weight: 700; }
+
+  .bars { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .bar-row { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+  .bar-row .letter { flex: none; width: 22px; font-weight: 700; }
+  .bar-track { flex: 1; height: 20px; background: var(--input); border: 1px solid var(--border);
+               border-radius: var(--radius); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text-secondary); }
+  .bar-row.is-correct .bar-fill { background: var(--green); }
+  .bar-row.is-correct .letter::after { content: " ✓"; }
+  .bar-n { flex: none; width: 58px; text-align: right; font-size: var(--text-xs); }
+
+  /* ---- controls ---------------------------------------------------- */
+  .switcher { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 6px;
+              align-items: center; }
+  .switcher .btn { min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+  .switcher .lbl { font-size: var(--text-xs); text-transform: uppercase;
+                   letter-spacing: var(--tracking-caps); color: var(--text-secondary);
+                   margin-right: 4px; }
+  .host-step { font-size: var(--text-xs); text-transform: uppercase;
+               letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .host-h { font-family: var(--serif); font-size: 24px; margin: 2px 0 10px; }
+  .no-preview { border-left: 3px solid var(--blue); background: var(--blue-subtle);
+                padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
+  .ratio { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+           color: var(--text-secondary); border-top: 1px solid var(--border); }
+  .ratio b { color: var(--text); }
+  .note { width: 100%; max-width: 1180px; font-size: var(--text-xs); color: var(--text-secondary);
+          border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.7; }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>Direction B — Phone-first</h1>
+    <div class="assumption">Core assumption: <b>commitment is private.</b> Anonymity is what makes a room full of colleagues willing to be wrong, so the phone carries the code, the answer and the reveal. The projector is a mirror.</div>
+  </div>
+
+  <div class="switcher">
+    <span class="lbl">Drive the segment</span>
+    <button class="btn" onclick="go('join')">1 · join</button>
+    <button class="btn" onclick="go('lobby')">2 · lobby</button>
+    <button class="btn" onclick="go('live')">3 · question live</button>
+    <button class="btn" onclick="go('closed')">4 · answers closed</button>
+    <button class="btn" onclick="go('split')">5 · where the room landed</button>
+    <button class="btn" onclick="go('reveal')">6 · reveal</button>
+    <button class="btn" onclick="go('wrap')">7 · wrap-up</button>
+    <span class="lbl" style="margin-left:14px">Edge states</span>
+    <button class="btn" onclick="go('failed')">save failed</button>
+    <button class="btn" onclick="go('reconnect')">reconnecting</button>
+    <button class="btn" onclick="go('full')">room full</button>
+    <button class="btn" onclick="go('badcode')">unknown code</button>
+  </div>
+
+  <div class="pair">
+    <div class="col">
+      <div class="frame-label">Participant · 375px phone — the primary surface</div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span id="netIcon">▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="pBody"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="frame-label">Host control</div>
+      <div class="phone" style="height: 560px;">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="hostBody"></div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width: 380px; align-items: flex-start;">
+      <div class="frame-label">What this direction is testing</div>
+      <div class="panel" style="font-size: var(--text-sm); line-height: 1.65;">
+        <div class="proposal" style="margin-bottom:12px">
+          <span class="proposal-tag">Client testimony, 2026-08-14</span>
+          <b>Reworked against the room's own feedback:</b> <em>everything is very intimidating; people aren't allowed to be wrong.</em> Three changes, all visible in the phone above — a <b>split beat before the answer</b> (step 5), <b>no ✗ on your own choice</b> ever, and an explanation that spends its middle paragraph on <b>why so many of us picked A</b>. Plus a hint you can pull yourself, which is a proposed AC-48 amendment.
+        </div>
+        <p style="margin-top:0"><b>Rebuilt on the D-7 spine.</b> The prior state-explorer is phone-first too, but its vocabulary is a round — <em>next question</em>, <em>end quiz</em>, a question counter. One question in five minutes deletes all of it. What survives, and is reused here, is its edge-state catalogue.</p>
+        <p><b>This direction now looks strongest on the new evidence</b>, and the reason is narrow: it is the only one where a newcomer can commit, change their mind, and ask for help <em>without anyone knowing they did any of it</em>. Anonymity is the floor. The split beat is what turns it into belonging.</p>
+        <p><b>This is also the expensive direction.</b> The only one that needs Stories B1, B5, B6 and B7 in full: a join path, a 200-concurrent deadline write burst (AC-52–55, the highest-risk moment in the system), and canary-secret proof that no pre-reveal payload carries the answer.</p>
+        <p style="margin-bottom:0"><b>What else it buys.</b> A real anonymous count rather than the host's thumb on a counter, a per-person recap computed on-device and never transmitted (AC-58), and code you can hold six inches from your face — the only version of AC-32 a back row can actually pass.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col" style="width:100%">
+    <div class="frame-label">Room display · a mirror in this direction, not the product</div>
+    <div class="proj-fit" id="projFit">
+      <div class="proj-wrap" id="projWrap">
+        <div class="projector" id="proj">
+          <div class="proj-body">
+            <div class="proj-top">
+              <span class="proj-brand">Rust NYC · Pop Quiz</span>
+              <span class="proj-brand" id="projPhase">—</span>
+            </div>
+            <div class="proj-main" id="projMain"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Real data.</b> The question is the verified <code>q3</code> from <code>mvp/2026-08-12/</code>, answer at E exactly as <code>slot_for_day()</code> drew it. <b>58 of 95</b> answering is a placeholder for the one number nobody has ever measured — the participation rate behind AC-52 and AC-54. At 95 present it is 61%; the same room at 40% and at 90% is a &gt;2× spread in the quantity that sizes the write burst.
+  </div>
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+const state = { phase: "join", picked: null, save: null, hintShown: false, hintPulled: false, traceStep: 0 };
+
+function traceStep(d) {
+  state.traceStep = Math.max(0, Math.min(state.traceStep + d, TONIGHT.trace.steps.length - 1));
+  render();
+  announce(traceSay(TONIGHT, state.traceStep));
+}
+
+/* ---- participant ----------------------------------------------------- */
+function pHead(extra) {
+  return '<div class="p-head"><span class="p-brand">Pop Quiz</span>' +
+         '<span class="p-code">' + (extra || ("room <b>" + ROOM.code + "</b>")) + '</span></div>';
+}
+
+/* The correct option gets a ✓ — that is AC-40 marking the ANSWER.
+   Your own choice never gets a ✗. Marking the person is what the room's
+   feedback says is already happening to newcomers everywhere else. */
+function choicesHtml(mode) {
+  return TONIGHT.options.map(function (o) {
+    const mine = state.picked === o.letter;
+    let cls = "choice";
+    let share = "";
+    if (mode === "reveal" || mode === "split") {
+      if (mode === "reveal" && o.correct) cls += " correct";
+      if (mine) cls += " was-mine";
+      share = '<span class="share">' + ROOM.votes[o.letter] + " · " +
+              pct(ROOM.votes[o.letter], ROOM.answered) + "%</span>";
+    }
+    return '<button class="' + cls + '" aria-pressed="' + (mine ? "true" : "false") + '"' +
+           (mode === "live" ? "" : " disabled") +
+           ' onclick="pick(\'' + o.letter + '\')">' +
+           '<span class="letter">' + o.letter + '</span>' +
+           '<span class="otext">' + escapeHtml(o.text) + '</span>' + share + '</button>';
+  }).join("");
+}
+
+/* You are not alone, stated before anyone is told they were wrong. */
+function companyHtml() {
+  const mine = state.picked || "A";
+  const n = ROOM.votes[mine];
+  const others = n - 1;
+  return '<div class="company"><span class="n">' + n + '</span>' +
+    '<span>You said <b>' + mine + '</b>' +
+    (others > 0
+      ? ' — and so did <b>' + others + '</b> other people, ' + pct(n, ROOM.answered) + '% of the room.'
+      : ' — and you were the only one. That is the most interesting answer in the room.') +
+    '</span></div>';
+}
+
+function renderParticipant() {
+  const b = document.getElementById("pBody");
+  const p = state.phase;
+  let html = "";
+
+  if (p === "join" || p === "full" || p === "badcode") {
+    const err = p === "full"
+      ? '<div class="savebar failed">✗ &nbsp;<span><b>This room is full.</b> It holds 200 and all 200 seats are taken. Nothing was reserved for you — ask the host, or play on the projector with everyone else.</span></div>'
+      : p === "badcode"
+      ? '<div class="savebar failed">✗ &nbsp;<span><b>No room with that code.</b> Codes are four letters, a dash, then four digits. Check the screen at the front — it is up there the whole time.</span></div>'
+      : "";
+    html = pHead("no account needed") +
+      '<div class="stack grow" style="justify-content:center">' +
+      '<h2 style="text-align:center">Join the room</h2>' +
+      '<p class="meta" style="text-align:center;margin:0 0 6px">The code is on the screen at the front. No sign-up, no email, no nickname.</p>' +
+      '<input class="field" value="' + (p === "join" ? ROOM.code : (p === "badcode" ? "RUST-9999" : ROOM.code)) + '" aria-label="Room code">' +
+      err +
+      '<button class="btn btn-primary" onclick="go(\'lobby\')">Join</button>' +
+      '<p class="meta" style="text-align:center;margin-top:14px">Nothing about you is stored. No score, no name, no history — see the wrap-up.</p>' +
+      '</div>';
+  } else if (p === "lobby") {
+    html = pHead() +
+      '<div class="lobby"><div>' +
+      '<h2>You\'re in.</h2>' +
+      '<p class="meta" style="max-width:230px;margin:8px auto 0">One question, about five minutes, then everyone goes and argues about it.<br><br>Look up when it starts.</p>' +
+      '</div></div>';
+  } else if (p === "reconnect") {
+    html = pHead() +
+      '<div class="stack">' +
+      '<div class="savebar paused">◐ &nbsp;<span><b>Reconnecting.</b> Your saved answer (<b>' + (state.picked || "A") + '</b>) is safe on the server. Controls are paused until this screen is fresh again.</span></div>' +
+      sourceCodeHtml(TONIGHT.source, "What does this program print?") +
+      '<div class="stack" style="opacity:.5;pointer-events:none">' + choicesHtml("live") + '</div>' +
+      '</div>';
+  } else {
+    /* live / closed / reveal / failed / wrap */
+    if (p === "wrap") {
+      html = pHead("room closed") +
+        '<div class="stack">' +
+        '<h2>That\'s the night.</h2>' +
+        '<div class="panel by-machine"><span class="provenance machine">what was recorded</span>' +
+        '<p style="margin:6px 0 0;font-size:var(--text-sm)">An anonymous count of how many people chose each option — 58 numbers with nothing attached to them. It expires with this room.</p></div>' +
+        '<div class="panel"><span class="provenance human">what was not</span>' +
+        '<p style="margin:6px 0 0;font-size:var(--text-sm)">Your answer. Your device. Anything that could reconnect this screen to you, tonight or ever. There is no account to delete because there was never one to make.</p></div>' +
+        '<p class="meta">The line below this one is computed on your phone from what you saw. It was never sent anywhere.</p>' +
+        companyHtml() +
+        '</div>';
+    } else {
+      const savebar =
+        p === "failed"
+          ? '<div class="savebar failed">✗ &nbsp;<span><b>Couldn\'t save that.</b> Your last saved answer (<b>' + (state.picked || "A") + '</b>) is still safe. <a href="#" onclick="retry();return false;">Try again</a></span></div>'
+          : state.save === "saving"
+          ? '<div class="savebar saving">◐ &nbsp;<span>Saving <b>' + state.picked + '</b>…</span></div>'
+          : state.save === "saved"
+          ? '<div class="savebar saved">✓ &nbsp;<span>Saved <b>' + state.picked + '</b>. Change it as often as you like until the host closes it.</span></div>'
+          : p === "closed"
+          ? '<div class="savebar paused">◼ &nbsp;<span>Answers are closed. You are locked in on <b>' + (state.picked || "—") + '</b>.</span></div>'
+          : (p === "reveal" || p === "split")
+          ? ''
+          : '<div class="savebar">○ &nbsp;<span>Pick one. You can change it right up until the host closes it. Nobody sees what you picked.</span></div>';
+
+      /* --- the hint (AC-48, as rewritten at T-13) ----------------------- */
+      const hintUi =
+        p !== "live" && p !== "failed"
+          ? ''
+          : state.hintPulled
+          ? '<div class="panel" style="margin-top:8px;border-left:3px solid var(--blue);font-size:var(--text-xs)">' +
+            '<b>Hint · </b>' + escapeHtml(TONIGHT.hint) +
+            '<br><span style="color:var(--text-secondary)">Yours only. The host was not told, the room was not told, and it is not counted anywhere.</span></div>'
+          : '<button class="btn" style="margin-top:8px;min-height:36px;font-size:var(--text-xs)" onclick="pullHint()">' +
+            'Show me a hint</button>';
+
+      html = pHead() +
+        (p === "split"
+          ? '<h2 style="margin-bottom:2px">Where the room landed.</h2>' +
+            '<p class="meta" style="margin:0 0 8px">No answer yet.</p>'
+          : p === "reveal"
+          ? '<h2 style="margin-bottom:8px">It was E.</h2>'
+          : '') +
+        (p === "split" || p === "reveal" ? companyHtml() : '') +
+        (p === "reveal"
+          ? traceSourceHtml(TONIGHT, state.traceStep, { style: "margin-top:10px" })
+          : sourceCodeHtml(TONIGHT.source, "What does this program print?",
+              { style: (p === "split" ? "margin-top:10px" : "") })) +
+        hintUi +
+        '<div class="stack" style="margin-top:10px">' +
+          choicesHtml(p === "reveal" ? "reveal" : p === "split" ? "split" : p === "closed" ? "closed" : "live") +
+        '</div>' +
+        (savebar ? '<div style="margin-top:10px">' + savebar + '</div>' : '') +
+        (p === "split"
+          ? '<p class="meta" style="margin-top:10px">Five different readings of four lines of Rust. That is the segment working — the answer is the least interesting part of the next two minutes.</p>'
+          : '') +
+        (p === "reveal"
+          ? '<div class="panel" style="margin-top:10px">' +
+            traceNoteHtml(TONIGHT, state.traceStep) +
+            '<p class="meta" style="margin:10px 0 0">Yours to step, at your own speed. Nobody is waiting for you and nobody can see how many times you went back.</p>' +
+            '</div>' +
+            '<div class="panel by-human" style="margin-top:10px">' +
+            '<span class="provenance human">✎ written by a human · the machine did not check this part</span>' +
+            '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
+            '<div class="receipt" style="margin-top:8px"><span class="provenance machine">✓ established by the machine</span><br>' +
+            TONIGHT.receipt.rustc + ' · edition ' + TONIGHT.receipt.edition + ' · ran ' + TONIGHT.receipt.runs +
+            '× byte-identical on ' + TONIGHT.receipt.target + ' · Miri clean, output matched.<br>' +
+            '<b>This establishes the answer, not the explanation above.</b></div>' +
+            '<button class="btn" style="margin-top:10px" onclick="go(\'wrap\')">What was recorded?</button>'
+          : '');
+    }
+  }
+
+  b.innerHTML = html;
+  document.getElementById("netIcon").textContent = state.phase === "reconnect" ? "▮▯▯ ⌁" : "▮▮▮ ⌁";
+}
+
+/* ---- host ------------------------------------------------------------- */
+function renderHost() {
+  const b = document.getElementById("hostBody");
+  const p = state.phase;
+  const head = function (step, title) {
+    return '<div class="host-step">' + step + '</div><div class="host-h">' + title + '</div>';
+  };
+  let html;
+
+  if (p === "join" || p === "lobby" || p === "full" || p === "badcode") {
+    html = head("step 1 of 4", "Lobby is open") +
+      '<div class="stack">' +
+      '<div class="panel" style="text-align:center"><div class="meta">room code</div>' +
+      '<div style="font-family:var(--serif);font-size:34px;color:var(--accent)">' + ROOM.code + '</div></div>' +
+      '<p class="meta"><b>' + ROOM.answered + '</b> joined · <b>' + ROOM.present + '</b> in the room</p>' +
+      '<div class="no-preview">No answer preview for you either. You are playing.</div>' +
+      '<button class="btn btn-primary" onclick="go(\'live\')">Open the question</button></div>';
+  } else if (p === "live" || p === "failed" || p === "reconnect") {
+    html = head("step 2 of 4", "Question is live") +
+      '<div class="stack">' +
+      '<p class="meta"><b>' + ROOM.answered + '</b> answered of <b>' + ROOM.answered + '</b> joined. No timer — a timer competes with the argument.</p>' +
+      '<div class="no-preview"><b>There is no hint button here any more.</b> The hint sits on every phone, pullable at any time, and you are never told who took it. AC-48 rewritten at T-13 — a hint that is always available needs no publishing, so this control had nothing left to do.</div>' +
+      '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
+  } else if (p === "closed") {
+    html = head("step 3 of 5", "Answers are in") +
+      '<div class="stack">' +
+      '<p class="meta">Don\'t reveal yet. Show them where the room landed first — that beat is the one that makes being wrong ordinary, and skipping it wastes the only thing this format is good at.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'split\')">Show the room its split</button></div>';
+  } else if (p === "split") {
+    html = head("step 4 of 5", "Let it sit") +
+      '<div class="stack">' +
+      '<div class="company"><span class="n">' + ROOM.votes.A + '</span>' +
+      '<span>picked <b>A</b> — ' + pct(ROOM.votes.A, ROOM.answered) + '% of the room, and it is wrong. Say that number out loud before you say the answer.</span></div>' +
+      '<p class="meta">Nobody knows who. Nobody knows they are wrong yet. They only know they are not alone — which is the whole reason this beat exists.</p>' +
+      '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal</button></div>';
+  } else {
+    html = head("step 5 of 5", "Read it aloud") +
+      '<div class="stack">' +
+      '<div class="panel by-human" style="font-size:var(--text-sm)"><span class="provenance human">✎ your script · in this order</span>' +
+      '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
+      '<button class="btn" onclick="go(\'wrap\')">Release the room</button></div>';
+  }
+
+  b.innerHTML = html +
+    '<div class="ratio">In the room: <b>' + ROOM.present + '</b> · answering: <b>' + ROOM.answered + '</b> · participation <b>' +
+    pct(ROOM.answered, ROOM.present) + '%</b><br>Never measured before. This is the number October is for.</div>';
+}
+
+/* ---- projector -------------------------------------------------------- */
+function renderProjector() {
+  const main = document.getElementById("projMain");
+  const phase = document.getElementById("projPhase");
+  const p = state.phase;
+
+  if (p === "join" || p === "lobby" || p === "full" || p === "badcode") {
+    phase.textContent = "join";
+    main.innerHTML =
+      '<div style="flex:1;display:grid;place-items:center;text-align:center">' +
+      '<div><div class="proj-brand">join from your phone</div>' +
+      '<div style="font-family:var(--serif);font-size:76px;line-height:1.1;color:var(--accent)">' + ROOM.code + '</div>' +
+      '<div style="font-size:20px;color:var(--text-secondary);margin-top:8px"><b>' + ROOM.answered + '</b> in · no account, no name</div></div></div>';
+    return;
+  }
+
+  phase.textContent = ({ live: "read it", failed: "read it", reconnect: "read it",
+                         closed: "answers closed", split: "where the room landed",
+                         reveal: "the answer", wrap: "that's the night" })[p];
+
+  if (p === "wrap") {
+    main.innerHTML = '<div style="flex:1;display:grid;place-items:center;text-align:center">' +
+      '<div><h2 style="font-size:48px">Keep arguing.</h2>' +
+      '<p style="font-size:18px;color:var(--text-secondary);max-width:600px;margin:10px auto 0">' +
+      'The count expired with the room. No names, no scores, nothing to look up tomorrow.</p></div></div>';
+    return;
+  }
+
+  const bars = TONIGHT.options.map(function (o) {
+    const n = ROOM.votes[o.letter];
+    return '<div class="bar-row' + (p === "reveal" && o.correct ? " is-correct" : "") + '">' +
+      '<span class="letter">' + o.letter + '</span>' +
+      '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, ROOM.answered) + '%"></span></span>' +
+      '<span class="bar-n">' + n + " · " + pct(n, ROOM.answered) + '%</span></div>';
+  }).join("");
+
+  main.innerHTML =
+    sourceCodeHtml(TONIGHT.source, "What does this program print?", { size: "18px", style: "flex:1" }) +
+    '<div class="joinbox">' +
+      (p === "live" || p === "failed" || p === "reconnect"
+        ? '<div class="proj-brand">room</div><div class="big">' + ROOM.code + '</div>' +
+          '<div class="cnt">' + ROOM.answered + ' / ' + ROOM.present + '</div>' +
+          '<div class="meta">answered · in the room</div>'
+        : '<div class="proj-brand">' +
+          (p === "split" ? "where the room landed" : "how the room voted") + '</div>' +
+          '<div class="bars">' + bars + '</div>' +
+          (p === "split"
+            ? '<p style="font-size:15px;color:var(--text-secondary);margin:12px 0 0">' +
+              ROOM.answered + ' answered. Five different readings. No answer yet.</p>'
+            /* The projector shows the trace's OUTCOME, not a stepping animation.
+               In this direction the stepping is personal — 58 people are each
+               walking it at their own speed on their own phone, and a moving
+               tape at the front would pull every eye off the surface where the
+               work is actually happening. In C it is the opposite: there the
+               tape IS the collective act. Same component, opposite call. */
+            : '<div style="margin-top:14px">' +
+              traceNoteHtml(TONIGHT, TONIGHT.trace.steps.length - 1, { noNav: true }) +
+              '<p style="font-size:14px;color:var(--text-secondary);margin:16px 0 0">' +
+              'Two dropped, and only because of who they were next to.<br>' +
+              'Step it yourself on your phone.</p></div>')) +
+    '</div>';
+}
+
+/* ---- transitions ------------------------------------------------------ */
+function render() { renderParticipant(); renderHost(); renderProjector(); }
+
+function go(phase) {
+  state.phase = phase;
+  if (phase === "reveal" || phase === "closed") { state.save = null; }
+  if (phase === "live" && !state.picked) { state.save = null; }
+  render();
+  announce(({
+    join: "Join screen.", lobby: "You are in the room. Waiting for the question.",
+    live: "Question is open. Five options.", closed: "Answers are closed.",
+    split: "Where the room landed. Twenty-four people chose A. No answer yet.",
+    reveal: "Revealed. The correct answer is E.", wrap: "Segment complete. Nothing per-person was recorded.",
+    failed: "Your answer could not be saved. Your last saved answer is safe.",
+    reconnect: "Reconnecting. Controls are paused until state is fresh.",
+    full: "This room is full.", badcode: "No room with that code."
+  })[phase] || phase);
+}
+
+function pick(letter) {
+  if (state.phase !== "live" && state.phase !== "failed") return;
+  state.picked = letter;
+  state.phase = "live";
+  state.save = "saving";
+  render();
+  announce("Saving " + letter);
+  window.setTimeout(function () {
+    if (state.save === "saving") { state.save = "saved"; render(); announce("Saved " + letter); }
+  }, 550);
+}
+function retry() { state.phase = "live"; state.save = "saving"; render();
+  window.setTimeout(function () { state.save = "saved"; render(); announce("Saved."); }, 550); }
+function publishHint() { state.hintShown = true; render(); announce("Hint published to everyone at once."); }
+
+/* Proposed AC-48 amendment. As written, AC-48 says a hint is shown to everyone
+   at once — a fairness rule inherited from a scoring mindset this product does
+   not have. There is no score, no leaderboard and no record, so the only thing
+   a public-only hint protects is the fairness of a competition that does not
+   exist. What it costs is real: a newcomer who wants help has to get the host
+   to announce that the room needs help. */
+function pullHint() { state.hintPulled = true; render();
+  announce("Hint shown on your phone only. Nobody else was told."); }
+
+/* The mirror lays out at its design width and scales to fit — see the CSS note.
+   No back-row factor: in this direction the wall is a mirror of what is already
+   on every phone, so nothing is judged on its legibility. */
+const WALL_W = 940;
+function fitWall() {
+  const fit = document.getElementById("projFit");
+  const wrap = document.getElementById("projWrap");
+  if (!fit || !wrap) return;
+  const avail = fit.clientWidth;
+  const s = Math.min(avail / WALL_W, 1);
+  wrap.style.transform = "scale(" + s + ")";
+  wrap.style.marginLeft = Math.round((avail - WALL_W * s) / 2) + "px";
+  fit.style.height = Math.round(wrap.offsetHeight * s) + "px";
+}
+window.addEventListener("resize", fitWall);
+
+mountBadge("Direction B · Phone-first", "no server behind this; the counts are fixed");
+state.picked = "A";
+render();
+fitWall();
+</script>
+</body>
+</html>

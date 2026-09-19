@@ -33,6 +33,28 @@ watch.
 
 **Run it without a timer on screen.** That is the deliberate test (see Q1).
 
+### Two measurements of the room itself — take these once, ever
+
+Added 2026-08-14, during `tone-prototype`. **These two numbers set the smallest
+type the wall can legibly use**, and both are currently guesses.
+
+- [ ] **How wide is the projected image?** Pacing it heel-to-toe is fine — a
+      foot or two of error does not matter. → `______ ft`
+- [ ] **How far back is the last row anyone actually sits in?** Not the back
+      wall — the last occupied row. → `______ ft`
+
+*Why it matters, in one line:* legible type is roughly cap-height ≥ distance
+÷ 150, so those two numbers set the smallest readable text the wall can use — and
+the wall sizes itself to each question down to that floor. They do not cap
+question length; they decide **how long a question this room can still show
+legibly.** At the current **guess** — 15ft wide, back row at 20ft — everything in
+the bank fits, with `q1` (16 lines) landing right at the floor. A smaller screen
+or a deeper room moves that, and nobody has checked the guess.
+
+**Also worth one line:** could the person at the back read the code without
+leaning in or asking? That is **AC-78**, and it is the criterion Direction C
+lives on.
+
 ---
 
 ## During — two clocks, one ratio, one shape

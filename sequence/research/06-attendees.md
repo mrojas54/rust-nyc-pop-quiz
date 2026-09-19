@@ -196,6 +196,17 @@ so its licence to exist rests entirely on the argument it produces. If the field
 notes show it did not produce one, there is no attendee constituency to appeal
 to. That raises the stakes on `AC-44` and on Q2 of the field notes.
 
+> **Amendment A-6, 2026-09-02 — the first attendee testimony *for* the
+> segment.** Two regulars at Rust lunch, told about the segment by the client
+> and shown nothing. Client's report, not the attendees' own words: they
+> *"remembered the quiz, liked the idea, liked the idea of voting
+> anonymously."* Weighed, not waved: n = 2, both regulars, in person, the
+> organizer asking — the conditions under which people say yes. It is still the
+> first attendee-side pull anywhere in the corpus, so the line above is
+> narrowed: there is no attendee constituency **in the records**. It does not
+> make the segment attendee-demanded, and it says nothing about newcomers. The
+> third clause is the one with weight — see §7 and `PHILOSOPHY.md` §9.
+
 ### 4b. The unexpected support — the beginner ask
 
 Five responses ask, unprompted, for beginner-level content, and one asks
@@ -309,17 +320,17 @@ Stories B1/B5 shrink. The room-size line of evidence is retracted.
 | Question | Status |
 |---|---|
 | Actual attendance at any event | **Unknown** — no-show fields unused, Luma check-in never run. Measure by counting the room. |
-| What fraction of the room would use a phone | **Unknown** — no data exists. Field notes Q2. |
+| What fraction of the room would use a phone | **Unknown** — no data exists. Field notes Q2. **A-6, 2026-09-02:** two regulars *liked the idea of voting anonymously* — a prior for phones over hands from the people who least need the cover, not a measurement. |
 | **Participation rate** — of those present, how many take part | **Unknown, and it is the variable that sizes AC-52/AC-54.** No record or testimony constrains it. First capture is the next meetup the field notes are run at — **October** unless Aug 20 is delegated. |
 | Ceiling on future room size | **Rising, unquantified.** Venues are being upgraded; 200 reached twice (Unconf, Jun 26 Summer Social). No basis to name an upper bound. |
 | Rust experience distribution | **Unknown** — titles measure career seniority, not Rust fluency. Measure by asking. |
-| Whether attendees want the segment | **No evidence either way.** 41 responses, zero mentions. See §4a. |
-| Whether the prior quiz's death is visible in the records | **Not testable** — the exports post-date it and carry no segment-level data. Client testimony remains the only evidence, and it is sufficient. |
+| Whether attendees want the segment | **No evidence either way** in the records. 41 responses, zero mentions. See §4a. **A-6, 2026-09-02:** two regulars, in person, *liked the idea* — weak, n = 2, and the first. |
+| Whether the prior quiz's death is visible in the records | **Not testable** — the exports post-date it and carry no segment-level data. Client testimony remains the only evidence, and it is sufficient. **A-6, 2026-09-02:** two regulars *remembered the quiz* — corroborates that it ran and was memorable, **not** that it was memorised; nobody asked them that. |
 
 ---
 
 *Dimension 6, written 2026-08-12 in support of touchpoint T-6; timing amended
-2026-08-13. Population and voice from the group's own records; the experiential
+2026-08-13; A-6 (first attendee testimony) 2026-09-02. Population and voice from the group's own records; the experiential
 half is captured at the next meetup via `mvp/FIELD-NOTES-TEMPLATE.md`. Sources
 are local CSV exports held outside the repo — figures here are reproducible from
 them, and no personally identifying data was copied in.*

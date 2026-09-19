@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototypes · Rust NYC Pop Quiz · Tone Stage 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 20px 60px; }
+  h1 { font-size: 38px; }
+  .lede { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.7;
+          max-width: 68ch; margin: 10px 0 28px; }
+  .lede b { color: var(--text); }
+  h3.sec { margin: 30px 0 10px; }
+  a.card { display: block; text-decoration: none; color: inherit;
+           border: 1px solid var(--border); border-left: 4px solid var(--accent);
+           border-radius: var(--radius); background: var(--white);
+           padding: 14px 16px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
+  a.card:hover { background: var(--panel); }
+  a.card h2 { font-size: 22px; }
+  a.card .assume { font-size: var(--text-sm); color: var(--text-secondary); margin: 6px 0 0; }
+  a.card .assume b { color: var(--text); }
+  a.card.support { border-left-color: var(--text-secondary); }
+  .q { border-left: 3px solid var(--blue); background: var(--blue-subtle);
+       padding: 12px 14px; border-radius: var(--radius); font-size: var(--text-sm);
+       line-height: 1.7; margin-top: 26px; }
+  .q b { display: block; margin-bottom: 4px; }
+  ul { line-height: 1.8; font-size: var(--text-sm); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pop Quiz — the takes</h1>
+  <p class="lede">
+    Stage 2 of the Tone arc, <b>tone-prototype</b>. Three directions, each resting on a
+    <b>different core assumption about where the segment actually happens</b> — not one
+    direction in three colourways. Swap the headline between any two and you would still
+    tell them apart.
+    <br><br>
+    Every take runs on the <b>real verified batch</b> from <code>mvp/2026-08-12/</code>:
+    real sources, real distractors, the real long explanations, real receipt facts, and
+    <code>q3</code>'s answer at <b>E</b> exactly as <code>slot_for_day()</code> drew it.
+    The room numbers come from <code>sequence/research/06-attendees.md</code>. Nothing is
+    tidied up to make a layout look better — that is the whole point of prototyping against
+    real data.
+    <br><br>
+    <b>The pick is the start of the design, not the end.</b> Whichever direction you like,
+    we iterate it together until you love it — many rounds is normal here, because this is
+    the cheapest the design will ever be to change.
+  </p>
+
+  <div class="q" style="border-left-color: var(--accent); background: var(--accent-subtle); margin-top:0">
+    <b>Revised 2026-08-14 — being wrong is the ordinary thing</b>
+    Client testimony: the feedback Rust NYC gets, surfaced through Women in Rust, is that
+    <em>everything is very intimidating; people aren't allowed to be wrong.</em> The first cut
+    of these takes did the opposite of that on every surface that mattered — it put a red ✗ on
+    your own answer. That is gone. Three changes across all three directions:
+    <ul style="margin:6px 0 0">
+      <li><b>The split comes before the answer.</b> You find out you are not alone before you
+      find out you were wrong. The order is the whole mechanism.</li>
+      <li><b>Nothing marks a person as wrong.</b> The answer gets a ✓; your choice gets a
+      count of how many people read it the same way.</li>
+      <li><b>The explanation spends its middle paragraph on the popular wrong answer</b> — what
+      24 of us saw in <code>[1, 2, 3]</code>, and why it is a reasonable thing to have seen.</li>
+    </ul>
+    Now <code>PHILOSOPHY.md</code> §9 and Story B11 / AC-93…AC-96.
+  </div>
+
+  <h3 class="sec">The three directions</h3>
+
+  <a class="card" href="A-hands.html">
+    <h2>A · Hands</h2>
+    <p class="assume"><b>The room's voice beats its phones.</b> No participant app exists.
+    A projector and the host's own phone, and the room votes out loud one letter at a time.
+    Stories B1, B5 and most of B6 evaporate; the build shrinks to a fraction.</p>
+  </a>
+
+  <a class="card" href="B-phone-first.html">
+    <h2>B · Phone-first</h2>
+    <p class="assume"><b>Commitment is private.</b> Anonymity is what makes people willing to
+    be wrong in front of colleagues, so the phone carries the code, the answer and the reveal.
+    The most expensive direction — and the only one that needs the 200-concurrent write burst.</p>
+  </a>
+
+  <a class="card" href="C-projector-first.html">
+    <h2>C · Projector-first, phone as buzzer</h2>
+    <p class="assume"><b>Fifty people reading the same nine lines is the event.</b> The code
+    lives on the big screen and nowhere else; the phone is five letters. The explanation is
+    spoken rather than read. Includes a back-of-the-room test you can actually run.</p>
+  </a>
+
+  <h3 class="sec">The three surfaces that don't fork</h3>
+
+  <a class="card support" href="take-it-home.html">
+    <h2>Take it home</h2>
+    <p class="assume">The page you open <em>after</em> the meetup, on a real screen, to step the
+    trace at your own pace with nobody watching — where §9's private pace went once A-4 put the
+    code and the trace on the wall. No room state of any kind, and it rotates to the next
+    meetup's question rather than accumulating an archive.</p>
+  </a>
+
+  <a class="card support" href="review-surface.html">
+    <h2>Review surface</h2>
+    <p class="assume">Stories A4, A6, A7 — reading a batch, affirming explanations under a
+    blocking gate, watching the reserve. One take, not three: no core-assumption fork, and it
+    is a tool for one person.</p>
+  </a>
+
+  <a class="card support" href="seam-discord.html">
+    <h2>The Discord seam</h2>
+    <p class="assume">Discord's own surface mocked alongside ours, plus a one-page seam
+    diagram. Five sign-in cases including the one that matters — a server Administrator who
+    still cannot host.</p>
+  </a>
+
+  <div class="q">
+    <b>What I'd like you to do with these</b>
+    <ul style="margin:6px 0 0">
+      <li><b>Drive them, don't skim them.</b> Click through a whole segment in each — start to release.</li>
+      <li>In <b>C</b>, hit "6 metres back" while the question is live. That is the test the room runs every time, and it is the one thing that decides whether C is real.</li>
+      <li>In <b>A</b>, run the hand-count. It is the only direction where <em>you</em> are the measuring instrument, and five minutes is not long.</li>
+      <li>Try the <b>lights down</b> toggle on A and C. AC-80 says if a dim room wins, the brand's "no dark mode in v1" is what gets amended — so this is a real decision, not a preview.</li>
+      <li>In the <b>review surface</b>, watch the clock in the corner. AC-21 targets 15 minutes for a batch and nobody has ever measured it.</li>
+    </ul>
+  </div>
+</div>
+<script src="_shared/proto.js"></script>
+<script>mountBadge("Tone Stage 2 · prototype index", "");</script>
+</body>
+</html>

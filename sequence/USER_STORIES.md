@@ -91,7 +91,7 @@ room will believe it — and it sits under a verification badge that did not che
 it.*
 
 The machine establishes the **answer**. It does not establish the prose. A wrong
-answer gets caught by the room arguing, which is the outcome we want anyway; a
+answer gets caught by the room working through it, which is the outcome we want anyway; a
 wrong explanation gets believed and repeated. This story exists because the
 verification receipt lends the explanation credibility it has not earned.
 
@@ -122,7 +122,7 @@ because the segment is ten minutes long.*
 
 | ID | Criterion |
 |---|---|
-| **AC-28** | Joining requires only a short room code. No account, email, or nickname. |
+| **AC-28** | **Joining requires only a short link or a short room code**, and nothing else. No account, email, or nickname. The link may carry the code so that nobody has to type it. *Rewritten 2026-09-03 on the client's T-20 drive — the wall now says* join @ *a short link and the room code is off the wall in every phase; the buzzer and host phone still show the code as the room's identity. Same promise as before (nothing to install, nothing to sign up for), one more way in. Original: "Joining requires only a short room code. No account, email, or nickname."* |
 | **AC-29** | Every room-code failure states what went wrong and what to do next, distinctly for: malformed, unknown, not yet open, already ended, closed for inactivity, and full. |
 | **AC-30** | A room at capacity says so before creating any session, and reserves nothing. |
 | **AC-31** | Joining, from tapping the field to seeing the lobby, feels immediate on venue wifi. `felt` |
@@ -133,7 +133,7 @@ to an answer.*
 
 | ID | Criterion |
 |---|---|
-| **AC-32** | Source is monospace, syntax-highlighted, and legible without pinch-zoom on a 375px-wide phone. `felt` |
+| **AC-32** | **Neither the source nor its trace is rendered on any participant device.** Both live on the room display only, where AC-38 and AC-78 govern their legibility. A participant device carries the options to vote on. *Rewritten twice on 2026-08-14 — first the highlighting clause (Phase 1c), then the whole premise (A-4, client call). Was: "monospace, syntax-highlighted, legible without pinch-zoom on a 375px-wide phone." See Amendments.* |
 | **AC-33** | Code that exceeds the viewport scrolls inside its own container; the page never scrolls horizontally. |
 | **AC-34** | An answer can be changed freely until the server closes the question. |
 | **AC-35** | Submission state is always visible and unambiguous: saving, saved, or failed. |
@@ -143,7 +143,7 @@ to an answer.*
 
 ### Story B3 — The reveal
 *As an attendee, I want to see the answer, why, and what the room thought — that
-is the moment the argument starts.*
+is the moment the room starts working it out together.*
 
 | ID | Criterion |
 |---|---|
@@ -160,10 +160,10 @@ fifty people.*
 
 | ID | Criterion |
 |---|---|
-| **AC-45** | The host controls the room code, question start, an optional published hint, early close, reveal, and advance. |
+| **AC-45** | The host controls the room code, question start, early close, reveal, and advance. *Amended 2026-08-14 (T-13): "an optional published hint" removed — the hint is no longer a host action at all. See AC-48.* |
 | **AC-46** | The host sees participant count and answers-in while a question is live. |
 | **AC-47** | The host receives no answer preview before reveal. |
-| **AC-48** | Publishing a hint shows the same hint to everyone, at once. |
+| **AC-48** | **The hint is available to every participant, on their own device, for as long as the question is open — and taking it tells nobody.** Not the host, not the room, not the totals. There is no host-published hint and no signal that anyone used one. *Rewritten 2026-08-14 (T-13). Was: "publishing a hint shows the same hint to everyone, at once."* |
 | **AC-49** | Every host screen states its phase, one primary action, and the room code where returning is still possible. |
 | **AC-50** | The host can recover control of their own room after a refresh, a crash, or a device change. |
 | **AC-51** | Running a full segment requires no improvisation or apology to the room. `felt` |
@@ -202,7 +202,7 @@ reveal, not merely hidden.*
 
 ### Story B8 — The room display
 *As an attendee at the back of a dim room, I want to read the program off the
-screen at the front, because that is where the argument actually happens.*
+screen at the front, because that is where the room works through it together.*
 
 The projector is not a big phone. It is a distinct surface with its own
 constraints, and it is arguably the primary one — the phone is an input device,
@@ -211,6 +211,7 @@ the room display is where fifty people look at the same nine lines together.
 | ID | Criterion |
 |---|---|
 | **AC-78** | The room display is a distinct surface with its own layout, legible at 6+ metres. `felt` |
+| **AC-99** | **The source carries syntax colour in the reading phases and none while a trace is running.** Colour is present on the room display from the title through the split, and absent in the walk-through and the reveal, where the trace signals by highlight-and-dim and nothing may compete with it. Colour never carries a signal by itself (AC-40). *Minted 2026-09-03 on the client's call — "keep the colour, love it" — during the T-20 drive. It diverges from the design system's `SourceCode`, which renders unhighlighted; the divergence is deliberate and the client carries it to the component's owner.* |
 | **AC-79** | It requires no interaction beyond host controls, and never shows the correct answer, the explanation, or an unpublished hint before reveal. |
 | **AC-80** | It is readable with the room lights down. This needs either a dim-room mode or an amendment to the brand's *no dark mode in v1* non-goal — **the brand is what gets amended if a dim room wins.** `felt` |
 | **AC-81** | The room display and the participant view never disagree about the current phase. |
@@ -233,12 +234,12 @@ draft of these stories dropped.
 
 ### Story B10 — One question, at the end, and then the room is released
 *As an organizer, I want the segment to be one question in the last five minutes
-of the night, so the argument it starts is never the thing I have to interrupt.*
+of the night, so the working-through it starts is never the thing I have to interrupt.*
 
 The segment was specified as a multi-question round because that is what a quiz
 is. It does not need to be. The product is the disagreement, and a disagreement
 needs somewhere to go — mid-meetup the only place it can go is *cut off*, so the
-round was competing with its own output. Placed last, the argument leaves the
+round was competing with its own output. Placed last, the working-through leaves the
 room under its own power.
 
 | ID | Criterion |
@@ -247,6 +248,58 @@ room under its own power.
 | **AC-90** | The segment is scheduled **last**. Nothing the room must yield to is scheduled after it, and the wrap-up releases the room rather than moving it on. |
 | **AC-91** | An attendee seeing the question for the first time can form an answer within **30 seconds** of it appearing — the whole budget the format allows for reading. `felt` — sampled by watching when hands start going up. Failure here is a question that is too long or a screen that is too small, and it is measurable either way. |
 | **AC-92** | Running the segment consumes exactly one question from the bank per meetup, and which question each meetup used is recorded. `MVP` |
+
+### Story B11 — Being wrong is the ordinary thing
+
+*As an attendee who is new to Rust, I want to get it wrong without it costing me
+anything, because the room I am in already feels like a place where you are not
+allowed to.*
+
+Minted 2026-08-14 during `tone-prototype`, on client testimony: the feedback
+Rust NYC gets, surfaced through Women in Rust, is that **everything is very
+intimidating and people aren't allowed to be wrong.** Story B6 already protects
+the *record*; this story protects the *moment*, and they are not the same thing.
+See `PHILOSOPHY.md` §9.
+
+Dimension 6 corroborates the constituency without having named the cause: five
+of 41 free-text responses ask unprompted for beginner-friendly content, one
+specifically for *"pairs up new people with more experienced engineers"*, and
+25–27% of every room has never attended before.
+
+| ID | Criterion |
+|---|---|
+| **AC-93** | The room's split is shown **before** the correct answer, as its own phase, and the reveal cannot be reached without passing through it. Order is the mechanism, not a preference: a split shown *after* the answer is a scoreboard. |
+| **AC-94** | No participant-facing surface marks a participant's **own** answer as incorrect — no ✗, no red, no "you were wrong". The correct option is marked (AC-40 still applies to the *answer*); the participant's own choice is marked only with the number of people who chose the same thing. |
+| **AC-95** | The explanation **names the most-chosen incorrect option**, states how many chose it, and says why it is a reasonable reading. This makes the explanation a structured artifact — *what happened* / *why the popular wrong answer is tempting* / *the bit worth taking away* — rather than one paragraph, and the middle beat cannot be empty. Checked at review; blocking, alongside AC-72. |
+| **AC-96** | The explanation's **first beat** is understandable to someone who knows only beginner Rust, without the other two. `felt` — same instrument as AC-44, sampled by asking one attendee at a real meetup. |
+| **AC-97** | **The room walks the program through together before the answer exists.** A distinct phase sits between the split (AC-93) and the reveal, in which the trace is stepped at the host's pace with the correct option **unmarked** and the verification receipt **not shown**. The reveal cannot be reached without passing through it. Repetition is where the understanding comes from, so a build that runs the trace only *after* the answer does not satisfy this — there it explains a settled result instead of producing one. |
+| **AC-98** | **Nothing in the segment obliges a participant to speak or to interact with another person.** No surface instructs participants to turn to each other, compare answers, or volunteer; nobody is called on by name; and no count, prompt, or absence-of-response is displayed. A host may take a contribution that is offered **unprompted**, and the product neither asks for one nor notices when none comes. |
+
+**AC-98 is the criterion two successive designs failed**, which is why it is
+written as a prohibition rather than a goal. The first put *"A says this, E says
+that — someone from each, why?"* on the wall; the second replaced it with
+*"find someone who picked something else and ask them what they saw."* The second
+is a much smaller ask and it is **the same kind of ask**. Client, cutting it:
+*"none of this... no one needs to volunteer though we'll take it from one
+volunteer."* An instruction is an obligation however gently it is worded, and
+this story's whole subject is the person who does not want to be put on the spot.
+The sharing happens at the bar, and the segment's job is to release them to it.
+
+**The private hint lives at AC-48, not here.** It was raised as a conflict at
+**T-13** and **resolved 2026-08-14 by rewriting AC-48** rather than by minting a
+second criterion that would have said the same thing in different words. AC-48
+now carries this story's requirement: the hint is pullable by anyone, at any
+time while the question is open, and taking it tells nobody.
+
+**Consequence for Story B4:** the host loses a control. AC-45 no longer lists a
+published hint, because there is nothing left to publish — a hint that is always
+available needs no announcement. `PHILOSOPHY.md` §8 (*prefer the smaller
+mechanism*) paying out a third time, and this one came from an accessibility
+argument rather than an engineering one.
+
+**Consequence for Direction A:** a direction with no participant device cannot
+satisfy AC-48 as amended. Its only possible hint is host-announced to the whole
+room, which is the exact cost §9 names. Recorded at T-14.
 
 ---
 
@@ -275,9 +328,9 @@ before anyone writes criteria for them.
 
 - Is a timer wanted at all, or does it cut arguments short? The MVP makes it
   optional deliberately, to find out. *Narrowed by Story B10 — inside a
-  five-minute closer the timer competes with the argument for the same 30
+  five-minute closer the timer competes with the working-through for the same 30
   seconds, so the MVP run should try it without.*
-- Do phones help or hurt? A show of hands is louder and more argumentative, and
+- Do phones help or hurt? A show of hands is louder and more talkative, and
   it needs no infrastructure. If the room prefers hands, stories B1/B5 lose most
   of their weight and the project gets much smaller. *One question a night makes
   this cheaper to answer and much more consequential — see the note under B5.*
@@ -391,6 +444,239 @@ than by edit:**
 
 ---
 
+### 2026-08-14 — Stage 2, `tone-prototype`: being wrong is the ordinary thing
+
+Client testimony, unprompted: *"i want newbies to be able to be wrong. the
+feedback we get and it's surfaced in women in rust is: everything is very
+intimidating. people aren't allowed to be wrong."*
+
+Primary evidence about the room, of the same class as the T-2 quote that
+withdrew Dimension 1's verdict at amendment A-1. **Nothing anywhere in the
+corpus mentioned intimidation before this** — Dimension 6 could observe the
+beginner *want* (§4b) but had no account of the *cause*.
+
+**Added:** Story B11 (AC-93…AC-96) and `PHILOSOPHY.md` §9.
+
+**Found by building, and fixed:** the first cut of the prototypes did the
+opposite of this on every surface that mattered.
+
+| Where | What it did | Now |
+|---|---|---|
+| Directions B and C | Marked the participant's own choice with a red **✗** | No ✗ exists in the product. The answer is marked; the person is not. |
+| Direction B | Went from *answers closed* straight to *reveal* | A split phase sits between them — **AC-93** |
+| All three | One intermediate-pitched explanation paragraph | Three beats, the middle one about the popular wrong answer — **AC-95**, **AC-96** |
+| Direction A | Is the mechanism, not a variant of it | Recorded honestly in the take; see T-14 |
+
+**Reviewed and left standing, with its weight changed:** **AC-44** (a beginner
+can explain the solution to someone else) was already called *the criterion that
+matters most*. It is now also the criterion this story is measured by, and
+Dimension 6 §4b had already independently arrived at that.
+
+### 2026-08-14 — T-13: AC-48 rewritten, and it takes a host control with it
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-48** | **Rewritten.** Was *"publishing a hint shows the same hint to everyone, at once."* Now: the hint is available to every participant on their own device while the question is open, and taking it tells nobody. | The old criterion protected the fairness of a competition that does not exist — no score, no leaderboard, nothing recorded. What it cost was real and one-sided: a newcomer who wanted help had to get the host to announce that the room needed help. Against `PHILOSOPHY.md` §9 that trade is indefensible. |
+| **AC-45** | **Amended.** *"An optional published hint"* removed from the host's controls. | Not a separate decision — a consequence. A hint that is always available needs no publishing, so the control has nothing left to do. §8 (*prefer the smaller mechanism*) a third time, arrived at from an accessibility argument rather than an engineering one. |
+
+**What this rules out.** A direction with no participant device cannot satisfy
+AC-48 as amended — its only possible hint is announced to the whole room. That
+is a second, independent strike against Direction A, and it was not visible
+until the hint question was asked. Recorded at T-14, where the client's call was
+to **keep A in the fan-out as the honest loser** rather than drop it: it costs
+nothing to keep, and in October it is a built comparison for *do phones help or
+hurt* instead of a hypothetical.
+
+### 2026-08-14 — Phase 1c: the house design system reaches the criteria
+
+The reconcile onto the Rust NYC Design System was applied to the prototypes on
+2026-08-14 and **the criteria were not updated with it**, so for a day the corpus
+required something the takes deliberately did not do. Caught on resume and
+recorded here rather than fixed quietly, because a criterion that disagrees with
+the artifact it governs is the failure the AC-lineage rule exists to catch.
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-32** | **Rewritten.** Was *"monospace, syntax-highlighted, legible without pinch-zoom on a 375px phone."* Now: monospace, **line-numbered**, rendered **without** syntax highlighting, same legibility bar. | The design system's `SourceCode` renders unhighlighted on purpose. `PROJECTOR_SPEC.md` §4.1 is the reason: the trace signals by highlighting the executing lines and dimming outside the focus region, so a syntax palette underneath competes with the only signal the room is meant to follow. Legibility was always the point; highlighting was one implementation of it, and it works against the trace. `PHILOSOPHY.md` §5 amended in the same pass. |
+
+**Not the same problem, still open.** Phase 1 already recorded that **AC-32 has
+no surface at all in Direction C** — *legible on a 375px phone* governs nothing
+when the phone carries no code. That is a T-12 consequence and is deliberately
+left for the direction call; this amendment only fixes the highlighting clause,
+which was wrong in every direction.
+
+**Room code, applied at the same time.** The design system's room code is six
+characters (`KMT4XW`); the takes still showed the pre-corpus `RUST-4417`. Now six
+characters everywhere, from an alphabet with no `O`/`0` or `I`/`1` — a code read
+off a projector from six metres back cannot afford an ambiguous glyph. No
+criterion changes: **AC-28** says only *"a short room code"* and **AC-49** only
+requires it be on screen; both were already satisfied and remain so.
+
+### 2026-08-14 — A-4: the source never appears on a participant device
+
+Client call, during the T-12 drive-through: *"AC-32, should not put it on the
+phone, only options to vote on, code and tracing need to be on screen, maybe
+explanation and summary."*
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-32** | **Rewritten — the premise, not the wording.** Was *"source is monospace, legible without pinch-zoom on a 375px-wide phone."* Now: neither the source nor its trace is rendered on any participant device; both live on the room display only, and the device carries the options to vote on. | The criterion asked *how well* source reads on a phone. The client's answer is that it should not be there at all. Precedent for keeping the ID through a reversal is **AC-48** at T-13 — same subject, opposite answer. |
+
+**This was already half-known and could not be resolved by reasoning.** Phase 1
+recorded, from building the takes, that *AC-32 has no surface in Direction C* —
+a criterion about phone legibility governs nothing when the phone carries no
+code. That was logged as a consequence *if* C won. The client has now made it a
+requirement independent of which take wins, which is the stronger claim.
+
+**What it does to the fan-out.** The call is incompatible with two of the three
+directions, and neither is a close call:
+
+- **Direction B is eliminated.** Its core assumption is that *the phone carries
+  the code, the answer and the reveal*. The first clause is what was just
+  refused.
+- **Direction A is eliminated.** *"Only options to vote on"* presumes a device
+  with options on it. A has no participant device at all — which was already
+  carrying two recorded strikes (public commitment against §9, and it cannot
+  satisfy AC-48 as amended).
+- **Direction C is the surviving assumption**, stated by the client in her own
+  words rather than picked off a menu.
+
+**Consequences to settle, not yet minted:**
+
+1. **AC-33 loses its phone framing — and this has now been measured.**
+   *"Code that exceeds the viewport scrolls inside its own container"* was
+   written for a phone, where the reader's thumb is the escape hatch. AC-79 says
+   the wall carries no interaction beyond host controls, so on the wall overflow
+   is not scrollable — it is **invisible**, and a horizontal scrollbar is the
+   prototype reporting success at the exact thing it is failing.
+   **Not one question in the verified bank fits the wall at 27px**: `q3` loses
+   168px off the right edge, `q7` loses 605px, and `q1` also loses 212px off the
+   bottom. Direction C therefore needs a sibling criterion that the source
+   **fits** — a bound on question dimensions, not a CSS fix, and so a constraint
+   on the generation pipeline. Kin to **AC-88**. Measured 2026-08-14 with the
+   *source under test* switcher built on the client's observation that the
+   example on screen was not complex enough.
+2. **Explanation and summary on the device — open.** The client said *maybe*.
+   Direction C as built refuses it outright: the phone reads *"the why is being
+   read out now — listen, don't read."* Reversing that line is the open fork.
+3. **§9's private pace had nowhere left to live** once the trace went to the wall
+   host-stepped. T-15 gave the per-participant stepper to Direction B for a §9
+   reason: a newcomer should work through it *at their own pace, with nobody
+   watching how many times they went back*. With the trace on the wall only and
+   the explanation spoken only, nothing on the participant's side is re-readable
+   and that property is gone from the product.
+
+### The take-it-home link — client proposal, 2026-08-14
+
+Raised by the client in response to (3), and it is a better answer than putting
+the explanation on the phone: *"can't we also give a link they can go to after,
+to trace on their full monitor."*
+
+**Why it beats the phone.** Every option on the table traded §9's private pace
+against the room's attention — prose on fifty phones during the reveal is fifty
+people not looking at the wall or at each other, in the exact ninety seconds the
+room is supposed to be working through it together. The link **moves the private pace off the phone
+and out of the segment entirely**: the room stays a room, and the newcomer gets
+to step the trace afterwards, on a real screen, as many times as they like, with
+nobody watching. It is also the literal form of the one thing — *placed last,
+nobody has to stop it; it walks out with them.*
+
+**It is nearly free, for a reason already in the corpus.** `PROJECTOR_SPEC.md` §6
+requires the projector **view** be built separately from its **data source** so
+the static fallback is `mode: "static"` plus a fixture rather than a second
+design. A take-it-home trace page is that same view, with a different data source
+and a different hand on the stepper. The separation the project already owes
+itself is what makes this cheap.
+
+**Three things it forces a decision on, none of them blocking T-12:**
+
+| # | Question | Why it is not obvious |
+|---|---|---|
+| 1 | **Does the page carry the room's split?** | *"24 of 58 chose `[1, 2, 3]`"* is the single most §9 fact the segment produces — and **AC-56** says no per-person record outlives the room and totals expire *with* it. A page carrying the split is an aggregate that outlives the room. Either AC-56 is amended deliberately or the page ships question + trace + explanation and no room data. |
+| 2 | **Is it public?** | It would be the first public surface this project has. *What this is not: a question bank to publish.* The freshness objection mostly dissolves — **Story A3** never repeats a question, so a spent question costs nothing — but the last quiz died **because its bank was public**, and that deserves a decision rather than a default. |
+| 3 | **How is it handed over?** | The phone is already in their hand at release; showing the link there is the cheap answer, and a QR on the wall covers whoever never joined. Participants never authenticate (**AC-67**), so the page is unauthenticated by construction. |
+
+**Client calls, 2026-08-14, on all three:**
+
+1. **No room state.** *"The page is just informational, no room state."* **AC-56
+   holds unamended** — the split stays in the room that produced it.
+2. **Public, and it rotates.** *"Public yes, it's okay if people go back, it's
+   not set for all time, maybe it expires until the next meetup."*
+3. **QR code or link.**
+
+**Prototyped:** `prototypes/take-it-home.html`, framed as a desktop browser.
+
+**Two things the build surfaced, one of them a real conflict:**
+
+- **AC-95 cannot be satisfied on this page as written.** It requires the
+  explanation to *state how many chose* the popular wrong answer — which is room
+  state. `proto.js`'s `explainHtml()` renders *"Why 24 of us said A"* and *"41%
+  of the room read it that way"*, so the page needed its own renderer. The beat
+  survives the loss because what makes the wrong reading reasonable was never the
+  count: it is a fact about the language. **The reading is that AC-95 is scoped to
+  the live reveal**, where the count *is* the mechanism — *you are not alone* —
+  and that a page read alone days later needs a different form of the same beat.
+  **Not yet a criterion.** It needs an amendment to AC-95 or a sibling criterion
+  for this surface, and it is `tone-architect`'s to settle.
+- **Rotation is the expiry, and it needs no mechanism.** A URL that always means
+  *the last meetup's question* — `popquiz.rustnyc.org/last` — gets the client's
+  *"expires until the next meetup"* by construction: no expiry job, no archive,
+  no dated URLs accumulating, and **only ever one question public at a time**.
+  Story A3 never repeats a question, so a spent one costs nothing to show. The
+  link never changes, so it can be printed on anything; the page behind it
+  rotates. `PHILOSOPHY.md` §8 — *prefer the smaller mechanism* — a fourth time.
+
+### 2026-08-14 — A-5: the one thing changes, and Story B11 gains a phase
+
+Client testimony: *"no, work through it. not argument, understanding through
+repetition and knowledge sharing."*
+
+`PHILOSOPHY.md` said **the argument is the product** from Stage 1. It now says
+the **understanding** is, reached by working through it together. **An argument
+has sides and a winner** — the thing §9 exists to prevent. Full reasoning in
+`PHILOSOPHY.md`'s one thing and at **A-5** in `run-state.md`.
+
+**No AC changes meaning**, and that is worth stating plainly: not one criterion
+was written in terms of winning an argument, which is some evidence the criteria
+were closer to the truth than the thesis sentence above them. **AC-44** —
+*a beginner can explain the solution to someone else* — reads as the most
+load-bearing criterion in the file under the new wording, not the old one.
+
+**Minted the same day: AC-97 and AC-98** under Story B11. *Working through it*
+is a built phase of the product — the room walks the trace together before any
+answer is shown — and it needed the same care AC-93 got, because the order
+**repeat → resolve → release** is the mechanism rather than a preference. AC-98
+carries the property two successive designs got wrong: **nobody is obliged to
+speak.**
+
+### 2026-09-03 — T-20, the closing drive: AC-99 minted, AC-28 rewritten
+
+The client drove Direction C end to end from `sequence/T-20-drive-guide.md`.
+Sixteen items came back and each was applied the same day; the record is the
+T-20 list in `run-state.md`. Two reached the criteria.
+
+**AC-99 minted** under Story B8 (A-7). *"keep the colour, love it."* The source
+carries syntax colour in the reading phases and none while a trace runs.
+`PHILOSOPHY.md` §5 carries the reasoning: the trace's highlight-and-dim is the
+only reason colour was removed, and that reason is vacuous when no trace is
+running. This is minted rather than written as a third revision of AC-32,
+which after A-4 no longer says anything about highlighting.
+
+**AC-28 rewritten** (T-20 item 3). The client's join strip — *join @
+bit.ly/jnfnvd* — put a short link on the wall and took the room code off it.
+AC-28 said the way in is *a short room code*; it now says **a short link or a
+short room code**, and the link may carry the code. The promise the criterion
+protects — nothing to install, nothing to sign up for — is unchanged. AC-29's
+failure states and AC-49's on-screen requirement are unaffected: the code is
+still the room's identity on the buzzer and the host phone.
+
+**Answered, no change:** AC-93 *felt* — *"i like seeing the split before the
+answer."* AC-97 and T-15 from the host's chair — *"as the host i liked setting
+the pace."* AC-48 as rewritten — the private hint passes. AC-80 unchanged.
+
+---
+
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
-fresh IDs and existing IDs never change meaning after handoff.*
+fresh IDs and existing IDs never change meaning after handoff. Range is now
+AC-1 … AC-99 across 19 stories.*

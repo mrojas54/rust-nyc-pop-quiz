@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction C — Projector-first · Rust NYC Pop Quiz prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/tokens.css">
+<style>
+  .stage { gap: 14px; }
+  .direction-head { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap;
+                    align-items: baseline; gap: 12px; }
+  .direction-head h1 { font-size: 28px; }
+  .assumption { font-size: var(--text-sm); color: var(--text-secondary);
+                border-left: 3px solid var(--accent); padding-left: 10px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start;
+          justify-content: center; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+  /* ---- projector: the product --------------------------------------- */
+  /* The wall is laid out once at design size and scaled as a unit. Everything
+     inside it is sized in absolute px for a 1120px wall — that is deliberate,
+     because a projector does not reflow. The fit layer is what makes those px
+     survive a narrow window. */
+  /* The height animates with the transform. Snapping it while the wall eases
+     leaves a gap that opens and closes under the frame on every seat change. */
+  .proj-fit  { width: 100%; overflow: hidden; transition: height .25s ease; }
+  .proj-wrap { width: 1120px; transform-origin: top left; transition: transform .25s ease; }
+  .proj-wrap .projector { width: 1120px; max-width: none; }
+
+  /* Shown whenever the wall is rendered below design size, because AC-78 judged
+     on a shrunken mock is not judged at all. */
+  .undersize { margin-top: 6px; font-size: var(--text-xs); color: var(--text-secondary);
+               border-left: 3px solid var(--border); padding-left: 9px; line-height: 1.5; }
+  .undersize[hidden] { display: none; }
+
+  /* Louder than the undersize note, because this one is about the product
+     rather than about the window it is being previewed in. */
+  .fitwarn { margin-top: 6px; font-size: var(--text-xs); line-height: 1.5;
+             border: 1px solid #9b2c2c; border-left-width: 3px; border-radius: var(--radius);
+             padding: 7px 10px; color: #9b2c2c; background: #fff5f5; }
+  .fitwarn[hidden] { display: none; }
+
+  .typenote { margin-top: 6px; font-size: var(--text-xs); line-height: 1.5;
+              border-left: 3px solid var(--border); padding-left: 9px; color: var(--text-secondary); }
+  .typenote.ok  { border-left-color: var(--green); }
+  .typenote.bad { border-left-color: #9b2c2c; color: #9b2c2c; }
+
+  .endcard { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .endlink { font-family: var(--mono); font-size: 40px; color: var(--accent-hover);
+             border: 2px solid var(--accent); border-radius: var(--radius); padding: 10px 22px; }
+  .endsub { font-size: 19px; color: var(--text-secondary); }
+  .endqr { width: 120px; height: 120px; }
+
+  .workbeat { display: flex; flex-direction: column; gap: 10px; margin-top: 16px;
+              border-left: 4px solid var(--accent); padding-left: 14px; font-size: 21px;
+              line-height: 1.45; color: var(--text-secondary); }
+  .workbeat b { color: var(--text); font-size: 30px; font-family: var(--serif); }
+  .workbeat .second { font-size: 18px; }
+
+  .legibility-only { display: flex; flex-direction: column; gap: 6px;
+                     border: 2px dashed var(--border); border-radius: var(--radius);
+                     padding: 12px 16px; font-size: 17px; line-height: 1.45;
+                     color: var(--text-secondary); }
+  .legibility-only b { color: var(--text); }
+  .legibility-only > b:first-child { font-size: 19px; }
+  .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
+  .proj-top { display: flex; justify-content: space-between; align-items: baseline;
+              flex: none; margin-bottom: 12px; }
+  .proj-brand { font-size: 13px; letter-spacing: var(--tracking-caps);
+                text-transform: uppercase; color: var(--text-secondary); }
+  .proj-main { flex: 1; display: flex; gap: 28px; min-height: 0; }
+  .proj-code { flex: 1.35; min-width: 0; min-height: 0; display: flex; }
+  /* The well must CLIP, never bleed. A flex item's min-height is auto, so a
+     16-line source grew the well past the wall and drew code through the join
+     strip while the fit check — measuring the wrong box — reported zero
+     overflow (found by the client, 2026-09-03). Bounding the well makes any
+     overflow land inside the scroll region, where it can be measured. */
+  .proj-code .rn-src { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .proj-code .rn-src-head { flex: none; }
+  .proj-code .rn-src-scroll { flex: 1; min-height: 0; overflow: auto; }
+  /* When the well clips, the wall says so ON the wall — a red edge on the side
+     that lost content. The note beneath scrolls out of view at six metres
+     back, and "cut off" with no visible cause is what the client saw. */
+  .proj-code .rn-src.clip-x { box-shadow: inset -6px 0 0 var(--red); }
+  .proj-code .rn-src.clip-y { box-shadow: inset 0 -6px 0 var(--red); }
+  .proj-code .rn-src.clip-x.clip-y { box-shadow: inset -6px 0 0 var(--red), inset 0 -6px 0 var(--red); }
+  /* The whole bet of this direction: the code is set for the back row. */
+  .proj-code .code { flex: 1; font-size: 27px; line-height: 1.5; padding: 18px 20px; }
+  .proj-side { flex: 1; display: flex; flex-direction: column; gap: 8px;
+               justify-content: center; min-width: 0; }
+
+  /* Full-width: the source takes the whole wall and the options sit beneath it
+     in two columns. Buys line width, spends line count — see the note in the
+     script. */
+  .proj-main.full { flex-direction: column; gap: 14px; }
+  .proj-main.full .proj-code { flex: 1; min-height: 0; }
+  .proj-main.full .proj-side { flex: none; display: grid; gap: 8px;
+                               grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .proj-main.full .legibility-only { grid-column: 1 / -1; }
+
+  .opt { display: flex; align-items: center; gap: 14px; min-height: 52px;
+         padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+         background: var(--white); font-size: 24px; }
+  .opt .letter { flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+                 border: 1px solid var(--border); border-radius: var(--radius);
+                 font-weight: 700; background: var(--panel); font-size: 22px; }
+  .opt .otext { white-space: pre-wrap; word-break: break-word; }
+  .opt.correct { border-color: var(--green); border-width: 4px; padding: 5px 11px; }
+  .opt.correct .letter { background: var(--green); color: #fff; border-color: var(--green); }
+  .opt.correct .letter::after { content: " ✓"; }
+
+  .bars { display: flex; flex-direction: column; gap: 7px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 22px; }
+  .bar-row .letter { flex: none; width: 30px; font-weight: 700; }
+  .bar-track { flex: 1; height: 30px; background: var(--input); border: 1px solid var(--border);
+               border-radius: var(--radius); overflow: hidden; }
+  /* A span inside a non-flex track stays inline and ignores its width, so
+     every bar rendered empty — numbers with no bars (client, 2026-09-03). */
+  .bar-fill { display: block; height: 100%; background: var(--text-secondary); }
+  .bar-row.is-correct .bar-fill { background: var(--green); }
+  .bar-row.is-correct .letter::after { content: " ✓"; }
+  .bar-n { flex: none; width: 92px; text-align: right; font-size: 19px; }
+
+  .joinstrip { flex: none; display: flex; justify-content: space-between; align-items: baseline;
+               border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px;
+               font-size: 19px; color: var(--text-secondary); }
+  .joinstrip b { color: var(--accent); font-family: var(--serif); font-size: 30px; }
+
+  .title-card { flex: 1; display: grid; place-items: center; text-align: center; }
+  .title-card h2 { font-size: 62px; }
+
+  /* ---- the buzzer phone ---------------------------------------------- */
+  .buzz-body { padding: 12px !important; gap: 8px; }
+  .buzz-head { flex: none; text-align: center; padding-bottom: 6px;
+               border-bottom: 1px solid var(--border); }
+  .buzz-head .lookup { font-size: var(--text-sm); color: var(--text-secondary); }
+  .buzz-head .lookup b { color: var(--text); }
+  .buzz-grid { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .buzz {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+    border: 2px solid var(--border); border-radius: var(--radius);
+    background: var(--white); color: var(--text);
+    font-family: var(--serif); font-size: 46px; cursor: pointer; min-height: var(--touch);
+  }
+  .buzz[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-hover);
+                               border-width: 4px; font-weight: 700; }
+  .buzz[aria-pressed="true"]::after { content: "✓"; font-family: var(--mono); font-size: 24px; }
+  .buzz.correct { border-color: var(--green); border-width: 4px; }
+  .buzz.mine-wrong { border-color: var(--red); border-width: 4px; }
+  .buzz:disabled { cursor: default; }
+  .buzz-foot { flex: none; font-size: var(--text-xs); text-align: center;
+               color: var(--text-secondary); }
+  .buzz-verdict { flex: 1; display: grid; place-items: center; text-align: center; }
+  .buzz-verdict .vb { font-family: var(--serif); font-size: 72px; line-height: 1; }
+
+  /* ---- controls ------------------------------------------------------- */
+  .switcher { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 6px;
+              align-items: center; }
+  .switcher .btn { min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+  /* Which source, layout, seat and type mode is on has to be visible, or the
+     wall's state is a mystery the moment two buttons have been pressed. */
+  .switcher .btn[aria-pressed="true"] { background: var(--text); color: var(--white);
+                                        border-color: var(--text); font-weight: 600; }
+  .switcher .btn[aria-pressed="true"]:hover { background: var(--text); }
+  .switcher .lbl { font-size: var(--text-xs); text-transform: uppercase;
+                   letter-spacing: var(--tracking-caps); color: var(--text-secondary);
+                   margin-right: 4px; }
+  .host-step { font-size: var(--text-xs); text-transform: uppercase;
+               letter-spacing: var(--tracking-caps); color: var(--text-secondary); }
+  .host-h { font-family: var(--serif); font-size: 24px; margin: 2px 0 10px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .no-preview { border-left: 3px solid var(--blue); background: var(--blue-subtle);
+                padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
+  .ratio { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+           color: var(--text-secondary); border-top: 1px solid var(--border); }
+  .ratio b { color: var(--text); }
+  .note { width: 100%; max-width: 1180px; font-size: var(--text-xs); color: var(--text-secondary);
+          border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.7; }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="direction-head">
+    <h1>Direction C — Projector-first, phone as buzzer</h1>
+    <div class="assumption">Core assumption: <b>fifty people reading the <em>same</em> nine lines is the event.</b> The code lives on the big screen and nowhere else. The phone is five letters — an input device, not a reading surface.</div>
+  </div>
+
+  <div class="switcher">
+    <span class="lbl">Drive the segment</span>
+    <button class="btn" data-k="phase:idle" onclick="go('idle')">1 · title</button>
+    <button class="btn" data-k="phase:live" onclick="go('live')">2 · question live</button>
+    <button class="btn" data-k="phase:closed" onclick="go('closed')">3 · answers closed</button>
+    <button class="btn" data-k="phase:split" onclick="go('split')">4 · the split</button>
+    <button class="btn" data-k="phase:work" onclick="go('work')">5 · work through it</button>
+    <button class="btn" data-k="phase:reveal" onclick="go('reveal')">6 · reveal</button>
+    <button class="btn" data-k="phase:released" onclick="go('released')">7 · released</button>
+    <span class="lbl" style="margin-left:14px">AC-78 · the back-row test</span>
+    <button class="btn" data-k="dist:1" onclick="setDistance(1)">front row</button>
+    <button class="btn" data-k="dist:0.55" onclick="setDistance(0.55)">middle</button>
+    <button class="btn" data-k="dist:0.33" onclick="setDistance(0.33)">6 metres back</button>
+    <span class="lbl" style="margin-left:14px">Source under test</span>
+    <button class="btn" data-k="src:q3" onclick="setSource('q3')">q3 · 5 lines</button>
+    <button class="btn" data-k="src:q1" onclick="setSource('q1')">q1 · 16 lines</button>
+    <button class="btn" data-k="src:q7" onclick="setSource('q7')">q7 · 69ch wide</button>
+    <button class="btn" data-k="src:q5" onclick="setSource('q5')">q5 · 9×50</button>
+    <button class="btn" data-k="src:L35" onclick="setSource('L35')">35 lines · not a question</button>
+    <span class="lbl" style="margin-left:14px">Type size · derived, not guessed</span>
+    <button class="btn" data-k="type:auto" onclick="setAuto(true)">auto · fit the question</button>
+    <button class="btn" data-k="type:hold" onclick="setWallFont(27)">hold at 27px</button>
+    <span class="lbl">screen</span>
+    <button class="btn" data-k="screen:12" onclick="setScreen(12)">12ft</button>
+    <button class="btn" data-k="screen:15" onclick="setScreen(15)">15ft</button>
+    <button class="btn" data-k="screen:20" onclick="setScreen(20)">20ft</button>
+    <span class="lbl">back row</span>
+    <button class="btn" data-k="back:20" onclick="setBackRow(20)">20ft</button>
+    <button class="btn" data-k="back:40" onclick="setBackRow(40)">40ft</button>
+    <span class="lbl" style="margin-left:14px">Wall layout</span>
+    <button class="btn" data-k="layout:split" onclick="setLayout('split')">code beside options</button>
+    <button class="btn" data-k="layout:full" onclick="setLayout('full')">code full-width</button>
+    <span class="lbl" style="margin-left:14px">AC-80</span>
+    <button class="btn" data-k="room:light" onclick="setRoom('light')">lights up</button>
+    <button class="btn" data-k="room:dim" onclick="setRoom('dim')">lights down</button>
+  </div>
+
+  <div class="col" style="width:100%">
+    <div class="frame-label">Room display · the product</div>
+    <!-- The wall lays out at its design size (1120px) and is scaled to fit as a
+         single unit. Sizing it with width:100% instead let the box shrink while
+         its px-sized contents did not, so at a narrow window the options landed
+         on top of the source. A projector mock that reflows is not a projector
+         mock — proportions are the thing being judged. -->
+    <div class="proj-fit" id="projFit">
+      <div class="proj-wrap" id="projWrap">
+        <div class="projector" id="proj">
+        <div class="proj-body">
+          <div class="proj-top">
+            <span class="proj-brand">Rust NYC · Pop Quiz</span>
+            <span class="proj-brand" id="projPhase">—</span>
+          </div>
+          <div class="proj-main" id="projMain"></div>
+          <div class="joinstrip" id="joinStrip"></div>
+        </div>
+        </div>
+      </div>
+    </div>
+    <div class="meta" id="distNote">Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs.</div>
+    <div class="undersize" id="undersize" hidden></div>
+    <div class="meta" id="srcNote" style="margin-top:6px"></div>
+    <div class="fitwarn" id="fitWarn" hidden></div>
+    <div class="typenote" id="typeNote" style="margin-top:6px"></div>
+  </div>
+
+  <div class="pair">
+    <div class="col">
+      <div class="frame-label">Participant · the buzzer. No code on it, ever.</div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body buzz-body" id="pBody"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="frame-label">Host control</div>
+      <div class="phone" style="height:560px">
+        <div class="phone-status"><span>9:41</span><span>▮▮▮ ⌁</span></div>
+        <div class="phone-body" id="hostBody"></div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width:380px;align-items:flex-start">
+      <div class="frame-label">What this direction is testing</div>
+      <div class="panel" style="font-size:var(--text-sm);line-height:1.65">
+        <div class="proposal" style="margin-bottom:12px">
+          <span class="proposal-tag">Client testimony, 2026-08-14</span>
+          <b>Reworked against the room's own feedback:</b> <em>everything is very intimidating; people aren't allowed to be wrong.</em> The buzzer no longer grades you — <b>no ✓, no ✗</b>. At the split and the reveal it shows one number: how many people said what you said. The verdict is on the projector, about the answer, never about the person. A quiet pull-your-own hint is proposed here too.
+        </div>
+        <p style="margin-top:0"><b>AC-91 becomes a typography problem.</b> Thirty seconds to form an opinion is the whole budget the format allows. Here that is decided by one thing — how big the code is set on one screen — instead of by fifty different phones held at fifty distances.</p>
+        <p><b>The explanation is spoken, not read.</b> B puts the prose on every phone; C puts it only in the host's hand and on the projector's receipt. Everyone hears it at the same time, which is the version that actually spreads the understanding — the people who have it telling the people who don't, rather than two people debating in front of everyone. It also means AC-42 ("reads well aloud") stops being aspirational and becomes the only way the explanation is ever delivered.</p>
+        <p><b>What it costs.</b> Someone in the back who cannot read the screen has no fallback — there is no code on their phone. AC-32's "legible without pinch-zoom on a 375px phone" has no surface to apply to, and would need withdrawing or rewriting against the projector instead.</p>
+        <p style="margin-bottom:0"><b>What it buys.</b> The join path and write burst still exist, but the participant client is five buttons — the smallest thing that can still produce a real anonymous count, and the least that can go wrong in front of the room.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Real data.</b> Verified <code>q3</code> from <code>mvp/2026-08-12/</code>, answer at E as drawn. <b>Type size is derived, not chosen.</b> It was 27px because that looked right in a browser — but a px here is a fraction of the whole projected image, not a physical size, and 27px is about 8.6in of capital letter on a 20ft screen. The controls above compute the smallest comfortable type from screen width and back-row distance (cap height ≥ distance/150) and the note below states the implied inches. Rule of thumb, not a measurement: AC-78 is <code>felt</code> and October settles it. The back-row buttons scale the whole frame rather than the type, so what you see is what the room sees.
+  </div>
+</div>
+
+<script src="_shared/data.js"></script>
+<script src="_shared/proto.js"></script>
+<script>
+const state = { phase: "idle", picked: null, hintShown: false, hintPulled: false, traceStep: 0 };
+
+function traceStep(d) {
+  state.traceStep = Math.max(0, Math.min(state.traceStep + d, TONIGHT.trace.steps.length - 1));
+  render();
+  announce(traceSay(TONIGHT, state.traceStep));
+}
+
+function setRoom(mode) {
+  document.getElementById("proj").setAttribute("data-room", mode === "dim" ? "dim" : "light");
+  syncButtons();
+}
+/* Every switcher button reflects the state it sets. */
+function syncButtons() {
+  const proj = document.getElementById("proj");
+  const on = {
+    phase: state.phase, dist: String(wallDist), src: sourceKey,
+    type: autoType ? "auto" : "hold", screen: String(screenWidthFt),
+    back: String(backRowFt), layout: wallLayout,
+    room: (proj && proj.getAttribute("data-room")) || "light"
+  };
+  document.querySelectorAll(".switcher .btn[data-k]").forEach(function (b) {
+    const kv = b.getAttribute("data-k").split(":");
+    b.setAttribute("aria-pressed", on[kv[0]] === kv[1] ? "true" : "false");
+  });
+}
+/* A stand-in QR — real finder squares, deterministic modules. A mock of the
+   handover, not a working code. */
+function renderEndQr() {
+  const el = document.querySelector(".endqr");
+  if (!el) return;
+  const N = 33, cells = [];
+  let seed = 20260812;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  function finder(ox, oy) {
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const edge = x === 0 || y === 0 || x === 6 || y === 6;
+      const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+      if (edge || core) cells.push([ox + x, oy + y]);
+    }
+  }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const inF = (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+    if (!inF && rnd() > 0.52) cells.push([x, y]);
+  }
+  finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+  el.innerHTML = '<rect width="33" height="33" fill="#ffffff"/>' + cells.map(function (c) {
+    return '<rect x="' + c[0] + '" y="' + c[1] + '" width="1" height="1" fill="#1a202c"/>';
+  }).join("");
+}
+
+/* ---- how big does the type actually have to be? -----------------------
+   The wall was set at 27px because it looked right in a browser. Nothing
+   derived it, and the client caught that: a px in this mock is not a physical
+   size. The mock is a 1120×630 canvas standing in for the WHOLE projected
+   image, so 27px means "each line is 4.3% of screen height" — about 8.6 inches
+   on a 20-foot screen, which is far more type than any room needs.
+
+   What governs legibility is character height against viewing distance. The
+   widely used rule of thumb is cap height >= distance / 150 for comfortable
+   reading of detailed content, and / 200 for basic legibility. Code is read
+   carefully, so 150 is the honest default.
+
+   This is a rule of thumb and it is labelled as one. AC-78 is `felt` and the
+   October field notes are where it gets checked against an actual back row —
+   but arithmetic beats a squint in a browser, and until now there was neither. */
+const WALL_CANVAS_H = 630;   /* mock px representing the full image height */
+const CAP_RATIO     = 0.7;   /* cap height as a fraction of font-size, monospace */
+let   screenWidthFt = 15;   /* client estimate, "pretty big, maybe 15ft" — HYPOTHESIS, to be measured in October */
+let   backRowFt     = 20;
+let   readRatio     = 150;
+let   autoType      = true;  /* the wall sizes itself to the question — client call */
+const MAX_FONT      = 46;    /* a five-line program should fill the wall, not become a poster */
+/* Usable code area in mock px, measured from the built layouts. */
+const CODE_AREA_H   = { split: 426, full: 384 };
+const CODE_AREA_W   = { split: 596, full: 1010 };
+let   wallFontPx    = 27;
+/* The wall has a fixed area. It can be spent on WIDTH (source full-bleed,
+   options beneath) or on HEIGHT (source beside the options). Neither dominates:
+   full-width fixes long LINES, split-column fixes long PROGRAMS. Both are built
+   so the trade is looked at rather than argued about. */
+let   wallLayout    = "full";    /* "split" | "full" — client call 2026-09-03: "i love the options under, so code full width" */
+function setLayout(m) { wallLayout = m; applyTypeModel(); }
+
+function minLegibleFontPx() {
+  const screenHIn = screenWidthFt * 12 * 9 / 16;      /* 16:9 */
+  const capIn     = (backRowFt * 12) / readRatio;     /* required cap height */
+  const fontIn    = capIn / CAP_RATIO;
+  return (fontIn / screenHIn) * WALL_CANVAS_H;
+}
+
+function applyTypeModel() {
+  const min = minLegibleFontPx();
+  const src = currentSource().replace(/\n$/, "").split("\n");
+  const lines = src.length;
+  const maxChars = Math.max.apply(null, src.map(function (l) { return l.length; }));
+
+  /* The wall is sized to the QUESTION, with legibility as the floor.
+
+     Question length is not bounded — nothing rejects a long question up front.
+     The type grows to fill the wall when the program is short and shrinks
+     toward the smallest legible size when it is long. A question is too long
+     only when it will not fit EVEN AT minimum legible size, and that is an
+     emergent limit belonging to the room, not a rule imposed on the generator.
+
+     Two constraints, both real: total height, and the longest single line.
+     Monospace advance width is ~0.6em, and line-height is 1.5. */
+  const availH = CODE_AREA_H[wallLayout];
+  const availW = CODE_AREA_W[wallLayout];
+  const byHeight = availH / (lines * 1.5);
+  /* The well is not all text: the line-number gutter is 2ch wide with 1.5ch of
+     margin, and the scroll region carries padding on both sides. Leaving those
+     out is what made the first cut of this model overflow by 40-80px. */
+  const GUTTER_CH = 3.5, WELL_PAD = 32;
+  const byWidth  = (availW - WELL_PAD) / ((maxChars + GUTTER_CH) * 0.6);
+  const fits     = Math.min(byHeight, byWidth);
+
+  if (autoType) wallFontPx = Math.round(Math.max(min, Math.min(fits, MAX_FONT)) * 10) / 10;
+
+  render();
+
+  /* The constants above are a first guess. The wall is then MEASURED, because
+     the well has a header and padding the constants never knew about, and the
+     options block under a full-width source is ~200px tall, not the ~50px the
+     constant assumed. Both put code through the join strip and under the
+     options on 2026-09-03 while the note beneath said "fits, legibly". */
+  let m = measureWell();
+  if (autoType && m) {
+    for (let i = 0; i < 6 && (m.overX > 2 || m.overY > 2) && wallFontPx > min; i++) {
+      const k = Math.min(m.overX > 2 ? m.cw / m.sw : 1, m.overY > 2 ? m.ch / m.sh : 1);
+      wallFontPx = Math.round(Math.max(min, wallFontPx * k * 0.97) * 10) / 10;
+      render(); m = measureWell();
+    }
+  }
+  const overflows = !!m && (m.overX > 2 || m.overY > 2);
+  const tooLong = autoType ? overflows : fits < min;
+
+  const el = document.getElementById("typeNote");
+  const screenHFt = screenWidthFt * 9 / 16;
+  const capIn = (wallFontPx / WALL_CANVAS_H) * (screenHFt * 12) * CAP_RATIO;
+  el.innerHTML =
+    "<b>" + screenWidthFt + "ft screen (assumed), back row " + backRowFt + "ft, 1/" + readRatio + " rule.</b> " +
+    "Floor is <b>" + (Math.round(min * 10) / 10) + "px</b>; this source wants <b>" +
+    (Math.round(fits * 10) / 10) + "px</b> to fit. Wall is at <b>" + wallFontPx + "px</b> — capitals about <b>" +
+    (Math.round(capIn * 10) / 10) + "in</b> on that screen. " +
+    (tooLong
+      ? "<b>Too long for this room:</b> " + lines + " lines and " + maxChars +
+        " characters will not fit at a legible size. The limit is the room's, not the question's."
+      : overflows
+      ? "<b>Does not fit at the held size.</b> " + lines + " lines, widest " + maxChars +
+        " characters — press <b>auto</b> and the wall sizes itself."
+      : "<b>Fits, legibly.</b> " + lines + " lines, widest " + maxChars + " characters.") +
+    " <i>Rule of thumb — AC-78 is <code>felt</code> and October settles it.</i>";
+  el.className = tooLong ? "typenote bad" : "typenote ok";
+}
+
+function measureWell() {
+  const sc = document.querySelector("#proj .rn-src-scroll");
+  if (!sc) return null;
+  return { overX: sc.scrollWidth - sc.clientWidth, overY: sc.scrollHeight - sc.clientHeight,
+           cw: sc.clientWidth, ch: sc.clientHeight, sw: sc.scrollWidth, sh: sc.scrollHeight };
+}
+function setScreen(ft)  { screenWidthFt = ft; applyTypeModel(); }
+function setBackRow(ft) { backRowFt = ft;     applyTypeModel(); }
+function setRatio(r)    { readRatio = r;      applyTypeModel(); }
+function setWallFont(px){ autoType = false; wallFontPx = px; applyTypeModel(); }
+function setAuto(v)     { autoType = v;                    applyTypeModel(); }
+
+/* ---- the source under test -------------------------------------------
+   Every direction was built and judged against q3 — which is, by measurement,
+   the JOINT-SHORTEST question in the bank: 5 lines, 42 characters at its
+   widest. It is real and it is verified, but it is the prettiest member of the
+   set, and AC-78 / AC-38 / AC-33 are exactly the criteria that a short source
+   flatters. The stage contract is blunt about this: a prototype validated
+   against pretty data validates nothing.
+
+   So the wall can be driven against any source in the bank, worst cases first.
+   This swaps the SOURCE ONLY, and only in the phases before reveal — the vote,
+   the split and the reveal stay q3's, because the room data is q3's and a split
+   shown against another question's options would be a lie.
+
+   LAYOUT-35 is not a question and must never be mistaken for one. It carries no
+   options, no answer and no receipt, and nothing anywhere claims what it prints
+   — PHILOSOPHY §3 holds. It exists to answer one thing nothing else in this
+   project can: the research names "no mainstream live-quiz tool can display a
+   35-line Rust program" as the gap that disqualified every off-the-shelf option
+   and justified building this (D-6). The verified bank tops out at 16 lines, so
+   that claim has never once been exercised on a real surface. */
+const LAYOUT_35 = [
+  "use std::collections::HashMap;",
+  "",
+  "#[derive(Debug, Clone, PartialEq)]",
+  "enum Token {",
+  "    Word(String),",
+  "    Number(i64),",
+  "}",
+  "",
+  "fn classify(raw: &str) -> Option<Token> {",
+  "    if raw.is_empty() {",
+  "        return None;",
+  "    }",
+  "    match raw.parse::<i64>() {",
+  "        Ok(n) => Some(Token::Number(n)),",
+  "        Err(_) => Some(Token::Word(raw.to_lowercase())),",
+  "    }",
+  "}",
+  "",
+  "fn main() {",
+  "    let line = \"the 3 quick foxes 12 the FOXES\";",
+  "    let mut counts: HashMap<Token, usize> = HashMap::new();",
+  "",
+  "    for raw in line.split_whitespace() {",
+  "        if let Some(tok) = classify(raw) {",
+  "            *counts.entry(tok).or_insert(0) += 1;",
+  "        }",
+  "    }",
+  "",
+  "    let mut seen: Vec<_> = counts.into_iter().collect();",
+  "    seen.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| format!(\"{:?}\", a.0).cmp(&format!(\"{:?}\", b.0))));",
+  "",
+  "    for (tok, n) in seen.iter().take(3) {",
+  "        println!(\"{:?} appeared {} time(s)\", tok, n);",
+  "    }",
+  "}"
+].join("\n");
+
+/* Ordered worst-case-first: the widest line, then the most lines, then the one
+   the takes have been using. */
+const SOURCES = [
+  { key: "q3",  label: "q3 · 5 lines",        get: function () { return TONIGHT.source; } },
+  { key: "q1",  label: "q1 · 16 lines",       get: function () { return bankSource("q1"); } },
+  { key: "q7",  label: "q7 · 69ch wide",      get: function () { return bankSource("q7"); } },
+  { key: "q5",  label: "q5 · 9 lines, 50ch",  get: function () { return bankSource("q5"); } },
+  { key: "L35", label: "35 lines · not a question", get: function () { return LAYOUT_35; } }
+];
+let sourceKey = "q1";
+
+function bankSource(id) {
+  const q = (typeof BANK !== "undefined" ? BANK : []).filter(function (x) { return x.id === id; })[0];
+  return q ? q.source : TONIGHT.source;
+}
+function sourceLabel() {
+  const s = SOURCES.filter(function (x) { return x.key === sourceKey; })[0];
+  return s ? s.label : sourceKey;
+}
+function currentSource() {
+  const s = SOURCES.filter(function (x) { return x.key === sourceKey; })[0];
+  return s ? s.get() : TONIGHT.source;
+}
+function setSource(key) {
+  sourceKey = key;
+  applyTypeModel();
+  const s = SOURCES.filter(function (x) { return x.key === key; })[0];
+  const lines = currentSource().replace(/\n$/, "").split("\n");
+  const widest = Math.max.apply(null, lines.map(function (l) { return l.length; }));
+  document.getElementById("srcNote").innerHTML = key === "L35"
+    ? "<b>This is a layout fixture, not a question.</b> No options, no answer, no receipt, and nothing " +
+      "here claims what it prints. It is 35 lines because the research says a 35-line Rust program is " +
+      "what no off-the-shelf tool can display — the reason this gets built at all. The verified bank " +
+      "tops out at 16 lines, so <b>this is the first time that claim has been put on a surface.</b> " +
+      "If the wall cannot hold it, D-6 needs revisiting, not the CSS."
+    : "<b>" + lines.length + " lines, widest " + widest + " characters.</b> The takes were built against " +
+      "q3 — the joint-shortest question in the bank. Judge AC-78 on the worst source the bank can " +
+      "actually produce, not the one that flatters the layout.";
+  announce("Source under test: " + (s ? s.label : key));
+}
+
+/* ---- fitting the wall ------------------------------------------------
+   WALL_W is the design width every px inside the projector was drawn for.
+   The frame scales to whatever room it has; `dist` is the back-row test
+   multiplying on top of that fit. Keeping the two factors separate is what
+   makes the seat buttons honest at any window size — they change how far away
+   the wall is, never how it is laid out. */
+const WALL_W = 1120;
+let wallDist = 1;
+
+function fitWall() {
+  const fit = document.getElementById("projFit");
+  const wrap = document.getElementById("projWrap");
+  if (!fit || !wrap) return;
+  const avail = fit.clientWidth;
+  /* Never upscale past design size — a wall bigger than it was drawn for would
+     flatter AC-78 exactly as much as a shrunken one punishes it. */
+  const base = Math.min(avail / WALL_W, 1);
+  const s = base * wallDist;
+  wrap.style.transform = "scale(" + s + ")";
+  wrap.style.marginLeft = Math.round((avail - WALL_W * s) / 2) + "px";
+  fit.style.height = Math.round(wrap.offsetHeight * s) + "px";
+
+  const under = document.getElementById("undersize");
+  const pctOf = Math.round(base * 100);
+  under.hidden = base >= 0.9;
+  under.textContent = "This wall is at " + pctOf + "% of design size, because the window is " +
+    "narrower than the 1120px it was drawn for. The back-row test still compares honestly — " +
+    "front row and six metres back shrink by the same factor — but do not settle AC-78 here. " +
+    "Widen the window until this line disappears.";
+}
+window.addEventListener("resize", fitWall);
+
+function setDistance(scale) {
+  wallDist = scale;
+  fitWall();
+  syncButtons();
+  document.getElementById("distNote").textContent = scale === 1
+    ? "Front row. Use the back-row buttons above to judge AC-78 honestly — a mock that is only ever seen at full size passes a test the room never runs."
+    : scale > 0.4
+    ? "Middle of the room. Still comfortable? The nine lines are the whole segment."
+    : "About six metres back — the last row at a full Rust NYC meetup. If you are squinting now, AC-78 fails and this direction fails with it.";
+}
+
+/* ---- projector ------------------------------------------------------- */
+/* Client copy, 2026-09-03, item 3 off the T-20 drive: "join @ bit.ly/jnfnvd".
+   The way in is a short link on the wall, not a code to type — so the code
+   comes off the wall. The URL is her placeholder. AC-28 says "a short room
+   code"; whether it becomes "a short link" is logged for the criteria. */
+const JOIN_URL = "bit.ly/jnfnvd";
+function joinLine(prefix) {
+  return '<span>' + prefix + 'join @ <b>' + JOIN_URL + '</b></span>';
+}
+function renderProjector() {
+  const main = document.getElementById("projMain");
+  const strip = document.getElementById("joinStrip");
+  const phase = document.getElementById("projPhase");
+  const p = state.phase;
+  main.className = "proj-main";
+  strip.style.display = "flex";
+
+  if (p === "idle") {
+    phase.textContent = "closing segment";
+    main.className = "title-card";
+    /* Client copy, 2026-09-03, items 1 and 2 off the T-20 drive: the hero says
+       what is happening and nothing else. The brand line is already top-left. */
+    main.innerHTML = '<div><h2>Time for a pop quiz.</h2></div>';
+    strip.innerHTML = joinLine("");
+    return;
+  }
+  if (p === "released") {
+    phase.textContent = "that's the night";
+    main.className = "title-card";
+    /* The last thing on the wall is the way to take it home. Client call: this
+       screen carries the link and nothing else competing with it. The QR is
+       there because a link on a wall is useless without a way into a phone. */
+    main.innerHTML = '<div class="endcard"><h2>Let\'s go to the bar.</h2>' +
+      '<div class="endlink">popquiz.rustnyc.org/last</div>' +
+      '<div class="endsub">Tonight\'s question, and the walk-through, for as long as you want it.</div>' +
+      '<svg class="endqr" viewBox="0 0 33 33" shape-rendering="crispEdges" role="img" ' +
+        'aria-label="QR code to popquiz.rustnyc.org/last"></svg>' +
+      '</div>';
+    renderEndQr();
+    strip.style.display = "none";
+    return;
+  }
+
+  phase.textContent = ({ live: "read it", closed: "answers closed",
+                         split: "how the room voted", reveal: "the answer" })[p];
+
+  /* At reveal the left column stops being a static listing and becomes the
+     program running. The host steps it from their phone (AC-79). */
+  const mainCls = "proj-main" + (wallLayout === "full" ? " full" : "");
+  const code = '<div class="proj-code" style="flex-direction:column;gap:14px">' +
+    (p === "reveal" || p === "work"
+      ? traceSourceHtml(TONIGHT, state.traceStep, { size: "24px", style: "flex:none" }) +
+        traceNoteHtml(TONIGHT, state.traceStep, { big: true, noNav: true })
+      /* Colour only here: no trace is running in the reading phases, so nothing
+         competes with it. It is suppressed for 'work' and 'reveal' above. */
+      : sourceCodeHtml(currentSource(), "What does this program print?",
+                       { size: wallFontPx + "px", syntax: true })) +
+    '</div>';
+
+  let side;
+  if ((p === "live" || p === "closed") && sourceKey !== "q3") {
+    /* The options belong to q3. Showing them beside another program's source
+       produced a wall nobody could answer — five `dedup` outputs next to a
+       HashMap program. The switcher is a LEGIBILITY instrument, so when it is
+       off q3 the wall says so and shows no options at all, rather than pairing
+       a real source with answers from a different question. */
+    side = '<div class="proj-side"><div class="legibility-only">' +
+      '<b>Legibility test — not a question.</b>' +
+      '<span>Source from <b>' + escapeHtml(sourceLabel()) + '</b> at real size. The options are ' +
+      '<code>q3</code>\'s, so they are hidden.</span>' +
+      '<span>Judge one thing: <b>can you read it from the back?</b> ' +
+      '<b>q3 · 5 lines</b> or <b>4 · the split</b> returns to the real segment.</span>' +
+      '</div></div>';
+  } else if (p === "live" || p === "closed") {
+    side = '<div class="proj-side">' + TONIGHT.options.map(function (o) {
+      return '<div class="opt"><span class="letter">' + o.letter + '</span>' +
+             '<span class="otext">' + escapeHtml(o.text) + '</span></div>';
+    }).join("") +
+    '</div>';
+  } else {
+    const bars = TONIGHT.options.map(function (o) {
+      const n = ROOM.votes[o.letter];
+      return '<div class="bar-row' + (p === "reveal" && o.correct ? " is-correct" : "") + '">' +
+        '<span class="letter">' + o.letter + '</span>' +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + pct(n, ROOM.answered) + '%"></span></span>' +
+        '<span class="bar-n">' + n + ' · ' + pct(n, ROOM.answered) + '%</span></div>';
+    }).join("");
+    side = '<div class="proj-side"><div class="bars">' + bars + '</div>' +
+      (p === "split"
+        ? '<div class="company" style="margin-top:16px;font-size:19px">' +
+          '<span class="n" style="font-size:38px">' + ROOM.votes.A + '</span>' +
+          '<span>of us read it the same way. No answer yet.</span></div>'
+        : p === "work"
+        ? '<div class="workbeat">' +
+          '<b>Let\'s walk it.</b>' +
+          '<span>Still no answer.</span>' +
+          '<span class="second">Nobody has to say anything.</span>' +
+          '</div>'
+        : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
+          '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
+          '<div class="receipt" style="margin-top:10px;font-size:15px">' +
+          '<span class="provenance machine">✓ established by the machine</span><br>' +
+          TONIGHT.receipt.rustc + ' · ran ' + TONIGHT.receipt.runs + '× byte-identical · Miri clean, output matched.<br>' +
+          '<b>Establishes the answer. Not the explanation — that one is human, and you are about to hear it.</b></div>') +
+      '</div>';
+  }
+
+  main.className = mainCls;
+  main.innerHTML = code + side;
+  strip.innerHTML = p === "live"
+    ? joinLine("still open — ")
+    : p === "closed"
+    ? '<span>answers are closed</span>'
+    : '<span>' + ROOM.answered + ' of ' + ROOM.present + ' in the room answered</span>';
+}
+
+/* ---- buzzer phone ---------------------------------------------------- */
+function renderParticipant() {
+  const b = document.getElementById("pBody");
+  const p = state.phase;
+
+  if (p === "idle" || p === "released") {
+    b.innerHTML =
+      '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
+      '<div class="buzz-verdict"><div>' +
+      (p === "idle"
+        ? '<div class="vb">↑</div><p class="meta" style="max-width:220px">You\'re in. Everything happens on the screen at the front — look up.</p>'
+        : '<div class="vb">✓</div><p class="meta" style="max-width:220px">Nothing about you was recorded. Not your answer, not your device, not that you were here.</p>') +
+      '</div></div>' +
+      '<div class="buzz-foot">no account · no name · no score</div>';
+    return;
+  }
+
+  /* The split beat, on the phone. You learn you are not alone BEFORE you learn
+     you were wrong — and in this direction you learn it while looking up. */
+  if (p === "split" || p === "work" || p === "reveal") {
+    const mine = state.picked || "A";
+    const n = ROOM.votes[mine];
+    const others = n - 1;
+    b.innerHTML =
+      /* During 'work' the beat points at the room, not the wall — "Look up"
+         would be telling them to do the opposite of what the phase asks. */
+      '<div class="buzz-head"><div class="lookup"><b>Look up.</b> ' +
+        (p === "split" ? "Where the room landed."
+          : p === "work" ? "We're walking it through."
+          : "The answer is on the screen.") +
+      '</div></div>' +
+      '<div class="buzz-verdict"><div>' +
+      /* No ✓ and no ✗. The number is the message: you are one of n, not one of
+         the wrong ones. The verdict lives on the projector, about the ANSWER. */
+      '<div class="vb" style="color:var(--accent-hover)">' + n + '</div>' +
+      '<p style="font-size:19px;margin:8px 0 0">people said <b>' + mine + '</b>,</p>' +
+      '<p style="font-size:19px;margin:0">including you.</p>' +
+      (p === "reveal"
+        ? '<p style="font-size:17px;margin:14px 0 0;color:var(--text-secondary)">It was <b>E</b>.</p>'
+        : '') +
+      '<p class="meta" style="max-width:230px;margin:14px auto 0">' +
+        (p === "split"
+          ? 'Five different readings of four lines. Nobody knows who picked what — including us.'
+          : p === "work"
+          ? 'Nothing to do. Nobody knows the answer yet, including us.'
+          : (others > 0
+              ? 'You and ' + others + ' other people read it the same way. The why is being read out now — listen, don\'t read.'
+              : 'You were the only one, which makes yours the most interesting answer in the room.')) +
+      '</p>' +
+      '</div></div>' +
+      '<div class="buzz-foot">computed on this phone · never sent anywhere</div>';
+    return;
+  }
+
+  const locked = (p === "closed" || p === "split" || p === "work");
+  b.innerHTML =
+    '<div class="buzz-head"><div class="lookup">' +
+      (locked ? 'Answers closed. You said <b>' + (state.picked || "—") + '</b>.'
+              : '<b>Look up</b> — the code is on the screen') +
+    '</div></div>' +
+    '<div class="buzz-grid">' + TONIGHT.options.map(function (o) {
+      const mine = state.picked === o.letter;
+      return '<button class="buzz" aria-pressed="' + (mine ? "true" : "false") + '"' +
+        (locked ? " disabled" : "") + ' onclick="pick(\'' + o.letter + '\')"' +
+        ' aria-label="Answer ' + o.letter + '">' + o.letter + '</button>';
+    }).join("") + '</div>' +
+    /* AC-48 as rewritten at T-13. In this direction it matters more, not less:
+       the hint is the only text this phone is ever allowed to carry. */
+    (locked ? '' : state.hintPulled
+      ? '<div class="panel" style="border-left:3px solid var(--blue);font-size:var(--text-xs)">' +
+        escapeHtml(TONIGHT.hint) +
+        '<br><span style="color:var(--text-secondary)">Yours only. Nobody was told, and it is not counted anywhere.</span></div>'
+      : '<button class="btn" style="min-height:34px;font-size:var(--text-xs)" onclick="pullHint()">Show me a hint</button>') +
+    '<div class="buzz-foot">' +
+      (locked ? "locked in" : "tap to change it, any time until the host closes · nobody sees what you picked") +
+    '</div>';
+}
+
+/* ---- host ------------------------------------------------------------- */
+function renderHost() {
+  const b = document.getElementById("hostBody");
+  const p = state.phase;
+  const head = function (s, t) { return '<div class="host-step">' + s + '</div><div class="host-h">' + t + '</div>'; };
+  let html;
+
+  if (p === "idle") {
+    html = head("step 1 of 4", "Start the segment") +
+      '<div class="stack">' +
+      '<div class="panel" style="text-align:center"><div class="meta">room code</div>' +
+      '<div style="font-family:var(--serif);font-size:34px;color:var(--accent)">' + ROOM.code + '</div></div>' +
+      '<div class="no-preview">No answer preview. You are playing too.</div>' +
+      '<button class="btn btn-primary" onclick="go(\'live\')">Put it on the screen</button></div>';
+  } else if (p === "live") {
+    html = head("step 2 of 4", "The room is reading") +
+      '<div class="stack">' +
+      '<p class="meta"><b>' + ROOM.answered + '</b> answered · <b>' + ROOM.present + '</b> in the room. No timer.</p>' +
+      '<div class="no-preview"><b>No hint button here any more.</b> It sits on every phone, pullable at any time, and nobody is told who took it — AC-48 rewritten at T-13. In this direction that is the phone\'s <em>only</em> text, which makes it the one thing the buzzer is for besides five letters.</div>' +
+      '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
+  } else if (p === "closed" || p === "split" || p === "work") {
+    html = head("step 3 of 4", "Let it sit") +
+      '<div class="stack">' +
+      (p === "closed"
+        ? '<button class="btn btn-primary" onclick="go(\'split\')">Show the room its split</button>'
+        : '<p class="meta">The split is up and there is no answer yet. Loudest ten seconds of the night.</p>' +
+          '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal</button>') +
+      '</div>';
+  } else if (p === "reveal") {
+    html = head("step 4 of 4", "Read it aloud") +
+      '<div class="stack">' +
+      '<div class="panel" style="font-size:var(--text-sm)">' +
+      '<h3>Step the trace · the room is watching this</h3>' +
+      '<p class="meta" style="margin:4px 0 8px">The tape on the projector follows these buttons. Say the line, then advance.</p>' +
+      traceNoteHtml(TONIGHT, state.traceStep) + '</div>' +
+      '<div class="panel by-human" style="font-size:var(--text-sm)">' +
+      '<span class="provenance human">✎ your script · in this order · this is the only place it exists</span>' +
+      '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
+      '<p class="meta">Nobody else has this text. In this direction the explanation is spoken, so if it does not read aloud well the room simply never gets it — AC-42 stops being a nice-to-have. <b>The middle beat is the one to not skip.</b></p>' +
+      '<button class="btn btn-primary" onclick="go(\'released\')">Release the room</button></div>';
+  } else {
+    html = head("done", "Segment complete") +
+      '<div class="stack"><p class="meta">Five minutes. One question. Nothing stored.</p>' +
+      '<button class="btn" onclick="go(\'idle\')">Run it again</button></div>';
+  }
+
+  b.innerHTML = html +
+    '<div class="ratio">In the room: <b>' + ROOM.present + '</b> · answering: <b>' + ROOM.answered + '</b> · participation <b>' +
+    pct(ROOM.answered, ROOM.present) + '%</b><br>Never measured before. This is the number October is for.</div>';
+}
+
+/* ---- transitions ------------------------------------------------------ */
+/* Does the source actually fit the wall?
+
+   AC-33 says code that exceeds the viewport scrolls inside its own container and
+   the page never scrolls sideways. That was written for a phone, where the
+   reader's thumb is the escape hatch. On the wall there is no thumb: AC-79 says
+   the wall takes no interaction beyond host controls, and under A-4 the source
+   lives ONLY on the wall. So a line that runs past the edge is not scrollable
+   here — it is invisible, and the scrollbar is the take quietly lying about it.
+   This says so out loud instead. */
+function checkWallFit() {
+  const el = document.getElementById("fitWarn");
+  if (!el) return;
+  const sc = document.querySelector("#proj .rn-src-scroll");
+  if (!sc) { el.hidden = true; return; }
+  /* The well is bounded (see .proj-code .rn-src), so any overflow is inside
+     its scroll region and this is the box to measure. proj-body's scrollHeight
+     said 0 while code was drawn through the join strip. */
+  const overX = sc.scrollWidth - sc.clientWidth;
+  const overY = sc.scrollHeight - sc.clientHeight;
+  const well = document.querySelector("#proj .rn-src");
+  if (well) { well.classList.toggle("clip-x", overX > 4); well.classList.toggle("clip-y", overY > 4); }
+  if (overX <= 4 && overY <= 4) {
+    el.hidden = true;
+    return;
+  }
+  const bits = [];
+  if (overX > 2) bits.push("<b>" + overX + "px runs off the right-hand edge</b> — on a phone that scrolls, " +
+    "on a wall it is simply not in the room");
+  if (overY > 2) bits.push("<b>" + overY + "px falls off the bottom</b> of a 16:9 frame that cannot grow");
+  el.hidden = false;
+  el.innerHTML = "Does not fit the wall: " + bits.join(", and ") +
+    ". AC-33's container-scroll escape hatch belongs to the phone, and A-4 took the phone away.";
+}
+
+function render() {
+  renderProjector(); renderParticipant(); renderHost();
+  /* Measured synchronously AND after a frame: the serif webfont lands late, and
+     a fit check that runs before it does reports the wall as fitting when it
+     does not. That mis-measurement is exactly the kind of thing this warning
+     exists to catch, so it must not be the first victim of it. */
+  checkWallFit();
+  requestAnimationFrame(checkWallFit);
+  syncButtons();
+}
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () { applyTypeModel(); fitWall(); });
+}
+function go(phase) {
+  state.phase = phase;
+  if (phase === "work" || phase === "reveal") state.traceStep = 0;
+  /* The split, the reveal and the release all show q3's room data, so the
+     source has to be q3's from the split onwards. Snap back rather than let a
+     legibility test bleed into the segment, and say so instead of doing it
+     silently. */
+  if (sourceKey !== "q3" && (phase === "split" || phase === "work" || phase === "reveal" || phase === "released")) {
+    setSource("q3");
+    announce("Back to the real segment — q3.");
+  }
+  /* The type is fitted by MEASURING the well, and there is no well on the
+     title card — so a size computed there is the model's guess (35.8px for q3
+     under full-width) and overflows the moment the question goes live. Refit
+     on entering a phase that has a well. */
+  if (phase === "live" || phase === "closed") applyTypeModel(); else render();
+  announce(({
+    idle: "Waiting to start.", live: "Question is on the screen. Pick a letter on your phone.",
+    closed: "Answers are closed.", split: "The room's split is shown. No answer yet.",
+    work: "Walking the program through together. Still no answer, and nobody has to say anything.",
+    reveal: "Revealed. The correct answer is E.", released: "Segment complete. Nothing was recorded."
+  })[phase] || phase);
+}
+function pick(letter) {
+  if (state.phase !== "live") return;
+  state.picked = letter;
+  render();
+  announce("Answer " + letter + " saved.");
+}
+function publishHint() { state.hintShown = true; render(); announce("Hint published to everyone at once."); }
+function pullHint() { state.hintPulled = true; render();
+  announce("Hint shown on your phone only. Nobody else was told."); }
+
+mountBadge("Direction C · Projector-first", "no server behind this; the counts are fixed");
+state.picked = "A";
+setRoom("light");
+render();
+/* Opens on q3 — the real segment. It defaulted to q1 so the layout would be
+   judged against a hard source first, and the client's first screen was a
+   legibility fixture with no options, which read as broken (2026-09-03). The
+   worst sources are one click away and now show as pressed. */
+setSource("q3");
+applyTypeModel();
+fitWall();
+</script>
+</body>
+</html>
