@@ -45,7 +45,7 @@ ship a question whose answer I guessed.*
 | **AC-11** | A candidate expected not to compile must actually fail, and its error code is recorded. `MVP` |
 | **AC-12** | Candidate programs are compiled and executed in a sandbox with no network, no secrets, no host filesystem access, and enforced CPU/memory/time limits. |
 | **AC-13** | The recorded verification facts are sufficient to render a receipt without re-running anything. `MVP` |
-| **AC-87** | The determinism claim is **scoped to the kind of machine actually tested**, and the receipt says so in words a room can read (*on one kind of computer*); the exact target triple, compiler and Miri configuration are on the take-it-home page under *How we know*. **A record that predates triple capture — the eight MVP verifications — has no machine to name, so its receipt says *We did not record which computer* and claims nothing wider; it is replaced whole when the question is re-verified. A does-not-compile record makes no determinism claim.** *Amended twice on 2026-09-19, `tone-architect`: first from the build stage's contract check, for records that predate triple capture; then on the client's word that the receipt was unreadable to a room (touchpoint T-23, answered), to scope the claim in plain words and move the triple to take-it-home. Original: "The determinism claim is **scoped to the target triple actually tested**, and the receipt says so. Five identical runs on one architecture is evidence about that architecture."* |
+| **AC-87** | The determinism claim is **scoped to the kind of machine actually tested**, and the take-it-home page says so; the exact target triple, compiler and Miri configuration are on it under *How we know*. **The wall's receipt is a list of the steps taken and names no machine, so it claims nothing that needs a scope (D-25). A record that predates triple capture — the eight MVP verifications — renders the same list; its take-it-home page shows the target as *not recorded* and back-fills nothing; it is replaced whole when the question is re-verified. A does-not-compile record renders its own list and makes no determinism claim.** *Amended three times on 2026-09-19, `tone-architect`: first from the build stage's contract check, for records that predate triple capture; then on the client's word that the receipt was unreadable to a room (touchpoint T-23, answered), to scope the claim in plain words and move the triple to take-it-home (the second wording put *on one kind of computer* and, for a legacy record, *We did not record which computer* on the wall); then, when the client reopened touchpoint T-23 and asked the wall to show the verification process instead of sentences, to move every machine statement to take-it-home (D-25). Original: "The determinism claim is **scoped to the target triple actually tested**, and the receipt says so. Five identical runs on one architecture is evidence about that architecture."* |
 
 ### Story A3 — Never repeat a question
 *As an organizer, I want confidence that tonight's questions have not been asked
@@ -97,7 +97,7 @@ verification receipt lends the explanation credibility it has not earned.
 
 | ID | Criterion |
 |---|---|
-| **AC-71** | The explanation is treated as **machine-unverified** throughout. The receipt states that verification establishes the answer and **not** the explanation. |
+| **AC-71** | The explanation is treated as **machine-unverified** throughout. The take-it-home page states that verification establishes the answer and **not** the explanation; the wall's receipt lists the steps the machine took and says nothing about the explanation. *Amended 2026-09-19, `tone-architect` (D-25), when the client reopened touchpoint T-23 and asked for a step list, not sentences, on the wall. Original: "The receipt states that verification establishes the answer and **not** the explanation."* |
 | **AC-72** | **Blocking gate.** No question reaches a deck until an organizer has read its explanation and affirmed it correct. Who affirmed it and when are recorded. An unaffirmed question cannot be scheduled — this is enforced, not advisory. |
 | **AC-73** | Any output the explanation quotes as printed is mechanically checked against the recorded verified output; a mismatch blocks acceptance. |
 | **AC-74** | The reveal visually distinguishes machine-established fact (answer, receipt) from human-reviewed prose (explanation, hint), so the badge cannot be read as covering both. |
@@ -727,6 +727,18 @@ re-judged.
 **Reviewed and left standing:** AC-9 and AC-10 keep their `MVP` tag. The MVP did
 satisfy them, by a hand-run Miri pass outside `verify.py`; `EVALUATION.md`
 already carries that caveat and nothing about them changed.
+
+### 2026-09-19 — touchpoint T-23 reopened, the receipt shows steps (D-25)
+
+The client read the receipt and said it should be simpler, in short phrases and
+not sentences, then that a receipt should show the verification process rather
+than say *verified*. The three sentence strings became a step list.
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-43** | Text unchanged; the proof row now tests a step list. | The list claims only steps the record holds. |
+| **AC-71** | **Amended.** The statement that verification covers the answer and not the explanation moves to the take-it-home page. Original kept in the row. | The wall receipt no longer carries a sentence about the explanation. |
+| **AC-87** | **Amended a third time.** The wall names no machine; take-it-home shows the target, or *not recorded* for a legacy record. Original kept in the row. | A list of steps taken has no determinism claim to scope. |
 
 ---
 

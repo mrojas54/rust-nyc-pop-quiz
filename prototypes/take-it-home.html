@@ -264,6 +264,8 @@ function renderOptions() {
 function renderReceipt() {
   const r = Q.receipt;
   document.getElementById("receipt").innerHTML =
+    '<div class="steps" style="margin-bottom:9px">✓ Compiled<br>✓ Ran ' + r.runs + ' times<br>' +
+    '✓ Output never varied<br>✓ Miri ran clean</div>' +
     '<div class="row"><span>compiler</span><span>' + escapeHtml(r.rustc) + '</span></div>' +
     '<div class="row"><span>edition</span><span>' + escapeHtml(r.edition) + '</span></div>' +
     '<div class="row"><span>target</span><span>' + escapeHtml(r.target) + '</span></div>' +
@@ -271,8 +273,8 @@ function renderReceipt() {
     '<div class="row"><span>miri</span><span>' + escapeHtml(r.miri) + ', output matched the native runs</span></div>' +
     '<div class="caveat">Nobody wrote this answer down. It came from running the program. ' +
     'A clean Miri run proves there was no undefined behaviour <b>on the paths actually executed</b> ' +
-    '— it is evidence, not a proof, and the prose above it is written by a human and checked by ' +
-    'an organizer, not by the machine.</div>';
+    '— it is evidence, not a proof.<br>' +
+    'The machine checked the answer only. An organizer approved the explanation.</div>';
 }
 
 function renderTrace() {

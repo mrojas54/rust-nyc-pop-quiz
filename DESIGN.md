@@ -82,9 +82,9 @@ to talk **to** the person who got it wrong, never **about** them. In practice:
   something else* — were written, cut, and are recorded as the shape to avoid.
 - **The client's own lines where they exist.** *Time for a pop quiz.* *Let's go
   to the bar.* They beat anything written for them.
-- **The verification receipt says exactly what it proves** (§4): in plain words: run five
-  times on one kind of computer with the same output, Miri found no problems in
-  the code that ran, and the machine checked the answer only. Never more.
+- **The verification receipt shows what was done** (§4): a short list of steps —
+  compiled, ran five times, output never varied, Miri ran clean — with no
+  sentence and no claim word. The rest is on take-it-home. Never more than was done.
 
 ## Aesthetic
 

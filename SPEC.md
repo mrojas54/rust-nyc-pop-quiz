@@ -1,6 +1,6 @@
 # Specification — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-24).** This is the
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25).** This is the
 build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
 `prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
 (`sequence/USER_STORIES.md`, AC-1…AC-102) so that an implementer who has never
@@ -61,7 +61,7 @@ code (`mvp/tools/`), the audit ticket audits that code too.
 | **G-4** | Nothing per-person is stored beyond the room, and nothing per-person leaves the phone after close. (AC-56, AC-57, AC-58) | Schema has no per-participant answer table; totals carry an expiry; the recap is client-computed. | Schema audit ticket; `canary` on post-close traffic. |
 | **G-5** | No participant-facing string obliges anyone to speak or interact. (AC-98) | A forbidden-copy lint over every participant-facing string in `test`; no UI element counts, prompts for, or waits on a contribution. | The lint is a ticket; the string list lives in §11 and is the only place copy is authored. |
 | **G-6** | The phase order is `idle → live → closed → split → work → reveal → released`, each transition a host action, none skippable. (AC-45, AC-93, AC-97) | A phase machine with exactly these transitions; the wall, buzzer and host phone render from the same phase value (AC-81). | State-machine test; `canary` that `work` carries no ✓, receipt, or colour. |
-| **G-7** | The receipt claims exactly what verification proved. (AC-43, AC-71, AC-87) | Receipt strings are generated from the `verified` record by one function with approved wording (§7.5). | String test; HC-2 reads it. |
+| **G-7** | The receipt claims exactly what verification proved. (AC-43, AC-71, AC-87) | The receipt lines are generated from the `verified` record by one function, and a line renders only if the record holds its step (§7.5). | String test; HC-2 reads it. |
 | **G-8** | Neither source nor trace is rendered on a participant device. (AC-32) | Participant payloads have no source field; `canary`. | `canary` in `test`. |
 | **G-9** | Every credential path is enumerated and checked by one function: hosting by role **ID** in `roles`, checked at room creation; the pipeline channel by one admin token (§8.3); and the M1 stand-in (§8.2), which exists only behind a build feature. Nothing else authorizes anything. (AC-64, AC-65, AC-69, AC-101) | One auth function per path; the Administrator test; the Discord-down test; a build without the stand-in feature accepts no stand-in token (§8.2); a route-table test that the admin routes are served to the token check alone (§8.3). | Auth audit ticket, covering all three paths. |
 | **G-10** | A question is *used* when a room is **released**, not when a deck is built. (AC-92) | The used-question record's only writer is the release transition. Building writes nothing. | Audit and retire `build_deck.py`'s write to `answer-history.json`. |
@@ -106,7 +106,7 @@ Written by `verify` and never edited: `rustc` (full `-Vv`), `edition`,
 The receipt renders from this alone (AC-13). A record whose answer is *does not
 compile* (AC-11) is complete without `runs`, `stdout`, `exit_code` and `miri` —
 nothing ran — and carries `compile_error_code`, every code the compiler
-reported; it renders the third receipt string (§7.5, D-22).
+reported; it renders the does-not-compile receipt (§7.5, D-22, D-25).
 
 **Legacy records (D-16).** A record T-14 migrates from
 `mvp/2026-08-12/verified.json` carries `legacy: true` and only what the MVP wrote:
@@ -115,12 +115,12 @@ result an out-of-repo pass recorded (`clean`, `output_matched` — no version,
 configs or seeds). `target_triple`, `flags`, `exit_code`, `verified_at`,
 `verifier_version` and the full `-Vv` are **absent, and never back-filled or
 inferred** (G-2 — nothing may be written that no code observed). A legacy record
-renders the legacy receipt (§7.5), is exempt from the stale-pin check (§7.2), and
+renders the same list as a complete record (§7.5, D-25), says on take-it-home what it lacks (§13), is exempt from the stale-pin check (§7.2), and
 is replaced whole — never merged — when T-15b re-verifies its question, so the
 bank never holds both. A legacy record whose answer is *does not compile* (q8)
 carries `rustc`, `edition` and `compile_error_code` (T-14 renames the MVP's
 `error_codes` field to it; the codes are the compiler's, unchanged) and none of
-`runs`, `stdout` or `miri`; it renders the third string (D-22).
+`runs`, `stdout` or `miri`; it renders the does-not-compile receipt (D-22).
 
 ### 3.3 Bank
 
@@ -175,7 +175,7 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
 | **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | *Look up. Where the room landed.* — the count `n`, *people said X, including you.*; foot `computed on this phone · never sent anywhere` | *Let's walk it* |
 | **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots); beat panel: **Let's walk it. / Still no answer. / Nobody has to say anything.** **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | *Look up. We're walking it through.* — the count; *Nothing to do. Nobody knows the answer yet.* | `←` `→`; the step's words; *Reveal* |
-| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5) with provenance *established by the machine*; the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | *The answer is on the screen.* — the count; **✓ It was X.**; *You and ‹n−1› other people read it the same way. The host is reading out the why now.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | *The answer is on the screen.* — the count; **✓ It was X.**; *You and ‹n−1› other people read it the same way. The host is reading out the why now.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
 | **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px, one line of what is behind it, a QR. Nothing else (touchpoint T-20, item 13) | ✓ *Nothing about you was recorded.* | *Run it again* → a new room (never the same question, G-10) |
 
 ### 4.1 Joining (AC-28…AC-31)
@@ -450,41 +450,52 @@ warning; it blocks neither accept nor affirm (D-23).
 
 ### 7.5 The receipt (G-7)
 
-Rendered from `verified` by one function, in plain words a room can read: a
-label, one to three short sentences, then the same closing pair. The compiler
-line, edition, target triple and Miri configuration stay off the wall and are
-shown on the take-it-home page under *How we know* (§13, AC-87).
+Rendered from `verified` by one function. It does not say the answer is
+*verified*; it shows the steps taken, one line each, each with a ✓ that marks the
+step as done (a done step, not a pass: *Nothing ran* carries one too), three
+words or fewer where the step allows. A `legacy` record's Miri step was run
+outside the verifier, and take-it-home says so (§13). The heading carries the
+machine provenance marker (AC-74); the host's beats carry the human one. A line
+renders only if the record holds the step it names (G-2), so the list can never
+claim more than was done. The compiler line, edition,
+target triple and Miri configuration stay off the wall and are shown on the
+take-it-home page under *How we know* (§13, AC-87).
 
-> **✓ Established by the machine**
-> Run ‹N› times on one kind of computer, same output every time. Miri, Rust's
-> checker for undefined behavior, found no problems in the code that ran. The
-> machine checked the answer only. An organizer approved the explanation.
+For a record that ran, complete or `legacy` (both render the same list):
 
-For a **legacy** record (§3.2) the same function renders the second approved
-string, which claims only what that record holds and says what it lacks (D-16):
+> **How we know**
+> ✓ Compiled
+> ✓ Ran ‹N› times
+> ✓ Output never varied
+> ✓ Miri ran clean
 
-> **✓ Established by the machine**
-> Run ‹N› times, same output every time. We did not record which computer. Miri,
-> Rust's checker for undefined behavior, was run separately and found no
-> problems in the code that ran; that run is not repeated here. The machine
-> checked the answer only. An organizer approved the explanation.
+| Line | Renders when the record holds |
+|---|---|
+| ✓ Compiled | `runs` present: the program built and ran. `stdout` may be empty (a `panic` answer) |
+| ✓ Ran ‹N› times | `runs` with a count |
+| ✓ Output never varied | `runs` all byte-identical |
+| ✓ Miri ran clean | `miri` present with `output_matched` true. The wording follows `miri.clean`: true reads *✓ Miri ran clean*; false, when undefined behavior is the declared answer (AC-9), reads *✓ Miri flagged undefined behavior*. Either way one line renders |
 
-For a record whose answer is *does not compile*, complete or `legacy`, the same
-function renders the third approved string. Such a record has no runs and no
-Miri result, because nothing ran, so neither string above may be used for it
-(D-22; ‹codes› is the compiler's error codes, comma-separated, e.g. `E0502`):
+For a record whose answer is *does not compile*, complete or `legacy`, which has
+no runs and no Miri result because nothing ran (D-22; ‹codes› is the compiler's
+error codes, comma-separated, e.g. `E0502`):
 
-> **✓ Established by the machine**
-> The Rust compiler refuses to build this program, with ‹codes›, so nothing ran.
-> The machine checked the answer only. An organizer approved the explanation.
+> **How we know**
+> ✓ Compiler refused it
+> ✓ Error ‹codes›
+> ✓ Nothing ran
 
-The closing pair does two jobs. *The machine checked the answer only* is AC-71's
-statement that verification does not cover the explanation, said once and in the
-positive. *An organizer approved the explanation* is true by construction: the
-schedule refuses an unaffirmed question (AC-72, G-12). These three strings are
-normative and there is no fourth; `EVALUATION.md` AC-43 and AC-87 quote them.
-The third makes no determinism claim. A record that is none of complete,
-`legacy` or does-not-compile renders no receipt and cannot be scheduled.
+Precedence: does-not-compile first, otherwise the four-line list, so each record
+renders exactly one of the two lists and there is no third. The wall list holds
+no sentence, no reassurance, no claim word such as *verified* or *established*,
+no determinism scope and nothing about the explanation. Those statements are on
+take-it-home (§13), where AC-71's *The machine checked the answer only. An
+organizer approved the explanation.* lives. The second half is true by
+construction: the schedule refuses an unaffirmed question (AC-72, G-12). A record
+that is none of complete, `legacy` or does-not-compile renders no receipt and
+cannot be scheduled. D-25 replaced the three sentence strings (D-16, D-22, D-23)
+with this list, on the client's word that a receipt should show the verification
+process rather than assert a result.
 
 ### 7.6 Bank audit (AC-23b…AC-27, AC-100)
 
@@ -631,7 +642,7 @@ same homes.
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
 | Uniqueness (organizer-facing, AC-18) | *no exact or normalized duplicate found* — never *original* |
-| Receipt | §7.5 — three approved strings (a complete record; a `legacy` record; a does-not-compile record) |
+| Receipt | §7.5 — a step list headed *How we know*: four lines for a record that ran, three for a does-not-compile record. No sentences. |
 | **Forbidden** anywhere participant-facing — the one normative list; the lint (G-5, AC-98) is these case-insensitive patterns and `EVALUATION.md` cites this row | `turn to`, `ask (someone\|the person\|your neighbou?r)`, `find someone`, `volunteer`, `who (said\|picked\|chose)`, `\bwrong\b`, `\bincorrect\b`, `✗`, `argu`. The wall's *‹n› of us said ‹X›* and the host phone's *Why ‹n› of us said ‹X›* do not match `who (said|picked|chose)` and are allowed. |
 
 ### 11.1 The trope check
@@ -715,10 +726,12 @@ five options with the correct one marked. **No room state, of any kind** — AC-
 2026-08-14 (D-12): no counts, no most-chosen option. The middle beat becomes
 *why you might have read it as ‹X›* for **every** incorrect option, which the
 bank already carries (D-9), so the page loses nothing it could honestly have. **How we know**
-carries the receipt in the same plain words as the wall and, beneath it, what the
-wall leaves out: the compiler's full `-Vv` line, the edition, the target triple,
-the flag set and the Miri configuration for a complete record, and only what it
-holds for a `legacy` one (AC-87). Rebuilt at every release.
+carries the wall's list and, beneath it, what the wall leaves out: the compiler's
+full `-Vv` line, the edition, the target triple, the flag set and the Miri
+configuration for a complete record; for a `legacy` record only what it holds,
+with the target reading *not recorded* and the Miri row saying the check was run
+separately (AC-87); then *The machine checked the answer only. An organizer
+approved the explanation.* (AC-71). Rebuilt at every release.
 Code scrolls in its container on a phone (AC-33).
 
 ---
@@ -756,6 +769,6 @@ D-10 (the trace's resolving step is withheld until reveal), D-15 (options are
 one line of at most 29 characters, so the wall's options block is a constant
 190 px; **confirmed by the client at touchpoint T-22**), D-12 (take-it-home
 carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
-near-duplicates) are decided here and logged in `run-state.md`, and so are D-16…D-24 (the 2026-09-19 amendments: the legacy receipt, the enforced pin, the stub runner, the M1 host stand-in, the pipeline channel, the static fallback's owner, the does-not-compile receipt, plain spoken room copy with a trope check, the printable host sheet). **Fonts** are vendored: Cascadia Mono and
+near-duplicates) are decided here and logged in `run-state.md`, and so are D-16…D-25 (the 2026-09-19 amendments: the legacy receipt, the enforced pin, the stub runner, the M1 host stand-in, the pipeline channel, the static fallback's owner, the does-not-compile receipt, plain spoken room copy with a trope check, the printable host sheet, the receipt as a list of steps). **Fonts** are vendored: Cascadia Mono and
 Instrument Serif ship in `web/shared/fonts/` from the design system's
 `assets/fonts/`, self-hosted, no font CDN (D-14).

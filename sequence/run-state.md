@@ -20,7 +20,7 @@ T-21 (Rust on Fly, she pays). **Touchpoint T-22 answered 2026-09-18: *"keep the 
 shows options as one line of at most 29 characters, so seven of the eight
 verified questions need re-authoring for it (D-15). **Phase 5, the handoff to `lattice-orchestrator`, spawns a build
 fleet and waits for the client's explicit go.** **Amended 2026-09-19** after
-the build stage's contract check of 2026-09-18: D-16…D-24, AC-101 and AC-102 minted, tickets
+the build stage's contract check of 2026-09-18: D-16…D-25, AC-101 and AC-102 minted, tickets
 T-25 and T-26 added, touchpoint T-24 answered (*yes, the printable sheet*) (see the section at
 the bottom).
 
@@ -203,15 +203,16 @@ Five dimensions, 1,811 lines, 101 unique cited sources. Dossier in
 | D-14 | **Fonts vendored, self-hosted.** Round 4, 2026-09-18. | Cascadia Mono and Instrument Serif from the design system's `assets/fonts/` into `web/shared/fonts/`; no font CDN. Was open in `DESIGN.md` and settled nowhere. |
 | D-15 | **Options are one line of at most 29 characters; the wall's options block is a constant 190 px.** Round 6, 2026-09-18. **Confirmed by the client, touchpoint T-22, 2026-09-18: *"keep the constraint."*** | The loved prototype only ever showed q3's options (all under 22 characters). Measuring showed the options block is 190 px only when every option fits one line at 24 px; a longer option wraps and the block grows, which shrinks the source and makes the offline audit depend on which slot the date draws. The default keeps the loved design, gives `bank-audit` constants, and turns the limit into a generator brief. Cost: seven of the eight MVP questions need re-authoring for the built wall — six print output that spans lines, one has a 48-character option line. |
 | D-10 | **The trace's resolving step is withheld until reveal.** Phase 2 judge finding, 2026-09-03. | The bank's last trace step names `stdout` with the answer text, so the walk-through was leaking the answer through the trace. `work` steps `0..M-2`; `reveal` enters at `M-1`. G-3 is now phase-scoped: option identity sealed until reveal, answer text sealed until `closed`. Applied to the prototype too. |
-| D-16 | **A legacy record renders a second approved receipt string; it never renders the full one.** `tone-architect`, 2026-09-19, from the build stage's contract check. **Answered by D-23 (touchpoint T-23).** | The eight MVP verifications carry no target triple, flag set, `-Vv` or `verified_at`, and their Miri result came from a pass outside the repo. SPEC §7.5's one string needs the triple twice and asserts Miri, so on a migrated question it would overstate (G-7, `PHILOSOPHY.md` principle 4). The second string claims only what the record holds and says the machine was not recorded. Rejected: no receipt until T-15b re-verifies (drags T-15a and T-15b into the minimum viable cut), and back-filling a triple (a hand-written fact, G-2). AC-87 amended. |
+| D-16 | **A legacy record renders a second approved receipt string; it never renders the full one.** *(Wall copy superseded by D-25; the legacy record and its take-it-home page stand.)* `tone-architect`, 2026-09-19, from the build stage's contract check. **Answered by D-23 (touchpoint T-23).** | The eight MVP verifications carry no target triple, flag set, `-Vv` or `verified_at`, and their Miri result came from a pass outside the repo. SPEC §7.5's one string needs the triple twice and asserts Miri, so on a migrated question it would overstate (G-7, `PHILOSOPHY.md` principle 4). The second string claims only what the record holds and says the machine was not recorded. Rejected: no receipt until T-15b re-verifies (drags T-15a and T-15b into the minimum viable cut), and back-filling a triple (a hand-written fact, G-2). AC-87 amended. |
 | D-17 | **The rustc pin is written new: one configured value, enforced.** 2026-09-19. | `verify.py` records `rustc --version` and resolves `rustc` from `PATH`; it compares nothing, so BUILDPLAN's *DONE* was overstated and is corrected. The pin (`rustc -Vv` release and commit-hash, plus the nightly's date) is defined once in T-15a's image and read by `verify`; a non-legacy record that does not match is stale (AC-6). AC-6's `MVP` tag withdrawn. |
 | D-18 | **`test` runs the verifier's logic against a stub `Runner`; `test-full` re-runs the same cases on the real toolchain.** 2026-09-19. | AC-6, 8, 9, 10 and 11 were tagged `test`, but their proofs need `rustc` and Miri, while `test` is hermetic and ≤ 60 s. Recorded outputs prove the decision logic without a toolchain; the real image proves the recordings are true. CI installs Docker for `test-full` only. |
 | D-19 | **Room creation before T-10 is authorized by a stand-in backend of the one auth function, behind a `dev-host-token` Cargo feature; AC-64's live proof gates HC-1, not HC-0.** 2026-09-19. | T-10 lands after HC-0, so the deployed skeleton had no stated auth on a public Fly URL, and AC-64 asked for a live Discord check *before the first deployed checkpoint*, which is HC-0. A build without the feature has no path that accepts the token, so the stand-in cannot ship enabled. |
 | D-20 | **The laptop reaches the room server through two admin routes and one bearer token; T-25 builds the server side; the client holds the secret (H-11).** AC-101 minted. 2026-09-19. | D-E had the laptop push questions (answer included) and pull `used`, but no ticket built the receiving end and no credential authenticated it. A shared secret is the smaller mechanism next to a Discord flow for a CLI; a route-table test keeps every other surface off the admin prefix. |
 | D-21 | **The static fallback has an owner (T-26) and a criterion (AC-102).** 2026-09-19. | SPEC §12 specified it, only T-20 "pushed" it, no ticket built `mode: "static"`, the keyboard driver or the one-file build, and AC-77 tests the room, not the file — while the minimum viable cut leans on it entirely. Where the host reads the script from when there is no host phone is not settled: touchpoint T-24. |
-| D-22 | **A does-not-compile record renders a third receipt string; there are three, and no fourth.** `tone-architect`, 2026-09-19, found on re-reading the amendments before they were committed. **Answered by D-23 (touchpoint T-23).** | q8's record (E0502) has no runs and no Miri result — `runs` is null and `miri` is *n/a (does not compile)*. Both approved strings assert byte-identical runs and a Miri pass, so q8, one of the three questions the plan expects to migrate, would have rendered a false receipt or none, and so would any does-not-compile question the generator produces (AC-11, AC-24). The third string claims only the compiler's refusal and makes no determinism claim. |
+| D-22 | **A does-not-compile record renders a third receipt string; there are three, and no fourth.** *(Wall copy superseded by D-25; the record class and its precedence stand.)* `tone-architect`, 2026-09-19, found on re-reading the amendments before they were committed. **Answered by D-23 (touchpoint T-23).** | q8's record (E0502) has no runs and no Miri result — `runs` is null and `miri` is *n/a (does not compile)*. Both approved strings assert byte-identical runs and a Miri pass, so q8, one of the three questions the plan expects to migrate, would have rendered a false receipt or none, and so would any does-not-compile question the generator produces (AC-11, AC-24). The third string claims only the compiler's refusal and makes no determinism claim. |
 | D-23 | **Room-facing copy is plain, spoken and unrhetorical, and a trope check guards it.** `tone-architect`, 2026-09-19, on the client's word that the receipt wording was *"not readable to humans"* and her request to audit for AI writing tropes; she approved the rewrite (*"apply"*). **Answers touchpoint T-23.** | The three receipt strings were written for engineers reading a log: *byte-identical*, a compiler hash and date, a target triple. The wall is read by a room. They are now plain, with the technical detail on take-it-home (AC-87 amended). The audit then found contrast framing (*"Not the explanation — that one is human"*, *"that is not a room getting it wrong — that is…"*), a padded triplet, reassurance and flattery (*"that's fine"*, *"the most interesting answer in the room"*), signposts (*"worth talking about"*), a repeated *Nobody… including us*, and filler in the sample explanation the generator would imitate. All rewritten. `SPEC.md` §11.1 adds a two-tier check (hard fail on the copy module, review warning on question prose) and §7.1 gives the generator a style brief. **Two deviations from what the client was shown:** the receipt closer keeps AC-71's statement in the positive (*The machine checked the answer only*) instead of dropping it, and the canned second sentence under the reveal beat is deleted, not reworded, because it named `dedup` and would be false on any other question. |
 | D-24 | **When the room cannot run, `popquiz schedule` also writes a printable host sheet beside the static fallback file.** `tone-architect`, 2026-09-19, on the client's word *"yes, recommendation for printable."* **Answers touchpoint T-24.** | With no host phone the host had nowhere to read the three beats and each step's words from, and the wall must not show them (AC-39). The sheet is plain text in phase order: the `explains` beats and each step's `note`, verbatim, no new words. It holds the answer, stays on the organizer's laptop and is never served. T-26 owns the function that writes it, T-20 calls it, and AC-102 and HC-0 carry its proof. |
+| D-25 | **The receipt shows the verification steps; it does not assert a result.** `tone-architect`, 2026-09-19, reopening touchpoint T-23 on the client's words: *"the wording needs to be simpler, not sentences. three word"*, *"receipt should be: Verified"*, then *"saying verified is different than verifying. just show verification process then,"* and *"go."* Replaces D-16's second string, D-22's third string and D-23's first string as **wall copy**. | The sentence strings made a room read engineering prose, and a bare *Verified* asserts a result and drops AC-71's caveat and AC-87's scope. A list of steps the record holds (*✓ Compiled*, *✓ Ran ‹N› times*, *✓ Output never varied*, *✓ Miri ran clean*, or for a does-not-compile record *✓ Compiler refused it*, *✓ Error ‹codes›*, *✓ Nothing ran*) claims only what was done, so a `legacy` record renders the same list and nothing about a machine. AC-71's sentence and the machine detail move to take-it-home. AC-43, AC-71 and AC-87 amended; `SPEC.md` §7.5 and §13, the prototype, DESIGN.md, T-05, T-07 and T-12 follow. Not judged when applied. |
 
 ## Conflicts
 
@@ -1823,3 +1824,49 @@ round-1 fixes resolved; no blocking finding. Six lesser findings, all applied:
 **Standing:** q3's hint stays as authored (round 1, declined). Stopped at a pass
 in round 2 of the three allowed. Findings 7–10 of the contract check are still
 unrouted and were kept out of both rounds.
+
+### Touchpoint T-23 reopened — the receipt shows steps, 2026-09-19
+
+After the amendments passed the judge (round 2, 8/10), the client read the legacy
+receipt and said it should be short phrases, not sentences. Asked what the room
+is verifying and what *computer* means, the client concluded that *Verified* is
+a claim and a room should see the verification process instead. Applied as D-25:
+the wall receipt is a step list headed *How we know*. Four lines for a record that
+ran (a `legacy` record included), three for a does-not-compile record. Every line
+renders only if the record holds its step. The machine detail and AC-71's *The
+machine checked the answer only. An organizer approved the explanation.* are on
+take-it-home. Edited: `SPEC.md` §3.2, G-7, §7.5, §11, §13; `EVALUATION.md` AC-43,
+AC-71, AC-87; `USER_STORIES.md` AC-71, AC-87 and a new amendments subsection;
+`BUILDPLAN.md` T-05, T-07, T-12 and the minimum viable cut; `DESIGN.md`; and the
+two prototypes.
+
+**One case the client did not see:** when undefined behavior is the declared
+answer (AC-9), Miri does not run clean, so that line reads *✓ Miri flagged
+undefined behavior*. **Correction:** the client was told the take-it-home line
+would say the explanation is *human-written*. That is false, since the generator
+drafts it, so take-it-home carries the already-approved closing pair instead.
+
+**D-25 judge, one round: 6/10, FAIL on one, applied.** The blocking finding was mine:
+AC-43 had a fixture for a record with no Miri result, which §3.2 does not allow
+(it is neither complete, `legacy` nor does-not-compile, so it renders no receipt).
+Dropped. Also applied: the machine provenance marker on the *How we know*
+heading, which AC-74 needs and the rewrite had lost; the receipt no longer says
+*the verifier took* the steps, since a `legacy` record's Miri step ran outside it;
+AC-87 tests take-it-home's Miri row for a `legacy` record; the no-sentence test is
+now terminal punctuation plus a closed word list; T-07's stale *receipt's
+provenance line* is the beats' human marker; *does-not-compile* is spelled one way.
+The judge's AC-40 citation was removed: a ✓ marks a step done, not a pass.
+Not re-judged after these fixes.
+
+**D-25 judge round 2: 8/10, PASS, no blocking finding.** Applied: the Miri line
+gates on `miri` present with `output_matched` and only its wording follows
+`clean`, so a UB-answer question still gets four lines; *Compiled* gates on `runs`
+present, so a `panic` answer with empty `stdout` still gets four, with a fixture
+added to AC-43; *the list above* is named *the four-line list*; AC-43's
+no-punctuation rule is scoped to the wall receipt, since take-it-home carries
+AC-71's sentence; the minimum viable cut says a legacy question's Miri caveat
+has no surface until T-12 ships. **Not applied:** the judge said the wall's machine
+marker was unstyled. `.provenance.machine` is defined in
+`prototypes/_shared/tokens.css:282`, and the heading text differs from the
+human marker's. Stopped at a pass in round 2 of the three allowed.
+

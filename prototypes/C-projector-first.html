@@ -710,9 +710,11 @@ function renderProjector() {
         : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
           '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
           '<div class="receipt" style="margin-top:10px;font-size:15px">' +
-          '<span class="provenance machine">✓ Established by the machine</span><br>' +
-          'Run ' + TONIGHT.receipt.runs + ' times on one kind of computer, same output every time. Miri, Rust\'s checker for undefined behavior, found no problems in the code that ran.<br>' +
-          '<b>The machine checked the answer only. An organizer approved the explanation.</b></div>') +
+          '<span class="provenance machine">How we know</span><br>' +
+          '✓ Compiled<br>' +
+          '✓ Ran ' + TONIGHT.receipt.runs + ' times<br>' +
+          '✓ Output never varied<br>' +
+          '✓ Miri ran clean</div>') +
       '</div>';
   }
 
