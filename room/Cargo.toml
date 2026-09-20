@@ -1,0 +1,20 @@
+[package]
+name = "room"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The live room: one meetup, one question, seven phases."
+
+# This crate is built with whatever `cargo` the machine has. It is deliberately
+# not pinned: the verification toolchain pin (rustc -Vv release and commit-hash,
+# and the nightly's date for Miri) is a different thing entirely, defined once
+# by T-15a where the sandbox image is built. See SPEC.md 7.2 and BUILDPLAN D-17.
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+
+[dev-dependencies]
+# `tower::ServiceExt::oneshot` is how the canary seam drives the router with no
+# socket. It is a dev-dependency because nothing in the shipped binary needs it.
+tower = { version = "0.5", features = ["util"] }
