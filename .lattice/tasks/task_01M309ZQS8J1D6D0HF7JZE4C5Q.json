@@ -1,0 +1,45 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-09-20T21:01:37Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-10 (M2).\n\nDiscord OAuth: scopes, member lookup, role-**ID** check at room creation, the Administrator test, refresh-token rotation persisted, bounded retries, denial wording; **deletes the M1 stand-in** (the `dev-host-token` feature) and adds the test that a build without it accepts no stand-in token (`SPEC.md` \u00a78.2)\n\nCriteria: AC-64\u201370, G-9\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-04a\u2013b\nBUILDPLAN notes: Human track: app id, secret, guild id, role id. The live check against the client's account is this ticket's exit criterion and gates HC-1\n\nOrchestrator notes: Human track H-3. The live check against the client's account is the exit criterion and gates HC-1, never HC-0.\n\nHELD: needs H-3 the Discord app: id, secret, guild id, role id. Do not dispatch until the client releases it.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZQS8J1D6D0HF7JZE4C5Q",
+  "last_event_id": "ev_01M309ZX72HCCQ8PGE9VTHQGPK",
+  "last_status_changed_at": "2026-09-20T21:01:37Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:43Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPPXZPZDP8W60F87PVBG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:43Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPTS1MX34WXEA46M20FG",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-13",
+  "status": "backlog",
+  "tags": [
+    "m2",
+    "inline-full",
+    "held"
+  ],
+  "title": "Discord OAuth and role check",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:43Z",
+  "urgency": null
+}

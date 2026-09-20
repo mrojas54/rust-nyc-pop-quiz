@@ -1,0 +1,73 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-09-20T21:01:37Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-08 (M1).\n\n`canary`: plant secrets in answer, explanation, receipt, hint-before-live; scan every payload, frame, and page in every phase; post-close traffic carries no answer\n\nCriteria: AC-32, AC-47, AC-48, AC-58, AC-60, AC-79, G-3, G-4, G-8\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-04a\u201307\nBUILDPLAN notes: In-process scan in `test`; the deployed-room scan in `test-full`. Serialized on `justfile`\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZQEAFNFC58RYHCA8G6N8",
+  "last_event_id": "ev_01M309ZW7JHEPFDNVJ70E2Z6Z7",
+  "last_status_changed_at": "2026-09-20T21:01:37Z",
+  "priority": "high",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:41Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPPXZPZDP8W60F87PVBG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:42Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPTS1MX34WXEA46M20FG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:42Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPYP7KX7ETNB2EJ9AKXW",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:42Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQ2KFHXF1654GGMGZBJG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:42Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQ6HG40MJ9VQAW4J8YZF",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:42Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQAFHR8V2F39GNVY46NE",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-10",
+  "status": "backlog",
+  "tags": [
+    "m1",
+    "inline-full",
+    "justfile"
+  ],
+  "title": "Canary secrecy suite",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:42Z",
+  "urgency": null
+}

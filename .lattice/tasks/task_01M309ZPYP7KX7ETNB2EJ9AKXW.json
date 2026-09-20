@@ -1,0 +1,38 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-09-20T21:01:37Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-04c (M1).\n\nTransport: one broadcast per room over WebSockets, reconnect with the same session token, host and wall subscriptions\n\nCriteria: AC-37, AC-41, AC-81\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-04a\nBUILDPLAN notes: \u2014\n\nOrchestrator notes: Touches `room/src/phase.rs` (F-10): serialized after T-04b.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZPYP7KX7ETNB2EJ9AKXW",
+  "last_event_id": "ev_01M309ZT6QMP18PAHPEPHY9JEC",
+  "last_status_changed_at": "2026-09-20T21:01:37Z",
+  "priority": "high",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:40Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPPXZPZDP8W60F87PVBG",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-6",
+  "status": "backlog",
+  "tags": [
+    "m1",
+    "inline-full",
+    "phase-rs"
+  ],
+  "title": "WebSocket transport and reconnect",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:40Z",
+  "urgency": null
+}

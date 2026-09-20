@@ -1,0 +1,38 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "high",
+  "created_at": "2026-09-20T21:01:36Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-04a (M1).\n\nThe phase machine: `idle\u2192\u2026\u2192released`, host-only transitions, no skipping, `trace_step`; **the sealed `answers` module** unreachable from the public state query, proven by a type/module boundary test\n\nCriteria: AC-45, AC-47, AC-61, AC-81, AC-93, AC-97, G-3, G-6\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-03\nBUILDPLAN notes: Built alone and first; `room/src/phase.rs` is consumed by everything in M1\n\nOrchestrator notes: `room/src/phase.rs` is consumed by everything in M1: build it alone and first. AC-61 is a type or module boundary proof, not a review.\n\nWorkflow mode: sub-agent-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZPPXZPZDP8W60F87PVBG",
+  "last_event_id": "ev_01M309ZSYYTST9V40DPDMH6PM2",
+  "last_status_changed_at": "2026-09-20T21:01:36Z",
+  "priority": "critical",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:40Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPK5F3CC3TBE1D0Y9BTY",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-4",
+  "status": "backlog",
+  "tags": [
+    "m1",
+    "sub-agent-full",
+    "phase-rs"
+  ],
+  "title": "Phase machine and sealed answers module",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:40Z",
+  "urgency": null
+}

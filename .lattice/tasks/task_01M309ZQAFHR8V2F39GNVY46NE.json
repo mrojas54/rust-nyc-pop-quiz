@@ -1,0 +1,58 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-09-20T21:01:37Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-07 (M1).\n\nThe host phone: one screen per phase, one primary action, counts, trace stepping, the read-aloud script with the beats' *human* provenance marker (AC-74), resume on refresh/device change; in M1 *Create a room* presents the stand-in host token carried in the page URL (`SPEC.md` \u00a78.2)\n\nCriteria: AC-45\u201347, AC-49, AC-50, AC-74\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-02, T-04a\u2013c\nBUILDPLAN notes: \u2014\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZQAFHR8V2F39GNVY46NE",
+  "last_event_id": "ev_01M309ZVHYQFFNJSCCR4KXV74R",
+  "last_status_changed_at": "2026-09-20T21:01:37Z",
+  "priority": "high",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:41Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPF5EZMVY93NE7G2FS05",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:41Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPPXZPZDP8W60F87PVBG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:41Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPTS1MX34WXEA46M20FG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:41Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPYP7KX7ETNB2EJ9AKXW",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-9",
+  "status": "backlog",
+  "tags": [
+    "m1",
+    "inline-full"
+  ],
+  "title": "The host phone",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:41Z",
+  "urgency": null
+}

@@ -1,0 +1,226 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "high",
+  "created_at": "2026-09-20T21:01:39Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-23 (M4).\n\n**Guardrail audit** \u2014 an adversarial read of all merged code against G-1\u2026G-12 and the phase invariants; files gap tickets\n\nCriteria: G-1\u2026G-12\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): everything above\nBUILDPLAN notes: The Phase-4 pass, re-run on the built tree\n\nOrchestrator notes: Runs last, on the assembled tree. Files gap tickets; does not fix.\n\nWorkflow mode: sub-agent-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZSGDSWRBVD1MG2FPJT2B",
+  "last_event_id": "ev_01M30A04TGMDAGN7X8B411JAKH",
+  "last_status_changed_at": "2026-09-20T21:01:39Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:47Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPB1GGYG71873CK89YG3",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:47Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPF5EZMVY93NE7G2FS05",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPK5F3CC3TBE1D0Y9BTY",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPPXZPZDP8W60F87PVBG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPTS1MX34WXEA46M20FG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPYP7KX7ETNB2EJ9AKXW",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQ2KFHXF1654GGMGZBJG",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQ6HG40MJ9VQAW4J8YZF",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:48Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQAFHR8V2F39GNVY46NE",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQEAFNFC58RYHCA8G6N8",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQHZVMQRNGW6G6YCZ973",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQS8J1D6D0HF7JZE4C5Q",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQWVSTWVP44P8JNC5VBC",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZR0GC34P3JJ1GPVV4T2A",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZR44F6TR7Q0X3W0ZFP9X",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZRBDVM9ZXY8D3VNMHQ7E",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:49Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZRF1B397KMDKWPN8C2KK",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZRJNZBV67B40NX3N3F4C",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZRPH9SQBMEDMGK42J1ZH",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZRT78JVR967HKTAZWGP3",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZRXZSP6J2MBF62V9JG5W",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZS1MF57XT59V7P508325",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZS59XAVJPR2TA57EGHPA",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZS93ZCKQRDQ4BFYA2M1W",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:50Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZSCS61DT88DA38YQR4AF",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:51Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZSM0EFT468WZSQA2XCC5",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:51Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZR7T0NV0RD8P2C3D43HD",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-09-20T21:01:51Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQNM231RK4CRGZK8CCPV",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-28",
+  "status": "backlog",
+  "tags": [
+    "m4",
+    "sub-agent-full"
+  ],
+  "title": "Guardrail audit",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:51Z",
+  "urgency": null
+}

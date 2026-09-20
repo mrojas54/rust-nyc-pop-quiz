@@ -1,0 +1,39 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-09-20T21:01:38Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-15a (M3).\n\nThe sandbox: a Docker image with the pinned toolchain and nightly Miri \u2014 **the pin (`rustc -Vv` release and commit-hash, the nightly's date) is defined here, once** (`SPEC.md` \u00a77.2, D-17) \u2014 run with no network, memory/CPU/pids limits, read-only root, tmpfs work dir, hard timeout; the AC-12 fixture suite proven on it\n\nCriteria: AC-12\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-01\nBUILDPLAN notes: Serialized on `justfile`\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZRF1B397KMDKWPN8C2KK",
+  "last_event_id": "ev_01M309ZYKQ9GHTFFA3VSPY1GY2",
+  "last_status_changed_at": "2026-09-20T21:01:38Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:44Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPB1GGYG71873CK89YG3",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-19",
+  "status": "backlog",
+  "tags": [
+    "m3",
+    "inline-full",
+    "justfile",
+    "ci"
+  ],
+  "title": "Verification sandbox image",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:44Z",
+  "urgency": null
+}

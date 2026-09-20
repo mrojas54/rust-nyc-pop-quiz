@@ -1,0 +1,39 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-09-20T21:01:39Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-21 (M4).\n\n`burst` and `smoke` in `test-full`, run against the deployed room in CI; failed-request logging the client can read after a meetup\n\nCriteria: AC-41, AC-52\u201355\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-09\nBUILDPLAN notes: Serialized on `justfile` (`burst`, `test-full`)\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZS93ZCKQRDQ4BFYA2M1W",
+  "last_event_id": "ev_01M30A00GNQS84DBCE0SETQK3F",
+  "last_status_changed_at": "2026-09-20T21:01:39Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:46Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZQHZVMQRNGW6G6YCZ973",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-26",
+  "status": "backlog",
+  "tags": [
+    "m4",
+    "inline-full",
+    "justfile",
+    "ci"
+  ],
+  "title": "Burst and smoke in CI",
+  "type": "task",
+  "updated_at": "2026-09-20T21:01:46Z",
+  "urgency": null
+}

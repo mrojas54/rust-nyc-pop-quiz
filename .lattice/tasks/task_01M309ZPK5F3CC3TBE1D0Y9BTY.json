@@ -1,0 +1,37 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "high",
+  "created_at": "2026-09-20T21:01:36Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN.md T-03 (M0).\n\n**Spike \u2014 the burst.** Minimal `axum` WebSocket room with 200 synthetic clients; the deadline burst in isolation; p95 write and reveal-fan-out measured on a deployed Fly machine. Go/no-go on D-A.\n\nCriteria: AC-52, AC-53, AC-54, AC-41\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-01\nBUILDPLAN notes: **Blocks M1.** If p95 fails, D-A option 2 is re-opened before any room code is written.\n\nOrchestrator notes: Fly account is logged in (client confirmed 2026-09-20). The deploy itself runs outside the sandbox with the client's approval: prepare everything, then hand the exact `fly` commands to the Orchestrator. Attach p95 write and reveal fan-out numbers as an artifact; they are HC-0's burst evidence (F-2). Go/no-go on D-A is the client's call: report, do not decide.\n\nWorkflow mode: sub-agent-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M309ZPK5F3CC3TBE1D0Y9BTY",
+  "last_event_id": "ev_01M309ZSVB7D7JVM1NYRBVN21X",
+  "last_status_changed_at": "2026-09-20T21:01:36Z",
+  "priority": "critical",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-20T21:01:40Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01M309ZPB1GGYG71873CK89YG3",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-3",
+  "status": "backlog",
+  "tags": [
+    "m0",
+    "sub-agent-full"
+  ],
+  "title": "Burst spike on Fly",
+  "type": "spike",
+  "updated_at": "2026-09-20T21:01:40Z",
+  "urgency": null
+}
