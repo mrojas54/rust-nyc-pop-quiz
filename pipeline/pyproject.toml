@@ -1,0 +1,24 @@
+[project]
+name = "popquiz"
+version = "0.1.0"
+description = "The offline question pipeline: generate, verify, dedupe, review, audit, schedule."
+readme = "README.md"
+# A minor-series pin, not an exact one. `==3.12` would match 3.12.0 and reject
+# every patch release after it, including the interpreter uv actually supplies.
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/popquiz"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -q keeps the parallel `just test` output readable when three suites interleave.
+addopts = "-q"
