@@ -238,14 +238,11 @@ function explainNoRoomHtml(q) {
       '<p>' + escapeHtml(e.what) + '</p>' +
     '</div>' +
     '<div class="beat beat-company">' +
-      '<h3>Why ' + L + ' — <code>' + escapeHtml(chosen.text) + '</code> — is the reading almost everyone brings</h3>' +
+      '<h3>Why you might have read it as ' + L + ': <code>' + escapeHtml(chosen.text) + '</code></h3>' +
       '<p>' + escapeHtml(e.whyWrong.text) + '</p>' +
-      '<p class="meta" style="margin:6px 0 0">If you read it that way, nothing is missing from your Rust. ' +
-        'This is the one place <code>dedup</code> disagrees with every other language you have used, and ' +
-        'the disagreement is one word long.</p>' +
     '</div>' +
     '<div class="beat">' +
-      '<h3>The bit worth talking about</h3>' +
+      '<h3>What to remember</h3>' +
       '<p>' + escapeHtml(e.argue) + '</p>' +
     '</div>';
 }
@@ -267,6 +264,8 @@ function renderOptions() {
 function renderReceipt() {
   const r = Q.receipt;
   document.getElementById("receipt").innerHTML =
+    '<div class="steps" style="margin-bottom:9px">✓ Compiled<br>✓ Ran ' + r.runs + ' times<br>' +
+    '✓ Output never varied<br>✓ Miri ran clean</div>' +
     '<div class="row"><span>compiler</span><span>' + escapeHtml(r.rustc) + '</span></div>' +
     '<div class="row"><span>edition</span><span>' + escapeHtml(r.edition) + '</span></div>' +
     '<div class="row"><span>target</span><span>' + escapeHtml(r.target) + '</span></div>' +
@@ -274,8 +273,8 @@ function renderReceipt() {
     '<div class="row"><span>miri</span><span>' + escapeHtml(r.miri) + ', output matched the native runs</span></div>' +
     '<div class="caveat">Nobody wrote this answer down. It came from running the program. ' +
     'A clean Miri run proves there was no undefined behaviour <b>on the paths actually executed</b> ' +
-    '— it is evidence, not a proof, and the prose above it is written by a human and checked by ' +
-    'an organizer, not by the machine.</div>';
+    '— it is evidence, not a proof.<br>' +
+    'The machine checked the answer only. An organizer approved the explanation.</div>';
 }
 
 function renderTrace() {

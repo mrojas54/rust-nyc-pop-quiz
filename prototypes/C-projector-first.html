@@ -710,9 +710,11 @@ function renderProjector() {
         : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
           '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
           '<div class="receipt" style="margin-top:10px;font-size:15px">' +
-          '<span class="provenance machine">✓ established by the machine</span><br>' +
-          TONIGHT.receipt.rustc + ' · ran ' + TONIGHT.receipt.runs + '× byte-identical · Miri clean, output matched.<br>' +
-          '<b>Establishes the answer. Not the explanation — that one is human, and you are about to hear it.</b></div>') +
+          '<span class="provenance machine">How we know</span><br>' +
+          '✓ Compiled<br>' +
+          '✓ Ran ' + TONIGHT.receipt.runs + ' times<br>' +
+          '✓ Output never varied<br>' +
+          '✓ Miri ran clean</div>') +
       '</div>';
   }
 
@@ -736,7 +738,7 @@ function renderParticipant() {
       '<div class="buzz-verdict"><div>' +
       (p === "idle"
         ? '<div class="vb">↑</div><p class="meta" style="max-width:220px">You\'re in. Everything happens on the screen at the front — look up.</p>'
-        : '<div class="vb">✓</div><p class="meta" style="max-width:220px">Nothing about you was recorded. Not your answer, not your device, not that you were here.</p>') +
+        : '<div class="vb">✓</div><p class="meta" style="max-width:220px">Nothing about you was recorded.</p>') +
       '</div></div>' +
       '<div class="buzz-foot">no account · no name · no score</div>';
     return;
@@ -767,12 +769,12 @@ function renderParticipant() {
         : '') +
       '<p class="meta" style="max-width:230px;margin:14px auto 0">' +
         (p === "split"
-          ? 'Five different readings of four lines. Nobody knows what anyone picked — including us.'
+          ? 'Five different readings of four lines. Nobody knows what anyone picked.'
           : p === "work"
-          ? 'Nothing to do. Nobody knows the answer yet, including us.'
+          ? 'Nothing to do. Nobody knows the answer yet.'
           : (others > 0
-              ? 'You and ' + others + ' other people read it the same way. The why is being read out now — listen, don\'t read.'
-              : 'You were the only one, which makes yours the most interesting answer in the room.')) +
+              ? 'You and ' + others + ' other people read it the same way. The host is reading out the why now.'
+              : 'You were the only one who read it that way.')) +
       '</p>' +
       '</div></div>' +
       '<div class="buzz-foot">computed on this phone · never sent anywhere</div>';

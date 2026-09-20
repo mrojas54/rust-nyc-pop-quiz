@@ -173,7 +173,7 @@ function traceNoteHtml(q, i, opts) {
   return '<div class="trace">' +
     '<div class="trace-note"' + scale + '>' +
       '<span class="step-n">Step ' + (i + 1) + ' of ' + total +
-        (s.pivot ? ' · the one worth stopping on' : '') + '</span>' +
+        (s.pivot ? ' · Pause here.' : '') + '</span>' +
       escapeHtml(s.note) +
     '</div>' +
     values +
@@ -213,8 +213,8 @@ function traceSay(q, i) {
                                reasonable. This is the beat that makes being
                                wrong ordinary instead of embarrassing, and it
                                only works because it comes with a count.
-     3. the bit worth
-        talking about        — the real decision, the one that carries on at the bar
+     3. what to
+        remember             — the real decision, the one that carries on at the bar
 
    Beat 2 is the one the old single-paragraph design had no room for.
    --------------------------------------------------------------------------- */
@@ -235,11 +235,10 @@ function explainHtml(q, room, opts) {
     '<div class="beat beat-company">' +
       '<h3>Why ' + n + ' of us said ' + L + '</h3>' +
       '<p' + scale + '>' + escapeHtml(e.whyWrong.text) + '</p>' +
-      '<p class="meta" style="margin:6px 0 0"><b>' + share + '% of the room read it that way.</b> ' +
-      'That is not a room getting it wrong — that is a room finding the one place Rust disagrees with everything else they have used.</p>' +
+      '<p class="meta" style="margin:6px 0 0"><b>' + share + '% of the room read it that way.</b></p>' +
     '</div>' +
     '<div class="beat">' +
-      '<h3>The bit worth talking about</h3>' +
+      '<h3>What to remember</h3>' +
       '<p' + scale + '>' + escapeHtml(e.argue) + '</p>' +
     '</div>';
 }
