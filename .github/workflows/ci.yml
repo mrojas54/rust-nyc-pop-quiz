@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Pinned, with the checksum published on the release. `just` has no vendor
+  # action, and a five-line verified download beats trusting a third-party one.
+  JUST_VERSION: 1.57.0
+  JUST_SHA256: 45b548094283cb9739af8f13273b8cddeee869f5b4ef2bb631b1f311cb566155
+
+jobs:
+  # The inner loop. Hermetic, parallel, offline, budgeted at 60 s wall-clock by
+  # EVALUATION.md. No Docker, no pinned rustc, no Miri.
+  test:
+    name: just test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install just
+        run: |
+          set -euo pipefail
+          url="https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSLf -o just.tar.gz "$url"
+          echo "${JUST_SHA256}  just.tar.gz" | sha256sum --check --strict
+          tar -xzf just.tar.gz just
+          sudo install -m 0755 just /usr/local/bin/just
+          just --version
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            room/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # The one step allowed to use the network. Everything `just test` needs is
+      # on disk after this, which is what lets the next step run --offline.
+      - run: just setup
+
+      - run: just test
+
+  # Everything that exists, plus a named list of what does not. Docker is
+  # installed for this hook only: T-15a's sandbox image and T-21's deployed runs
+  # both land here, and nothing uses it yet.
+  test-full:
+    name: just test-full
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install just
+        run: |
+          set -euo pipefail
+          url="https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSLf -o just.tar.gz "$url"
+          echo "${JUST_SHA256}  just.tar.gz" | sha256sum --check --strict
+          tar -xzf just.tar.gz just
+          sudo install -m 0755 just /usr/local/bin/just
+          just --version
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            room/target
+          key: cargo-full-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
+          restore-keys: cargo-full-${{ runner.os }}-
+
+      # Asserted rather than assumed: the ubuntu runner ships Docker, and this
+      # hook's whole reason for being separate is that it is allowed to use it.
+      # If a future runner image drops it, that should fail here and loudly.
+      - name: Docker is available to this job
+        run: docker --version
+
+      - run: just setup
+
+      - run: just test-full

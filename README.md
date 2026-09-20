@@ -5,10 +5,35 @@ their phones, and every Rust program is generated fresh and compiler-verified.
 
 ## Status
 
-Design phase. There is no implementation yet — no Rust, TypeScript, or Python
-source, and no build or test tooling. This repository currently holds the
-product requirements document and the configuration scaffolding that goes with
-it.
+The build has started. The scaffold is in — the `room` crate, the `pipeline`
+project, the `web` surfaces, an empty `bank`, and the harness that tests them —
+but no product behaviour yet: the room has no routes, the pipeline's modules are
+empty, and the surfaces are empty directories. Each names the ticket that fills
+it in its own README.
+
+`BUILDPLAN.md` is the order of work and `SPEC.md` the contract. Where this file
+still describes Val Town and Modal it is out of date; `sequence/research/00-synthesis.md`
+superseded that, and the room is Rust on Fly.io.
+
+## Building and testing
+
+    just setup     # fetch dependencies — the one recipe that uses the network
+    just test      # the inner loop: room, pipeline and web, in parallel
+    just test-full # everything above, plus what is still pending
+
+`just test` is the one to run while working. It is hermetic — no network, no
+Docker, no pinned toolchain, no Miri — and `EVALUATION.md` budgets it at 60
+seconds, so if it ever stops feeling instant something has gone wrong.
+
+Needs `just`, `cargo`, `uv` and `node` on the machine. `uv` supplies Python
+3.12 itself; `cargo` is whatever this machine already has, which is deliberate —
+the pinned compiler that verifies questions is a separate thing entirely, and it
+lives with the sandbox image.
+
+The other recipes are the rest of the harness `EVALUATION.md` names: `canary`,
+`verify`, `bank-audit`, `burst`, `a11y` and `smoke`. Most have no suite behind
+them yet, and running one tells you which ticket is going to build it rather
+than quietly passing.
 
 ## What's here
 
