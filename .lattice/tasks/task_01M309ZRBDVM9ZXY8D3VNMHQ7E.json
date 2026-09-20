@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 3,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZRBDVM9ZXY8D3VNMHQ7E",
-  "last_event_id": "ev_01M309ZYFWMZS19ERK5M0PECQD",
-  "last_status_changed_at": "2026-09-20T21:01:38Z",
+  "last_event_id": "ev_01M30DRY4TFNE3RHQ1Y2J46NQZ",
+  "last_status_changed_at": "2026-09-20T21:57:09Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,13 +25,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-18",
-  "status": "backlog",
+  "status": "in_planning",
   "tags": [
     "m3",
     "inline-full"
   ],
   "title": "Bank format and MVP migration",
   "type": "task",
-  "updated_at": "2026-09-20T21:01:44Z",
+  "updated_at": "2026-09-20T22:07:49Z",
   "urgency": null
 }

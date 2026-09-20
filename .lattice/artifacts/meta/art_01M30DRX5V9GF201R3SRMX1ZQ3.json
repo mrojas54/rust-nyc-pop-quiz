@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-20T22:07:48Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M30DRX5V9GF201R3SRMX1ZQ3",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M30DRX5V9GF201R3SRMX1ZQ3.md",
+    "size_bytes": 240
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #8 (merge commit 0742d35) on the client's word, 2026-09-20. CI: just test and just test-full green on 2ab95e3. Code review PASS attached by delegator-pq1-reviewer; validation note attach",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

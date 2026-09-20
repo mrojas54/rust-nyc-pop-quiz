@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 4,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:36Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZPK5F3CC3TBE1D0Y9BTY",
-  "last_event_id": "ev_01M309ZSVB7D7JVM1NYRBVN21X",
-  "last_status_changed_at": "2026-09-20T21:01:36Z",
+  "last_event_id": "ev_01M30DRXYF2T4WK6F3NG013CQT",
+  "last_status_changed_at": "2026-09-20T21:55:43Z",
   "priority": "critical",
   "relationships_out": [
     {
@@ -25,13 +25,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-3",
-  "status": "backlog",
+  "status": "in_planning",
   "tags": [
     "m0",
     "sub-agent-full"
   ],
   "title": "Burst spike on Fly",
   "type": "spike",
-  "updated_at": "2026-09-20T21:01:40Z",
+  "updated_at": "2026-09-20T22:07:49Z",
   "urgency": null
 }

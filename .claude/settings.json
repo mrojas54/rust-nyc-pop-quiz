@@ -1,8 +1,21 @@
 {
+  "permissions": {
+    "ask": [
+      "Bash(git push*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(fly *)",
+      "Bash(flyctl *)",
+      "Bash(docker *)"
+    ]
+  },
   "sandbox": {
     "filesystem": {
       "allowRead": [
         ".env.example"
+      ],
+      "allowWrite": [
+        "/Users/michellerojas/rust-nyc-pop-quiz/.lattice"
       ]
     }
   }

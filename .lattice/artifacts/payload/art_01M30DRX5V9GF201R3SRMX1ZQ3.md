@@ -1,0 +1,1 @@
+Merged via PR #8 (merge commit 0742d35) on the client's word, 2026-09-20. CI: just test and just test-full green on 2ab95e3. Code review PASS attached by delegator-pq1-reviewer; validation note attached. Orchestrator amendment R-7 honoured.
