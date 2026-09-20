@@ -23,14 +23,22 @@ FIXTURES = HERE / "fixtures"
 SCANNED = (HERE.parent / "src" / "popquiz", HERE)
 
 # Importing any of these gives a module the ability to start a process.
+# `importlib` is on the list because it is how a forbidden import gets made
+# without looking like one. That is broader than the threat — `importlib.
+# resources` starts nothing — so if a later ticket wants it for something
+# innocent, narrow this to the dynamic-import calls rather than dropping the
+# entry.
 FORBIDDEN_IMPORTS = {"subprocess", "multiprocessing", "pty", "docker", "importlib"}
 
 # `os` is not forbidden — modules want `os.environ` and `os.fspath`. These are
-# the calls on it that start something.
+# the calls on it that start something. Both families are complete: all seven
+# `exec*` and all eight `spawn*`, because a guard that covers six of eight while
+# saying "the spawn family" is the kind of almost-true this project does not ship.
 FORBIDDEN_OS_CALLS = {
     "system", "popen", "fork", "forkpty", "posix_spawn", "posix_spawnp",
     "execl", "execle", "execlp", "execv", "execve", "execvp", "execvpe",
-    "spawnl", "spawnle", "spawnlp", "spawnv", "spawnve", "spawnvp",
+    "spawnl", "spawnle", "spawnlp", "spawnlpe",
+    "spawnv", "spawnve", "spawnvp", "spawnvpe",
 }
 
 
@@ -83,11 +91,18 @@ def _process_starting_nodes(tree: ast.AST) -> list[tuple[int, str]]:
                 if alias.name.split(".")[0] in FORBIDDEN_IMPORTS:
                     found.append((node.lineno, f"imports {alias.name}"))
 
-        # from subprocess import run
         elif isinstance(node, ast.ImportFrom):
             root = (node.module or "").split(".")[0]
+            # from subprocess import run
             if root in FORBIDDEN_IMPORTS:
                 found.append((node.lineno, f"imports from {node.module}"))
+            # from os import system — `os` itself stays allowed, but pulling one
+            # of its process-starting calls out of it and calling it bare would
+            # otherwise slip past the os.<attr>(...) check below.
+            elif root == "os":
+                for alias in node.names:
+                    if alias.name in FORBIDDEN_OS_CALLS:
+                        found.append((node.lineno, f"imports os.{alias.name}"))
 
         elif isinstance(node, ast.Call):
             func = node.func
@@ -167,6 +182,8 @@ def test_the_guard_catches_the_ways_it_claims_to() -> None:
         "__import__('subprocess')",
         "import os\nos.system('ls')",
         "import os\nos.execv('/bin/ls', [])",
+        "import os\nos.spawnvpe(os.P_WAIT, 'ls', [], {})",
+        "from os import system",
     ]
     for source in caught:
         assert _process_starting_nodes(ast.parse(source)), f"missed: {source!r}"
