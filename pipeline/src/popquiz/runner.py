@@ -14,8 +14,10 @@ against the stub in `test` and against the real toolchain in `test-full`, so a
 recorded output that drifts from what the toolchain now does shows up as a
 disagreement between the two hooks rather than as a silent pass.
 
-Nothing in this module shells out, and `test_no_module_shells_out` holds the
-whole package to that.
+Nothing in this package shells out today, and
+`test_nothing_just_test_imports_can_start_a_process` is what makes the first
+module that needs to say so out loud. That test catches the ordinary ways, not
+every conceivable one; its own docstring is exact about which.
 """
 
 from __future__ import annotations

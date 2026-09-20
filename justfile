@@ -48,17 +48,19 @@ test-web:
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
 test-full: test
-    @echo ""
-    @echo "=== test-full ==="
-    @echo "Ran: test (room, pipeline, web) and the in-process canary seam."
-    @echo ""
-    @echo "PENDING — these suites are not built yet:"
-    @for entry in {{ PENDING }}; do \
-        printf '  %-12s %s\n' "$(echo $entry | cut -d: -f1)" "delivered by $(echo $entry | cut -d: -f2)"; \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "=== test-full ==="
+    echo "Ran: test (room, pipeline, web) and the in-process canary seam."
+    echo ""
+    echo "PENDING — these suites are not built yet:"
+    for entry in {{ PENDING }}; do
+        printf '  %-12s delivered by %s\n' "${entry%%:*}" "${entry##*:}"
     done
-    @echo ""
-    @echo "T-15a adds the sandbox image and T-21 the deployed runs; both extend"
-    @echo "this hook. Docker is installed for test-full only, and nothing uses it yet."
+    echo ""
+    echo "T-15a adds the sandbox image and T-21 the deployed runs; both extend"
+    echo "this hook. Docker is installed for test-full only, and nothing uses it yet."
 
 # The secrecy suite, in-process: the router driven without a socket.
 # EVALUATION.md splits this hook — the in-process scan runs inside `test`, the
