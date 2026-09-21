@@ -21,6 +21,7 @@ import pytest
 from popquiz.bank import (
     Explains,
     correct_index,
+    incorrect_indexes,
     load_question,
     normalized_output,
     options_needing_reauthoring,
@@ -28,6 +29,7 @@ from popquiz.bank import (
     quoted_outputs,
     receipt_class,
 )
+from popquiz import migrate_mvp
 from popquiz.migrate_mvp import (
     MIGRATED,
     NOT_MIGRATED,
@@ -317,6 +319,49 @@ def test_q3_has_a_middle_beat_for_every_incorrect_option() -> None:
             assert option.why_tempting is None, "the correct option has no tempting"
         else:
             assert option.why_tempting, f"q3 option {i} has no why_tempting"
+
+
+def test_a_beat_written_for_an_option_that_does_not_exist_stops_the_migration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The negative half of carrying `why_tempting` on the option.
+
+    The whole case for that shape over a letter or an index is that a beat cannot end
+    up attached to the wrong option - so the migration must refuse a beat whose key
+    matches no option at all, rather than dropping it and leaving an option silently
+    without its middle beat. A dropped beat would pass every positive test above: each
+    of them checks that the beats present are attached correctly, and none would
+    notice one that quietly went missing.
+
+    Exercised directly rather than only through the real data, where a typo would fail
+    the reproducibility test without saying why.
+    """
+    beats = dict(migrate_mvp.AUTHORED_WHY_TEMPTING)
+    beats["q3"] = dict(beats["q3"], **{"[1, 2, 3, 4, 5]": "an option q3 does not have"})
+    monkeypatch.setattr(migrate_mvp, "AUTHORED_WHY_TEMPTING", beats)
+
+    with pytest.raises(MigrationError, match="options that do not exist"):
+        build_question(BATCH, MVP_BY_ID["q3"], CONTENT["q3"])
+
+
+def test_every_beat_resolves_to_exactly_one_option(committed: dict) -> None:
+    """The positive half, stated as the property rather than per question.
+
+    A beat belongs to one option and the correct option never carries one, so across
+    the bank the beats and the incorrect options line up one to one - which is what
+    makes AC-95's "every incorrect option has a non-empty why_tempting" a structural
+    check at affirm rather than a join T-18 has to get right.
+    """
+    for qid, question in committed.items():
+        carried = [i for i, o in enumerate(question.options) if o.why_tempting]
+        assert len(carried) == len(set(carried)), f"{qid}: a beat counted twice"
+        assert correct_index(question) not in carried, (
+            f"{qid}: the correct option carries a why_tempting"
+        )
+        for i in carried:
+            assert i in incorrect_indexes(question), (
+                f"{qid}: option {i} carries a beat but is not an incorrect option"
+            )
 
 
 @pytest.mark.parametrize("qid", ["q4", "q7", "q8"])
