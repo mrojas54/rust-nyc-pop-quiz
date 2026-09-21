@@ -1,0 +1,54 @@
+{
+  "id": "q4",
+  "source": "fn main() {\n    let a: i32 = -7;\n    let b: i32 = 2;\n    println!(\"{} {}\", a / b, a % b);\n    println!(\"{} {}\", a.div_euclid(b), a.rem_euclid(b));\n}\n",
+  "topic": "Integer arithmetic",
+  "difficulty_requested": 3,
+  "options": [
+    {
+      "text": "-4 1\n-4 1",
+      "kind": "output"
+    },
+    {
+      "text": "-3 1\n-4 1",
+      "kind": "output"
+    },
+    {
+      "text": "-4 -1\n-3 -1",
+      "kind": "output"
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile"
+    },
+    {
+      "text": "-3 -1\n-4 1",
+      "kind": "output"
+    }
+  ],
+  "hint": "Rust has two different notions of division for signed integers, and they disagree here. Which one do / and % use?",
+  "explains": {
+    "what": "Rust's / and % truncate toward zero, so -7 / 2 loses the fraction and the remainder keeps the sign of the number being divided. div_euclid and rem_euclid round the other way, down, which is what makes their remainder come back positive.",
+    "takeaway": "Both are real division and both satisfy the same identity: the quotient times the divisor plus the remainder gets you back where you started. They only disagree about which way to round. If you have ever indexed into a ring buffer with a negative offset, you have met this.",
+    "legacy": "Rust's / and % truncate toward zero, so -7 / 2 is -3, and the remainder takes the sign of the dividend: -1. div_euclid and rem_euclid floor instead, giving -4 with a remainder that is always non-negative: 1. Both are correct division -- they satisfy the same identity a == b * q + r -- they just make different choices about which way to round. If you have ever indexed into a ring buffer with a negative offset, you have met this bug."
+  },
+  "trace": {
+    "steps": []
+  },
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "edition": "2021",
+    "legacy": true,
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "-3 -1\n-4 1\n",
+    "miri": {
+      "clean": true,
+      "output_matched": true
+    }
+  },
+  "review": {
+    "reason": "Migrated from the August batch by T-14. 4 of 5 options break the wall's rule that an option is one line of at most 29 characters (D-15, SPEC 5.2): indexes 0, 1, 2, 4 in bank order. The correct option is among them, and an option's text has to equal what the program printed, so shortening it is not an edit to the option - the program has to print something shorter, and the machine decides the new answer when it is re-verified (T-15b). No why_tempting beats were drafted, because every incorrect option they would attach to is scheduled for replacement. Cannot be affirmed as it stands: the trace is empty and the middle beats are missing (SPEC 7.4, AC-95)."
+  }
+}
