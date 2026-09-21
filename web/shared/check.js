@@ -29,34 +29,18 @@
      glyph and nothing but — a caller cannot get the class from here. */
   function checkMark() { return CHECK; }
 
-  /* Correct, marked. Returns markup carrying the glyph AND the colour class,
-     inseparably.
+  /* THE ONLY PLACE THE CORRECT CLASS IS EVER CONSTRUCTED.
 
-     `text` is escaped by the caller's escapeHtml — option texts are program
-     text and may contain < or &.
+     AC-40 is a property of this file, not a habit four tickets have to keep,
+     and it is this function that makes it one: the class and the glyph are
+     produced together, here, once. Everything public below delegates to it, so
+     adding a path that emits `rn-correct` without the ✓ means referencing
+     CORRECT_CLASS somewhere else — which check.test.js counts, and fails on.
 
-     The ✓ is aria-hidden and `srLabel` carries the word, because a screen
-     reader announcing "check mark" before every option is noise; the word
-     "Correct" is the signal. That keeps three channels alive: glyph, colour,
-     and announced text. */
-  function correctHtml(text, opts) {
-    opts = opts || {};
-    var esc = PQ.escapeHtml || function (s) { return String(s); };
-    var srLabel = opts.srLabel === undefined ? "Correct" : opts.srLabel;
-    var tag = opts.tag || "span";
-    var extra = opts.className ? " " + opts.className : "";
-
-    return "<" + tag + ' class="' + CORRECT_CLASS + extra + '">' +
-             '<span class="rn-check" aria-hidden="true">' + CHECK + "</span>" +
-             (srLabel ? '<span class="sr-only">' + esc(srLabel) + "</span>" : "") +
-             (text === undefined || text === null ? "" : " " + esc(text)) +
-           "</" + tag + ">";
-  }
-
-  /* The class, for a caller that must put it on an element it already owns —
-     a wall option chip, a split bar. Returns the class AND the glyph markup
-     together so the caller cannot take one without seeing the other. */
-  function correctParts(opts) {
+     The glyph is aria-hidden and the word carries the meaning, because a screen
+     reader announcing "check mark" before every option is noise. That keeps
+     three channels alive: glyph, colour, and announced text. */
+  function mark(opts) {
     opts = opts || {};
     var esc = PQ.escapeHtml || function (s) { return String(s); };
     var srLabel = opts.srLabel === undefined ? "Correct" : opts.srLabel;
@@ -66,6 +50,30 @@
       glyphHtml: '<span class="rn-check" aria-hidden="true">' + CHECK + "</span>" +
                  (srLabel ? '<span class="sr-only">' + esc(srLabel) + "</span>" : "")
     };
+  }
+
+  /* Correct, marked. Returns markup carrying the glyph AND the colour class,
+     inseparably, because both come out of mark().
+
+     `text` is escaped — option texts are program text and may contain < or &. */
+  function correctHtml(text, opts) {
+    opts = opts || {};
+    var esc = PQ.escapeHtml || function (s) { return String(s); };
+    var m = mark(opts);
+    var tag = opts.tag || "span";
+    var extra = opts.className ? " " + opts.className : "";
+
+    return "<" + tag + ' class="' + m.className + extra + '">' +
+             m.glyphHtml +
+             (text === undefined || text === null ? "" : " " + esc(text)) +
+           "</" + tag + ">";
+  }
+
+  /* The class, for a caller that must put it on an element it already owns —
+     a wall option chip, a split bar. Hands back the class and the glyph
+     together so the caller cannot take one without seeing the other. */
+  function correctParts(opts) {
+    return mark(opts);
   }
 
   PQ.CHECK = CHECK;

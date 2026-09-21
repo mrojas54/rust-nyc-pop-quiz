@@ -142,3 +142,20 @@ test('the clipped edge renders on the well when the verdict says so', () => {
   const fits = full.sourceWellHtml(FIXTURE, { phase: 'live', fit: 'fits' });
   assert.ok(!fits.includes('clipped-'));
 });
+
+test('a label with a quote in it cannot break out of its attribute', () => {
+  // escapeHtml is safe for text content but not for an attribute value, and
+  // aria-label is an attribute. T-05/T-06/T-07 may pass a bank-derived label.
+  const html = PQ.sourceWellHtml('fn main() {}', {
+    phase: 'live', label: 'What does "this" print?',
+  });
+  assert.ok(!html.includes('aria-label="What does "this" print?"'),
+    'the raw quote would end the attribute early');
+  assert.ok(html.includes('&quot;'), 'quotes are entity-escaped in the attribute');
+  // The header, which is text content, still reads naturally.
+  assert.ok(html.includes('What does &quot;this&quot; print?'));
+});
+
+test('escapeAttr covers both quote characters', () => {
+  assert.strictEqual(PQ.escapeAttr(`a"b'c<d&e`), 'a&quot;b&#39;c&lt;d&amp;e');
+});

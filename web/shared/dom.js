@@ -20,6 +20,15 @@
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  /* escapeHtml is safe for TEXT content. An attribute value also has to survive
+     its own quotes, and `aria-label="..."` in well.js is exactly that position.
+     The prototype had no attribute escaper because its labels were literals;
+     T-05/T-06/T-07 may pass a bank-derived label, and a question title with a
+     double quote in it would otherwise break out of the attribute. */
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
   /* AC-83: every state change is announced through a polite live region.
 
      Ported from proto.js, including the 40ms clear-then-set. That delay is not
@@ -52,6 +61,7 @@
   function _resetLiveRegion() { _live = null; }
 
   PQ.escapeHtml = escapeHtml;
+  PQ.escapeAttr = escapeAttr;
   PQ.announce = announce;
   PQ._resetLiveRegion = _resetLiveRegion;
 })(typeof window !== "undefined" ? window : globalThis);

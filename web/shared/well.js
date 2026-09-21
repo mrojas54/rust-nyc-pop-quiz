@@ -85,6 +85,7 @@
     if (!PQ.rendersSource(phase)) return "";
 
     var esc = PQ.escapeHtml;
+    var escAttr = PQ.escapeAttr || esc;
     var hl = opts.hl || [];
     var focus = opts.focus || null;
     var colour = PQ.colourAllowed(phase);
@@ -112,7 +113,7 @@
       '<div class="rn-src-head"><span>' + esc(label) + "</span>" +
         (opts.meta ? "<span>" + opts.meta + "</span>" : "") +
       "</div>" +
-      '<div class="rn-src-scroll" role="region" aria-label="' + esc(label) + '" tabindex="0"' + described + ">" +
+      '<div class="rn-src-scroll" role="region" aria-label="' + escAttr(label) + '" tabindex="0"' + described + ">" +
         "<pre" + (opts.size ? ' style="font-size:' + opts.size + '"' : "") + "><code>" + body + "</code></pre>" +
       "</div></div>";
   }

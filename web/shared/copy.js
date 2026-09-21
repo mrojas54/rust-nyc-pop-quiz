@@ -203,9 +203,12 @@
     not_a_guarantee_host_honest: "A host who reads Rust can work out the answer from the source; the host's not being shown it keeps the host honest, it is not a security guarantee.",
 
     /* --- Static fallback (AC-102) --------------------------------------- */
-    static_next_phase: "`Space` next phase",
-    static_step_trace: "`←` `→` step the trace",
-    static_back_phase: "`Esc` back a phase",
+    /* SPEC writes the key names in markdown code fencing; the backticks are
+       its formatting, not punctuation the organizer reads off a screen — the
+       same way `‹answered› of ‹present›…` drops its fencing above. */
+    static_next_phase: "Space next phase",
+    static_step_trace: "← → step the trace",
+    static_back_phase: "Esc back a phase",
 
     /* --- Uniqueness (organizer-facing, AC-18) — never "original" -------- */
     uniqueness: "no exact or normalized duplicate found",

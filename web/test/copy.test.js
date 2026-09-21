@@ -211,7 +211,7 @@ test('every trope group fires on the retired strings (AC-42)', () => {
   // then cut. If a group does not fire here, its patterns are transcribed
   // wrong and the clean assertion above is vacuous.
   const RETIRED = [
-    'That is not a room getting it wrong — that is a room learning something',
+    'That is not a room getting it wrong — that is a room…',
     'Not the explanation — that one is human',
     "listen, don't read",
     "that's fine",
@@ -260,4 +260,20 @@ test('an unknown key throws rather than rendering its own name', () => {
 
 test('t returns the string unchanged when there is nothing to fill', () => {
   assert.strictEqual(PQ.t('wall_closed'), 'answers are closed');
+});
+
+test('no entry carries SPEC\'s markdown formatting as literal text', () => {
+  // SPEC writes key names and templates in backtick code fencing. That is its
+  // formatting, not punctuation anyone reads off a screen, and it must not
+  // survive into a string the organizer or the room sees.
+  for (const [key, value] of entries()) {
+    assert.ok(!value.includes('`'), `${key} kept SPEC's backticks: ${JSON.stringify(value)}`);
+    assert.ok(!/\*\*/.test(value), `${key} kept SPEC's bold markers`);
+  }
+});
+
+test('the static fallback names its keys in plain words (AC-102)', () => {
+  assert.strictEqual(COPY.static_next_phase, 'Space next phase');
+  assert.strictEqual(COPY.static_step_trace, '← → step the trace');
+  assert.strictEqual(COPY.static_back_phase, 'Esc back a phase');
 });

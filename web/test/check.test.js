@@ -85,11 +85,64 @@ test('there is no way to mark anything incorrect', () => {
   assert.ok(!src.includes('✗'), 'check.js must contain no ✗');
 });
 
-test('the colour class is only ever defined alongside the glyph in the source', () => {
-  // A structural check, so a future edit that adds a class-only path is caught
-  // even if no test calls it.
-  const src = source('check.js');
-  const assignments = src.split('\n').filter(
-    (l) => l.includes('CORRECT_CLASS') && !l.trim().startsWith('*') && !l.trim().startsWith('//'));
-  assert.ok(assignments.length > 0);
+// Strip comments so a structural assertion is about code, not prose.
+function codeOf(file) {
+  return source(file)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('//'))
+    .join('\n');
+}
+
+// The text of a top-level function in a web/shared module, which indents its
+// closing brace by two spaces.
+function bodyOf(code, name) {
+  const start = code.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `${name} not found`);
+  const end = code.indexOf('\n  }', start);
+  assert.ok(end > start, `${name} has no two-space closing brace`);
+  return code.slice(start, end);
+}
+
+test('the colour class has exactly one construction site', () => {
+  // What this verifies, precisely: CORRECT_CLASS is referenced on three lines —
+  // its declaration, its export, and one line inside mark() — and neither
+  // public function names it. So every path to the class goes through mark(),
+  // which is the one place the glyph is attached.
+  //
+  // What it does NOT verify: that mark() itself can never be edited to drop the
+  // glyph. No source-level test can promise that; the behavioural test above is
+  // what covers it for realistic edits. An earlier version of this test claimed
+  // the stronger property and asserted only that CORRECT_CLASS appeared
+  // somewhere, which a review proved vacuous by adding an opt-in class-only
+  // branch that every test still passed.
+  const code = codeOf('check.js');
+
+  const lines = code.split('\n').filter((l) => l.includes('CORRECT_CLASS'));
+  assert.strictEqual(lines.length, 3,
+    `CORRECT_CLASS should appear on exactly 3 lines (declaration, mark(), export); found:\n${lines.join('\n')}`);
+
+  const mark = bodyOf(code, 'mark');
+  assert.ok(mark.includes('CORRECT_CLASS'), 'mark() is the construction site');
+  assert.ok(mark.includes('CHECK'), 'mark() attaches the glyph');
+
+  for (const fn of ['correctHtml', 'correctParts']) {
+    assert.ok(!bodyOf(code, fn).includes('CORRECT_CLASS'),
+      `${fn} must go through mark() rather than naming the class itself`);
+  }
+});
+
+test('mark attaches the glyph across every option shape a caller can pass', () => {
+  // The behavioural half, over the opts the four surfaces will realistically
+  // use — including ones that suppress the screen-reader label.
+  const shapes = [
+    undefined, {}, { srLabel: '' }, { srLabel: null }, { srLabel: 'Correct answer' },
+    { tag: 'li' }, { className: 'wall-option' }, { tag: 'li', className: 'x', srLabel: '' },
+  ];
+  for (const opts of shapes) {
+    const parts = PQ.correctParts(opts);
+    assert.strictEqual(parts.className, PQ.CORRECT_CLASS, JSON.stringify(opts));
+    assert.ok(parts.glyphHtml.includes('\u2713'), JSON.stringify(opts));
+    assert.ok(PQ.correctHtml('A', opts).includes('\u2713'), JSON.stringify(opts));
+  }
 });
