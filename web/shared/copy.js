@@ -1,0 +1,358 @@
+/* ===========================================================================
+   The binding strings — SPEC §11, transcribed verbatim.
+
+   "Authored here and only here." SPEC §11 is where copy is authored; this file
+   is its port, and it is the module T-22's forbidden-copy lint (G-5, AC-98) and
+   trope check (§11.1) run over. Every string gets its own key and a comment
+   naming the §11 row it came from, so the lint has something stable to point at
+   and a dropped string is visible.
+
+   RULES FOR EDITING THIS FILE:
+
+     - Do not paraphrase, and do not improve. These are written to be said by a
+       host standing in front of people. Where the client wrote the line
+       herself ("Time for a pop quiz.", "Let's go to the bar.") it beats
+       anything written for her.
+     - Do not author a new participant-facing string here. Author it in
+       SPEC.md §11 first; this file follows.
+     - Placeholders keep SPEC's own ‹guillemet› form so a diff against §11 is
+       readable. fill() substitutes them.
+     - Counts, not verdicts. No ✗, no score, no "wrong" (AC-94, and the
+       Forbidden row). Correct gets a ✓ because that is a fact about the
+       answer, not about a person.
+
+   Casing is as §11 writes it, including the lower-case room lines ("answers
+   are closed"), which is a voice decision (DESIGN.md), not an oversight.
+   =========================================================================== */
+(function (root) {
+  "use strict";
+  var PQ = (root.PopQuiz = root.PopQuiz || {});
+
+  var COPY = {
+
+    /* --- Wall, idle ----------------------------------------------------- */
+    wall_idle_title: "Time for a pop quiz.",
+    wall_idle_join: "join @ ‹link›",
+
+    /* --- Wall, live ----------------------------------------------------- */
+    wall_live_join: "join @ ‹link› · still open",
+    wall_live_well_header: "What does this program print?",
+
+    /* --- Wall, trace (work, reveal) ------------------------------------- */
+    wall_trace_step: "Step ‹N› of ‹M›",
+    wall_trace_pivot: "Pause here.",
+
+    /* --- Buzzer, join form ---------------------------------------------- */
+    buzzer_join_label: "room code",
+    buzzer_join_button: "join",
+    buzzer_join_beneath: "or open the link on the screen",
+
+    /* --- Wall, closed --------------------------------------------------- */
+    wall_closed: "answers are closed",
+
+    /* --- Wall, split on ------------------------------------------------- */
+    wall_split_answered: "‹answered› of ‹present› in the room answered",
+
+    /* --- Wall, work ----------------------------------------------------- */
+    wall_work_lead: "Let's walk it.",
+    wall_work_no_answer: "Still no answer.",
+    wall_work_nobody: "Nobody has to say anything.",
+
+    /* --- Wall, reveal --------------------------------------------------- */
+    wall_reveal_most_chosen: "‹n› of us said ‹X›",
+
+    /* --- Wall, released ------------------------------------------------- */
+    wall_released_title: "Let's go to the bar.",
+    wall_released_link: "‹link›",
+    wall_released_line: "the question, the walk-through and the why — at your own pace.",
+
+    /* --- Buzzer, idle --------------------------------------------------- */
+    buzzer_idle: "You're in. Everything happens on the screen at the front — look up.",
+
+    /* --- Buzzer, foot --------------------------------------------------- */
+    buzzer_foot: "no account · no name · no score",
+
+    /* --- Buzzer, split -------------------------------------------------- */
+    buzzer_split_lookup: "Look up.",
+    buzzer_split_where: "Where the room landed.",
+    buzzer_split_count: "‹n›",
+    buzzer_split_said: "people said ‹X›, including you.",
+    buzzer_split_readings: "Five different readings. Nobody knows what anyone picked.",
+
+    /* --- Buzzer, work --------------------------------------------------- */
+    buzzer_work_lookup: "Look up.",
+    buzzer_work_walking: "We're walking it through.",
+    buzzer_work_nothing: "Nothing to do. Nobody knows the answer yet.",
+
+    /* --- Buzzer, reveal ------------------------------------------------- */
+    buzzer_reveal_lookup: "Look up.",
+    buzzer_reveal_on_screen: "The answer is on the screen.",
+    buzzer_reveal_it_was: "✓ It was ‹Y›.",
+    /* n−1 others. The singular is its own string because "1 other people" is
+       the kind of thing a room notices. */
+    buzzer_reveal_company: "You and ‹n−1› other people read it the same way.",
+    buzzer_reveal_company_one: "You and 1 other person read it the same way.",
+    buzzer_reveal_host_reading: "The host is reading out the why now.",
+    buzzer_reveal_only_one: "You were the only one who read it that way.",
+
+    /* --- Buzzer, split → reveal, no answer given ------------------------ */
+    buzzer_noanswer_lookup: "Look up.",
+    /* k = present − answered */
+    buzzer_noanswer_count: "‹k› people didn't answer, you included.",
+    buzzer_noanswer_count_one: "You didn't answer.",
+    buzzer_noanswer_split: "Where the room landed.",
+    buzzer_noanswer_work: "We're walking it through.",
+    buzzer_noanswer_reveal: "✓ It was ‹Y›. The host is reading out the why now.",
+
+    /* --- Buzzer, join failures (AC-29) — six states, six next steps ------ */
+    join_fail_malformed: "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.",
+    join_fail_unknown: "No room with that code. Check the screen at the front.",
+    join_fail_not_yet_open: "That room isn't open yet. Hold on — the host will put it on the screen.",
+    join_fail_already_ended: "That room has ended. Look for the link on the screen.",
+    join_fail_closed_inactivity: "That room went quiet and closed. If it comes back, the screen at the front will say so.",
+    join_fail_full: "That room is full. Watch the screen — you can still play along.",
+
+    /* --- Buzzer, foot (split→reveal) ------------------------------------ */
+    buzzer_foot_computed: "computed on this phone · never sent anywhere",
+
+    /* --- Buzzer, released ----------------------------------------------- */
+    buzzer_released: "Nothing about you was recorded.",
+
+    /* --- Buzzer, hint --------------------------------------------------- */
+    buzzer_hint_action: "Show me a hint",
+    buzzer_hint_shown: "Only you can see this. Nobody is told you looked.",
+
+    /* --- Buzzer, live, submission (AC-35/36) ---------------------------- */
+    buzzer_saving: "saving…",
+    buzzer_saved: "saved — ‹X›",
+    buzzer_save_failed: "couldn't save. Your last answer, ‹X›, is safe.",
+    buzzer_save_retry: "Try again",
+    buzzer_no_answer_yet: "tap a letter",
+
+    /* --- Buzzer, reconnecting (AC-37) ----------------------------------- */
+    buzzer_reconnecting_with_answer: "paused — reconnecting… your answer ‹X› is safe",
+    buzzer_reconnecting: "paused — reconnecting…",
+
+    /* --- Buzzer, closed ------------------------------------------------- */
+    buzzer_closed: "answers are closed",
+    buzzer_closed_you_said: "you said ‹X›",
+    buzzer_closed_you_didnt: "you didn't answer",
+
+    /* --- Live region (AC-83), verbatim — the ten announcements ---------- */
+    live_question_on_screen: "The question is on the screen.",
+    live_saving: "Saving.",
+    live_saved: "Saved, ‹X›.",
+    live_save_failed: "Couldn't save; your last answer is safe.",
+    live_answers_closed: "Answers are closed.",
+    live_split_on_screen: "The room's split is on the screen.",
+    live_walking_through: "Walking it through on the screen.",
+    live_revealed: "Revealed: it was ‹Y›.",
+    live_released: "The room is released.",
+    live_hint_shown: "Hint shown, only to you.",
+
+    /* --- Host, phase labels (AC-49), one per screen --------------------- */
+    host_phase_idle: "before the question",
+    host_phase_live: "question live",
+    host_phase_closed: "answers closed",
+    host_phase_split: "the split",
+    host_phase_work: "walking it through",
+    host_phase_reveal: "the answer",
+    host_phase_released: "released",
+
+    /* --- Take it home, headings in order -------------------------------- */
+    home_heading_question: "‹date›'s question",
+    home_heading_what: "What happens",
+    home_heading_why: "Why you might have read it as ‹X›",
+    home_heading_remember: "What to remember",
+    home_heading_walk: "Walk it yourself",
+    home_heading_how_we_know: "How we know",
+
+    /* --- Host, actions -------------------------------------------------- */
+    host_action_create: "Create a room",
+    host_action_put_on_screen: "Put it on the screen",
+    host_action_close: "Close answers",
+    host_action_show_split: "Show the room its split",
+    host_action_walk: "Let's walk it",
+    host_action_reveal: "Reveal",
+    host_action_release: "Release the room",
+    host_action_run_again: "Run it again",
+
+    /* --- Wall + host, reveal, no incorrect votes ------------------------ */
+    wall_reveal_nobody_else: "Nobody read it another way.",
+    host_reveal_nobody_else: "Why nobody said anything else",
+
+    /* --- Host, reveal — the three-beat script --------------------------- */
+    host_reveal_read_aloud: "Read it aloud",
+    host_reveal_beat_what: "What happens",
+    host_reveal_beat_why: "Why ‹n› of us said ‹X›",
+    host_reveal_beat_remember: "What to remember",
+
+    /* --- Host, fit line (AC-100), shown from `live` on ------------------- */
+    /* One per fitVerdict() value. There is deliberately no entry for an
+       unmeasured well — see typemodel.js fitVerdict(). */
+    host_fit_fits: "fits the room",
+    host_fit_clipped_y: "too long for this room — clipped at the bottom",
+    host_fit_clipped_x: "too wide for this room — clipped at the right",
+    host_fit_clipped_xy: "too long and too wide for this room",
+
+    /* --- Host, first screen --------------------------------------------- */
+    host_first_resume: "If you lose this phone, open this on another one: ‹resume link›",
+    /* SPEC §8.1's two sentences, verbatim, on the host phone and in the
+       organizer runbook (AC-62, AC-63). */
+    not_a_guarantee_options_public: "Option text is public — the correct answer is always one of the five visible options.",
+    not_a_guarantee_host_honest: "A host who reads Rust can work out the answer from the source; the host's not being shown it keeps the host honest, it is not a security guarantee.",
+
+    /* --- Static fallback (AC-102) --------------------------------------- */
+    static_next_phase: "`Space` next phase",
+    static_step_trace: "`←` `→` step the trace",
+    static_back_phase: "`Esc` back a phase",
+
+    /* --- Uniqueness (organizer-facing, AC-18) — never "original" -------- */
+    uniqueness: "no exact or normalized duplicate found",
+
+    /* --- The receipt — SPEC §7.5 ----------------------------------------
+       A step list, not sentences. Each line carries a ✓ that marks the step as
+       DONE, not passed: "Nothing ran" carries one too. A line renders only if
+       the record holds the step it names (G-2), so the list can never claim
+       more than was done.
+
+       Two lists, and precedence is does-not-compile first, so every record
+       renders exactly one of them and there is no third.
+
+       No line of the wall receipt ends in terminal punctuation or contains
+       "verified", "established", "proves", "always" or "guaranteed" (AC-43). */
+    receipt_heading: "How we know",
+    /* For a record that ran — complete or `legacy`. */
+    receipt_compiled: "✓ Compiled",
+    receipt_ran_n_times: "✓ Ran ‹N› times",
+    receipt_output_never_varied: "✓ Output never varied",
+    receipt_miri_clean: "✓ Miri ran clean",
+    receipt_miri_ub: "✓ Miri flagged undefined behavior",
+    /* For a does-not-compile record — nothing ran (D-22). */
+    receipt_compiler_refused: "✓ Compiler refused it",
+    receipt_error_codes: "✓ Error ‹codes›",
+    receipt_nothing_ran: "✓ Nothing ran",
+
+    /* --- Take it home, beyond the wall's list (§13, AC-71, AC-87) ------- */
+    home_machine_only: "The machine checked the answer only. An organizer approved the explanation.",
+    home_not_recorded: "not recorded"
+  };
+
+  /* Which §11 row each key came from. The completeness test walks this in both
+     directions: every row has its keys, and every key belongs to a row. A
+     string that appears here and not in COPY is a dropped transcription; one
+     that appears in COPY and not here was authored somewhere other than §11,
+     which is what §11's "authored here and only here" forbids. */
+  var COPY_ROWS = {
+    "Wall, idle": ["wall_idle_title", "wall_idle_join"],
+    "Wall, live": ["wall_live_join", "wall_live_well_header"],
+    "Wall, trace (work, reveal)": ["wall_trace_step", "wall_trace_pivot"],
+    "Buzzer, join form": ["buzzer_join_label", "buzzer_join_button", "buzzer_join_beneath"],
+    "Wall, closed": ["wall_closed"],
+    "Wall, split on": ["wall_split_answered"],
+    "Wall, work": ["wall_work_lead", "wall_work_no_answer", "wall_work_nobody"],
+    "Wall, reveal": ["wall_reveal_most_chosen"],
+    "Wall, released": ["wall_released_title", "wall_released_link", "wall_released_line"],
+    "Buzzer, idle": ["buzzer_idle"],
+    "Buzzer, foot": ["buzzer_foot"],
+    "Buzzer, split": ["buzzer_split_lookup", "buzzer_split_where", "buzzer_split_count",
+                      "buzzer_split_said", "buzzer_split_readings"],
+    "Buzzer, work": ["buzzer_work_lookup", "buzzer_work_walking", "buzzer_work_nothing"],
+    "Buzzer, reveal": ["buzzer_reveal_lookup", "buzzer_reveal_on_screen", "buzzer_reveal_it_was",
+                       "buzzer_reveal_company", "buzzer_reveal_company_one",
+                       "buzzer_reveal_host_reading", "buzzer_reveal_only_one"],
+    "Buzzer, split → reveal, no answer given": ["buzzer_noanswer_lookup", "buzzer_noanswer_count",
+                       "buzzer_noanswer_count_one", "buzzer_noanswer_split",
+                       "buzzer_noanswer_work", "buzzer_noanswer_reveal"],
+    "Buzzer, join failures (AC-29)": ["join_fail_malformed", "join_fail_unknown",
+                       "join_fail_not_yet_open", "join_fail_already_ended",
+                       "join_fail_closed_inactivity", "join_fail_full"],
+    "Buzzer, foot (split→reveal)": ["buzzer_foot_computed"],
+    "Buzzer, released": ["buzzer_released"],
+    "Buzzer, hint": ["buzzer_hint_action", "buzzer_hint_shown"],
+    "Buzzer, live, submission (AC-35/36)": ["buzzer_saving", "buzzer_saved", "buzzer_save_failed",
+                       "buzzer_save_retry", "buzzer_no_answer_yet"],
+    "Buzzer, reconnecting (AC-37)": ["buzzer_reconnecting_with_answer", "buzzer_reconnecting"],
+    "Buzzer, closed": ["buzzer_closed", "buzzer_closed_you_said", "buzzer_closed_you_didnt"],
+    "Live region (AC-83), verbatim": ["live_question_on_screen", "live_saving", "live_saved",
+                       "live_save_failed", "live_answers_closed", "live_split_on_screen",
+                       "live_walking_through", "live_revealed", "live_released", "live_hint_shown"],
+    "Host, phase labels (AC-49)": ["host_phase_idle", "host_phase_live", "host_phase_closed",
+                       "host_phase_split", "host_phase_work", "host_phase_reveal",
+                       "host_phase_released"],
+    "Take it home, headings in order": ["home_heading_question", "home_heading_what",
+                       "home_heading_why", "home_heading_remember", "home_heading_walk",
+                       "home_heading_how_we_know"],
+    "Host, actions": ["host_action_create", "host_action_put_on_screen", "host_action_close",
+                       "host_action_show_split", "host_action_walk", "host_action_reveal",
+                       "host_action_release", "host_action_run_again"],
+    "Wall + host, reveal, no incorrect votes": ["wall_reveal_nobody_else", "host_reveal_nobody_else"],
+    "Host, reveal": ["host_reveal_read_aloud", "host_reveal_beat_what", "host_reveal_beat_why",
+                       "host_reveal_beat_remember"],
+    "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
+                       "host_fit_clipped_xy"],
+    "Host, first screen": ["host_first_resume", "not_a_guarantee_options_public",
+                       "not_a_guarantee_host_honest"],
+    "Static fallback": ["static_next_phase", "static_step_trace", "static_back_phase"],
+    "Uniqueness (organizer-facing, AC-18)": ["uniqueness"],
+    "Receipt (§7.5)": ["receipt_heading", "receipt_compiled", "receipt_ran_n_times",
+                       "receipt_output_never_varied", "receipt_miri_clean", "receipt_miri_ub",
+                       "receipt_compiler_refused", "receipt_error_codes", "receipt_nothing_ran"],
+    "Take it home (§13, AC-71, AC-87)": ["home_machine_only", "home_not_recorded"]
+  };
+
+  /* The seven phase labels, in G-6 order, for a host screen that indexes by
+     phase rather than by name. */
+  var HOST_PHASE_LABEL = {
+    idle: COPY.host_phase_idle,
+    live: COPY.host_phase_live,
+    closed: COPY.host_phase_closed,
+    split: COPY.host_phase_split,
+    work: COPY.host_phase_work,
+    reveal: COPY.host_phase_reveal,
+    released: COPY.host_phase_released
+  };
+
+  /* The host's fit line for a verdict from typemodel.js. Returns null for an
+     unmeasured well rather than inventing a reassuring line for one. */
+  var HOST_FIT_LINE = {
+    fits: COPY.host_fit_fits,
+    clipped_x: COPY.host_fit_clipped_x,
+    clipped_y: COPY.host_fit_clipped_y,
+    clipped_xy: COPY.host_fit_clipped_xy
+  };
+  function hostFitLine(verdict) {
+    return Object.prototype.hasOwnProperty.call(HOST_FIT_LINE, verdict)
+      ? HOST_FIT_LINE[verdict] : null;
+  }
+
+  /* Substitute ‹placeholders›. fill("‹n› of us said ‹X›", {n: 24, X: "A"}).
+     Throws on a placeholder nobody supplied: a wall reading "‹n› of us said A"
+     in front of the room is worse than a loud failure at the call site. */
+  function fill(template, values) {
+    values = values || {};
+    return String(template).replace(/‹([^›]+)›/g, function (_, name) {
+      if (!Object.prototype.hasOwnProperty.call(values, name)) {
+        throw new Error('copy.fill: no value for ‹' + name + '› in "' + template + '"');
+      }
+      return String(values[name]);
+    });
+  }
+
+  /* A key's string, or a loud failure. Never returns the key as a fallback —
+     a surface rendering "buzzer_released" is a defect that should stop a test,
+     not something the room reads. */
+  function t(key, values) {
+    if (!Object.prototype.hasOwnProperty.call(COPY, key)) {
+      throw new Error("copy: no entry for " + JSON.stringify(key) + " (SPEC §11)");
+    }
+    return values === undefined ? COPY[key] : fill(COPY[key], values);
+  }
+
+  PQ.COPY = COPY;
+  PQ.COPY_ROWS = COPY_ROWS;
+  PQ.HOST_PHASE_LABEL = HOST_PHASE_LABEL;
+  PQ.hostFitLine = hostFitLine;
+  PQ.fill = fill;
+  PQ.t = t;
+})(typeof window !== "undefined" ? window : globalThis);
