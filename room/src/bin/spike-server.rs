@@ -39,6 +39,19 @@ use tokio::sync::{broadcast, Mutex};
 /// count against this.
 const CAPACITY: usize = 200;
 
+/// Bounds on what an unauthenticated caller can make this process allocate.
+///
+/// Control frames are deliberately unauthenticated — the ticket says *no auth*,
+/// and adding a real auth story here would be building T-10's job into a
+/// throwaway. But "no auth" is not the same as "no limits": while this app is
+/// briefly public, `pad_bytes` and the session map are the two places where one
+/// small frame could ask for unbounded memory on a 256 MB machine. Both are
+/// capped, so the worst an anonymous caller can do is make the room's numbers
+/// obviously wrong — which the AC-52 reconciliation would catch — rather than
+/// kill the process mid-run.
+const MAX_PAD_BYTES: usize = 64 * 1024;
+const MAX_SESSION_LEN: usize = 64;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Idle,
@@ -248,6 +261,9 @@ async fn handle_frame(
     match frame.get("t").and_then(Value::as_str)? {
         "join" => {
             let session = frame.get("session")?.as_str()?.to_string();
+            if session.len() > MAX_SESSION_LEN {
+                return Some(json!({"t": "refused", "reason": "bad_session"}));
+            }
             let mut room = state.room.lock().await;
             // SPEC.md §4.1 / AC-30: capacity is checked before a session is
             // created and reserves nothing.
@@ -286,6 +302,18 @@ async fn handle_frame(
                     "reason": "closed",
                     "saved_letter": saved.map(|c| c.to_string()),
                     "epoch": room.epoch,
+                }));
+            }
+
+            // A new session id beyond capacity is refused rather than inserted.
+            // Without this an anonymous caller could grow the map without ever
+            // joining, and the room's totals would stop meaning anything.
+            if !room.answers.contains_key(&session)
+                && (room.answers.len() >= CAPACITY || session.len() > MAX_SESSION_LEN)
+            {
+                return Some(json!({
+                    "t": "ack", "seq": seq, "letter": letter.to_string(),
+                    "accepted": false, "reason": "full", "epoch": room.epoch,
                 }));
             }
 
@@ -333,7 +361,12 @@ async fn handle_frame(
                 "close" => room.close(),
                 "reveal" => {
                     let reveal_id = frame.get("reveal_id").and_then(Value::as_u64).unwrap_or(0);
-                    let pad_len = frame.get("pad_bytes").and_then(Value::as_u64).unwrap_or(2048);
+                    // Clamped: unbounded, one frame asking for gigabytes would
+                    // take the 256 MB machine down mid-run, and the run would
+                    // look like a server that could not take the load.
+                    let pad_len = (frame.get("pad_bytes").and_then(Value::as_u64).unwrap_or(2048)
+                        as usize)
+                        .min(MAX_PAD_BYTES);
                     let payload = json!({
                         "t": "reveal",
                         "reveal_id": reveal_id,
@@ -341,7 +374,7 @@ async fn handle_frame(
                         "server_ts_ms": now_ms(),
                         // Sized so the fan-out is not flattered by a 60-byte
                         // frame; the real reveal payload is kilobytes.
-                        "pad": "x".repeat(pad_len as usize),
+                        "pad": "x".repeat(pad_len),
                     });
                     let _ = state.tx.send(Arc::from(payload.to_string().as_str()));
                 }
