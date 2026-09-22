@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rust-nyc-pop-quiz.invalid/schema/question.schema.json",
+  "title": "Question",
+  "description": "One bank record: SPEC.md 3.1 (the question) and 3.2 (the verified record). Each $defs name is the dataclass of the same name in pipeline/src/popquiz/bank.py, and pipeline/tests/test_bank.py walks the two against each other in both directions so they cannot drift. This schema is the published contract; it is documentation plus that drift test, NOT a validator the pipeline runs — there is no JSON Schema validator in the Python standard library and pipeline/pyproject.toml is owned by another ticket. Records are validated by being loaded through bank.question_from_dict, which refuses unknown fields and enforces the structural rules. There is deliberately no `correct` property: SPEC 3.1 marks the correct answer derived (G-2), so it is computed by bank.correct_index and there is nowhere to write one down (AC-7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "source",
+    "topic",
+    "difficulty_requested",
+    "options",
+    "hint",
+    "explains"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Written by the generator, or by the organizer for a hand-written question."
+    },
+    "source": {
+      "type": "string",
+      "description": "The Rust program, within the room's fit bound (AC-100, SPEC 5.2)."
+    },
+    "topic": { "type": "string" },
+    "difficulty_requested": {
+      "type": "integer",
+      "description": "What the run asked for. The organizer's judgement goes in review.difficulty_judged, and bank-audit fails a run on the drift between them (AC-88)."
+    },
+    "options": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/Option" },
+      "description": "Exactly five, exactly one of kind does_not_compile, so its presence signals nothing (AC-24). THIS ORDER IS NOT THE WALL'S ORDER. Letters and the arrangement a room sees are drawn from the meetup date and nothing else (AC-23); bank order exists so two runs of a writer agree, and no reader may take a position tell from it (AC-26)."
+    },
+    "hint": { "type": "string" },
+    "explains": { "$ref": "#/$defs/Explains" },
+    "trace": { "$ref": "#/$defs/Trace" },
+    "verified": {
+      "$ref": "#/$defs/Verified",
+      "description": "Absent until the verifier has run. Written by the verifier and never edited."
+    },
+    "review": { "$ref": "#/$defs/Review" },
+    "used": { "$ref": "#/$defs/Used" }
+  },
+  "$defs": {
+    "Option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "kind"],
+      "properties": {
+        "text": { "type": "string" },
+        "kind": {
+          "enum": ["output", "does_not_compile", "ub", "panic"]
+        },
+        "why_tempting": {
+          "type": "string",
+          "description": "The middle beat for this option: why a reader would pick it (D-9, AC-95). SPEC 3.1 files this under explains; it is carried on the option instead, a recorded deviation — see bank/README.md. Absent on the correct option, which has no tempting to explain, and absent while a question awaits its beats. Affirm is blocked until every incorrect option has one (SPEC 7.4)."
+        }
+      }
+    },
+    "Explains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what", "takeaway"],
+      "properties": {
+        "what": { "type": "string", "description": "The first beat: what happened." },
+        "takeaway": {
+          "type": "string",
+          "description": "The third beat: what to remember. SPEC 3.1 names this field; the prototype's `argue` was a Stage-2 leak."
+        },
+        "legacy": {
+          "type": "string",
+          "description": "The MVP's single explanation string, kept verbatim so AC-73's quoted-output check runs against the text the organizer reviewed in August (SPEC 3.1). Never rewritten and never merged into the beats."
+        }
+      }
+    },
+    "Trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TraceStep" },
+          "description": "May be empty. A question with fewer than two steps cannot be affirmed (SPEC 7.4), so an empty trace is the honest state for a walk-through nobody has written. For a question that ran, the last step is the one whose values names stdout (D-10)."
+        }
+      }
+    },
+    "TraceStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lines", "focus", "note"],
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "1-based source lines drawn as executing now (SPEC 5.3)."
+        },
+        "focus": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer" },
+          "description": "Inclusive 1-based [first, last] kept at full contrast; everything outside is dimmed."
+        },
+        "note": { "type": "string", "description": "The words the host reads for this step." },
+        "values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ValueDelta" }
+        },
+        "pivot": {
+          "type": "boolean",
+          "description": "Marks the one step to pause on; the wall adds 'Pause here.' Optional in SPEC 5.3, so false is written as absence."
+        }
+      }
+    },
+    "ValueDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "was", "now"],
+      "properties": {
+        "name": { "type": "string" },
+        "was": { "type": "string", "description": "Verbatim; an em dash for absent." },
+        "now": { "type": "string" }
+      }
+    },
+    "Verified": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rustc", "edition"],
+      "description": "SPEC 3.2. Three shapes are legitimate: complete and it ran; complete and it does not compile (no runs, no stdout, no exit_code, no miri — nothing ran, D-22); and legacy (D-16), which holds ONLY what the August MVP batch recorded. A field the verifier did not observe has no key at all — not a key holding null. For a legacy record that absence is the whole proof that nothing was back-filled (G-2).",
+      "properties": {
+        "rustc": {
+          "type": "string",
+          "description": "The full `rustc -Vv` output for a complete record; for a legacy record the single-line `--version` string the MVP wrote, and never a -Vv reconstructed from it."
+        },
+        "edition": { "type": "string" },
+        "legacy": {
+          "type": "boolean",
+          "description": "True on a record migrated from the August batch (D-16). False is written as absence, so the exceptional case is the one that shows in a diff. A legacy record renders the same step list as a complete one (SPEC 7.5, D-25), is exempt from the stale-pin check (SPEC 7.2), and is replaced whole — never merged — when T-15b re-verifies its question."
+        },
+        "target_triple": {
+          "type": "string",
+          "description": "Absent on a legacy record, where take-it-home reads 'not recorded' (AC-87). Never inferred from the machine that happens to be running."
+        },
+        "flags": { "$ref": "#/$defs/Flags" },
+        "runs": { "$ref": "#/$defs/Runs" },
+        "stdout": {
+          "type": "string",
+          "description": "What the program printed, written by the verifier and never by a person (AC-7, PHILOSOPHY 3). May be empty: a question whose answer is a panic printed nothing. The correct option is the one whose text equals this, normalized by the one trailing newline println! added."
+        },
+        "exit_code": { "type": "integer" },
+        "miri": { "$ref": "#/$defs/Miri" },
+        "compile_error_code": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Every code the compiler reported, present only when the answer is 'does not compile' (AC-11). T-14 renamed the MVP's error_codes to this; the codes are the compiler's, unchanged."
+        },
+        "verified_at": { "type": "string" },
+        "verifier_version": { "type": "string" }
+      }
+    },
+    "Runs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "byte_identical"],
+      "properties": {
+        "count": { "type": "integer" },
+        "byte_identical": {
+          "type": "boolean",
+          "description": "Whether all runs produced byte-identical output. Evidence of determinism, not a guarantee of it (PHILOSOPHY 4)."
+        }
+      }
+    },
+    "Flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opt_level", "overflow_checks", "debug_assertions"],
+      "description": "The flags the research found unpinned (AC-6).",
+      "properties": {
+        "opt_level": { "type": "string" },
+        "overflow_checks": { "type": "boolean" },
+        "debug_assertions": { "type": "boolean" }
+      }
+    },
+    "Miri": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clean", "output_matched"],
+      "description": "Miri proves absence of undefined behaviour ON THE PATHS ACTUALLY EXECUTED and nothing wider (AC-43, PHILOSOPHY 4). version, configs and seeds are absent on a legacy record, whose pass ran outside the verifier and recorded none of them (D-16).",
+      "properties": {
+        "clean": {
+          "type": "boolean",
+          "description": "False is not a failure: it is how a record states that undefined behaviour is the declared answer (AC-9)."
+        },
+        "output_matched": {
+          "type": "boolean",
+          "description": "Whether Miri's output matched the native output (AC-10). The receipt's Miri line renders only when this is true."
+        },
+        "version": { "type": "string" },
+        "configs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The borrow models run. AC-9 accepts UB as an answer only when Stacked Borrows and Tree Borrows agree."
+        },
+        "seeds": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+    "Review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "description": "Written by the review surface (SPEC 7.4). An absent status means nobody has judged this question yet, which is not rejection.",
+      "properties": {
+        "status": { "enum": ["accepted", "rejected", "edited"] },
+        "reason": {
+          "type": "string",
+          "description": "Required when rejecting, and readable by the generator's next run (AC-19)."
+        },
+        "difficulty_judged": { "type": "integer" },
+        "affirmed_by": {
+          "type": "string",
+          "description": "Affirmation is separate from acceptance and blocking: no question reaches a deck without it (AC-72, G-12). Who and when are both recorded, so one without the other is not affirmed."
+        },
+        "affirmed_at": { "type": "string" },
+        "near_duplicate_of": {
+          "type": "string",
+          "description": "Set by dedupe when a candidate is above the similarity threshold but below exact; it lands in the review queue, neither accepted nor dropped (AC-16)."
+        }
+      }
+    },
+    "Used": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["meetup_date", "room_id", "released_at", "fit"],
+      "description": "Written by the release transition and nothing else (G-10). NOT by a deck build: build_deck.py wrote a ledger line at build time, which retired questions for meetups that then did not happen, and that is a retired defect (BUILDPLAN 2).",
+      "properties": {
+        "meetup_date": { "type": "string" },
+        "room_id": { "type": "string" },
+        "released_at": { "type": "string" },
+        "fit": {
+          "enum": ["fits", "clipped_x", "clipped_y", "clipped_xy"],
+          "description": "The wall's measured verdict at reveal, the last refit of the night (AC-100)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "_note": "SYNTHETIC. Describes no Rust program. The other gate test: a miri record is present but output_matched is FALSE, so NO Miri line renders at all — neither wording. SPEC 7.5 gates that line on output_matched, and Miri whose output disagreed with the native run has established nothing a room should be shown. Miri output not matching native output is a rejection (AC-10), so like output-varied.json this record should never reach a bank; the receipt's job is to stay honest if one does.",
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "edition": "2021",
+    "legacy": true,
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "SYNTHETIC FIXTURE - no program produced this\n",
+    "miri": {
+      "clean": true,
+      "output_matched": false
+    }
+  },
+  "expected_lines": [
+    "✓ Compiled",
+    "✓ Ran 5 times",
+    "✓ Output never varied"
+  ]
+}

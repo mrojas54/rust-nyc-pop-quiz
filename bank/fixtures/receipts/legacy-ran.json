@@ -1,0 +1,23 @@
+{
+  "_note": "q3's real legacy record, copied field for field from mvp/2026-08-12/verified.json, which verify.py wrote. Nothing here was typed: the stdout is the machine's. Proves that a legacy record renders the same four-line list as a complete one (SPEC 7.5, D-25, AC-87) and that the missing target triple, flags, exit code and Miri configuration cost it no line.",
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "edition": "2021",
+    "legacy": true,
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "[1, 2, 3, 2, 1]\n",
+    "miri": {
+      "clean": true,
+      "output_matched": true
+    }
+  },
+  "expected_lines": [
+    "✓ Compiled",
+    "✓ Ran 5 times",
+    "✓ Output never varied",
+    "✓ Miri ran clean"
+  ]
+}

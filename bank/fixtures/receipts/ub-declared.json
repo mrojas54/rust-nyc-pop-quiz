@@ -1,0 +1,39 @@
+{
+  "_note": "SYNTHETIC. Describes no Rust program. The AC-43 case for undefined behaviour as the declared answer (AC-9): miri.clean is FALSE and output_matched is true, so one Miri line still renders and it reads 'Miri flagged undefined behavior'. clean:false is not a verification failure here — it is how the record states what the intended answer is. Both borrow models are listed because AC-9 only accepts UB as an answer when Stacked Borrows and Tree Borrows agree.",
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)\nbinary: rustc\ncommit-hash: 31fca3adb0000000000000000000000000000000\ncommit-date: 2026-06-26\nhost: aarch64-apple-darwin\nrelease: 1.96.1\nLLVM version: 20.1.0",
+    "edition": "2021",
+    "target_triple": "aarch64-apple-darwin",
+    "flags": {
+      "opt_level": "0",
+      "overflow_checks": true,
+      "debug_assertions": true
+    },
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "SYNTHETIC FIXTURE - no program produced this\n",
+    "exit_code": 0,
+    "miri": {
+      "clean": false,
+      "output_matched": true,
+      "version": "miri 0.1.0 (nightly-2026-06-20)",
+      "configs": [
+        "stacked_borrows",
+        "tree_borrows"
+      ],
+      "seeds": [
+        0
+      ]
+    },
+    "verified_at": "2026-09-20T00:00:00Z",
+    "verifier_version": "0.1.0"
+  },
+  "expected_lines": [
+    "✓ Compiled",
+    "✓ Ran 5 times",
+    "✓ Output never varied",
+    "✓ Miri flagged undefined behavior"
+  ]
+}

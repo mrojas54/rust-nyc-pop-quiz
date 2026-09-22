@@ -1,0 +1,54 @@
+{
+  "id": "q7",
+  "source": "fn main() {\n    let mut v = vec![(\"bob\", 2), (\"amy\", 1), (\"cal\", 2), (\"dan\", 1)];\n    v.sort_by_key(|&(_, k)| k);\n    println!(\"{:?}\", v);\n}\n",
+  "topic": "Sorting",
+  "difficulty_requested": 2,
+  "options": [
+    {
+      "text": "[(\"dan\", 1), (\"amy\", 1), (\"bob\", 2), (\"cal\", 2)]",
+      "kind": "output"
+    },
+    {
+      "text": "[(\"amy\", 1), (\"dan\", 1), (\"cal\", 2), (\"bob\", 2)]",
+      "kind": "output"
+    },
+    {
+      "text": "[(\"amy\", 1), (\"bob\", 2), (\"cal\", 2), (\"dan\", 1)]",
+      "kind": "output"
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile"
+    },
+    {
+      "text": "[(\"amy\", 1), (\"dan\", 1), (\"bob\", 2), (\"cal\", 2)]",
+      "kind": "output"
+    }
+  ],
+  "hint": "Two entries share a key. What does Rust's sort promise about their relative order?",
+  "explains": {
+    "what": "sort_by_key is a stable sort. Two entries whose keys compare equal come out in the order they went in, so the pairs that share a key keep their original relative order and only the keys move them.",
+    "takeaway": "sort_unstable_by_key makes no such promise and is usually a little faster. The standard library gives you both on purpose, so the choice is yours to make rather than something to discover afterwards.",
+    "legacy": "sort_by_key is a STABLE sort: elements whose keys compare equal keep their original relative order. bob came before amy in the input, but they have different keys so that does not matter; what matters is that amy preceded dan (both key 1) and bob preceded cal (both key 2), and both of those orders survive. sort_unstable_by_key makes no such promise and is usually a little faster -- the standard library gives you the choice deliberately."
+  },
+  "trace": {
+    "steps": []
+  },
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "edition": "2021",
+    "legacy": true,
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "[(\"amy\", 1), (\"dan\", 1), (\"bob\", 2), (\"cal\", 2)]\n",
+    "miri": {
+      "clean": true,
+      "output_matched": true
+    }
+  },
+  "review": {
+    "reason": "Migrated from the August batch by T-14. 4 of 5 options break the wall's rule that an option is one line of at most 29 characters (D-15, SPEC 5.2): indexes 0, 1, 2, 4 in bank order. The correct option is among them, and an option's text has to equal what the program printed, so shortening it is not an edit to the option - the program has to print something shorter, and the machine decides the new answer when it is re-verified (T-15b). No why_tempting beats were drafted, because every incorrect option they would attach to is scheduled for replacement. Cannot be affirmed as it stands: the trace is empty and the middle beats are missing (SPEC 7.4, AC-95)."
+  }
+}
