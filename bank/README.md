@@ -236,6 +236,22 @@ rewritten into an equivalent one, field shorthand against `field: binding`, a
 trailing comma in a tuple, and a declared member renamed to or from a library
 name.
 
+**PQ-22 is blocked after review round two.** The entry point stays named `main`;
+empty-list commas and doc comments before parameters stay in the fingerprint;
+let names used outside their enclosing braces or before the end of their
+initializer are preserved; names in sources containing derives are preserved
+because a derive can expose or interpret them. These conservative choices can
+miss renamings. Ten regression controls cover these boundaries, and local rustc
+probes confirm their semantic differences.
+
+One Critical false match remains: `fn f(drop: i32) {} fn main() { drop(1); }`
+compiles, while replacing both `drop` spellings with `nope` produces E0425, yet
+the normalized check rejects the second as a duplicate. The let guard does not
+resolve function-parameter scopes; closure and pattern scopes are also not
+resolved. The final review verdict is FAIL and the ticket needs human direction
+under the two-round cap. Passing the existing suite and the scratch-bank CLI
+exercise does not clear this blocker.
+
 **The threshold is 0.6 and it is uncalibrated** (D-13). It can be set per run with
 `--threshold`. The first measurements, taken by this code on the four migrated
 questions, are the start of its calibration:
