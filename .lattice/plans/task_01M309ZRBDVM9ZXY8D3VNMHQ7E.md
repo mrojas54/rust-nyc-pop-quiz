@@ -270,3 +270,190 @@ that ran) and does not amend the contract.
 4. The provenance tests (G-2, AC-7), AC-73, AC-17.
 5. `bank/README.md`, `pipeline/README.md`.
 6. `just test`, code review, validation, PR against `ai-c11-cc/repo-scaffold`.
+
+---
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+
+Review subagent, sonnet, 2026-09-20. Five findings: no Critical, three Major, two
+Minor. Four accepted, one rejected with reasons.
+
+### F1 (Major) — `expect` is claimed as a §3.1 field and is not one. ACCEPTED.
+
+**Concern.** §1's sentence "the last five are §3.1 question fields" counts back
+five from a list of eight and so names `expect`, which `SPEC.md` §3.1's table does
+not have. `expect` therefore appears in neither the mapping nor the dropped list,
+and the plan does not say what becomes of it.
+
+**Resolution.** The write-up was wrong; the design was not. `expect` moves to the
+dropped list with its reason: it is the **author's pre-verification declaration**
+of the answer class, and AC-11 has the verifier test that declaration against
+reality (`EVALUATION.md` AC-11 — "a candidate declared non-compiling must fail
+with an error code … one that compiles is rejected"). It belongs to a *candidate*,
+not to a bank record. Once verified, the record holds the outcome — `runs` and
+`stdout`, or `compile_error_code` — and the declaration has no reader, which
+`SPEC.md` §3's opening rule makes a deletion. §3.1 having no such field is
+deliberate, not an omission. The corrected count: of that list, only `difficulty`
+(→ `difficulty_requested`), `hint`, `topic` and `source` move to §3.1.
+
+### F2 (Major) — `explains` beats are planned for q3 only. ACCEPTED.
+
+**Concern.** D8 states a decision for q4/q7/q8's `trace` but nothing equivalent
+for their `explains`, and §6's AC-73 test names q3 alone. The ticket asks for
+three beats drafted across the migration, and AC-95 requires a non-empty
+`why_tempting` per incorrect option before affirm.
+
+**Resolution.** New decision, binding:
+
+**D11 · `explains` for q4, q7 and q8.** `legacy` = the MVP `explanation` verbatim,
+for all four migrated questions. `what` and `takeaway` drafted for all four: both
+are about the program, so they survive the re-authoring that q4, q7 and q8 need.
+`why_tempting` complete for q3 only, and **empty** for q4, q7 and q8 — because
+every incorrect option it would attach to is scheduled for replacement (q4: four
+of five options fail the one-line ≤ 29-character rule, q7: four of five, q8: the
+distractor `1\n4`), so drafting a beat now is drafting it against text that will
+not exist. `review.reason` records that, per question, with the counts. An empty
+`why_tempting` correctly blocks affirm under §7.4 and AC-95, which is the right
+state for a question awaiting re-verification.
+
+§6's AC-73 test extends to all four: each `explains.legacy` byte-equal to
+`content.json`'s `explanation` for that question.
+
+### F3 (Major) — PR base should be a blocking question, not a plan decision. REJECTED.
+
+**Concern.** The plan overrides the ticket's stated *PR base: origin/main* with the
+boot prompt's `ai-c11-cc/repo-scaffold`, and should have escalated instead.
+
+**Resolution, with reasons.** The boot prompt is not out-of-band — it is this
+ticket's dispatch from the same authority that generated the preamble, it is
+later, it is more specific, and it states its reason (this ticket needs the
+scaffold's harness; PR #8 is open; the Orchestrator retargets to `main` once #8
+merges). The standing clause for exactly this case says to take a side and say
+which and why in the completion comment, which §8 does.
+
+There is also a fact the finding does not weigh: this branch starts at the
+scaffold commit `2ab95e31`, so a PR against `main` would carry PR #8's five
+commits as well as this ticket's, and the boot prompt's own pre-PR check —
+`git log origin/ai-c11-cc/repo-scaffold..HEAD` holds only my commits — would be
+checking a base the PR does not use. Basing on `ai-c11-cc/repo-scaffold` is the
+only base that yields a reviewable diff. Escalating a human-decidable question
+whose answer is forced by the branch topology would spend the client's attention
+for nothing. Not escalated; carried as deviation 5 in the completion comment.
+
+### F4 (Minor) — the `why_tempting` key should be decided, not deferred. PARTIALLY ACCEPTED.
+
+**Concern.** Leaving the key as a `TODO(human)` risks a silent mis-association
+landing in `bank.py` for T-15b or T-18 to undo.
+
+**Resolution.** The risk is real and the review is right that a silent
+mis-association is the worse failure. Three changes:
+
+1. **A third shape joins the choice, and is the default.** Carry each beat **on
+   the option object it is about**. Then there is no key to go stale and no join
+   to get wrong: reordering is harmless, and re-authoring an option's text puts
+   the author's cursor next to the beat that describes it. AC-95's "every
+   incorrect option has a non-empty `why_tempting`" becomes a structural check
+   rather than a lookup. Cost: `SPEC.md` §3.1 lists `why_tempting` under
+   `explains`, so this moves a field's location — a deviation to flag, and the
+   only one of the three shapes that cannot silently mis-associate.
+2. **No `TODO(human)` survives into the PR.** It is the mechanism for asking the
+   client, resolved before the branch is pushed. If unanswered, the default in (1)
+   ships and the completion comment says so.
+3. **Whichever shape is chosen, a test stands behind it**: every incorrect option
+   resolves to exactly one `why_tempting` or to none, and no beat resolves to an
+   option that does not exist. That test is what makes a silent
+   mis-association impossible rather than unlikely, and it is why the choice is
+   now safe to put to a human at all.
+
+### F5 (Minor) — the affirm deadlock's consequence for T-18 is understated. ACCEPTED.
+
+**Concern.** §8 narrows the "last step names `stdout`" invariant but leaves the
+"≥ 2 steps" gate itself, which is T-18's to build and which no does-not-compile
+question can satisfy.
+
+**Resolution.** Correct, and the narrowing was never a fix for the gate — only for
+this ticket's validation. The comment to the Orchestrator will say, in these
+terms: **T-18 inherits an affirm gate that a whole class of question cannot
+satisfy.** `SPEC.md` §7.4 requires ≥ 2 trace steps to affirm; §3.1 and D-10
+require the trace's last step to name `stdout`; §3.2 says a does-not-compile
+record has none. So such a question can never be affirmed, and G-12 means it can
+never be scheduled — while AC-11 has the generator produce them, AC-24 puts *does
+not compile* on every question, D-22 gives the class its own receipt, and
+`BUILDPLAN.md`'s minimum viable cut expects q8 in the October bank. Reported, not
+fixed; the contract files are not this ticket's to edit.
+
+### Amendment to F4, at implementation time
+
+The client-facing `TODO(human)` moves off `why_tempting`'s shape and onto
+`quoted_outputs`' extraction rule. Reason: `why_tempting`'s shape is structural —
+the records, the schema, the migration and four tests all rest on it — so blocking
+the build on an answer would stall the ticket, and F4 already sanctioned shipping
+the documented default. It ships: the beat is carried on the option it describes,
+flagged as a §3.1 field-location deviation.
+
+`quoted_outputs` is the better question and a real one. It is a leaf — nothing
+depends on its answer — and both ways of being wrong have teeth: AC-73 blocks
+acceptance on a mismatch, so an extractor that is too greedy blocks good questions
+on prose that was never a claim about output, and one that is too narrow lets a
+wrong quoted output through the gate that exists to catch it.
+
+### Base change, 2026-09-20 — PR #8 merged mid-plan. F3 resolution superseded.
+
+`git fetch` at the start of implementation pruned `origin/ai-c11-cc/repo-scaffold`:
+PR #8 merged as `0742d35` ("Merge pull request #8 from
+mrojas54/ai-c11-cc/repo-scaffold") and the remote branch was deleted. `git
+ls-remote --heads origin` now lists `refs/heads/main` alone, and `git merge-base
+--is-ancestor 2ab95e31 origin/main` confirms `main` carries the scaffold.
+
+So this branch rebases onto **`origin/main`** and the PR is opened against
+`main`. No stacking, no `Based on #8` line, no retarget for the Orchestrator to
+perform. The branch fast-forwarded to `0742d35` with no commits of its own.
+
+This supersedes the F3 resolution. The reasoning there was sound while #8 was
+open — the branch started at the scaffold commit, so a PR against `main` would
+have carried #8's five commits — but the premise has expired rather than been
+wrong. The ticket preamble's *PR base: origin/main* is now simply correct, and
+deviation 5 comes off the completion comment.
+
+## Reset 2026-09-21 by agent:delegator-pq18
+
+---
+
+## Code-review resolutions (reviewed HEAD 9745025)
+
+Review subagent, sonnet, 2026-09-20. **Verdict PASS-WITH-NITS**, no Critical and no
+Major. Both findings accepted and fixed; neither was a contract violation.
+
+### Minor 1 — a promised negative-path test was never written. ACCEPTED, fixed.
+
+**Concern.** The F4 amendment committed to shipping the option-carried `why_tempting`
+shape with "a test [that] stands behind it: every incorrect option resolves to exactly
+one `why_tempting` or to none, and no beat resolves to an option that does not exist."
+The positive half was covered; the guard in `_options_for` that refuses a beat keyed to
+a non-existent option was only exercised incidentally, by the real data passing
+through it.
+
+**Resolution.** Two tests added to `pipeline/tests/test_migration.py`. One patches
+`AUTHORED_WHY_TEMPTING` with a key no option carries and asserts the
+`MigrationError` — the guard's own failure path, which no existing test would have
+noticed, because every positive test checks that the beats *present* are attached
+correctly and none would see one quietly go missing. The other states the property
+across the bank rather than per question: beats and incorrect options line up one to
+one, and the correct option never carries one. This was my own commitment in the
+authoritative resolutions block, so it is fixed rather than deferred.
+
+### NIT 1 — the plan says seven fixtures; nine shipped. ACCEPTED, recorded here.
+
+**Concern.** §5's table enumerates seven cases. Nine were published.
+`bank/README.md` says nine and is accurate, but this document was never amended, so a
+reader diffing the two would find an unexplained gap.
+
+**Resolution.** The two additions are `output-varied.json` (`runs` present,
+`byte_identical` false) and `miri-output-mismatched.json` (`miri` present,
+`output_matched` false). They were added during implementation because §7.5 gates
+*Output never varied* and the Miri line on those two flags **independently**, and with
+only the original seven no fixture drove either gate to false — so the receipt could
+have rendered a determinism claim the record denied and the suite would have passed.
+Both records are ones the verifier would reject outright (AC-8, AC-10), which is
+precisely why the receipt must stay honest if one ever reaches it. §5's table is
+superseded by the nine files on disk and by `bank/README.md`.

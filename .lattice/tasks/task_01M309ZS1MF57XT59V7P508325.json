@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 2,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZS1MF57XT59V7P508325",
-  "last_event_id": "ev_01M309ZZJKF7Q826XXM7TF1EDB",
-  "last_status_changed_at": "2026-09-20T21:01:39Z",
+  "last_event_id": "ev_01M33CBDD96HPNCSMSDZA2E9ND",
+  "last_status_changed_at": "2026-09-22T01:40:41Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -32,7 +32,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-24",
-  "status": "backlog",
+  "status": "in_progress",
   "tags": [
     "m3",
     "sub-agent-full",
@@ -40,6 +40,6 @@
   ],
   "title": "Bank audit and the slot function",
   "type": "task",
-  "updated_at": "2026-09-20T21:01:45Z",
+  "updated_at": "2026-09-22T01:40:41Z",
   "urgency": null
 }

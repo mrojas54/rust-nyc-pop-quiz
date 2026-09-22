@@ -1870,3 +1870,19 @@ marker was unstyled. `.provenance.machine` is defined in
 `prototypes/_shared/tokens.css:282`, and the heading text differs from the
 human marker's. Stopped at a pass in round 2 of the three allowed.
 
+
+## Stage 4 — `lattice-orchestrator`, opened 2026-09-20: amendments routed upstream
+
+The build stage validates the contract and does not author it. Findings below
+are for `tone-architect`; the run proceeds on the reading stated for each until
+the client rules. Full record: `.lattice/orchestration/run-state.md` on
+`ai-c11-cc/lattice-build`.
+
+| # | Defect | Reading in force | Proposed amendment |
+|---|---|---|---|
+| F-2 | `EVALUATION.md` HC-0 trigger cites `burst` green, but `burst` is T-21 (M4) | HC-0's burst evidence is T-03's spike client re-run against the deployed skeleton (client accepted 2026-09-20) | One line in the HC table |
+| F-8 | `SPEC.md` §3.1 names the review surface as writer of `review`, §7.3 has dedupe marking `near_duplicate_of` | T-17 writes it, T-18 reads it | Name dedupe as that field's writer in §3.1 |
+| F-15 | A does-not-compile question cannot be affirmed: §7.4 (≥ 2 trace steps) and §3.1/D-10 (last step names `stdout`) have no joint form for a record with no `stdout` (§3.2). Found by the bank-format delegator | The `stdout` invariant binds a trace on a record that ran; a does-not-compile trace ends on the step naming the compiler's refusal | The resolving step for a does-not-compile question names `error` (its `compile_error_code`) instead of `stdout`; §3.1, §5.3, §7.4, D-10, AC-72, AC-97 |
+| F-16 | `SPEC.md` §15 says both fonts ship from the design system's `assets/fonts/`; the design system carries Cascadia Mono only, and the prototype loaded Instrument Serif from the Google Fonts CDN. Found by the shared-web-layer delegator | Cascadia Mono from the design system; Instrument Serif from its upstream OFL release, checksummed and licensed, in `web/shared/fonts/` | Correct §15's provenance sentence |
+| F-17 | `prototypes/_shared/tokens.css` §1 carries a Google Fonts `@import`, which D-14, AC-77 and AC-102 forbid | The build drops that one line and imports the vendored `fonts.css`; every other §1 value is byte-identical to the design system | Patch the prototype's `tokens.css` (the prototype is patched where it violates a criterion) |
+| F-18 | `SPEC.md` §3.1 files `why_tempting` under `explains`, keyed per incorrect option; the date-drawn slot reorders options, so a beat keyed by letter dangles and one keyed by position mis-attaches. Found by the bank-format delegator | `why_tempting` is carried on each `Option` beside its text; `explains` keeps `what` and `takeaway` | Move the field in §3.1; touch §4.5 and §13 |

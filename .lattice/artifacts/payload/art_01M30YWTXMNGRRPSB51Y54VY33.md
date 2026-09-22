@@ -1,0 +1,11 @@
+VERDICT: PASS-WITH-NITS, reviewed HEAD 9745025. No Critical findings. No Major findings.
+
+The reviewer read the full diff (5 commits at time of writing, 23 files, +3974/-9) against the plan and the named contract sections, ran the pipeline suite independently (140 passed, 0.10s) and ran ruff over every new file (clean, no unused imports, no dead code).
+
+MINOR 1 — a negative-path test the plan promised and I did not write. The F4 amendment committed to shipping the option-carried why_tempting shape with a test that 'no beat resolves to an option that does not exist'. The guard in _options_for existed but was only exercised incidentally by the real data. ACCEPTED AND FIXED in b4d946c: one test patches AUTHORED_WHY_TEMPTING with a key no option carries and asserts the MigrationError; another states the property across the bank — beats and incorrect options line up one to one, the correct option never carries one. No positive test would have caught a dropped beat, which is exactly what the guard is for.
+
+NIT 1 — the plan's fixture table lists seven cases; nine shipped. bank/README.md says nine and is accurate; the plan had not been amended. ACCEPTED AND RECORDED in the plan's code-review resolutions block. The two additions are output-varied.json and miri-output-mismatched.json, added during implementation because SPEC 7.5 gates 'Output never varied' and the Miri line on byte_identical and output_matched INDEPENDENTLY, and with only the original seven no fixture drove either gate false — the receipt could have claimed a determinism the record denied and the suite would still have passed.
+
+Both fixes are mechanical (one test added over an existing guard, plus its import), so no second review cycle was spent. just test green warm at 0.66s, 142 pipeline tests.
+
+The reviewer separately confirmed against the committed data rather than only the tests: 'rg -n null bank/questions/*.json bank/history.json' returns nothing, so absence-not-null holds in practice; correct_index can only return an index, None, or raise on ambiguity, never an unverified index; q3's trace and beats match prototypes/_shared/data.js:62-129 verbatim including both renames; and the does-not-compile affirm-gate defect is reported in the code rather than silently patched around. It found no test or docstring claiming more than it establishes.

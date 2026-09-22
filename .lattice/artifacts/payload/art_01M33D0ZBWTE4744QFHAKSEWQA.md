@@ -1,0 +1,15 @@
+VALIDATION - PQ-3, HEAD 15df77ecdcddbe410482d65415e9331a9282cdd9, base origin/main 0742d35.
+
+1. END TO END ON FLY (the headline evidence). Four 200-client runs of room/src/bin/burst.rs from the laptop against rustnyc-popquiz-spike.fly.dev; three valid, all four committed under room/spike/reports/. Worst valid: AC-54 92.38ms, AC-53 63.49ms, AC-41 117.47ms, AC-52 exact. Full table and caveats in the 'Burst measurements' artifact.
+
+2. END TO END ON LOOPBACK (proves the harness, never a headline). spike-server on 127.0.0.1:8099 + burst, 12 clients, both burst shapes x2 cycles, 3s churn, 2 reveals: exit 0; reconcile match; post-close all refused with saved answer restated and totals unchanged; segment population = 24 churn + 12 burst = 36 as expected; send-lag p95 2.57ms. The first loopback run caught a real harness bug before any Fly run: churn offsets were unsorted, so sequential sends booked sleep-past time as send lag (p95 481.9ms, run invalid). Fixed by sorting, now a tested function (churn_offsets_are_monotonic_and_inside_the_window).
+
+3. THE INNER LOOP IS UNTOUCHED. just test green: 0.3s warm before the ticket, 0.4s after on a quiet machine, 0.9s on the final HEAD while the code-review subagent was also compiling. Budget 60s. cargo test --offline --locked (what test-room runs) builds lib.rs, main.rs and canary.rs only - zero spike/burst lines - so the budget is kept by required-features, not by care.
+
+4. THE BY-HAND GATE (until T-21). cd room && cargo check --features spike: clean, no warnings. cargo test --features spike: 20 passed (14 burst: estimator, outward CI ranks, marginal flag, verdict thresholds incl. 500 exactly = miss and 2000 exactly = pass, invalid-outranks-miss, 4-way reconcile incl. the swap only the fingerprint sees, ws_target, burst-shape bounds, churn monotonicity, arg parsing; 5 spike-server/shared: close freezes once, reset keeps connections, fingerprint swap, XOR upsert, letter round-trip; 1 canary).
+
+5. SCOPE. git diff --stat origin/main...HEAD touches 14 files, all on the cleared list: room/Cargo.toml, room/Cargo.lock, room/src/bin/{burst,spike-server,spike_shared}.rs, room/spike/{Dockerfile,.dockerignore,reports/*}, room/fly.spike.toml, room/README.md. justfile, .github/, room/src/lib.rs, room/tests/canary.rs untouched. just burst still prints 'not built yet - BUILDPLAN T-21 delivers it' and exits 1.
+
+6. SECURITY REVIEW ON COMMIT ecb82c0 - three findings, one fixed. Missing auth and authorization are the ticket's own 'no auth' and are named as risks. Resource exhaustion was a genuine bug on a public host: pad_bytes went unbounded into repeat() (one frame could OOM the 256MB machine mid-run and read as a load failure), and any caller could grow the session map without joining. Fixed in c5e020f: pad clamped to 64KiB, new session ids refused past capacity, session ids length-capped. Loopback re-run after the fix: exit 0, reconcile match, 2048-byte reveal pad unchanged.
+
+7. END STATE ON FLY. Both machines stopped (the trial stops them at 5 minutes), app rustnyc-popquiz-spike intact at rustnyc-popquiz-spike.fly.dev. Scaled to zero, not destroyed.

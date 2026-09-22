@@ -184,3 +184,190 @@ as a missing step.
 If Docker cannot be started: steps 1, 3 (written, not run), 4 and 5 still ship;
 `pin.toml` ships unfilled and failing; AC-12 is marked pending the client's run
 in the completion comment. No faked pass.
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+
+Reviewer: fresh-eyes subagent, given the contract paths and the scaffold only —
+deliberately **not** the delegator boot prompt. Two findings turn on text it
+could not see; both are recorded as such rather than waved away.
+
+### 1. Critical — the tmpfs work dir is never delivered. ACCEPTED.
+
+**Concern.** `BUILDPLAN.md:47` (D-C) and the T-15a row both require a **tmpfs
+work dir**; the plan's text names `--network none`, `--read-only` and `--memory`
+and never once says `tmpfs`. With a read-only root and no writable mount, the
+compiler has nowhere to put a binary — this is not an unexercised flag, it is
+the sandbox being unable to run anything.
+
+**Resolution.** `--tmpfs /work` is in the argv, in `docker_argv()`'s required
+set, and asserted by `test_sandbox.py`. Two details the finding does not reach
+but that follow from it:
+
+- The mount is **`exec`**, deliberately. `noexec` is the reflex hardening choice
+  and it would break the sandbox outright: `rustc` writes a binary into `/work`
+  and the next step runs it. `noexec,nosuid,nodev` minus the `noexec` — so
+  `nosuid,nodev` — plus an explicit `size=` so a fixture cannot fill the host's
+  memory through the tmpfs instead of through the heap.
+- `size=` is set from `pin.toml`'s limits and is **≤ the memory limit**, because
+  a tmpfs is accounted against the container's memory cgroup. A tmpfs larger
+  than `--memory` would let a program reach the memory limit by writing files,
+  which would make `allocates_past_the_limit.rs`'s verdict ambiguous about which
+  mechanism fired.
+
+### 2. Major — no stated mechanism for getting the source in with no bind mount. ACCEPTED.
+
+**Concern.** `run_in_sandbox(program_source, …)` takes source as data, the plan
+asserts no bind mount, and never says how the text crosses the boundary.
+
+**Resolution.** **stdin.** `docker run -i` with no TTY; the container's command
+reads stdin into `/work/main.rs` and then compiles or runs it. Written into the
+plan as a named mechanism, asserted in `test_sandbox.py` (argv carries `-i`, the
+source is passed as the process's stdin and never as an argument or an env var),
+and it is the reason `docker_argv()` and the fake `runner` both take the source
+separately from the argv. Passing source as an argv element would also put
+candidate text in the host's process table, which is a second reason not to.
+
+### 3. Major — `PR base: origin/main` overridden on outside authority. KEPT, with the gap named.
+
+**Concern.** The ticket metadata says `origin/main`; the plan targets
+`ai-c11-cc/repo-scaffold` citing a document not in the reviewed set.
+
+**Resolution.** Kept. The delegator boot prompt is this ticket's operative
+instruction and the reviewer was not given it: it designates PQ-19 a
+**press-ahead ticket**, sets the base to `ai-c11-cc/repo-scaffold` @ `2ab95e3`
+(PR #8) *because this ticket needs the harness #8 adds*, and says the
+Orchestrator retargets to `main` once #8 merges. `origin/main` in the ticket body
+is generated metadata that predates that decision. The finding is correct that
+nothing in the **contract** licenses the override — which is why it goes to the
+Orchestrator in the completion comment rather than being treated as settled.
+
+### 4. Major — `pin.toml` absorbs fields BUILDPLAN assigns to T-15b. PARTLY ACCEPTED.
+
+**Concern.** D-17 and `SPEC.md` §7.2 define the pin narrowly as release +
+commit-hash + nightly date. `BUILDPLAN.md:191` lists "the flag set, target
+triple" among **T-15b's** deliverables. The plan puts both in `pin.toml` and also
+adds the image tag and the resource limits, without flagging the expansion.
+
+**Resolution, three parts.**
+
+- **The flag set and the target triple stay.** The boot prompt asks for them by
+  name: *"the target triple, and the flag set the verifier will use
+  (`opt-level`, `overflow-checks`, `debug-assertions`) — values SPEC §3.2
+  records. T-15b reads this file; nothing else re-declares it."* T-15b's row
+  adds them **to the record**; this ticket defines the values it reads. No
+  conflict, and the reviewer could not see the instruction.
+- **The limits and the image tag move out of the pin, inside the same file.**
+  The finding is right that calling the whole file "the pin" muddies what
+  staleness means. `pin.toml` gets two tables: `[pin]` — release, commit-hash,
+  nightly date, edition, target triple, flags: the values a record is compared
+  against — and `[limits]` / `[image]`, with a comment stating in words that
+  **nothing outside `[pin]` affects the stale check**, so bumping a memory limit
+  never invalidates a verified question.
+- **The AC-6 row is reworded.** T-15a's criterion is AC-12 and nothing else. The
+  table row now reads *supplies the value AC-6 is later checked against; proves
+  nothing about AC-6* — the earlier wording invited the reading the finding took.
+
+### 5. Major — nothing keeps the Dockerfile and `pin.toml` from drifting. ACCEPTED, and it is the best finding of the seven.
+
+**Concern.** A Dockerfile with `FROM rust:<version>` and
+`rustup toolchain install nightly-<date>` written into it, plus a `pin.toml` that
+records the same two facts, is the pin defined **twice** — exactly what D-17
+exists to prevent, in a repo whose own house rules say this class of thing has
+regressed four times.
+
+**Resolution.** The Dockerfile holds **no version literal at all**. It takes
+`ARG RUST_VERSION`, `ARG NIGHTLY` (and the platform) with no defaults, so a
+build that does not pass them fails rather than silently picking something;
+`sandbox-build` reads `pin.toml` and passes them as `--build-arg`. Plus a test in
+`test_sandbox.py` that greps the Dockerfile for a version-shaped literal
+(`rust:1.`, `nightly-20`) and **fails if one is present** — so the single-source
+property is enforced, not merely intended. `ARG` with no default is what turns
+"remember to pass it" into a build error.
+
+### 6. Major — the platform-pin rationale reaches into another ticket's criteria. ACCEPTED; **the decision is reversed.**
+
+**Concern.** The plan pinned `linux/amd64` for every host, accepting emulated
+Miri on the client's Mac, and justified it with AC-8, AC-9 and AC-10 — T-15b's
+criteria. No contract text says the platform must be pinned for those
+comparisons to hold, while `BUILDPLAN.md:47` does claim the Docker sandbox
+"works on the client's Mac."
+
+**Resolution — Open choice 1 is reversed. The image builds natively; the
+platform is not pinned.** On re-examination my argument was the weaker half of
+the trade:
+
+- D-17 defines the pin as release + commit-hash + nightly date. The
+  **commit-hash is identical across architectures** for a given release, so the
+  pin is already arch-independent. The triple was never part of the stale check.
+- `SPEC.md` §3.2 makes `target_triple` a **recorded** field. Recording the
+  triple that actually ran is more correct than asserting a constant one — and
+  it is the house rule: write what was observed.
+- The divergence I was guarding against is close to non-existent for these
+  programs. aarch64 and x86_64 linux-gnu are both 64-bit and little-endian, and
+  Miri is an interpreter with an explicit target model — more arch-independent
+  than native execution, not less.
+- The cost was concrete and fell on the one person who runs the pipeline. Q-E4
+  measures the Miri wall-clock; QEMU would inflate the number the project
+  intends to measure, against a decision record that promises the Mac works.
+
+`nightly-2026-09-19` ships miri for **both** `x86_64-unknown-linux-gnu` and
+`aarch64-unknown-linux-gnu` (checked against the channel manifest), so native on
+both is available. `pin.toml` records `target_triple` as the two supported
+triples; the runner records which one ran. `platform` stays a value in
+`pin.toml`, now **unset by default** — setting it forces one arch, which is
+still a one-line change if a real divergence ever appears. The escape hatch now
+runs in the safe direction: a constraint can be added later, whereas a slow
+laptop cannot be undone.
+
+### 7. Minor — CI "installs Docker" wording. ACKNOWLEDGED, no change.
+
+Self-flagged in the plan already; the finding agrees with the resolution
+(extend the existing `docker --version` assertion with the image build).
+
+### Consequent edits to the sections above
+
+- Dockerfile row: no version literals; `ARG RUST_VERSION` / `ARG NIGHTLY`, no
+  defaults; `--tmpfs /work` documented as `exec`.
+- `pin.toml` row: `[pin]` vs `[limits]`/`[image]`; `platform` unset.
+- `sandbox.py` row: source crosses on **stdin**; `docker_argv()` returns argv
+  only and the source is handed to the runner separately.
+- `test_sandbox.py` row: adds the tmpfs assertion, the stdin assertion, and the
+  no-version-literal check on the Dockerfile.
+- Tests-by-criterion: the AC-6 row no longer reads as coverage.
+
+### Update to resolution 3 — the tension dissolved, 2026-09-20 ~22:50
+
+PR #8 **merged at 2026-09-20T22:07:26Z** and its branch was deleted, which is why
+`origin/ai-c11-cc/repo-scaffold` stopped resolving mid-ticket. `origin/main` is
+now `0742d35`, whose tree is **byte-identical** to the scaffold tip `2ab95e3`.
+The press-ahead condition is gone, so this branch rebases onto `origin/main` and
+the PR is opened against `main` — which is what the ticket metadata said and what
+the boot prompt said would happen once #8 merged. **No deviation to report on the
+base.** Finding 3 is resolved by events rather than by argument.
+
+### Design detail settled while implementing, reported here because it changes an assertion
+
+The five verdicts split into two kinds, and conflating them would have produced a
+false claim:
+
+- **Configuration verdicts** — `NETWORK_UNREACHABLE`, `ENV_NOT_PASSED`,
+  `HOST_FS_ISOLATED`, `ROOT_READ_ONLY`, `WORKDIR_IS_TMPFS` — are facts about the
+  argv, true independent of any program. Derived from the argv, asserted in `test`.
+- **Outcome verdicts** — `TIMEOUT`, `MEMORY_LIMIT` — are facts about how the run
+  ended, and can only be observed at run time.
+
+This matters for the house rule. Asserting `"Network is unreachable" in stderr`
+would be **writing down what a program prints**. So no fixture assertion quotes
+program output: the isolation fixtures signal through an **exit code the program
+itself chooses** (`process::exit(0)` when the escape failed as expected), and the
+containment claim rests on the configuration verdict plus that exit code. The
+suite asserts verdicts and deliberate exit codes, never printed text.
+
+Two more consequences worth recording:
+
+- `--memory-swap` is set equal to `--memory`. Without it Docker allows swap at
+  twice the memory limit, so `allocates_past_the_limit.rs` could complete instead
+  of being killed and `MEMORY_LIMIT` would never fire.
+- "Kill on expiry" needs a second call: `subprocess`'s timeout kills the `docker`
+  CLI, not the container. On expiry the module runs `docker kill <name>` against
+  a per-run container name. Asserted with the fake runner.

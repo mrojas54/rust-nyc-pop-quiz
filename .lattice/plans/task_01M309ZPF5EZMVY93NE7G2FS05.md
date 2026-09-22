@@ -245,3 +245,206 @@ matches `argu` case-insensitively, and `SPEC.md` §3.1 names the third beat
   parentheticals and conditional variants. I transcribe by reading the row, not
   by regex-extracting it, and the completeness test is keyed off a hand-written
   row list so a silently dropped variant fails.
+
+---
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+
+Reviewer: `general-purpose` / sonnet, 2026-09-20, given only the plan path and
+the contract section paths. It was **not** given the delegator boot prompt, which
+matters for R-1 and R-5. It independently recomputed the §5.2 arithmetic (all
+eight worked examples and both floor values matched) and found a citation for the
+trace bound that I did not have.
+
+Seven findings: 1 Critical, 4 Major, 2 Minor. **All seven are upheld in whole or
+in part. None is dismissed.**
+
+### R-1 · Critical 1 — the font source
+
+**Concern.** The plan sources both fonts from GitHub upstream OFL releases, while
+the ticket, `SPEC.md` §15 and the Orchestrator notes all say the fonts are
+vendored *from the design system's `assets/fonts/`*. Filed under "Open choices"
+as if compliant rather than flagged as a tension. The reviewer also asked whether
+the design system Artifact named in `DESIGN.md` (`claude.ai/design d608a53a…`)
+had been tried.
+
+**Resolution — upheld in substance; the substitution is mostly withdrawn.** Two
+parts.
+
+*(a) Provenance of the instruction.* It was not invented. The delegator boot
+prompt §2 says, verbatim: "The design system's `assets/fonts/` is not in this
+repository; obtain the files from the fonts' official upstream releases (both are
+OFL) — the download prompts the client — and record the URL and checksum." The
+reviewer could not see that. It should nonetheless have been recorded as a
+tension with `SPEC.md` §15 rather than as a free choice, and that is corrected
+below as **T-11**.
+
+*(b) Substance — the reviewer's suggestion was right and I acted on it.* The
+design system is published at `claude.ai/artifact/2k3zt9WWz6XUZRjkLDWvfi`
+("Rust NYC Design System", 123 files). Read with the Artifact tool, it carries:
+
+| Path in the design system | What it is |
+|---|---|
+| `project/fonts/CascadiaMono-VariableFont_wght.ttf` | 631,788 B, variable `wght` 200–700, upright |
+| `project/fonts/CascadiaMono-Italic-VariableFont_wght.ttf` | 471,980 B, variable `wght` 200–700, italic |
+| `project/assets/fonts/OFL.txt` | 4,490 B, SIL OFL 1.1 |
+| `project/assets/Uploads/Cascadia_Mono/README.txt` | the upstream packaging README |
+| `project/tokens.css` | the generated token file, **with its own `@font-face` rules** |
+
+So **Cascadia Mono ships from the design system exactly as `SPEC.md` §15 says** —
+fetched with the Artifact tool, no network download, no upstream substitution,
+no client approval needed. Its `@font-face` rules are ported from the design
+system's own `project/tokens.css` (`format("truetype")`, `font-weight: 200 700`,
+`font-display: swap`, upright + italic) rather than written by me.
+
+**Instrument Serif is not in the design system.** `--font-heading` names it, but
+no font file exists anywhere in those 123 files; the prototype obtained it from
+the Google Fonts CDN `@import` that D-14 forbids. Instrument Serif alone
+therefore comes from its upstream OFL release, per the boot prompt, with URL,
+release tag and SHA-256 recorded in `fonts/README.md`. That one download is the
+ticket's only network step and the only thing needing client approval.
+
+**Contract defect to report to the Orchestrator (not fixed here):** `SPEC.md`
+§15 states that *both* Cascadia Mono and Instrument Serif "ship in
+`web/shared/fonts/` from the design system's `assets/fonts/`". Only Cascadia Mono
+is there. §15 is wrong about Instrument Serif, and D-14's "self-hosted, no font
+CDN" cannot be satisfied for it from the named source.
+
+**Also worth recording:** every token value in `prototypes/_shared/tokens.css` §1
+was compared against the design system's `project/tokens.css` and matches — the
+colour ramps, the spacing scale, the type scale, `--radius`, `--shadow-card`, and
+both font stacks. §1's claim to be verbatim holds, so `tokens.css` can be ported
+with confidence.
+
+### R-2 · Major 2 — AC-100 is scoped to `test-full`, not `test`
+
+**Concern.** The table bolds **AC-100** against a `node:vm` unit test, but
+`EVALUATION.md:131` puts AC-100's proof in `test-full` (measured overflow on the
+real wall) and `bank-audit` (the too-long flag). The plan's own Risks section
+concedes this, contradicting the table.
+
+**Resolution — upheld.** The label overclaimed. The table is corrected to read
+**"AC-100 — derivation and verdict logic only"**, with the scope stated inline:
+the measured-overflow half is T-05's under `test-full`, and the bank flag is
+T-19's under `bank-audit`. What T-02 owns and can prove under `test` is that
+`floorPx`, `derivedFontPx`, `refit` and `fitVerdict` compute what §5.2 specifies —
+which is the thing the other two hooks will call. No test claims more than
+`just test` can run.
+
+### R-3 · Major 3 — AC-40 names four surfaces, none of which exist yet
+
+**Concern.** `EVALUATION.md:102` requires the ✓ on the wall, the buzzer, take-it-home
+and the review surface. `check.test.js` can only show the shared helper is
+internally consistent.
+
+**Resolution — upheld.** Relabelled **"AC-40 — the shared helper only"**. The
+four consuming surfaces are T-05, T-06, T-12 and the review ticket, and each must
+carry its own AC-40 assertion. `web/shared/README.md` will say so, so the
+consuming tickets inherit the obligation rather than assuming T-02 discharged it.
+
+### R-4 · Major 4 — AC-42's positive proof is not covered
+
+**Concern.** `EVALUATION.md:104` requires a fixture of the seven retired strings
+proving *every trope pattern group fires*. The plan tests only that its own copy
+is clean.
+
+**Resolution — upheld, and adopted as a strengthening of my own test.** Without
+the positive fixture, "no entry matches the patterns" can pass because my
+transcription of the patterns is broken — the assertion would be vacuous. So
+`copy.test.js` gains the seven retired strings from `EVALUATION.md:104` (*That is
+not a room getting it wrong — that is a room…*, *Not the explanation — that one is
+human*, *listen, don't read*, *that's fine*, *the most interesting answer in the
+room*, *The word doing all the work*, *The bit worth talking about*) and asserts
+each of the five pattern groups — `contrast`, `filler`, `signpost`,
+`reassurance`, `flattery` — fires on at least one of them. Labelled **"AC-42 —
+partial: pattern transcription only"**; T-22 owns the row and the reusable lint.
+
+### R-5 · Major 5 — the provenance CSS is §5, not §1
+
+**Concern.** The plan folds `.by-machine` / `.by-human` / `.provenance*`
+(lines 277–285) into "tokens.css §1 verbatim", but §1 ends at line 84 and that
+block sits under "§5 — Design-system components". Structurally identical to the
+well/trace CSS, which *was* flagged as tension T-2 — inconsistent treatment. AC-74,
+which that block styles, is not one of T-02's criteria.
+
+**Resolution — upheld on the fact, and the inconsistency is removed.** Confirmed
+by reading the section headers: §1 is lines 18–84, §2 begins at 86, §5 at 218,
+§6 at 288. The block genuinely is not §1. (The instruction is real — the boot
+prompt §2 says tokens.css is "§1 … including `.provenance.machine` /
+`.provenance.human` from that file" — but the reviewer is right that it needed
+the same treatment as T-2.)
+
+**The file layout changes** so that all non-§1 CSS is treated alike:
+
+| File | Contents |
+|---|---|
+| `web/shared/tokens.css` | **§1 only**, lines 18–83, verbatim but for the `@import` (R-6), plus an `@import url("fonts.css")`. |
+| `web/shared/fonts.css` | the `@font-face` rules for both families. |
+| `web/shared/components.css` | **everything not in §1**, each block prefixed by a comment naming its source section and line range: the `.rn-src*` well (§5, 247–263), the `.tk-*` syntax colour (§6, 359–365), the `.trace*` / `.tval*` / `.trace-dots` trace styles (§6, 324–351), and the `.by-machine` / `.by-human` / `.provenance*` provenance block (§5, 277–285). |
+
+This replaces the plan's `well.css` + `trace.css` split — three CSS files, not
+four, and one legible rule ("§1 is tokens.css; everything else is
+components.css"), which also serves `PHILOSOPHY.md` §8. Nothing is restyled.
+Superseded: the `well.css` and `trace.css` rows in §1's file table, and T-2's
+two-file remedy. **AC-74 is noted as not T-02's criterion**; the provenance
+classes ship because three consuming tickets need them styled, and the criterion
+is proven by whoever renders them.
+
+### R-6 · Minor 6 — the stale comment is below the `@import`, not above it
+
+**Resolution — upheld, factual.** `prototypes/_shared/tokens.css`: line 21 is the
+`/* --- tokens/fonts.css --- */` section header *above* line 22's `@import`;
+lines 23–25 are the Cascadia-Mono / SF-Mono fallback comment *below* it. T-1 is
+corrected: **keep** line 21, **drop** line 22 (the CDN `@import`), and **replace**
+lines 23–25 with a comment naming the vendored faces and pointing at `fonts.css`.
+The comment is replaced rather than deleted because what it says — that the fonts
+are not vendored and the stack falls back to SF Mono — stops being true in this
+repository and would mislead the next reader.
+
+### R-7 · Minor 7 — "the first five" is wrong; it is the middle five
+
+**Resolution — upheld.** `SPEC.md` §63 (G-6) gives the order
+`idle → live → closed → split → work → reveal → released`, so `idle` is first and
+renders no source. `rendersSource` is true for the **middle five** — `live`,
+`closed`, `split`, `work`, `reveal` — and false for `idle` and `released`. The
+boolean values in the plan were right; only the phrasing was wrong.
+
+### T-11 · New tension, raised by R-1 (replaces open choice C-5)
+
+**`SPEC.md` §15 and the boot prompt disagree about where Instrument Serif comes
+from, and §15 is the one that is wrong.** §15 says both fonts ship from the
+design system's `assets/fonts/`; the design system has Cascadia Mono and not
+Instrument Serif. *Side:* Cascadia Mono from the design system (§15 honoured
+exactly); Instrument Serif from its upstream OFL release (the boot prompt's
+direction, and the only way to honour D-14's "self-hosted, no font CDN" at all).
+Both recorded in `fonts/README.md` with source, version and SHA-256. Reported to
+the Orchestrator as a contract defect in `SPEC.md` §15. **If the client declines
+the Instrument Serif download**, the ticket still lands: `fonts.css` keeps the
+face declared with its fallback stack (`Georgia, 'Times New Roman', serif`),
+`fonts/README.md` records the expected URL and checksum, and the gap is named in
+the completion comment. No CDN, no look-alike substitute.
+
+### T-7 gains a citation
+
+The reviewer found what the plan inferred: **`SPEC.md`:146 states the convention
+outright** — "`trace_step` — in `work` bounded to `0..M-2`; `reveal` enters at
+`M-1`". T-7's 0-based reading is therefore the contract's own words, not an
+inference from D-10, and `web/shared/README.md` will cite `SPEC.md` §3.4 rather
+than argue the case.
+
+### Unchanged by the review
+
+The §5.2 arithmetic (independently reproduced), the T-4 and T-5 SPEC-over-prototype
+resolutions, the files-not-to-touch list, `layout.test.js` compatibility, and
+AC-99's `test` scoping — the reviewer checked each and raised nothing.
+
+### Found outside the review, while verifying the harness
+
+`web/README.md:25` documents the web suite as `node --test web/test/`. On Node 22
+that resolves the directory as a CommonJS module path and fails with
+`Cannot find module …/web/test` before any test runs. The `justfile` is correct
+(`node --test 'web/test/*.test.js'`, line 46) and `just test` is green, so only
+the documented command is wrong. `web/README.md` is **not** in this ticket's
+cleared file list, so it is reported to the Orchestrator, not fixed here.
+
+## Reset 2026-09-21 by agent:delegator-pq2

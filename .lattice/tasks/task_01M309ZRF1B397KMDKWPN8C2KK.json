@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZRF1B397KMDKWPN8C2KK",
-  "last_event_id": "ev_01M30DRYGBWWEQ0QRBQCF0096K",
-  "last_status_changed_at": "2026-09-20T21:57:04Z",
+  "last_event_id": "ev_01M30Y9NXMT6Y1ZDD3A08WCMKG",
+  "last_status_changed_at": "2026-09-21T02:56:35Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,7 +25,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-19",
-  "status": "in_planning",
+  "status": "in_progress",
   "tags": [
     "m3",
     "inline-full",
@@ -34,6 +34,6 @@
   ],
   "title": "Verification sandbox image",
   "type": "task",
-  "updated_at": "2026-09-20T22:07:49Z",
+  "updated_at": "2026-09-21T02:56:35Z",
   "urgency": null
 }
