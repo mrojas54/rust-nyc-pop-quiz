@@ -195,18 +195,54 @@ def test_nothing_just_test_imports_can_start_a_process() -> None:
             for lineno, what in _process_starting_nodes(tree):
                 found.setdefault(where, []).append(f"{where}:{lineno} {what}")
 
-    unexpected = [line for where, lines in found.items() if where not in MAY_START_A_PROCESS for line in lines]
+    unexpected, stale = _classify(found, MAY_START_A_PROCESS)
     assert not unexpected, (
         "something `just test` imports can start a process, and it is not the one "
         "module allowed to: " + "; ".join(unexpected)
     )
-
-    stale = sorted(MAY_START_A_PROCESS - found.keys())
     assert not stale, (
         "these modules are exempted from the shell-out guard but no longer start "
         "anything, so the exemption should be removed rather than left standing: "
         + ", ".join(stale)
     )
+
+
+def _classify(
+    found: dict[str, list[str]], allowed: set[str]
+) -> tuple[list[str], list[str]]:
+    """Split the scan's findings into offenders nobody exempted and exemptions
+    nobody needs. Exact path comparison, on purpose: see the test below."""
+    unexpected = [line for where, lines in found.items() if where not in allowed for line in lines]
+    stale = sorted(allowed - found.keys())
+    return unexpected, stale
+
+
+def test_the_exemption_covers_one_exact_path_and_nothing_near_it() -> None:
+    """The exemption is only as narrow as the comparison behind it. A prefix or a
+    directory match would let a sibling module — or one whose name merely starts
+    the same way — inherit the right to start a process without appearing on the
+    list, which is the one thing the list exists to prevent."""
+    exempt = "src/popquiz/sandbox.py"
+    found = {
+        exempt: [f"{exempt}:1 imports subprocess"],
+        "src/popquiz/verify.py": ["src/popquiz/verify.py:3 imports subprocess"],
+        "src/popquiz/sandbox_helpers.py": ["src/popquiz/sandbox_helpers.py:2 calls os.system"],
+        "src/popquiz/sandbox/extra.py": ["src/popquiz/sandbox/extra.py:5 imports pty"],
+    }
+
+    unexpected, stale = _classify(found, {exempt})
+
+    assert not stale
+    assert not [line for line in unexpected if line.startswith(f"{exempt}:")]
+    assert {line.split(":", 1)[0] for line in unexpected} == {
+        "src/popquiz/verify.py",
+        "src/popquiz/sandbox_helpers.py",
+        "src/popquiz/sandbox/extra.py",
+    }
+
+    # And the other direction: an exemption with no offence behind it is reported.
+    _, stale = _classify({}, {exempt})
+    assert stale == [exempt]
 
 
 def test_the_guard_catches_the_ways_it_claims_to() -> None:

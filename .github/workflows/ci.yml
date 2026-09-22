@@ -58,9 +58,9 @@ jobs:
 
       - run: just test
 
-  # Everything that exists, plus a named list of what does not. Docker is
-  # installed for this hook only: T-15a's sandbox image and T-21's deployed runs
-  # both land here, and nothing uses it yet.
+  # Everything that exists, plus a named list of what does not. Docker is used by
+  # this hook only: it builds T-15a's sandbox image and runs the AC-12 containment
+  # suite on it, and T-21's deployed runs will land here too.
   test-full:
     name: just test-full
     runs-on: ubuntu-latest

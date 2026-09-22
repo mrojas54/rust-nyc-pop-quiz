@@ -102,8 +102,11 @@ never claims more than the record holds.
 ## Why the platform is not pinned
 
 `[image].platform` is empty, so the image builds for the host's own architecture,
-and `[pin].target_triples` lists both linux-gnu targets that Miri ships for. The
-runner records which one actually ran.
+and `[pin].target_triples` lists both linux-gnu targets that Miri ships for.
+Recording which one a verification actually ran on is T-15b's: its verifier writes
+`target_triple` into the record. Nothing in this ticket records it — `sandbox.py`
+runs a step and reports containment, and the containment suite only checks that the
+image's `rustc -Vv` host is one of the two listed.
 
 Pinning `linux/amd64` was considered and rejected. It would give one recorded
 `target_triple` everywhere, which is tidy, at the cost of running Miri under

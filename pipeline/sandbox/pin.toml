@@ -52,10 +52,11 @@ nightly = "2026-09-19"
 # Recorded from `cargo +nightly-<nightly> miri --version` inside the image.
 miri_version = "miri 0.1.0 (420ed2a0c3 2026-09-18)"
 
-# Recorded per run, never compared. The image builds for the host's own
-# architecture, so both of these are supported and the runner records which one
-# actually ran (SPEC.md §3.2 makes `target_triple` a recorded field, and D-17's
-# pin is the release, the commit-hash and the nightly date — not the triple).
+# Supported, never compared. The image builds for the host's own architecture, so
+# both of these are valid; which one a verification ran on is for T-15b's verifier
+# to record in the record — nothing in T-15a records it (SPEC.md §3.2 makes
+# `target_triple` a recorded field, and D-17's pin is the release, the commit-hash
+# and the nightly date — not the triple).
 target_triples = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
 
 # The flag set the verifier compiles with — the flags the research found
