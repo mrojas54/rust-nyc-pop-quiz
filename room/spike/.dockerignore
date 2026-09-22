@@ -1,0 +1,15 @@
+# Passed to `fly deploy --ignorefile spike/.dockerignore`.
+#
+# It lives under `spike/` rather than at `room/.dockerignore` on purpose:
+# `room/.dockerignore` is not on this ticket's cleared-files list, and T-09 will
+# want to own that path for the real deploy.
+#
+# Without this, `target/` goes to Fly's remote builder — gigabytes of local
+# build artifacts uploaded to build a binary the builder compiles from scratch
+# anyway.
+
+target/
+spike/reports/
+fly.spike.toml
+README.md
+.git/

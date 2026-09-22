@@ -5,14 +5,74 @@ edition = "2021"
 publish = false
 description = "The live room: one meetup, one question, seven phases."
 
+# Bins are listed explicitly rather than discovered, so that `src/bin/` can hold
+# a shared module (`spike_shared.rs`) that is not itself a binary. The answer
+# fingerprint in it is computed on both sides of the wire; a second copy that
+# could drift would quietly weaken the AC-52 check into an aggregate one.
+autobins = false
+
 # This crate is built with whatever `cargo` the machine has. It is deliberately
 # not pinned: the verification toolchain pin (rustc -Vv release and commit-hash,
 # and the nightly's date for Miri) is a different thing entirely, defined once
 # by T-15a where the sandbox image is built. See SPEC.md 7.2 and BUILDPLAN D-17.
 
+[[bin]]
+name = "room"
+path = "src/main.rs"
+
+# --- The T-03 burst spike. Throwaway; both bins are gated off by default. ------
+#
+# `required-features` is what holds EVALUATION.md's 60 s budget for `just test`:
+# `cargo test --offline --locked` passes no `--features`, so neither bin and not
+# one line of the crates below is compiled by the inner loop. The budget is kept
+# by construction rather than by care.
+#
+# The cost, stated rather than discovered later: nothing in `test` or `test-full`
+# type-checks these two bins until T-21 wires the `burst` recipe. Until then the
+# gate is by hand — `cargo check --features spike` and `cargo test --features
+# spike`, both named in README.md.
+
+[[bin]]
+name = "spike-server"
+path = "src/bin/spike-server.rs"
+required-features = ["spike"]
+
+[[bin]]
+name = "burst"
+path = "src/bin/burst.rs"
+required-features = ["spike"]
+
+[features]
+spike = [
+    "dep:tokio-tungstenite",
+    "dep:rustls",
+    "dep:futures-util",
+    "dep:serde",
+    "dep:serde_json",
+    "axum/ws",
+    "tokio/sync",
+    "tokio/time",
+]
+
 [dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+
+# --- spike-only, all optional -------------------------------------------------
+# tokio-tungstenite 0.29 is the version axum 0.8's own `ws` feature already
+# pulls, so client and server unify on one tungstenite in the lock.
+tokio-tungstenite = { version = "0.29", optional = true, features = ["rustls-tls-webpki-roots"] }
+# tokio-tungstenite declares rustls with default features off, so no crypto
+# provider is guaranteed to be installed. burst.rs installs ring explicitly as
+# its first statement; naming rustls here is what makes that possible. native-tls
+# would drag OpenSSL into any later Linux or CI run for no gain here.
+rustls = { version = "0.23", optional = true, default-features = false, features = ["ring"] }
+# SinkExt/StreamExt over the split socket. Already in the lock via axum.
+futures-util = { version = "0.3", optional = true, default-features = false, features = ["sink", "std"] }
+# Already in the lock via axum's default `json` feature; named so the spike bins
+# may use them directly.
+serde = { version = "1", optional = true, features = ["derive"] }
+serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 # `tower::ServiceExt::oneshot` is how the canary seam drives the router with no
