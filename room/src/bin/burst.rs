@@ -380,14 +380,17 @@ fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         missed = true;
     }
 
-    // Marginal is reported on a pass only: on a miss, the miss is the story.
+    // Marginal is reported on a pass only: on a miss, the miss is the story —
+    // including when the miss is a *different* criterion. Gating each line only
+    // on its own criterion passing let a MARGINAL note sit beside an unrelated
+    // AC-52 MISS under exit 1, which is the opposite of what this comment says.
     let mut marginal = 0;
     for (flag, passed, text) in [
         (v.burst_marginal, v.burst_headline_p95 < WRITE_P95_MS, "AC-54"),
         (v.segment_marginal, v.segment_write_p95 < WRITE_P95_MS, "AC-53"),
         (v.reveal_marginal, v.reveal_p95 <= REVEAL_P95_MS, "AC-41"),
     ] {
-        if flag && passed {
+        if flag && passed && !missed {
             notes.push(format!(
                 "{text} MARGINAL: the p95 passes, but the upper bound of its 95% confidence interval crosses the threshold — this is not a clean pass"
             ));
@@ -1286,7 +1289,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
     let ac52_pass = segment_recon.matches() && burst_cycles_reconciled && post_close_ok;
 
     let report = json!({
-        "schema": "rustnyc-popquiz/burst-report/1",
+        "schema": "rustnyc-popquiz/burst-report/2",
         "ticket": "T-03",
         "started_at_unix_ms": started_at,
         "invocation": invocation,
@@ -1617,6 +1620,20 @@ mod tests {
     }
 
     #[test]
+    fn a_miss_anywhere_silences_marginal_notes_everywhere() {
+        // The cross-criterion case: AC-52 misses while AC-53 passes marginally.
+        // The run is a miss, and the notes must say only that.
+        let (code, notes) = verdict(&VerdictInput {
+            ac52_ok: false,
+            segment_marginal: true,
+            ..passing()
+        });
+        assert_eq!(code, Exit::Missed);
+        assert!(notes.iter().any(|n| n.starts_with("AC-52 MISS")), "{notes:?}");
+        assert!(!notes.iter().any(|n| n.contains("MARGINAL")), "{notes:?}");
+    }
+
+    #[test]
     fn a_lost_write_in_any_burst_cycle_is_an_ac52_miss() {
         let (code, notes) = verdict(&VerdictInput { burst_reconciled: false, ..passing() });
         assert_eq!(code, Exit::Missed);
@@ -1737,7 +1754,7 @@ mod tests {
         let text = serde_json::to_string_pretty(&report).unwrap();
         let back: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(back, report);
-        assert_eq!(back["schema"], "rustnyc-popquiz/burst-report/1");
+        assert_eq!(back["schema"], "rustnyc-popquiz/burst-report/2");
         assert_eq!(back["ticket"], "T-03");
 
         // Four criteria, in a fixed order, each judged, each carrying `marginal`.

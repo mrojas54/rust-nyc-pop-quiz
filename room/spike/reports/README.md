@@ -10,10 +10,11 @@ verdict, its own raw `samples_ms`, and the exact invocation, so any figure below
 can be recomputed from the file rather than taken from this page. The table was
 generated from these files, not typed.
 
-**Which code produced them.** All four came from the code at commit `c5e020f`.
-Code review then changed the report's *summary* fields — not its timing path and
-not a single sample — and these files predate that change, so they differ from
-what `burst` writes today in three ways:
+**Which code produced them.** All four came from the code at commit `c5e020f`
+and carry `"schema": "rustnyc-popquiz/burst-report/1"`. Code review then changed
+the report's *summary* fields — not its timing path and not a single sample — and
+`burst` now writes `…/burst-report/2`, so a reader or a script can tell the two
+apart without reading this page. The `/1` files differ from `/2` in three ways:
 
 - **No `marginal` on the AC-54 criterion entry.** Recomputed from each file's own
   `samples_ms`, the AC-54 headline was **not marginal in any run**: the upper
