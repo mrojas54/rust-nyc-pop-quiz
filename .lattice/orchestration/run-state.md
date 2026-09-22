@@ -176,3 +176,4 @@ template (guard line already fixed), stage in `<worktree>/.claude/boot-prompt.md
 commit, verify CI on the exact head first, then `lattice complete`, append the receipt,
 tell the in-flight delegators to rebase onto `origin/main`.
 - 2026-09-21 [autonomy: Moderate] Client answered tabs 34 and 35: PQ-24 in_progress, PQ-22 in_planning. Orchestrator loop paused for context budget; resume note written above.
+- 2026-09-21 [client: "merge 9 and then merge 10"] PR #9 merged at `36250b3`, PR #10 at `238146e`, both with merge commits after CI green on their exact heads. PQ-2 and PQ-18 completed. Four live delegators told to rebase onto `origin/main`. `main` local ref updated by fetch.

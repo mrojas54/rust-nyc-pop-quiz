@@ -1,16 +1,27 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 3,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-19 (M3).\n\n`bank-audit`: inherit `slot_for_day` and the both-tails audit after audit; **retire** `build_deck.py`'s ledger write; the five enumerated tells at 1.5\u00d7 chance; `unsafe` parity; five options with one *does not compile*; no published distribution; fit against the configured room\n\nCriteria: AC-23\u201327, AC-100, G-1, G-11\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-14, T-02 (type model)\nBUILDPLAN notes: Audit ticket for `build_deck.py` \u2014 G-1 has regressed four times. **Port `slot_for_day` only.** `slot_for_meetup`, the wrapper one function below it that writes the ledger, is **not** ported under any name; the ledger's only writer is T-11's release transition. Serialized on `justfile` (`bank-audit`). Adds the **option-length** rule: every option one line of at most 29 characters (`SPEC.md` \u00a75.2, D-15).\n\nOrchestrator notes: Criteria include AC-23a and AC-23b (through G-1). Port `slot_for_day` (build_deck.py:162) and `audit_generator` (:183) only. `slot_for_meetup` (:220) is never ported under any name. This is the only ticket allowed to touch the slot path (AC-23a). Read PHILOSOPHY.md \u00a72 first: G-1 has regressed four times, once while fixing the previous regression. Nothing in this ticket may shape a real night's output.\n\nWorkflow mode: sub-agent-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M33DHTPRHBYCFZ4V6NGNZFYP",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M33DJDYG25YEEDWRK26F5G04",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZS1MF57XT59V7P508325",
-  "last_event_id": "ev_01M33CBDD96HPNCSMSDZA2E9ND",
+  "last_event_id": "ev_01M33KGBBWET862XPQRVQZ5CVY",
   "last_status_changed_at": "2026-09-22T01:40:41Z",
   "priority": "medium",
   "relationships_out": [
@@ -40,6 +51,6 @@
   ],
   "title": "Bank audit and the slot function",
   "type": "task",
-  "updated_at": "2026-09-22T01:40:41Z",
+  "updated_at": "2026-09-22T03:45:42Z",
   "urgency": null
 }

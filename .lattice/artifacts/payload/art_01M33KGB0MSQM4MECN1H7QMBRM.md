@@ -1,0 +1,1 @@
+Merged via PR #10 (merge commit 238146e) on the client's word, 2026-09-21. CI green on b4d946c; code review PASS-WITH-NITS and validation attached by the delegator.

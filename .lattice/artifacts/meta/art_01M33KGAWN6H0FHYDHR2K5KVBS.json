@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-22T03:45:42Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M33KGAWN6H0FHYDHR2K5KVBS",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M33KGAWN6H0FHYDHR2K5KVBS.md",
+    "size_bytes": 163
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #9 (merge commit 36250b3) on the client's word, 2026-09-21. CI green on 223a201; code review PASS-WITH-NITS and validation attached by the delegator.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

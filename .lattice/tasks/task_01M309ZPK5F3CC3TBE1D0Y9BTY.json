@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 7,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:36Z",
   "created_by": "agent:orchestrator-intake",
@@ -18,11 +18,21 @@
       "id": "art_01M33D0ZBWTE4744QFHAKSEWQA",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M33JQ7Y4JCR2YF6NYR357WHE",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M33KCTK6P2BB9PQN9WKEMNKR",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZPK5F3CC3TBE1D0Y9BTY",
-  "last_event_id": "ev_01M33D0ZBZ8VQSRJ1N6VDRZ470",
-  "last_status_changed_at": "2026-09-21T03:01:12Z",
+  "last_event_id": "ev_01M33KGB4G477Q52D5RV44KBX2",
+  "last_status_changed_at": "2026-09-22T03:43:50Z",
   "priority": "critical",
   "relationships_out": [
     {
@@ -36,13 +46,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-3",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m0",
     "sub-agent-full"
   ],
   "title": "Burst spike on Fly",
   "type": "spike",
-  "updated_at": "2026-09-22T01:52:27Z",
+  "updated_at": "2026-09-22T03:45:42Z",
   "urgency": null
 }

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-22T03:45:42Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M33KGB0MSQM4MECN1H7QMBRM",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M33KGB0MSQM4MECN1H7QMBRM.md",
+    "size_bytes": 164
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #10 (merge commit 238146e) on the client's word, 2026-09-21. CI green on b4d946c; code review PASS-WITH-NITS and validation attached by the delegator.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

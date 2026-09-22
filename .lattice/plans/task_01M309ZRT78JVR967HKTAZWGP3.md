@@ -27,7 +27,7 @@ Baseline: `just test` green, 142 pipeline tests, 1.1 s warm.
 |---|---|
 | `pipeline/src/popquiz/dedupe.py` | the module (replaces the scaffold stub) |
 | `pipeline/tests/test_dedupe.py` | new: AC-14…AC-18 |
-| `bank/README.md` | one new section, *Dedupe*; plus the one row of the path table that says `history.json`'s stores are empty — **no**: left alone, see D-5 (only the new section changes) |
+| `bank/README.md` | one new section, *Dedupe* (nothing else in the file changes) |
 | `bank/history.json` | **not changed in this PR** — see D-5 |
 
 Standard library only. No `pyproject.toml`, `justfile`, `bank.py` or other edits.
@@ -195,3 +195,52 @@ Standard library only. No `pyproject.toml`, `justfile`, `bank.py` or other edits
   its reference (e.g. the last run report, `--json`).
 - **D-7 (decision).** Threshold is configuration by parameter and CLI flag with a
   named default; no env var (that would touch `.env.example`, not cleared).
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+
+Reviewer: general-purpose subagent (sonnet), 2026-09-21. 0 Critical, 3 Major, 4 Minor.
+
+1. **Major — abstracted bigrams may push unrelated short programs over 0.6 on
+   boilerplate alone.** Concern accepted as a real risk; the fix is measurement,
+   not a guess. Resolution: once implemented, measure the pairwise similarity of the
+   four migrated questions (distinct programs, at bank length) under both bigram
+   variants (abstracted `$` vs numbered). Choose the variant that keeps distinct bank
+   programs below the threshold while a one-statement edit stays above it, and
+   record the measured numbers in the README section and the DONE comment as the
+   first calibration data. The AC-16 "unrelated" negative control uses those real
+   bank programs, not a contrived fixture. The default stays 0.6 (D-13 says start
+   there); if distinct bank pairs clear it anyway, that is reported as a finding for
+   HC-2, not silently re-tuned.
+2. **Major — no direct tests for `record`'s overwrite refusal or `check`'s own-id
+   exclusion.** Accepted. Added tests: `record` raises on an existing id with
+   different entries; `replace=True` succeeds; `record` of identical entries is a
+   no-op; `check(..., excluding=q)` does not match `q`'s own entry but still
+   matches every other. (The keyword is `excluding`, not `own_id`.)
+3. **Major — D-5 will bite on the first real run.** Accepted that "reported" is
+   not "fixed". I cannot confirm or create a follow-up ticket from here; the
+   finding was posted as a lattice comment on PQ-22 (planning phase), and the DONE
+   comment and PR body carry it as a **must-fix-before-the-first-real-run** note
+   with the exact line and the suggested change. No code workaround is honest:
+   the CLI must write `bank/history.json` for AC-17.
+4. **Minor — `size()` vs `History.total()`.** Accepted. The function is
+   `history_size(history)` = the number of distinct question ids recorded across
+   the three stores (a program count), with a comment that it is not
+   `History.total()` (the sum of the three stores, 3× once synced).
+5. **Minor — `_` handling unstated.** Accepted. `_` is in the lexer's keyword set,
+   so it is never a declared name and never renamed. Explicit test on q7's
+   `|&(_, k)| k`.
+6. **Minor — dedupe writing `review.near_duplicate_of` vs SPEC 3.1's writer
+   table.** Accepted. **D-8:** SPEC 3.1 lists the review surface as `review`'s
+   writer; the Orchestrator's ruling F-8 (PQ-22 ticket notes, "Writes
+   `review.near_duplicate_of` (F-8 ruling); T-18 reads it") makes dedupe the writer
+   of that one subfield. Dedupe writes nothing else under `review`, and refuses a
+   candidate that already carries a status, an affirmation, a mark or `used`.
+7. **Minor — AC-18 synonyms are a widening.** Accepted. The output scan forbids
+   `original` (the contract's word) and additionally `unique` and `novel`; called
+   out as a deliberate widening in the DONE comment.
+
+Also settled while drafting (no reviewer finding): the ticket's "(keywords and std
+names kept)" is implemented as *every name the program does not declare is kept*
+— a closed list of std names can never be complete, and an unlisted std method
+renamed in two programs would make `v.a()` and `v.b()` equal. No separate
+keep-list.
