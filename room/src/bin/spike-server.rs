@@ -36,21 +36,34 @@ use tokio::sync::{broadcast, Mutex};
 
 /// SPEC.md §4.1: capacity is 200, configurable. The 201st participant join is
 /// refused. The driver's own control socket is not a participant and does not
-/// count against this.
-const CAPACITY: usize = 200;
+/// count against this. `app()` takes the capacity as a parameter so the loopback
+/// test can prove the refusal at 13 rather than opening 201 sockets.
+pub const CAPACITY: usize = 200;
 
 /// Bounds on what an unauthenticated caller can make this process allocate.
 ///
 /// Control frames are deliberately unauthenticated — the ticket says *no auth*,
 /// and adding a real auth story here would be building T-10's job into a
-/// throwaway. But "no auth" is not the same as "no limits": while this app is
-/// briefly public, `pad_bytes` and the session map are the two places where one
-/// small frame could ask for unbounded memory on a 256 MB machine. Both are
-/// capped, so the worst an anonymous caller can do is make the room's numbers
-/// obviously wrong — which the AC-52 reconciliation would catch — rather than
-/// kill the process mid-run.
+/// throwaway. But "no auth" is not the same as "no limits" while this app is
+/// briefly public on a 256 MB machine:
+///
+/// - `pad_bytes` is clamped, so one frame cannot ask for gigabytes of reveal.
+/// - A new session id is refused past capacity and ids are length-capped, so the
+///   answer map cannot be grown without joining.
+/// - Inbound frames and messages are capped at 64 KiB — the largest thing a
+///   client legitimately sends is an ~80-byte answer. tungstenite's own default
+///   is 64 MiB per message, which would let a handful of connections exhaust
+///   memory.
+/// - Concurrent connections are bounded outside this process, by the Fly proxy:
+///   `http_service.concurrency.hard_limit = 400` in `fly.spike.toml`.
+///
+/// So the worst an anonymous caller can do is make the room's numbers obviously
+/// wrong — which the AC-52 reconciliation would catch — rather than kill the
+/// process mid-run. Run locally without the proxy, the connection bound is gone;
+/// that is acceptable for a loopback harness and is stated rather than implied.
 const MAX_PAD_BYTES: usize = 64 * 1024;
 const MAX_SESSION_LEN: usize = 64;
+const MAX_INBOUND_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
@@ -141,6 +154,7 @@ struct AppState {
     instance: String,
     region: String,
     app: String,
+    capacity: usize,
 }
 
 fn env_or(key: &str, fallback: &str) -> String {
@@ -154,26 +168,40 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let port: u16 = env_or("PORT", "8080").parse().unwrap_or(8080);
+/// The whole spike server as a router, with no socket bound.
+///
+/// `main` serves it on `$PORT`; `burst.rs`'s loopback test serves it on
+/// `127.0.0.1:0` in-process, so the full segment can be proven end to end
+/// without a deploy and without a second process to manage.
+pub fn app(instance: String, region: String, app_name: String, capacity: usize) -> Router {
     let (tx, _) = broadcast::channel::<Arc<str>>(256);
-
     let state = Arc::new(AppState {
         room: Mutex::new(Room::new()),
         tx,
+        instance,
+        region,
+        app: app_name,
+        capacity,
+    });
+    Router::new()
+        .route("/health", get(|| async { "ok" }))
+        .route("/ws", get(ws_handler))
+        .with_state(state)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let port: u16 = env_or("PORT", "8080").parse().unwrap_or(8080);
+
+    let app = app(
         // FLY_MACHINE_ID is what proves all 200 sessions met one process. If a
         // second machine ever answered, the totals would be split across two
         // maps and AC-52 would be counting against a fiction.
-        instance: env_or("FLY_MACHINE_ID", "local"),
-        region: env_or("FLY_REGION", "local"),
-        app: env_or("FLY_APP_NAME", "spike-local"),
-    });
-
-    let app = Router::new()
-        .route("/health", get(|| async { "ok" }))
-        .route("/ws", get(ws_handler))
-        .with_state(state);
+        env_or("FLY_MACHINE_ID", "local"),
+        env_or("FLY_REGION", "local"),
+        env_or("FLY_APP_NAME", "spike-local"),
+        CAPACITY,
+    );
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port)).await?;
     eprintln!("spike-server listening on 0.0.0.0:{port}");
@@ -191,7 +219,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    ws.max_message_size(MAX_INBOUND_BYTES)
+        .max_frame_size(MAX_INBOUND_BYTES)
+        .on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
@@ -206,7 +236,7 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
             "app": state.app,
             "epoch": room.epoch,
             "phase": room.phase.as_str(),
-            "capacity": CAPACITY,
+            "capacity": state.capacity,
         });
         if socket.send(Message::Text(hello.to_string().into())).await.is_err() {
             return;
@@ -267,7 +297,7 @@ async fn handle_frame(
             let mut room = state.room.lock().await;
             // SPEC.md §4.1 / AC-30: capacity is checked before a session is
             // created and reserves nothing.
-            if room.present >= CAPACITY {
+            if room.present >= state.capacity {
                 return Some(json!({"t": "refused", "reason": "full"}));
             }
             room.present += 1;
@@ -278,7 +308,7 @@ async fn handle_frame(
                 "present": room.present,
                 "phase": room.phase.as_str(),
                 "epoch": room.epoch,
-                "capacity": CAPACITY,
+                "capacity": state.capacity,
             }))
         }
 
@@ -309,7 +339,7 @@ async fn handle_frame(
             // Without this an anonymous caller could grow the map without ever
             // joining, and the room's totals would stop meaning anything.
             if !room.answers.contains_key(&session)
-                && (room.answers.len() >= CAPACITY || session.len() > MAX_SESSION_LEN)
+                && (room.answers.len() >= state.capacity || session.len() > MAX_SESSION_LEN)
             {
                 return Some(json!({
                     "t": "ack", "seq": seq, "letter": letter.to_string(),

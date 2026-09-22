@@ -105,7 +105,18 @@ PORT=8099 ./target/release/spike-server &
 | `2` | **the run is invalid; do not quote its numbers** — fewer than 200 clients connected, an ack timed out, a reveal receipt never arrived, more than one Fly machine answered, `ulimit -n` under 1024, or the laptop's own send lag exceeded 25 ms |
 
 Separating 1 from 2 is the point. Without it, a broken harness reads as a failing
-server and a failing server can be excused as a broken harness.
+server and a failing server can be excused as a broken harness. The report says
+the same thing in its own fields: an invalid run carries `"quotable": false` and
+each criterion's `pass` is `null`, not judged. A pass whose confidence interval
+crosses its threshold still exits 0, but the verdict notes call it `MARGINAL` in
+words and drop the clean-pass sentence.
+
+`cargo test --features spike` includes four loopback tests that serve the real
+spike server in-process on `127.0.0.1:0` and drive whole segments through it:
+last-write-wins, frozen totals, post-close refusal, every reveal received, exact
+reconciliation, the join past capacity refused `full`, a deliberately invalid run
+left unjudged, and the report surviving a round trip. They prove the harness. They
+never produce a headline number.
 
 ### Where the numbers come from
 

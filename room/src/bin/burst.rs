@@ -27,6 +27,16 @@
 #[path = "spike_shared.rs"]
 mod shared;
 
+// The spike server, compiled into this bin's *tests* only, so the loopback test
+// can serve the real router on 127.0.0.1:0 in-process and drive a whole segment
+// through it. Nothing ships in the `burst` binary from this. Its own `main` and
+// its unit tests come along too and are harmless here — the tests run once more,
+// which costs milliseconds.
+#[cfg(test)]
+#[path = "spike-server.rs"]
+#[allow(dead_code)]
+mod server;
+
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use shared::{answer_contribution, index_letter, splitmix64};
@@ -254,6 +264,8 @@ struct VerdictInput {
     segment_write_p95: f64,
     reveal_p95: f64,
     ac52_ok: bool,
+    /// Every burst-only cycle reconciled too, not just the segment.
+    burst_reconciled: bool,
     post_close_ok: bool,
     clients_connected: usize,
     clients_expected: usize,
@@ -263,6 +275,12 @@ struct VerdictInput {
     errors: u64,
     missing_reveal_receipts: u64,
     segment_population_ok: bool,
+    /// A pass whose p95 upper confidence bound crosses the threshold. Not a
+    /// miss — the exit code stays 0 — but the verdict has to say so in words,
+    /// or "marginal" is a flag nobody reads.
+    burst_marginal: bool,
+    segment_marginal: bool,
+    reveal_marginal: bool,
 }
 
 fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
@@ -290,7 +308,10 @@ fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         invalid = true;
     }
     if v.errors > 0 {
-        notes.push(format!("RUN INVALID: {} connect/send/ack-timeout errors", v.errors));
+        notes.push(format!(
+            "RUN INVALID: {} harness errors (a connect, send or ack timeout, or a client that never reported a stage)",
+            v.errors
+        ));
         invalid = true;
     }
     if v.missing_reveal_receipts > 0 {
@@ -344,6 +365,13 @@ fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         notes.push("AC-52 MISS: the segment reconciliation did not match".into());
         missed = true;
     }
+    if !v.burst_reconciled {
+        notes.push(
+            "AC-52 MISS: a burst-only cycle's reconciliation did not match — a write acked during the burst was lost or double-counted"
+                .into(),
+        );
+        missed = true;
+    }
     if !v.post_close_ok {
         notes.push(
             "AC-52 MISS: a post-close write was accepted, or the saved answer was not restated (SPEC.md §4.3)"
@@ -352,8 +380,28 @@ fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         missed = true;
     }
 
+    // Marginal is reported on a pass only: on a miss, the miss is the story.
+    let mut marginal = 0;
+    for (flag, passed, text) in [
+        (v.burst_marginal, v.burst_headline_p95 < WRITE_P95_MS, "AC-54"),
+        (v.segment_marginal, v.segment_write_p95 < WRITE_P95_MS, "AC-53"),
+        (v.reveal_marginal, v.reveal_p95 <= REVEAL_P95_MS, "AC-41"),
+    ] {
+        if flag && passed {
+            notes.push(format!(
+                "{text} MARGINAL: the p95 passes, but the upper bound of its 95% confidence interval crosses the threshold — this is not a clean pass"
+            ));
+            marginal += 1;
+        }
+    }
+
     if missed {
         (Exit::Missed, notes)
+    } else if marginal > 0 {
+        notes.push(format!(
+            "all four criteria pass as measured, {marginal} of them marginally — read the notes above before quoting this as a pass"
+        ));
+        (Exit::Pass, notes)
     } else {
         notes.push("all four criteria pass as measured".into());
         (Exit::Pass, notes)
@@ -395,6 +443,8 @@ struct Args {
     window_ms: u64,
     reveals: usize,
     reveal_bytes: usize,
+    /// Pause after the ramp. 3 s on a real run; the loopback test shortens it.
+    settle_ms: u64,
 }
 
 impl Default for Args {
@@ -415,6 +465,7 @@ impl Default for Args {
             window_ms: 2000,
             reveals: 5,
             reveal_bytes: 2048,
+            settle_ms: 3000,
         }
     }
 }
@@ -433,6 +484,7 @@ burst - the T-03 spike's load client
   --window-ms <n>       burst window (default 2000)
   --reveals <n>         reveal broadcasts (default 5)
   --reveal-bytes <n>    reveal payload padding (default 2048)
+  --settle-ms <n>       pause after the ramp (default 3000)
 
 Exit: 0 all criteria pass - 1 a criterion missed - 2 run invalid, do not quote.";
 
@@ -468,6 +520,9 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
             "--reveal-bytes" => {
                 a.reveal_bytes =
                     take(&mut i)?.parse().map_err(|_| "--reveal-bytes wants a number")?
+            }
+            "--settle-ms" => {
+                a.settle_ms = take(&mut i)?.parse().map_err(|_| "--settle-ms wants a number")?
             }
             "--burst-shape" => {
                 a.shapes = match take(&mut i)?.as_str() {
@@ -842,9 +897,18 @@ fn expected_from(finals: &[(usize, u8, u32)]) -> Tally {
     t
 }
 
+/// Waits for every client to report the stage, and counts any that never do as
+/// a harness error.
+///
+/// That count is what keeps the exit codes honest. A client whose stage report
+/// went missing may already have had its write applied server-side, so without
+/// this the run would come back as an AC-52 *miss* — exit 1, blaming the server —
+/// when what actually failed was the harness, which is exit 2. Taking `errors`
+/// by reference means no call site can forget to add the shortfall in.
 async fn collect(
     done_rx: &mut mpsc::Receiver<StageDone>,
     n: usize,
+    errors: &mut u64,
 ) -> Vec<StageDone> {
     let mut v = Vec::with_capacity(n);
     for _ in 0..n {
@@ -853,6 +917,7 @@ async fn collect(
             _ => break,
         }
     }
+    *errors += n.saturating_sub(v.len()) as u64;
     v
 }
 
@@ -922,6 +987,11 @@ async fn main() {
 }
 
 async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), String> {
+    // Fix the clock origin before any instant is taken. `main` does this too,
+    // but `run` is also driven directly by the loopback test, and a lazily
+    // initialised origin would otherwise be set *after* the first reveal's issue
+    // instant — saturating it to zero and inflating every fan-out.
+    LazyLock::force(&EPOCH);
     let started_at = now_unix_ms();
     eprintln!("burst: {} clients against {}", args.clients, args.url);
 
@@ -966,7 +1036,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
     eprintln!("burst: {connected}/{} connected, instances {:?}", args.clients, instances);
 
     // Settle, so the ramp's own scheduling noise is not in the first cycle.
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(args.settle_ms)).await;
 
     let n = connected;
     let mut errors: u64 = 0;
@@ -975,12 +1045,20 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
     // --- Run A: the deadline burst alone (AC-54) ---------------------------
     let mut shape_blocks = Vec::new();
     let mut burst_headline = f64::NAN;
+    // The marginal flag of whichever cycle set the headline. AC-54 is the
+    // criterion this spike exists for; its headline must carry the flag itself
+    // rather than leave it nested three levels down in the cycle that set it.
+    let mut burst_headline_marginal = false;
+    // Every burst cycle is reconciled, and every one has to match. A write that
+    // was acked during the burst and then lost is exactly what AC-52 forbids.
+    let mut burst_cycles_reconciled = true;
     let mut cycle_counter = 0usize;
 
     for shape in args.shapes.clone() {
         let mut cycles_json = Vec::new();
         let mut pooled: Vec<f64> = Vec::new();
         let mut worst = f64::NAN;
+        let mut worst_marginal = false;
 
         for c in 0..args.cycles {
             control(&mut ctl, "reset", json!({})).await?;
@@ -994,7 +1072,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
             });
             cycle_counter += 1;
 
-            let dones = collect(&mut done_rx, n).await;
+            let dones = collect(&mut done_rx, n, &mut errors).await;
             let mut writes = Vec::new();
             let mut lags = Vec::new();
             let mut finals = Vec::new();
@@ -1018,7 +1096,9 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
             pooled.extend(writes);
             if st.n > 0 && (worst.is_nan() || st.p95 > worst) {
                 worst = st.p95;
+                worst_marginal = st.marginal(WRITE_P95_MS, true);
             }
+            burst_cycles_reconciled &= recon.matches();
             cycles_json.push(json!({
                 "cycle": c,
                 "writes": st.to_json(WRITE_P95_MS, true),
@@ -1036,6 +1116,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
 
         if burst_headline.is_nan() || worst > burst_headline {
             burst_headline = worst;
+            burst_headline_marginal = worst_marginal;
         }
         shape_blocks.push(json!({
             "shape": shape.as_str(),
@@ -1052,7 +1133,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
 
     let churn_start = Instant::now() + Duration::from_millis(300);
     let _ = stage_tx.send(Stage::Churn { start: churn_start, secs: args.churn_secs });
-    let churn_dones = collect(&mut done_rx, n).await;
+    let churn_dones = collect(&mut done_rx, n, &mut errors).await;
     let mut churn_writes = Vec::new();
     let mut churn_lags = Vec::new();
     let mut finals: Vec<(usize, u8, u32)> = Vec::new();
@@ -1076,7 +1157,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
         window_ms: args.window_ms,
         start: seg_burst_start,
     });
-    let burst_dones = collect(&mut done_rx, n).await;
+    let burst_dones = collect(&mut done_rx, n, &mut errors).await;
     let mut seg_burst_writes = Vec::new();
     let mut seg_burst_lags = Vec::new();
     for d in &burst_dones {
@@ -1107,7 +1188,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
     // SPEC.md §4.3, then §4.4: refusal restates the saved answer, and the frozen
     // totals do not move afterwards.
     let _ = stage_tx.send(Stage::PostClose);
-    let pc = collect(&mut done_rx, n).await;
+    let pc = collect(&mut done_rx, n, &mut errors).await;
     let refused = pc.iter().filter(|d| d.post_close_refused).count();
     let restated = pc.iter().filter(|d| d.post_close_restated).count();
     for d in &pc {
@@ -1130,7 +1211,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     }
-    let reveal_dones = collect(&mut done_rx, n).await;
+    let reveal_dones = collect(&mut done_rx, n, &mut errors).await;
 
     let mut per_reveal: Vec<Vec<f64>> = vec![Vec::new(); args.reveals];
     let mut receipts: u64 = 0;
@@ -1180,6 +1261,7 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
         segment_write_p95: segment_stats.p95,
         reveal_p95: reveal_pooled.p95,
         ac52_ok: segment_recon.matches(),
+        burst_reconciled: burst_cycles_reconciled,
         post_close_ok,
         clients_connected: connected,
         clients_expected: args.clients,
@@ -1189,8 +1271,19 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
         errors,
         missing_reveal_receipts: missing,
         segment_population_ok,
+        burst_marginal: burst_headline_marginal,
+        segment_marginal: segment_stats.marginal(WRITE_P95_MS, true),
+        reveal_marginal: reveal_pooled.marginal(REVEAL_P95_MS, false),
     };
     let (code, notes) = verdict(&vin);
+
+    // An invalid run's criteria are not judged at all. Printing `pass: true`
+    // beside an exit code of 2 invites exactly the misreading the exit codes
+    // exist to prevent, so each criterion's verdict is null and the report says
+    // at the top level that none of its numbers may be quoted.
+    let quotable = code != Exit::Invalid;
+    let judged = |b: bool| if quotable { Value::Bool(b) } else { Value::Null };
+    let ac52_pass = segment_recon.matches() && burst_cycles_reconciled && post_close_ok;
 
     let report = json!({
         "schema": "rustnyc-popquiz/burst-report/1",
@@ -1217,6 +1310,8 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
             "burst_only": {
                 "shapes": shape_blocks,
                 "headline_p95_ms": r2(burst_headline),
+                "headline_marginal": burst_headline_marginal,
+                "all_cycles_reconciled": burst_cycles_reconciled,
                 "headline_note": "the worst cycle p95 across every shape run. AC-54 calls the burst the highest-risk moment; the gentler shape alone must not decide it.",
             },
             "segment": {
@@ -1250,17 +1345,32 @@ async fn run(args: Arc<Args>, invocation: String) -> Result<(Value, Exit), Strin
             "errors": errors,
             "missing_reveal_receipts": missing,
         },
+        "quotable": quotable,
         "criteria": [
             {"id": "AC-54", "measure": "runs.burst_only.headline_p95_ms", "value": r2(burst_headline),
-             "threshold_ms": WRITE_P95_MS, "comparison": "<", "pass": burst_headline < WRITE_P95_MS},
+             "threshold_ms": WRITE_P95_MS, "comparison": "<",
+             "pass": judged(burst_headline < WRITE_P95_MS),
+             "marginal": burst_headline_marginal},
             {"id": "AC-53", "measure": "runs.segment.writes.p95_ms", "value": r2(segment_stats.p95),
-             "threshold_ms": WRITE_P95_MS, "comparison": "<", "pass": segment_stats.p95 < WRITE_P95_MS,
+             "threshold_ms": WRITE_P95_MS, "comparison": "<",
+             "pass": judged(segment_stats.p95 < WRITE_P95_MS),
              "marginal": segment_stats.marginal(WRITE_P95_MS, true)},
             {"id": "AC-41", "measure": "runs.segment.reveal_pooled.p95_ms", "value": r2(reveal_pooled.p95),
-             "threshold_ms": REVEAL_P95_MS, "comparison": "<=", "pass": reveal_pooled.p95 <= REVEAL_P95_MS,
+             "threshold_ms": REVEAL_P95_MS, "comparison": "<=",
+             "pass": judged(reveal_pooled.p95 <= REVEAL_P95_MS),
              "marginal": reveal_pooled.marginal(REVEAL_P95_MS, false)},
-            {"id": "AC-52", "measure": "runs.segment.reconcile.match", "value": segment_recon.matches(),
-             "threshold_ms": Value::Null, "comparison": "exact", "pass": segment_recon.matches() && post_close_ok},
+            // AC-52 is three things, all of which must hold: the segment's
+            // reconciliation, every burst cycle's, and the post-close refusal
+            // (SPEC.md §4.3). Naming one field here while judging on three would
+            // let a reader recompute a pass that the run did not earn.
+            {"id": "AC-52",
+             "measure": ["runs.segment.reconcile.match",
+                         "runs.burst_only.all_cycles_reconciled",
+                         "runs.segment.post_close.{all_refused,saved_answer_restated,totals_unchanged}"],
+             "value": ac52_pass,
+             "threshold_ms": Value::Null, "comparison": "exact",
+             "pass": judged(ac52_pass),
+             "marginal": false},
         ],
         "verdict": {
             "pass": code == Exit::Pass,
@@ -1293,6 +1403,10 @@ mod tests {
             errors: 0,
             missing_reveal_receipts: 0,
             segment_population_ok: true,
+            burst_reconciled: true,
+            burst_marginal: false,
+            segment_marginal: false,
+            reveal_marginal: false,
         }
     }
 
@@ -1479,5 +1593,198 @@ mod tests {
         let w = parse_args(&["--warmup".into()]).unwrap();
         assert_eq!(w.cycles, 1);
         assert_eq!(w.shapes, vec![Shape::Uniform]);
+    }
+
+    #[test]
+    fn a_marginal_pass_is_said_in_words_and_never_as_a_clean_pass() {
+        let (code, notes) = verdict(&VerdictInput { burst_marginal: true, ..passing() });
+        // Marginal is not a miss: the exit code stays 0.
+        assert_eq!(code, Exit::Pass);
+        assert!(notes.iter().any(|n| n.starts_with("AC-54 MARGINAL")), "{notes:?}");
+        assert!(
+            !notes.iter().any(|n| n == "all four criteria pass as measured"),
+            "a marginal run must not carry the clean-pass sentence: {notes:?}"
+        );
+
+        // On a miss the miss is the story; marginal is not reported beside it.
+        let (code, notes) = verdict(&VerdictInput {
+            burst_marginal: true,
+            burst_headline_p95: 600.0,
+            ..passing()
+        });
+        assert_eq!(code, Exit::Missed);
+        assert!(!notes.iter().any(|n| n.contains("MARGINAL")), "{notes:?}");
+    }
+
+    #[test]
+    fn a_lost_write_in_any_burst_cycle_is_an_ac52_miss() {
+        let (code, notes) = verdict(&VerdictInput { burst_reconciled: false, ..passing() });
+        assert_eq!(code, Exit::Missed);
+        assert!(notes.iter().any(|n| n.contains("burst-only cycle")), "{notes:?}");
+    }
+
+    // --- Loopback: the real server, in-process, on 127.0.0.1:0 ----------------
+    //
+    // These prove the harness and the server's semantics end to end. They never
+    // produce a headline number: loopback has no network, and EVALUATION.md's
+    // AC-53 row requires the deployed substrate for that.
+
+    async fn serve_loopback(capacity: usize) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let app = server::app("loopback".into(), "local".into(), "spike-test".into(), capacity);
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        format!("http://{addr}")
+    }
+
+    fn small_run(url: String, clients: usize) -> Arc<Args> {
+        Arc::new(Args {
+            url,
+            clients,
+            seed: 7,
+            cycles: 1,
+            churn_secs: 1,
+            window_ms: 300,
+            reveals: 2,
+            settle_ms: 100,
+            ..Args::default()
+        })
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn loopback_segment_end_to_end() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let clients = 12;
+        let url = serve_loopback(clients).await;
+        let (report, code) = run(small_run(url, clients), "test".into()).await.unwrap();
+        let seg = &report["runs"]["segment"];
+
+        assert_eq!(code, Exit::Pass, "verdict: {}", report["verdict"]);
+        assert_eq!(report["quotable"], true);
+
+        // Every client connected, and all of them met one server.
+        assert_eq!(report["client"]["clients_connected"], clients);
+        assert_eq!(report["server"]["instances_seen"], json!(["loopback"]));
+
+        // AC-52: last write wins across churn and burst, the frozen totals
+        // reconcile exactly — per letter, count, seq sum and fingerprint — and so
+        // does every burst-only cycle.
+        assert_eq!(seg["reconcile"]["match"], true, "{}", seg["reconcile"]);
+        assert_eq!(seg["reconcile"]["answered"], clients);
+        assert_eq!(report["runs"]["burst_only"]["all_cycles_reconciled"], true);
+
+        // SPEC.md §4.3 and §4.4: every post-close write is refused with the
+        // saved answer restated, and the frozen totals do not move.
+        assert_eq!(seg["post_close"]["all_refused"], true);
+        assert_eq!(seg["post_close"]["saved_answer_restated"], true);
+        assert_eq!(seg["post_close"]["totals_unchanged"], true);
+
+        // AC-53's population is churn plus burst, and refusals are not in it.
+        let churn: usize = (0..clients).map(|i| 1 + (i % 3)).sum();
+        assert_eq!(seg["writes"]["n"], churn + clients);
+        assert_eq!(seg["writes_population"]["ok"], true);
+
+        // AC-41: every reveal reached every client.
+        assert_eq!(report["diagnostics"]["missing_reveal_receipts"], 0);
+        assert_eq!(seg["reveal_pooled"]["n"], clients * 2);
+
+        // Both burst shapes ran, and the headline is the worse of the two.
+        let shapes = report["runs"]["burst_only"]["shapes"].as_array().unwrap();
+        assert_eq!(shapes.len(), 2);
+        let worst = shapes
+            .iter()
+            .map(|s| s["worst_cycle_p95_ms"].as_f64().unwrap())
+            .fold(f64::MIN, f64::max);
+        assert_eq!(report["runs"]["burst_only"]["headline_p95_ms"].as_f64().unwrap(), worst);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn the_join_past_capacity_is_refused_full() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let capacity = 12;
+        let url = serve_loopback(capacity).await;
+
+        // Hold `capacity` joined sessions open, then try one more.
+        let mut held = Vec::new();
+        for i in 0..=capacity {
+            let mut ws = connect(&url).await.unwrap();
+            let _ = ws.next().await; // hello
+            let join = json!({"t": "join", "session": session_id(i)}).to_string();
+            ws.send(Message::Text(join.into())).await.unwrap();
+            let Some(Ok(Message::Text(t))) = ws.next().await else { panic!("no reply to join {i}") };
+            let v: Value = serde_json::from_str(&t).unwrap();
+            if i < capacity {
+                assert_eq!(v["t"], "joined", "join {i} of {capacity}: {v}");
+            } else {
+                // SPEC.md §4.1 / AC-30: refused, not queued, and nothing reserved.
+                assert_eq!(v["t"], "refused", "join past capacity: {v}");
+                assert_eq!(v["reason"], "full");
+            }
+            held.push(ws);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn report_round_trips_and_carries_schema_v1() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let clients = 12;
+        let url = serve_loopback(clients).await;
+        let (report, _) = run(small_run(url, clients), "test".into()).await.unwrap();
+
+        // What HC-0 will read back: serialised and parsed again, nothing lost.
+        let text = serde_json::to_string_pretty(&report).unwrap();
+        let back: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(back, report);
+        assert_eq!(back["schema"], "rustnyc-popquiz/burst-report/1");
+        assert_eq!(back["ticket"], "T-03");
+
+        // Four criteria, in a fixed order, each judged, each carrying `marginal`.
+        let criteria = back["criteria"].as_array().unwrap();
+        let ids: Vec<&str> = criteria.iter().map(|c| c["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["AC-54", "AC-53", "AC-41", "AC-52"]);
+        for c in criteria {
+            assert!(c.get("marginal").is_some(), "{} has no marginal field", c["id"]);
+            assert!(c["pass"].is_boolean(), "{} is not judged on a valid run", c["id"]);
+        }
+
+        // The three latency criteria name a field, and that field holds the value
+        // they report — so a reader can find every headline where it says it is.
+        for c in &criteria[..3] {
+            let mut node = &back;
+            for key in c["measure"].as_str().unwrap().split('.') {
+                node = &node[key];
+            }
+            assert_eq!(node, &c["value"], "{} measure does not resolve to its value", c["id"]);
+        }
+
+        // Raw samples ship, one per measured write, so a percentile can be
+        // recomputed without trusting this code.
+        let seg = &back["runs"]["segment"]["writes"];
+        assert_eq!(seg["samples_ms"].as_array().unwrap().len(), seg["n"].as_u64().unwrap() as usize);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn an_invalid_run_leaves_its_criteria_unjudged() {
+        // A genuinely invalid run, through the real code path: 13 clients asked
+        // for against a room that holds 12, so one join is refused and the run
+        // is not the run that was requested. This is run 1's failure, on purpose.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let url = serve_loopback(12).await;
+        let (report, code) = run(small_run(url, 13), "test".into()).await.unwrap();
+
+        assert_eq!(code, Exit::Invalid, "verdict: {}", report["verdict"]);
+        assert_eq!(report["client"]["clients_connected"], 12);
+        assert_eq!(report["quotable"], false);
+
+        // Its numbers exist and may well be good, but none is judged. A report
+        // that printed `pass: true` beside exit 2 would invite exactly the
+        // misreading the exit codes are there to stop.
+        for c in report["criteria"].as_array().unwrap() {
+            assert!(c["pass"].is_null(), "{} was judged on an invalid run: {c}", c["id"]);
+        }
+        let notes = report["verdict"]["notes"].as_array().unwrap();
+        assert!(notes.iter().any(|n| n.as_str().unwrap().contains("12 of 13")), "{notes:?}");
     }
 }

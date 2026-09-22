@@ -10,6 +10,30 @@ verdict, its own raw `samples_ms`, and the exact invocation, so any figure below
 can be recomputed from the file rather than taken from this page. The table was
 generated from these files, not typed.
 
+**Which code produced them.** All four came from the code at commit `c5e020f`.
+Code review then changed the report's *summary* fields — not its timing path and
+not a single sample — and these files predate that change, so they differ from
+what `burst` writes today in three ways:
+
+- **No `marginal` on the AC-54 criterion entry.** Recomputed from each file's own
+  `samples_ms`, the AC-54 headline was **not marginal in any run**: the upper
+  bound of its confidence interval is 67.85, 78.72, 94.76 and 81.07 ms in runs
+  1–4, against a 500 ms threshold. That agrees with the per-cycle flags the files
+  do carry.
+- **No top-level `quotable`, and an invalid run's criteria still read
+  `pass: true`.** In `2026-09-22.json` those four `true`s are *not* a pass.
+  `verdict.exit_code` is `2`, and the verdict is the authority. Today's `burst`
+  writes `pass: null` and `quotable: false` for an invalid run, so this cannot be
+  misread again.
+- **AC-52's `measure` names only the segment reconciliation.** Its `pass`
+  already required the post-close probe as well. Today's names every input,
+  including the burst-cycle reconciles, which now feed the verdict too. In these
+  four files every burst cycle reconciled.
+
+Re-running with today's binary would change none of the numbers in the table
+below, only how the report describes them. The harness's measurement path is the
+same code.
+
 | File | Exit | Clients | Machines | AC-54 burst p95 (uniform / spike) | AC-53 write p95 [95% CI] | AC-41 reveal p95 [95% CI] | AC-52 | send-lag p95 |
 |---|---|---|---|---|---|---|---|---|
 | `2026-09-22.json` **INVALID** | 2 | 199/200 | 1 | 67.11 (66.75 / 67.11) | 57.38 [50.85, 64.01] | 176.36 [176.17, 176.88] | exact | 2.49 |
