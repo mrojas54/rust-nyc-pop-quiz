@@ -1,10 +1,13 @@
-# The ARGs below deliberately have no defaults, which BuildKit's linter flags as
+# check=skip=InvalidDefaultArgInFrom
+#
+# That first line is a BuildKit parser directive and only counts as one on line 1,
+# which is why it sits above this comment rather than below it. The ARGs further
+# down deliberately have no defaults, which the linter flags as
 # InvalidDefaultArgInFrom because `rust:${RUST_VERSION}-slim-bookworm` is not a
 # valid image name until the argument is supplied. That is the intended behaviour —
 # a build that does not pass the pin must fail — so the check is skipped rather
 # than left to print a warning on every build. A warning nobody can act on is how a
 # build gets trained to ignore warnings.
-# check=skip=InvalidDefaultArgInFrom
 
 # The verification sandbox (T-15a, AC-12).
 #
