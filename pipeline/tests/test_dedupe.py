@@ -290,7 +290,7 @@ def test_keywords_and_the_wildcard_are_never_renamed(bank: dict[str, Question]) 
     """q7's closure is `|&(_, k)| k`: `_` is the wildcard and stays, `k` is renamed."""
     tokens = normalized_tokens(bank["q7"].source)
     closure = tokens[tokens.index("sort_by_key") + 2 :][:8]
-    assert closure == ["|", "&", "(", "_", ",", "$3", ")", "|"]
+    assert closure == ["|", "&", "(", "_", ",", "$2", ")", "|"]
     assert "k" not in tokens
     assert {"fn", "let", "mut"} <= set(tokens)
 
@@ -413,6 +413,26 @@ def test_a_different_program_is_never_a_normalized_duplicate(
 # same; each of these would be a false rejection, with nobody in the loop, of a
 # question whose answer may well be "does not compile".
 NEVER_THE_SAME = [
+    (
+        "a block-local declaration does not bind a call outside its scope",
+        "fn main() { let x = 1; { let drop = 2; } drop(x); }",
+        "fn main() { let x = 1; { let nope = 2; } nope(x); }",
+    ),
+    (
+        "a binding does not shadow a name in its own initializer",
+        "fn main() { let drop = drop(1); }",
+        "fn main() { let nope = nope(1); }",
+    ),
+    (
+        "derived Debug observes type and field names",
+        '#[derive(Debug)] struct A { x: i32 } fn main() { println!("{:?}", A { x: 1 }); }',
+        '#[derive(Debug)] struct B { y: i32 } fn main() { println!("{:?}", B { y: 1 }); }',
+    ),
+    (
+        "doc comments cannot document function parameters",
+        "fn f(x: u8) {} fn main() {}",
+        "fn f(\n/// bad\nx: u8) {} fn main() {}",
+    ),
     ("the binary entry point is not an arbitrary function", "fn main() {}", "fn other() {}"),
     ("an empty call cannot contain a comma", "fn f() {} fn main() { f(); }", "fn f() {} fn main() { f(,); }"),
     ("an empty array cannot contain a comma", "fn main() { let _: [u8; 0] = []; }", "fn main() { let _: [u8; 0] = [,]; }"),
