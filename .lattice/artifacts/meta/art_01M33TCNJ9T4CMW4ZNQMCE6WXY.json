@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-22T05:46:02Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M33TCNJ9T4CMW4ZNQMCE6WXY",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M33TCNJ9T4CMW4ZNQMCE6WXY.md",
+    "size_bytes": 433
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #13 merged to main at d88fab4 with a merge commit on the client's word, after both CI jobs passed on the exact head 45cd8d0. DONE verified against gh pr view and git ls-remote. Eight deviations rec",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 3,
+  "comment_count": 4,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZRJNZBV67B40NX3N3F4C",
-  "last_event_id": "ev_01M33MG66HM7TY3MVC8HH05AG1",
+  "last_event_id": "ev_01M33TCT8W8DDRZA70MPG13AA8",
   "last_status_changed_at": "2026-09-22T03:56:33Z",
   "priority": "medium",
   "relationships_out": [
@@ -40,6 +40,6 @@
   ],
   "title": "Verifier with Miri and the pin",
   "type": "task",
-  "updated_at": "2026-09-22T04:03:06Z",
+  "updated_at": "2026-09-22T05:46:07Z",
   "urgency": null
 }

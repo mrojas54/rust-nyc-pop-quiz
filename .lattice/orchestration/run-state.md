@@ -156,8 +156,7 @@ delegator tabs are left open and idle; nothing runs.
 PQ-3 (PR #11 @ `ea858ec`), PQ-19 (PR #12 @ `ff99bd2`); both on `0742d35`, both merge
 into `main` without conflict; their tabs are closed. Idle delegators, each with its
 state on its ticket:
-- PQ-24 bank audit, tab 34, `in_progress`: branch `ai-c11-cc/bank-audit` pushed, holding
-  the `gh pr create --base main` prompt. Yes there opens the PR; then it posts DONE.
+- PQ-24 bank audit: **done** since 01:45 (PR #13 merged at `d88fab4`); tab 34 closed.
 - PQ-22 dedupe, tab 35, `in_progress`, PAUSED comment on the ticket: HEAD `f6a8971`, 3
   signed commits unpushed, review-round-1 fix written and uncommitted, 226 tests green.
   Resume steps in that comment; my ruling clears `test_migration.py:90` to it.
@@ -166,8 +165,7 @@ state on its ticket:
 Held: PQ-11 (T-09), PQ-13 (T-10), PQ-21 (T-16). Amendments routed upstream: F-2, F-8,
 F-15, F-16, F-17, F-18 (see `sequence/run-state.md`).
 
-**Waiting on the client:** (1) Yes in tab 34 (PQ-24's PR) and tab 39 (PQ-20's Docker
-check). (2) The D-A go/no-go on PQ-3's numbers (AC-54 92 ms, AC-53 63 ms, AC-41 117 ms,
+**Waiting on the client:** (1) Yes in tab 39 (PQ-20's Docker check). (2) The D-A go/no-go on PQ-3's numbers (AC-54 92 ms, AC-53 63 ms, AC-41 117 ms,
 all far under the limits): PQ-4 (T-04a, phase machine) and with it all of M1 dispatch on
 that word. (3) "merge 11", "merge 12" when ready (merge commit, CI re-checked on the
 exact head, then `lattice complete`, receipt, and the in-flight delegators told to merge
@@ -203,3 +201,4 @@ prompt on the guard line (footgun below) and answer it with `send-key enter`.
 - 2026-09-22 00:17 [autonomy: Moderate] Ruling on PQ-22's FINDING: `pipeline/tests/test_migration.py:90` asserts `bank/history.json` equals the migrator's empty shape, which AC-17 contradicts once dedupe grows the file. T-14 is closed, so that one assertion is cleared to PQ-22 to narrow to the shape. Recorded as a deviation for the validator; no contract amendment needed (SPEC §3.3 already says history grows).
 - 2026-09-22 00:17 [autonomy: Moderate] Loop cadence lengthened to 30 min while the client's pause holds; a tick still banners the two prompts and verifies any DONE that lands.
 - 2026-09-22 01:2x [client: "save run state. 75% of usage is gone for the week"] Dispatch loop stopped; run-state, agents.md and receipts committed on `ai-c11-cc/lattice-build`. Two quiet ticks (00:49, 01:20) preceded this: no board, PR or tab change since 00:17. Delegator tabs 34, 35, 39 left open and idle. Not pushed.
+- 2026-09-22 01:45 [client: "merge pr 13"] The client answered tab 34 after the pause; PQ-24 opened PR #13 (`ai-c11-cc/bank-audit` @ `45cd8d0` on `238146e`) and posted DONE with eight deviations. Verified head == remote, both CI jobs SUCCESS on the exact head, MERGEABLE/CLEAN. Merged with a merge commit at `d88fab4`. PQ-24 completed; receipts appended; surface:34 closed; PQ-20 told to merge `origin/main`, PQ-22 told to rebase on resume (its branch was never pushed). Local `main` ref updated by fetch. Loop stays stopped; the client's pause holds.
