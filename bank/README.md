@@ -216,8 +216,8 @@ program means the same without it. It renames **only the names the program
 declares** (bindings, parameters, functions, types, fields, variants, generics,
 lifetimes) to numbered placeholders in order of first use. Every name the program
 uses but did not declare is kept, whether it comes from `std`, the prelude or a
-macro. So two programs that call different library functions are never judged
-the same program.
+macro. The global spelling map is still incomplete as a model of Rust name
+resolution; the round-two blocker below is a concrete counterexample.
 
 The rule behind every step is that **no normalization may make two different
 programs equal**, including a program that compiles and one that does not.

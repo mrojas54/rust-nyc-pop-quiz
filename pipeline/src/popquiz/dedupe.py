@@ -27,29 +27,34 @@ a small hand-written lexer and normalizes the token stream instead:
   `a = = b`;
 * the optional commas `rustfmt` adds and removes are dropped, and only where the
   program means the same without them (`_dropped_comma` lists the places);
-* every name **the program itself declares** - `let` and pattern bindings,
+* names **the program itself declares** - `let` and pattern bindings,
   parameters, closure parameters, functions, types, fields, variants, generics,
   lifetimes, `macro_rules!` names - is renamed to a numbered placeholder in the
-  order it first appears, including inline format arguments like `{v:?}`;
+  order it first appears, including inline format arguments like `{v:?}`. The
+  entry point, scope-sensitive let names, and names in sources with derives stay;
 * every other name is kept exactly: keywords, every standard-library type,
-  function, method and macro the program uses without declaring, and any member
-  the program declares under a name the library also uses for one (`fn len`).
+  function, method and macro the program uses without declaring, and declared
+  members on the library keep-list (`fn len`). That list is incomplete.
 
 The rule behind all of it: **no normalization may make two different programs
 equal.** A normalized duplicate is *rejected*, with no person in the loop, and in
 this quiz a program that does not compile is as good a question as one that does
 - so a rule that equated `P { a: Q {}, b: 2 }` with the same line missing its
-comma would throw away a question. Two programs that call different library
-functions can never come out equal here, because a name the program did not
-declare is never renamed. A doc comment that documents nothing, which is a compile
-error, is kept as a marker.
+comma would throw away a question. Documentation comments outside recognized
+item positions are kept as markers, including comments before parameters.
+
+**Round-two review remains blocked on scope resolution.** A parameter named
+`drop` in one function still causes an unrelated `drop(1)` call in another to
+normalize equal to an unresolved `nope(1)` call when that parameter is renamed.
+The let guard does not resolve parameter, closure, or pattern scopes. The rule
+above is a requirement, not a property this approximation has established.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
 rewritten into an equivalent one (`x + x` for `2 * x`), a struct built with field
 shorthand in one program and `field: binding` in the other, a trailing comma in
-a tuple, a declared member renamed to or from a library name, and anything a
-`macro_rules!` body does. Each of those is two token streams, so the check says
+a tuple, a declared member renamed to or from a library name, names preserved
+for ambiguous let scopes or derives, and anything a `macro_rules!` body does. Each of those is two token streams, so the check says
 "not a normalized duplicate" and the near-duplicate check - which sees them as very
 similar - sends the pair to an organizer. A miss costs a person a look; a false
 match would cost a question silently. The approximation is built to fail in the
@@ -1335,11 +1340,10 @@ def _kept_doc_comments(
 ) -> dict[int, list[str]]:
     """The doc comments that change what the program is, by the token they precede.
 
-    A doc comment is layout when it documents something, and those are dropped. It
-    is not when it documents nothing - an outer one before a closing `}` or at the
-    end of the file is a compile error (E0585) - or when it is an inner one (`//!`),
-    which is only valid at the top of a module. Those stay, as a marker, so a
-    program that has one is not the program without it.
+    Only outer docs immediately before recognized item keywords are dropped.
+    All other positions retain a marker: dangling docs, docs on parameters and
+    inner docs can affect compilation. This is conservative about unfamiliar
+    item syntax; it is not a Rust attribute parser.
     """
     kept: dict[int, list[str]] = {}
     for position, kind in docs:
