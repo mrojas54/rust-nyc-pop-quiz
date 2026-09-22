@@ -210,17 +210,31 @@ T-14's test.
 
 **The normalized check works on tokens, not a syntax tree, and that is a
 deviation from `SPEC.md` §7.3.** The contract says "normalized AST". Python's
-standard library has no Rust parser, so dedupe lexes the program itself, drops
-comments, layout and the commas `rustfmt` moves, and renames **only the names the
-program declares** (bindings, parameters, functions, types, fields, variants,
-generics, lifetimes) to numbered placeholders in order of first use. Every name
-the program uses but did not declare is kept, whether it comes from `std`, the
-prelude or a macro. So two programs that call different library functions are
-never judged the same program. A false match would reject a question with no
-person in the loop. A miss only sends the pair to the near-duplicate check, which
-is where the approximation's gaps land: reordered statements, swapped
-operands, an expression rewritten into an equivalent one, and field shorthand
-against `field: binding`.
+standard library has no Rust parser, so dedupe lexes the program itself. It drops
+comments and layout, and drops a comma only where `rustfmt` moves it and the
+program means the same without it. It renames **only the names the program
+declares** (bindings, parameters, functions, types, fields, variants, generics,
+lifetimes) to numbered placeholders in order of first use. Every name the program
+uses but did not declare is kept, whether it comes from `std`, the prelude or a
+macro. So two programs that call different library functions are never judged
+the same program.
+
+The rule behind every step is that **no normalization may make two different
+programs equal**, including a program that compiles and one that does not.
+*Does not compile* is an answer in this quiz, and a false match rejects a question
+with no person in the loop. That is why `a = = b` stays apart from `a == b`, and
+why `P { a: Q { n: 1 }, b: 2 }` stays apart from the same line missing its comma.
+A dangling `///` stays apart from no comment at all. A struct's own `fn len` is
+never renamed, because the program may also call the library's `len`. That last
+guard covers the library names a quiz program is likely to use. A rarer method
+name that a program both declares and calls on a library type can still be
+renamed in both places, and that is a known gap.
+
+A miss only sends the pair to the near-duplicate check, which is where the
+approximation's gaps land: reordered statements, swapped operands, an expression
+rewritten into an equivalent one, field shorthand against `field: binding`, a
+trailing comma in a tuple, and a declared member renamed to or from a library
+name.
 
 **The threshold is 0.6 and it is uncalibrated** (D-13). It can be set per run with
 `--threshold`. The first measurements, taken by this code on the four migrated

@@ -126,18 +126,18 @@ def cli(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
 # type annotation. Its renamed and reformatted twins below are the AC-15 fixtures.
 RICH = """\
 struct Counter {
-    count: u32,
+    ticks: u32,
 }
 
 impl Counter {
     fn bump(&mut self, by: u32) -> u32 {
-        self.count += by;
-        self.count
+        self.ticks += by;
+        self.ticks
     }
 }
 
 fn main() {
-    let mut c = Counter { count: 0 };
+    let mut c = Counter { ticks: 0 };
     let steps = [1, 2, 3];
     for (i, s) in steps.iter().enumerate() {
         let total = c.bump(*s);
@@ -161,7 +161,7 @@ struct Tally {
 }
 
 impl Tally {
-    fn add(&mut self, amount: u32) -> u32 {
+    fn advance(&mut self, amount: u32) -> u32 {
         self.value += amount;
         self.value
     }
@@ -171,7 +171,7 @@ fn main() {
     let mut t = Tally { value: 0 };
     let deltas = [1, 2, 3];
     for (k, d) in deltas.iter().enumerate() {
-        let sum = t.add(*d);
+        let sum = t.advance(*d);
         match sum {
             m if m > 3 => {
                 println!("{} big {}", k, m);
@@ -188,17 +188,17 @@ fn main() {
 # rustfmt adds to vertical lists, and the comma after a block arm it removes.
 RICH_REFORMATTED = """\
 // A counter that says when it gets big.
-struct Counter { count: u32 }
+struct Counter { ticks: u32 }
 
 impl Counter {
-    /// Adds `by` and returns the new count.
-    fn bump( &mut self , by : u32 ) -> u32 { self.count += by; self.count }
+    /// Adds `by` and returns the new total.
+    fn bump( &mut self , by : u32 ) -> u32 { self.ticks += by; self.ticks }
 }
 
 fn main()
 {
     let mut c = Counter {
-        count: 0,
+        ticks: 0,
     };
     let steps = [
         1,
@@ -348,8 +348,8 @@ def rich_history() -> History:
         (
             "renamed and reformatted",
             RICH_REFORMATTED.replace("Counter", "Tally")
-            .replace("count", "value")
-            .replace("bump", "add")
+            .replace("ticks", "value")
+            .replace("bump", "advance")
             .replace("steps", "deltas")
             .replace("total", "sum")
             .replace("doubled", "twice"),
@@ -406,6 +406,78 @@ def test_a_different_program_is_never_a_normalized_duplicate(
 ) -> None:
     verdict = check(label, edit(bank["q3"].source, before, after), history)
     assert verdict.admitted, f"{label}: {verdict}"
+
+
+# Pairs where one program compiles and the other does not, or where the two mean
+# different things. Every normalization rule is a claim that two programs are the
+# same; each of these would be a false rejection, with nobody in the loop, of a
+# question whose answer may well be "does not compile".
+NEVER_THE_SAME = [
+    (
+        "a block-valued field needs its comma",
+        'fn main() { let p = P { a: Q { n: 1 }, b: 2 }; println!("{}", p.b); }',
+        'fn main() { let p = P { a: Q { n: 1 } b: 2 }; println!("{}", p.b); }',
+    ),
+    (
+        "a match-valued field needs its comma",
+        "fn main() {\n    let p = P {\n        a: match 1 { _ => 2 },\n        b: 3,\n    };\n}\n",
+        "fn main() {\n    let p = P {\n        a: match 1 { _ => 2 }\n        b: 3,\n    };\n}\n",
+    ),
+    ("a comma ending a block", "fn main() { f(), }", "fn main() { f() }"),
+    ("a comma in an index", "fn main() { let v = vec![1]; let x = v[0,]; }", "fn main() { let v = vec![1]; let x = v[0]; }"),
+    ("a comma in a repeat", "fn main() { let a = [0; 3,]; }", "fn main() { let a = [0; 3]; }"),
+    ("a comma after struct update", "fn main() { let s = S { a: 1, ..b, }; }", "fn main() { let s = S { a: 1, ..b }; }"),
+    ("a tuple of a closure", "fn main() { let t = (|a, b| a + b,); }", "fn main() { let t = (|a, b| a + b); }"),
+    ("a tuple of a generic call", "fn main() { let t = (f::<u8, u8>(),); }", "fn main() { let t = (f::<u8, u8>()); }"),
+    ("== is not = =", "fn main() { let a = 1 == 1; }", "fn main() { let a = 1 = = 1; }"),
+    ("-> is not - >", "fn f() -> u8 { 1 }", "fn f() - > u8 { 1 }"),
+    ("a doc comment that documents nothing", "fn main() {\n    let x = 1;\n    /// dangling\n}\n", "fn main() {\n    let x = 1;\n}\n"),
+    ("an inner doc comment", "fn main() {\n    //! inner\n    let x = 1;\n}\n", "fn main() {\n    let x = 1;\n}\n"),
+    (
+        "a trailing comma a macro of the program's own may refuse",
+        "macro_rules! m { ($a:expr, $b:expr) => { $a + $b }; }\nfn main() { m!(1, 2,); }",
+        "macro_rules! m { ($a:expr, $b:expr) => { $a + $b }; }\nfn main() { m!(1, 2); }",
+    ),
+    (
+        "a method named like the library's, renamed along with the library's call",
+        "struct S { items: Vec<u8> }\nimpl S { fn len(&self) -> usize { self.items.len() } }",
+        "struct S { items: Vec<u8> }\nimpl S { fn size(&self) -> usize { self.items.size() } }",
+    ),
+]
+
+
+@pytest.mark.parametrize("label, a, b", NEVER_THE_SAME, ids=[case[0] for case in NEVER_THE_SAME])
+def test_normalization_never_equates_two_different_programs(label: str, a: str, b: str) -> None:
+    assert normalized_tokens(a) != normalized_tokens(b), label
+    assert check(label, b, record(History(), "a", a)).kind != "normalized_duplicate"
+
+
+# And the optional commas that are dropped, because rustfmt moves them and the
+# program means the same either way.
+THE_SAME = [
+    ("an array", "fn main() { let a = [1, 2,]; }", "fn main() { let a = [1, 2]; }"),
+    ("a one-element array", "fn main() { let a = [1,]; }", "fn main() { let a = [1]; }"),
+    ("a call", "fn main() { f(1, 2,); }", "fn main() { f(1, 2); }"),
+    ("a formatting macro", 'fn main() { println!("{}", 1,); }', 'fn main() { println!("{}", 1); }'),
+    ("a struct literal", "fn main() { let s = S { a: 1, }; }", "fn main() { let s = S { a: 1 }; }"),
+    ("a struct definition", "struct S { a: u32, }", "struct S { a: u32 }"),
+    ("an enum definition", "enum E { A, B, }", "enum E { A, B }"),
+    ("a match", "fn main() { match 1 { _ => 2, } }", "fn main() { match 1 { _ => 2 } }"),
+    ("a block arm", "fn main() { match 1 { 1 => { f() }, _ => {} } }", "fn main() { match 1 { 1 => { f() } _ => {} } }"),
+    ("a documented item", "/// Adds.\nfn add() {}", "fn add() {}"),
+]
+
+
+@pytest.mark.parametrize("label, a, b", THE_SAME, ids=[case[0] for case in THE_SAME])
+def test_optional_commas_and_documenting_comments_are_layout(label: str, a: str, b: str) -> None:
+    assert normalized_tokens(a) == normalized_tokens(b), label
+
+
+def test_a_leading_pipe_is_an_or_pattern_not_a_closure() -> None:
+    """`| a | b =>` would otherwise read as a closure whose parameter is `a`."""
+    s = dedupe._Stream(tokenize("fn main() { match x { | A | B => 1, _ => 2 } }"))
+    pipe = next(k for k, t in enumerate(s.tokens) if t.text == "|")
+    assert not dedupe._closure_opens(s, pipe)
 
 
 def test_swapped_operands_are_different_programs(bank: dict[str, Question], history: History) -> None:

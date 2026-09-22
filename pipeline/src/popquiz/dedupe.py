@@ -22,26 +22,33 @@ AST (alpha-renamed bindings, formatted)". The standard library has no Rust parse
 and `pyproject.toml` is not this ticket's to change, so this module lexes Rust with
 a small hand-written lexer and normalizes the token stream instead:
 
-* comments and whitespace are dropped, and punctuation is kept one character at a
-  time, so spacing and line breaks never matter;
-* the two commas `rustfmt` adds and removes are dropped - a trailing comma before a
-  closing bracket, and the comma after a block match arm;
+* comments, whitespace and line breaks are dropped, and adjacent punctuation is
+  glued back into Rust's compound operators, so `a == b` stays apart from
+  `a = = b`;
+* the optional commas `rustfmt` adds and removes are dropped, and only where the
+  program means the same without them (`_dropped_comma` lists the places);
 * every name **the program itself declares** - `let` and pattern bindings,
   parameters, closure parameters, functions, types, fields, variants, generics,
   lifetimes, `macro_rules!` names - is renamed to a numbered placeholder in the
   order it first appears, including inline format arguments like `{v:?}`;
-* every other name is kept exactly: keywords, and every standard-library type,
-  function, method and macro the program uses without declaring.
+* every other name is kept exactly: keywords, every standard-library type,
+  function, method and macro the program uses without declaring, and any member
+  the program declares under a name the library also uses for one (`fn len`).
 
-That last rule is the one to keep. A normalized duplicate is *rejected*, with no
-person in the loop, so the failure to avoid is two different programs coming out
-equal. Two programs that call different library functions can never be made equal
-here, because a name the program did not declare is never renamed.
+The rule behind all of it: **no normalization may make two different programs
+equal.** A normalized duplicate is *rejected*, with no person in the loop, and in
+this quiz a program that does not compile is as good a question as one that does
+- so a rule that equated `P { a: Q {}, b: 2 }` with the same line missing its
+comma would throw away a question. Two programs that call different library
+functions can never come out equal here, because a name the program did not
+declare is never renamed. A doc comment that documents nothing, which is a compile
+error, is kept as a marker.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
 rewritten into an equivalent one (`x + x` for `2 * x`), a struct built with field
-shorthand in one program and `field: binding` in the other, and anything a
+shorthand in one program and `field: binding` in the other, a trailing comma in
+a tuple, a declared member renamed to or from a library name, and anything a
 `macro_rules!` body does. Each of those is two token streams, so the check says
 "not a normalized duplicate" and the near-duplicate check - which sees them as very
 similar - sends the pair to an organizer. A miss costs a person a look; a false
@@ -126,10 +133,10 @@ TokenKind = Literal["ident", "keyword", "lifetime", "char", "string", "number", 
 class Token:
     """One lexeme. `joint` is whether the next token starts where this one ends.
 
-    Jointness is read only to recognise the multi-character operators that Rust
-    requires to be written without a space - `::`, `=>`, `->`, `..`, `||` - and never
-    reaches the fingerprint, which is why reformatting cannot change a fingerprint
-    through it.
+    Jointness is how Rust tells `==` from `= =`, and it is read for exactly that:
+    to recognise `::`, `=>`, `->`, `..` and `||` while reading structure, and to
+    glue compound operators back together in the normalized stream. Spacing
+    anywhere else never reaches the fingerprint.
     """
 
     kind: TokenKind
@@ -211,7 +218,29 @@ def tokenize(source: str) -> list[Token]:
     Raises `DedupeError` for an unterminated literal or comment: a candidate that
     cannot be lexed is reported, never fingerprinted as something it is not.
     """
+    return _lex(source)[0]
+
+
+def _doc_comment(source: str, i: int) -> str | None:
+    """`///` for an outer doc comment starting at `i`, `//!` for an inner one,
+    `None` for a plain comment. `////`, `/**/` and `/***` are plain, as in Rust."""
+    if source.startswith("//!", i) or source.startswith("/*!", i):
+        return "//!"
+    if source.startswith("///", i) and not source.startswith("////", i):
+        return "///"
+    if source.startswith("/**", i) and not (
+        source.startswith("/**/", i) or source.startswith("/***", i)
+    ):
+        return "///"
+    return None
+
+
+def _lex(source: str) -> tuple[list[Token], list[tuple[int, str]]]:
+    """The tokens, and where each doc comment sat: `(index of the token it
+    precedes, "///" or "//!")`. Normalization needs the second list because a doc
+    comment is not always ignorable - see `_kept_doc_comments`."""
     spans: list[tuple[TokenKind, str, int, int]] = []
+    docs: list[tuple[int, str]] = []
     i = 0
     n = len(source)
 
@@ -223,12 +252,15 @@ def tokenize(source: str) -> list[Token]:
         if c.isspace():
             i += 1
             continue
-        if source.startswith("//", i):
-            newline = source.find("\n", i)
-            i = n if newline < 0 else newline
-            continue
-        if source.startswith("/*", i):
-            i = _skip_block_comment(source, i)
+        if source.startswith("//", i) or source.startswith("/*", i):
+            doc = _doc_comment(source, i)
+            if doc is not None:
+                docs.append((len(spans), doc))
+            if source.startswith("//", i):
+                newline = source.find("\n", i)
+                i = n if newline < 0 else newline
+            else:
+                i = _skip_block_comment(source, i)
             continue
 
         raw = _RAW_STRING.match(source, i)
@@ -293,7 +325,7 @@ def tokenize(source: str) -> list[Token]:
     for k, (kind, text, _start, end) in enumerate(spans):
         joint = k + 1 < len(spans) and spans[k + 1][2] == end
         tokens.append(Token(kind, text, joint))
-    return tokens
+    return tokens, docs
 
 
 def _number_end(source: str, i: int) -> int:
@@ -546,7 +578,16 @@ def _closure_opens(s: _Stream, k: int) -> bool:
         return before.text in ("move", "return", "async", "in", "break")
     if before.kind != "punct":
         return False
-    if before.text in ("(", "[", "{", ",", ";", "="):
+    if before.text in ("{", ","):
+        # Unless it is the leading `|` of an or-pattern in a match arm,
+        # `{ | A | B => .. }`, which a `=>` before the next separator gives away.
+        end = s.find(
+            k + 1,
+            s.n,
+            lambda j: s.fat_arrow(j) or _is(s.tokens[j], ",") or _is(s.tokens[j], ";"),
+        )
+        return not s.fat_arrow(end)
+    if before.text in ("(", "[", ";", "="):
         return True
     if before.text == ":":
         return s.colon(k - 1)
@@ -761,31 +802,217 @@ def _is_macro_call(s: _Stream, k: int) -> bool:
     )
 
 
-def _dropped_comma(s: _Stream, k: int, commas_in: dict[int, int]) -> bool:
-    """The two commas rustfmt moves. A trailing comma before `]` or `}`, or before
-    `)` when the group already holds another comma - so `(x,)` stays a one-element
-    tuple and `(x)` stays a parenthesized `x`. And the comma after a block arm's
-    `}` (rustfmt removes it), which the next token not being a closer identifies;
-    nowhere else in valid Rust can a comma after `}` be absent."""
-    after = s.at(k + 1)
-    if _is(after, "]") or _is(after, "}"):
-        return True
-    if _is(after, ")"):
-        return commas_in.get(s.partner.get(k + 1, -1), 0) >= 2
+# Rust's compound punctuation. The lexer keeps punctuation one character at a
+# time; the output glues adjacent characters back into these, as rustc's parser
+# does, so `a == b` and `a = = b` - which does not compile - stay two programs.
+_COMPOUND = frozenset(
+    "== != <= >= && || += -= *= /= %= ^= &= |= << >> <<= >>= :: -> => .. ... ..=".split()
+)
+
+# Methods and fields the standard library gives its own types. A program that
+# declares a member by one of these names may also call the library's - its own
+# `fn len` beside `self.items.len()` - and renaming both would make it equal to a
+# program that calls a `size` the library never had. So a declared member with one
+# of these names is never renamed, anywhere. The list is not complete and cannot
+# be: a rarer name still carries the risk, and it is named in `bank/README.md`.
+_STD_MEMBERS = frozenset(
+    """
+    abs add all and_then any as_bytes as_mut as_ref as_slice as_str borrow
+    borrow_mut bytes capacity chain char_indices chars checked_add checked_sub
+    chunks clamp clear clone cloned cmp collect concat contains contains_key copied
+    count dedup dedup_by_key deref deref_mut div drain end ends_with entry enumerate
+    eq err expect extend fill filter filter_map find first flat_map flatten fmt fold
+    for_each from ge get get_mut gt hash index insert into into_iter is_empty
+    is_err is_none is_ok is_some iter iter_mut join keys last le len lines lt map
+    map_err max max_by_key min min_by_key mul ne neg next not ok or_else or_insert
+    or_insert_with parse partial_cmp peek pop position pow product push push_str
+    rem remove replace reserve resize retain rev reverse saturating_sub skip sort
+    sort_by sort_by_key sort_unstable split split_at split_off start starts_with
+    step_by sub sum swap take to_lowercase to_owned to_string to_uppercase to_vec
+    trim truncate unwrap unwrap_or unwrap_or_default unwrap_or_else values
+    values_mut windows wrapping_add zip
+    """.split()
+)
+
+# Macros whose arguments take a trailing comma with the same meaning. A macro
+# the program defines may not: its rules can treat `m!(1, 2,)` as another input.
+_TRAILING_COMMA_MACROS = frozenset(
+    """
+    print println eprint eprintln format format_args panic write writeln vec
+    assert_eq assert_ne debug_assert_eq debug_assert_ne dbg matches unreachable
+    todo unimplemented
+    """.split()
+)
+
+# What can stand just before an expression begins: where a `[` opens an array
+# rather than indexing one, and where a path followed by `{` is a struct literal.
+_EXPRESSION_STARTS = frozenset("= ( [ { , ; & * !".split())
+
+
+def _starts_expression(s: _Stream, k: int) -> bool:
+    """Whether an expression may begin at `k`, judged by the token before it."""
     before = s.at(k - 1)
-    return _is(before, "}") and not (after is not None and after.kind == "punct" and after.text in _CLOSERS)
+    if before is None:
+        return True
+    if before.kind == "keyword":
+        return before.text in ("return", "break")
+    if before.kind != "punct":
+        return False
+    if before.text == ":":
+        return s.colon(k - 1)
+    if before.text == ">":
+        return s.fat_arrow(k - 2)
+    return before.text in _EXPRESSION_STARTS
 
 
-def _normalize(tokens: list[Token], *, numbered: bool) -> list[str]:
+def _path_head(s: _Stream, k: int) -> int:
+    """The first segment of the path whose last segment is at `k`."""
+    while k >= 3 and s.path_sep[k - 1] and s.path_sep[k - 2]:
+        segment = s.tokens[k - 3]
+        if segment.kind not in ("ident", "keyword"):
+            break
+        k -= 3
+    return k
+
+
+def _list_bodies(s: _Stream) -> set[int]:
+    """The `{` of every struct, enum and union definition, match and struct
+    literal: the braces whose last comma is optional. A block is none of these, and
+    `{ f(), }` does not compile where `{ f() }` does."""
+    bodies: set[int] = set()
+    for k, t in enumerate(s.tokens):
+        if t.kind == "keyword" and t.text in ("struct", "enum") or (
+            t.kind == "ident" and t.text == "union" and s.at(k + 1) is not None
+            and s.tokens[k + 1].kind == "ident"
+        ):
+            j = k + 2
+            if _is(s.at(j), "<"):
+                j = _generic_names(s, j, set()) + 1
+            body = s.find(j, s.n, lambda x: s.tokens[x].kind == "punct" and s.tokens[x].text in "{;(")
+            if _is(s.at(body), "{"):
+                bodies.add(body)
+        elif _kw(t, "match"):
+            body = s.find(k + 1, s.n, lambda x: _is(s.tokens[x], "{"))
+            if _is(s.at(body), "{"):
+                bodies.add(body)
+        elif _is(t, "{") and k > 0:
+            before = s.tokens[k - 1]
+            if before.kind == "ident" or _kw(before, "Self"):
+                if _starts_expression(s, _path_head(s, k - 1)):
+                    bodies.add(k)
+    return bodies
+
+
+def _user_macro_arguments(s: _Stream, declared: _Declared) -> set[int]:
+    inside: set[int] = set()
+    for k, t in enumerate(s.tokens):
+        if t.kind == "ident" and t.text in declared.macros and _is_macro_call(s, k):
+            opener = k + 2
+            if opener in s.partner:
+                inside.update(range(opener, s.partner[opener] + 1))
+    return inside
+
+
+def _entry_start(s: _Stream, opener: int, comma: int) -> int:
+    """Where the list entry that ends at `comma` begins, inside the group at `opener`."""
+    start = opener + 1
+    for a, b in s.split(opener + 1, comma):
+        start = a
+    return start
+
+
+def _dropped_comma(s: _Stream, k: int, bodies: set[int], user_macro: set[int]) -> bool:
+    """The commas rustfmt adds and removes - and only where the program means the
+    same with or without them.
+
+    That second half is the whole design. A rule that dropped a comma a program
+    needs would make one that does not compile equal to one that does, and in this
+    quiz *does not compile* is an answer. So a comma is dropped only:
+
+    * before the `]` of an array (not an index: `v[0,]` does not compile), and not
+      of a repeat expression `[x; n]`;
+    * before the `)` of a call, a function's parameters or a tuple struct - where
+      `f(a,)` is `f(a)` - but never of a tuple or parentheses, since `(x,)` is a
+      tuple and `(x)` is not;
+    * before the `}` of a struct or enum definition, a struct literal (not after
+      `..base`, which may not be followed by one) or a match;
+    * after the `}` of a match arm's block, `=> { .. },`;
+
+    and never inside the arguments of a macro the program defines, or of a macro
+    not known to take a trailing comma.
+    """
+    if k in user_macro:
+        return False
+    after = s.at(k + 1)
+    before = s.at(k - 1)
+    if _is(before, "}") and (k - 1) in s.partner and s.fat_arrow(s.partner[k - 1] - 2):
+        return True
+    if after is None or after.kind != "punct" or after.text not in _CLOSERS:
+        return False
+    opener = s.partner.get(k + 1)
+    if opener is None:
+        return False
+    if after.text == "]":
+        if not _starts_expression(s, opener):
+            return False
+        return s.find(opener + 1, k, lambda j: _is(s.tokens[j], ";")) >= k
+    if after.text == ")":
+        callee = s.at(opener - 1)
+        if callee is None:
+            return False
+        if _is(callee, "!"):
+            name = s.at(opener - 2)
+            return name is not None and name.text in _TRAILING_COMMA_MACROS
+        return callee.kind == "ident" or _is(callee, ")") or _is(callee, "]")
+    if opener not in bodies:
+        return False
+    entry = _entry_start(s, opener, k)
+    return not (_is(s.at(entry), ".") and _is(s.at(entry + 1), "."))
+
+
+def _compound_length(s: _Stream, k: int) -> int:
+    """How many single-character tokens from `k` form one compound: 1, 2 or 3."""
+    for length in (3, 2):
+        parts = s.tokens[k : k + length]
+        if (
+            len(parts) == length
+            and all(p.kind == "punct" for p in parts)
+            and all(p.joint for p in parts[:-1])
+            and "".join(p.text for p in parts) in _COMPOUND
+        ):
+            return length
+    return 1
+
+
+def _kept_doc_comments(tokens: list[Token], docs: list[tuple[int, str]]) -> dict[int, list[str]]:
+    """The doc comments that change what the program is, by the token they precede.
+
+    A doc comment is layout when it documents something, and those are dropped. It
+    is not when it documents nothing - an outer one before a closing `}` or at the
+    end of the file is a compile error (E0585) - or when it is an inner one (`//!`),
+    which is only valid at the top of a module. Those stay, as a marker, so a
+    program that has one is not the program without it.
+    """
+    kept: dict[int, list[str]] = {}
+    for position, kind in docs:
+        dangling = position >= len(tokens) or _is(tokens[position], "}")
+        if kind == "//!" or dangling:
+            kept.setdefault(position, []).append(kind)
+    return kept
+
+
+def _normalize(
+    tokens: list[Token], docs: list[tuple[int, str]], *, numbered: bool
+) -> list[str]:
     s = _Stream(tokens)
     declared = _declared(s)
-    renamable = declared.names | declared.members | declared.macros
+    kept_members = declared.members & _STD_MEMBERS
+    renamable = (declared.names | declared.members | declared.macros) - kept_members
+    members = declared.members - kept_members
     format_strings = _format_strings(s, declared)
-
-    commas_in: dict[int, int] = {}
-    for opener, closer in s.partner.items():
-        if opener < closer and s.tokens[opener].text == "(":
-            commas_in[opener] = len(s.split(opener + 1, closer)) - 1
+    bodies = _list_bodies(s)
+    user_macro = _user_macro_arguments(s, declared)
+    kept_docs = _kept_doc_comments(tokens, docs)
 
     order: dict[str, int] = {}
 
@@ -796,39 +1023,48 @@ def _normalize(tokens: list[Token], *, numbered: bool) -> list[str]:
 
     renamed_at: set[int] = set()
     out: list[str] = []
-    for k, t in enumerate(tokens):
-        if t.kind == "punct" and t.text == "," and _dropped_comma(s, k, commas_in):
+    k = 0
+    while k < len(tokens):
+        out.extend(kept_docs.get(k, ()))
+        t = tokens[k]
+        if t.kind == "punct":
+            if t.text == "," and _dropped_comma(s, k, bodies, user_macro):
+                k += 1
+                continue
+            length = _compound_length(s, k)
+            out.append("".join(p.text for p in tokens[k : k + length]))
+            k += length
             continue
         if t.kind == "lifetime":
             out.append(t.text if t.text in ("'static", "'_") else placeholder(t.text))
-            continue
-        if t.kind == "string" and k in format_strings:
-            out.append(_rename_inline_arguments(t.text, renamable, placeholder))
-            continue
-        if t.kind != "ident":
-            out.append(t.text)
-            continue
-
-        name = t.text
-        before = s.at(k - 1)
-        if _is(before, ".") and not s.range_dot(k - 1):
-            rename = name in declared.members
-        elif k > 0 and s.path_sep[k - 1]:
-            segment = s.at(k - 3)
-            rename = name in renamable and (
-                (k - 3) in renamed_at
-                or (segment is not None and segment.text in ("Self", "self", "crate", "super"))
+        elif t.kind == "string" and k in format_strings:
+            out.append(
+                _rename_inline_arguments(t.text, declared.names - kept_members, placeholder)
             )
-        elif _is_macro_call(s, k):
-            rename = name in declared.macros
+        elif t.kind != "ident":
+            out.append(t.text)
         else:
-            rename = name in renamable
-
-        if rename:
-            renamed_at.add(k)
-            out.append(placeholder(name))
-        else:
-            out.append(name)
+            name = t.text
+            before = s.at(k - 1)
+            if _is(before, ".") and not s.range_dot(k - 1):
+                rename = name in members
+            elif k > 0 and s.path_sep[k - 1]:
+                segment = s.at(k - 3)
+                rename = name in renamable and (
+                    (k - 3) in renamed_at
+                    or (segment is not None and segment.text in ("Self", "self", "crate", "super"))
+                )
+            elif _is_macro_call(s, k):
+                rename = name in declared.macros
+            else:
+                rename = name in renamable
+            if rename:
+                renamed_at.add(k)
+                out.append(placeholder(name))
+            else:
+                out.append(name)
+        k += 1
+    out.extend(kept_docs.get(len(tokens), ()))
     return out
 
 
@@ -852,10 +1088,12 @@ def _rename_inline_arguments(literal: str, renamable: frozenset[str], placeholde
 
 
 def normalized_tokens(source: str) -> list[str]:
-    """The token stream the fingerprint hashes: comments, layout and rustfmt's
-    commas gone, every declared name a numbered placeholder in order of first
-    appearance. Raises `DedupeError` if the source cannot be lexed."""
-    return _normalize(tokenize(source), numbered=True)
+    """The token stream the fingerprint hashes: comments, layout and the optional
+    commas gone, compound operators glued, every declared name a numbered
+    placeholder in order of first appearance. Raises `DedupeError` if the source
+    cannot be lexed."""
+    tokens, docs = _lex(source)
+    return _normalize(tokens, docs, numbered=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -889,11 +1127,11 @@ def _bigrams(stream: Sequence[str]) -> tuple[str, ...]:
 
 def entry_for(source: str) -> Entry:
     """The three stores for one program. Raises `DedupeError` if it cannot be lexed."""
-    tokens = tokenize(source)
+    tokens, docs = _lex(source)
     return Entry(
         exact_hash=source_hash(source),
-        fingerprint=_fingerprint(_normalize(tokens, numbered=True)),
-        bigrams=_bigrams(_normalize(tokens, numbered=False)),
+        fingerprint=_fingerprint(_normalize(tokens, docs, numbered=True)),
+        bigrams=_bigrams(_normalize(tokens, docs, numbered=False)),
     )
 
 
