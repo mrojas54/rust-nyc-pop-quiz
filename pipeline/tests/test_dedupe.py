@@ -413,6 +413,12 @@ def test_a_different_program_is_never_a_normalized_duplicate(
 # same; each of these would be a false rejection, with nobody in the loop, of a
 # question whose answer may well be "does not compile".
 NEVER_THE_SAME = [
+    ("the binary entry point is not an arbitrary function", "fn main() {}", "fn other() {}"),
+    ("an empty call cannot contain a comma", "fn f() {} fn main() { f(); }", "fn f() {} fn main() { f(,); }"),
+    ("an empty array cannot contain a comma", "fn main() { let _: [u8; 0] = []; }", "fn main() { let _: [u8; 0] = [,]; }"),
+    ("an empty struct cannot contain a comma", "struct S {} fn main() {}", "struct S {,} fn main() {}"),
+    ("an empty enum cannot contain a comma", "enum E {} fn main() {}", "enum E {,} fn main() {}"),
+    ("a repeated trailing comma is not layout", "fn main() { let a = [1,]; }", "fn main() { let a = [1,,]; }"),
     (
         "a block-valued field needs its comma",
         'fn main() { let p = P { a: Q { n: 1 }, b: 2 }; println!("{}", p.b); }',
