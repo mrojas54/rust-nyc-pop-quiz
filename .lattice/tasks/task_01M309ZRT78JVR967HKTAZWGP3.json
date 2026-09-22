@@ -1,16 +1,22 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 3,
+  "comment_count": 5,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-17 (M3).\n\nDedupe: exact hash, normalized-AST fingerprint, near-duplicates by token-bigram Jaccard at the configured threshold (D-13) to the review queue, persistent history with visible size\n\nCriteria: AC-14\u201318\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-14\nBUILDPLAN notes: Serialized on `pyproject.toml`\n\nOrchestrator notes: Writes `review.near_duplicate_of` (F-8 ruling); T-18 reads it.\n\nWorkflow mode: fast-track. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M33KSHBSTDNDBPKC1YNRCYHF",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZRT78JVR967HKTAZWGP3",
-  "last_event_id": "ev_01M33KGBFQ588AVGFYHFN4JR50",
+  "last_event_id": "ev_01M33NBYJGD6P3XCGXVTMFA1BE",
   "last_status_changed_at": "2026-09-22T02:10:02Z",
   "priority": "medium",
   "relationships_out": [
@@ -33,6 +39,6 @@
   ],
   "title": "Dedupe",
   "type": "task",
-  "updated_at": "2026-09-22T03:45:42Z",
+  "updated_at": "2026-09-22T04:18:15Z",
   "urgency": null
 }

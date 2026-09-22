@@ -145,35 +145,61 @@ Dependencies: 89 `depends_on` links on the board, one per BUILDPLAN dependency (
 - 2026-09-21 [autonomy: Moderate] Wave 3 dispatched by press-ahead off `origin/ai-c11-cc/bank-format` @ `b4d946c` (PR #10 at review): PQ-24 bank audit (surface:34), PQ-22 dedupe (surface:35). Boot prompts staged inside each worktree at `.claude/boot-prompt.md`. Both told: not a tutor; ssh-keygen signing fallback; stdlib only; PQ-24 touches only the bank-audit lines of the justfile because PQ-19 is editing it. Four delegators live (PQ-3, PQ-19, PQ-24, PQ-22).
 | A freshly launched delegator stops on its very first command with "Contains brace with quote character (expansion obfuscation)" | The boot prompt's cwd guard `test … \|\| { echo "FATAL"; exit 99; }` trips the permission classifier's obfuscation heuristic, even under `--permission-mode auto` | Guard rewritten as `[ "$(pwd)" = "…" ] \|\| exit 99` with the message in a comment; template fixed for later waves. Tabs already stopped need one Yes from the client |
 
-## ▶ RESUME HERE — Orchestrator session paused 2026-09-21 ~22:00 (context budget)
+## ▶ RESUME HERE — Run paused by the client 2026-09-22 01:2x (weekly usage: 75% gone)
 
-The dispatch loop in session `e04c801b` was stopped deliberately because its context had
-grown past the point where each hourly tick was cheap. Nothing else stopped: the
-delegators run in their own c11 tabs and the board is ground truth.
+The client paused the fleet at 23:48 on 2026-09-21 (in the dedupe tab) and at 01:2x
+told the Orchestrator to save state and stop. The dispatch loop is stopped. The
+delegator tabs are left open and idle; nothing runs.
 
-**State at pause.** PQ-1 done (PR #8 merged, `0742d35`). PQ-2 at review (PR #9, `223a201`,
-green). PQ-18 at review (PR #10, `b4d946c`, green). Live delegators: PQ-3 burst spike
-(surface:30, was waiting on a `fly` approval), PQ-19 sandbox image (surface:32, was
-waiting on a `docker` approval), PQ-24 bank audit (surface:34, in_progress), PQ-22 dedupe
-(surface:35, in_planning). Held: PQ-11 (T-09), PQ-13 (T-10), PQ-21 (T-16). Amendments
-routed upstream: F-2, F-8, F-15, F-16, F-17, F-18 (see `sequence/run-state.md`).
+**State at pause.** Done: PQ-1 (#8, `0742d35`), PQ-2 (#9, `36250b3`), PQ-18 (#10,
+`238146e`). At review, MERGEABLE/CLEAN, CI green on the exact head, receipts appended:
+PQ-3 (PR #11 @ `ea858ec`), PQ-19 (PR #12 @ `ff99bd2`); both on `0742d35`, both merge
+into `main` without conflict; their tabs are closed. Idle delegators, each with its
+state on its ticket:
+- PQ-24 bank audit, tab 34, `in_progress`: branch `ai-c11-cc/bank-audit` pushed, holding
+  the `gh pr create --base main` prompt. Yes there opens the PR; then it posts DONE.
+- PQ-22 dedupe, tab 35, `in_progress`, PAUSED comment on the ticket: HEAD `f6a8971`, 3
+  signed commits unpushed, review-round-1 fix written and uncommitted, 226 tests green.
+  Resume steps in that comment; my ruling clears `test_migration.py:90` to it.
+- PQ-20 verifier, tab 39, `in_planning`, READY posted, holding a `docker image inspect`
+  prompt. Yes there lets it continue planning; it reads its handover notes on the ticket.
+Held: PQ-11 (T-09), PQ-13 (T-10), PQ-21 (T-16). Amendments routed upstream: F-2, F-8,
+F-15, F-16, F-17, F-18 (see `sequence/run-state.md`).
+
+**Waiting on the client:** (1) Yes in tab 34 (PQ-24's PR) and tab 39 (PQ-20's Docker
+check). (2) The D-A go/no-go on PQ-3's numbers (AC-54 92 ms, AC-53 63 ms, AC-41 117 ms,
+all far under the limits): PQ-4 (T-04a, phase machine) and with it all of M1 dispatch on
+that word. (3) "merge 11", "merge 12" when ready (merge commit, CI re-checked on the
+exact head, then `lattice complete`, receipt, and the in-flight delegators told to merge
+`origin/main`). (4) Fly: the org has no card, so machines stop after 5 min; HC-0's re-run
+needs a card or the same windowing. The spike app `rustnyc-popquiz-spike` is scaled to
+zero, not destroyed.
 
 **To resume** in a fresh session: `/lattice-orchestrator` with "resume the run; read
 .lattice/orchestration/run-state.md and agents.md first". Phase 0 collapses to
-surface-and-confirm. Then re-enter the dispatch loop with the same `/loop` tick text
-recorded in agents.md's Orchestrator row context (or copy from this file's decision log).
-Re-arm the board Monitor with `scratchpad/board-watch.py`'s logic (tail `.lattice/events/`
-for `status_changed`, `comment_added`, `artifact_attached`). Verify every DONE comment
-against `gh pr view` and `git ls-remote` before appending a receipt.
+surface-and-confirm. Answer the two prompts (or the client does), tell tab 35 "resume"
+by `c11 send`, then re-enter the dispatch loop (`/loop`, self-paced). Verify every DONE
+comment against `gh pr view` and `git ls-remote` before appending a receipt.
 
-**Next dispatchable, once parents reach review/done:** T-04a (PQ-4) after PQ-3's numbers
-and the client's go on D-A; T-15b (PQ-20) after PQ-19; T-18 (PQ-23) after PQ-20 and the
-F-15 ruling. Wave boot prompts: generate with `scratchpad/prompts/gen-wave3.py` as the
-template (guard line already fixed), stage in `<worktree>/.claude/boot-prompt.md`, seed
-`.claude/settings.json` into each worktree, launch one surface at a time.
-
-**Merges on the client's word only:** "merge 9", then "merge 10"; merge with a merge
-commit, verify CI on the exact head first, then `lattice complete`, append the receipt,
-tell the in-flight delegators to rebase onto `origin/main`.
+**Next dispatchable:** PQ-4 on the client's D-A go (off `origin/ai-c11-cc/burst-spike`
+until #11 merges, then `main`); PQ-23 (T-18) after PQ-20 reaches review **and** the F-15
+ruling; PQ-5/PQ-6 after PQ-4. Boot prompts: `gen-wave4.py` in this session's scratchpad
+(`/private/tmp/claude-501/-Users-michellerojas-rust-nyc-pop-quiz/f8540abf-…/scratchpad/prompts/`)
+is the current template; it imports the HEADER from wave 2's generator and rewrites the
+stacking clauses for a two-parent branch. Stage in `<worktree>/.claude/boot-prompt.md`,
+seed `.claude/settings.json`, launch one surface at a time, then expect one permission
+prompt on the guard line (footgun below) and answer it with `send-key enter`.
 - 2026-09-21 [autonomy: Moderate] Client answered tabs 34 and 35: PQ-24 in_progress, PQ-22 in_planning. Orchestrator loop paused for context budget; resume note written above.
 - 2026-09-21 [client: "merge 9 and then merge 10"] PR #9 merged at `36250b3`, PR #10 at `238146e`, both with merge commits after CI green on their exact heads. PQ-2 and PQ-18 completed. Four live delegators told to rebase onto `origin/main`. `main` local ref updated by fetch.
+- 2026-09-21 23:47 [autonomy: Moderate] Session `f8540abf` resumed the run from the RESUME note; preflight green (lattice 0.2.0, origin verified, c11). Phase 0 collapsed to surface-and-confirm; nothing re-asked.
+- 2026-09-21 23:50 [autonomy: Moderate] PQ-3 DONE verified: PR #11 @ `ea858ec` on `0742d35`, head == `git ls-remote`, both CI jobs SUCCESS, MERGEABLE/CLEAN. Receipt appended. Surface:30 closed.
+- 2026-09-21 23:52 [autonomy: Moderate] PQ-19 DONE verified: PR #12 @ `ff99bd2` on `0742d35`, head == remote, both CI jobs SUCCESS (first x86_64 image run), MERGEABLE/CLEAN. Receipt appended. Surface:32 closed.
+- 2026-09-21 23:52 [autonomy: Moderate] Neither #11 nor #12 is rebased onto today's `main` (`238146e`); both merge cleanly (dry-run `git merge-tree`), so no rebase and no force-push was asked of anyone. The no-force-push rule stands: an in-review branch is never rewritten after its first push.
+- 2026-09-21 23:53 [autonomy: Moderate] Wave 4, press-ahead: PQ-20 (T-15b verifier) dispatched at surface:39 in worktree `verifier`, branch `ai-c11-cc/verifier` off `origin/ai-c11-cc/sandbox-image` @ `ff99bd2`. It needs #12's files *and* main's bank format, so its first commit is a plain merge of `origin/main` @ `238146e` (no conflicts, dry-run from here); the brief forbids `git rebase` on that branch and opens the PR against `main` with a "based on #12" line. `pipeline/src/popquiz/sandbox.py` cleared for the Miri flag set only (PQ-19's handover notes recorded on PQ-20).
+- 2026-09-21 23:54 [autonomy: Moderate] PQ-4 (T-04a) is board-dispatchable (its only dependency, PQ-3, is at review) but held for the client's D-A go/no-go, as the RESUME note and PQ-3's own comment require; surfaced to the client this tick.
+| A freshly launched delegator stops on its first commands with "Contains shell syntax (string) that cannot be statically analyzed", offering "2. Yes, and switch to auto mode" | `claude --model opus --permission-mode auto` did **not** start PQ-20 in auto mode (verified 2026-09-21 23:57: plain Yes answered one prompt and the next command prompted again with the same offer). Auto mode's own prompts read differently ("Ask rule … overrides auto mode") | At the first prompt choose option 2 (`send-key down`, `send-key enter`); the status line then shows `⏵⏵ auto mode on` and the run continues. About 40 s per spawn. Next spawn: try `--permission-mode auto` again and check the status line before anything else |
+- 2026-09-22 00:17 [client, in tab 35 at 23:48] **Run paused by the client for the weekly quota** (7-day usage 58%). PQ-22 saved state to a PAUSED comment (HEAD `f6a8971`, 3 signed commits unpushed, review-round-1 fix uncommitted). The Orchestrator learned of the pause on this tick; PQ-20 had been spawned at 23:53 without knowing it. No further spawns until the client says resume. PQ-4 stays held for the D-A go regardless.
+- 2026-09-22 00:17 [autonomy: Moderate] Fleet is idle on two ask-rule prompts that are the client's: tab 34 (PQ-24, `gh pr create`), tab 39 (PQ-20, `docker image inspect` on the pinned image tag). Neither consumes quota while waiting. Tab 35 (PQ-22) paused. Nothing on the board is needs_human or blocked.
+- 2026-09-22 00:17 [autonomy: Moderate] Ruling on PQ-22's FINDING: `pipeline/tests/test_migration.py:90` asserts `bank/history.json` equals the migrator's empty shape, which AC-17 contradicts once dedupe grows the file. T-14 is closed, so that one assertion is cleared to PQ-22 to narrow to the shape. Recorded as a deviation for the validator; no contract amendment needed (SPEC §3.3 already says history grows).
+- 2026-09-22 00:17 [autonomy: Moderate] Loop cadence lengthened to 30 min while the client's pause holds; a tick still banners the two prompts and verifies any DONE that lands.
+- 2026-09-22 01:2x [client: "save run state. 75% of usage is gone for the week"] Dispatch loop stopped; run-state, agents.md and receipts committed on `ai-c11-cc/lattice-build`. Two quiet ticks (00:49, 01:20) preceded this: no board, PR or tab change since 00:17. Delegator tabs 34, 35, 39 left open and idle. Not pushed.
