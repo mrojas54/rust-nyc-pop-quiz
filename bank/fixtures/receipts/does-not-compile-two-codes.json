@@ -1,0 +1,24 @@
+{
+  "_note": "SYNTHETIC. Describes no Rust program; the two error codes below were not produced by a compiler and are here only to fix the separator. SPEC 7.5 says the codes are comma-separated, and a one-code record cannot tell a correct separator from a missing one. A complete does-not-compile record, so it also proves the three-line list is not a legacy-only shape.",
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)\nbinary: rustc\ncommit-hash: 31fca3adb0000000000000000000000000000000\ncommit-date: 2026-06-26\nhost: aarch64-apple-darwin\nrelease: 1.96.1\nLLVM version: 20.1.0",
+    "edition": "2021",
+    "target_triple": "aarch64-apple-darwin",
+    "flags": {
+      "opt_level": "0",
+      "overflow_checks": true,
+      "debug_assertions": true
+    },
+    "compile_error_code": [
+      "E0502",
+      "E0499"
+    ],
+    "verified_at": "2026-09-20T00:00:00Z",
+    "verifier_version": "0.1.0"
+  },
+  "expected_lines": [
+    "✓ Compiler refused it",
+    "✓ Error E0502, E0499",
+    "✓ Nothing ran"
+  ]
+}

@@ -1,0 +1,87 @@
+/* ===========================================================================
+   Rust NYC Pop Quiz — design tokens
+   ---------------------------------------------------------------------------
+   §1 of prototypes/_shared/tokens.css (lines 18–83), which is itself the HOUSE
+   BRAND copied verbatim from the Rust NYC Design System
+   (claude.ai/design · d608a53a-9b53-40c0-a64d-7017613f1956):
+   tokens/colors.css, tokens/typography.css, tokens/spacing.css, tokens/base.css.
+
+   Every value below was compared against the design system's own generated
+   `project/tokens.css` during T-02 and matches: the colour ramps, the spacing
+   scale, the type scale, --radius, --shadow-card, and both font stacks. These
+   are not up for reinvention.
+
+   ONE DELIBERATE CHANGE from the prototype, and only one. The prototype's §1
+   opened with `@import url('https://fonts.googleapis.com/css2?family=Instrument
+   +Serif...')` — a font CDN. D-14 vendors the fonts and forbids a CDN; AC-77
+   runs a segment with outbound network blocked; AC-102 requires the static
+   fallback to make zero network requests. That @import is replaced by the
+   vendored faces in fonts.css. Nothing else in §1 is touched.
+
+   Everything the prototype carries OUTSIDE §1 that this build needs — the
+   source well, the trace, the syntax colour, the provenance markers — is in
+   components.css, not here.
+   =========================================================================== */
+
+/* --- tokens/fonts.css ---------------------------------------------------- */
+/* Cascadia Mono and Instrument Serif are vendored in fonts/ and declared in
+   fonts.css (D-14, SPEC §15). No font CDN, in any phase, on any surface. */
+@import url("fonts.css");
+
+/* --- tokens/colors.css --------------------------------------------------- */
+:root{
+--white:#ffffff;
+--gray-50:#f8f9fa;--gray-100:#e9ecef;--gray-200:#dee2e6;--gray-300:#cbd5e0;--gray-500:#718096;--gray-600:#4a5568;--gray-800:#2d3748;
+--amber-300:#faf089;--amber-500:#d69e2e;--amber-600:#b7791f;--amber-700:#945c0a;
+--green-500:#38a169;--red-500:#e53e3e;--orange-500:#dd6b20;--blue-500:#3182ce;
+--green-50:#f0fff4;--red-50:#fef2f2;--orange-50:#fffaf0;--blue-50:#ebf8ff;
+--bg-primary:var(--gray-50);
+--bg-secondary:var(--gray-100);
+--bg-tertiary:var(--gray-200);
+--bg-input:var(--white);
+--text-primary:var(--gray-800);
+--text-secondary:var(--gray-600);
+--text-muted:var(--gray-500);     /* 12px metadata only — fails AA at 14px */
+--accent-primary:var(--amber-500);
+--accent-secondary:var(--amber-600);
+--accent-hover:var(--amber-700);
+--accent-subtle:var(--amber-300);
+--border-default:var(--gray-300);
+--border-focus:var(--amber-500);
+--success:var(--green-500);--error:var(--red-500);--warning:var(--orange-500);--info:var(--blue-500);
+--success-subtle:var(--green-50);--error-subtle:var(--red-50);--warning-subtle:var(--orange-50);--info-subtle:var(--blue-50);
+}
+
+/* --- tokens/typography.css ----------------------------------------------- */
+:root{
+--font-heading:'Instrument Serif',Georgia,'Times New Roman',serif;
+--font-mono:'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace;
+--text-xs:12px;
+--text-sm:14px;
+--text-2xl:24px;
+--text-3xl:30px;
+--text-4xl:36px;
+--leading-body:1.6;--leading-tight:1.2;
+--tracking-wide:0.05em;
+--tracking-caps:0.08em;
+}
+
+/* --- tokens/spacing.css --------------------------------------------------- */
+:root{
+--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;
+--radius:4px;
+--border-w:1px;
+--container-max:480px;
+--touch-target:44px;
+--panel-pad:24px;--panel-pad-compact:16px;
+--shadow-card:0 1px 3px rgba(45,55,72,0.08);
+}
+
+/* --- tokens/base.css ------------------------------------------------------ */
+body{margin:0;font-family:var(--font-mono);font-size:var(--text-sm);line-height:var(--leading-body);background:var(--bg-primary);color:var(--text-primary);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--font-heading);font-weight:400;line-height:var(--leading-tight);color:var(--text-primary);margin:0}
+h1{font-size:var(--text-4xl)}h2{font-size:var(--text-2xl)}h3{font-size:var(--text-2xl)}
+p{margin:0}
+a{color:var(--accent-secondary)}a:hover{color:var(--accent-hover)}
+code,pre,kbd{font-family:var(--font-mono)}
+:focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px}

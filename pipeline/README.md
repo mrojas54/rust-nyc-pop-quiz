@@ -24,17 +24,41 @@ so the interpreter and every dependency are the same everywhere.
 
 ## What is here
 
-| Module | What it will do | Ticket |
+| Module | What it does, or will do | Ticket |
 |---|---|---|
+| `bank` | The record format (`SPEC.md` §3.1–3.3): the types, the derived answer, the store, the history shape | T-14 |
+| `receipt` | `SPEC.md` §7.5's receipt as a pure function of a `verified` record | T-14 |
+| `migrate_mvp` | One-shot: the August batch into the bank as `legacy` records | T-14 |
+| `runner` | The seam the verifier reaches a toolchain through | T-01 |
 | `generate` | Candidates from an LLM, in the bank's shape | T-16 |
 | `verify` | Pinned `rustc`, N native runs, Miri — the machine decides the answer | T-15b |
 | `dedupe` | Exact, normalized, and near-duplicate detection | T-17 |
 | `review` | The organizer's screen: accept, reject, edit, affirm | T-18 |
 | `audit` | `bank-audit` — uniformity in both tails, the enumerated tells, fit | T-19 |
 | `schedule` | Push one affirmed question to the room; pull the used ledger back | T-20 |
-| `runner` | The seam the verifier reaches a toolchain through | T-01 (this) |
 
-Every module but `runner` is an empty stub today.
+`generate`, `verify`, `dedupe`, `review`, `audit` and `schedule` are empty stubs.
+
+## The bank record, in one paragraph
+
+One JSON file per question under `bank/questions/`, typed by `bank.py`'s frozen
+dataclasses and published as `bank/schema/question.schema.json`. Two properties are
+worth knowing before you touch it. **There is no `correct` field** — `SPEC.md` §3.1
+marks the answer derived (G-2), so `bank.correct_index()` computes it from
+`verified` and there is nowhere to hand-edit one in (AC-7). And **a field nobody
+observed has no key at all**, rather than a key holding `null`: for the migrated
+`legacy` records that absence is the whole proof that no target triple, flag set or
+`-Vv` was back-filled (D-16). `bank/README.md` has the rest, including which of the
+eight MVP questions are in the bank and why the other four are not.
+
+## The receipt lives in two languages
+
+`SPEC.md` §7.5 wants one function, and the wall and take-it-home need it in
+JavaScript (T-05). So the cases are data — `bank/fixtures/receipts/*.json`, each
+holding a `verified` record and the lines it must render — and both implementations
+test against the same files. `receipt.py` imports only the standard library and
+`popquiz.bank`, which is how AC-13 is proven structurally: the receipt renders with
+no toolchain, no filesystem and no clock anywhere in its reach.
 
 ## The `Runner` seam
 

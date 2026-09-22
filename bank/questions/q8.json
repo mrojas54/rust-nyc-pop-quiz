@@ -1,0 +1,48 @@
+{
+  "id": "q8",
+  "source": "fn main() {\n    let mut v = vec![1, 2, 3];\n    let first = &v[0];\n    v.push(4);\n    println!(\"{}\", first);\n}\n",
+  "topic": "Borrow checking",
+  "difficulty_requested": 3,
+  "options": [
+    {
+      "text": "1",
+      "kind": "output"
+    },
+    {
+      "text": "4",
+      "kind": "output"
+    },
+    {
+      "text": "[1, 2, 3, 4]",
+      "kind": "output"
+    },
+    {
+      "text": "1\n4",
+      "kind": "output"
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile"
+    }
+  ],
+  "hint": "Ask what push might need to do to the vector's storage, and what that would mean for anything already pointing into it.",
+  "explains": {
+    "what": "&v[0] is a shared borrow pointing into the vector's heap buffer. push needs the vector mutably and may move that buffer somewhere else to grow it, which would leave the borrow pointing at freed memory. The borrow checker refuses it before the program ever runs.",
+    "takeaway": "The borrow is only still alive because it is used after the push. Delete the last line and the same program compiles - that is non-lexical lifetimes, and it is why this error seems to move around when you edit lines that look unrelated.",
+    "legacy": "&v[0] takes a shared borrow pointing into the vector's heap buffer. push needs &mut v and may reallocate that buffer to grow it -- which would leave `first` dangling at a freed address. The borrow checker rejects this at compile time with E0502: cannot borrow `v` as mutable because it is also borrowed as immutable. The detail worth arguing about: the borrow is only still alive because `first` is USED after the push. Delete the final println and the same program compiles -- that is non-lexical lifetimes, and it is why this error moves around when you edit seemingly unrelated lines."
+  },
+  "trace": {
+    "steps": []
+  },
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "edition": "2021",
+    "legacy": true,
+    "compile_error_code": [
+      "E0502"
+    ]
+  },
+  "review": {
+    "reason": "Migrated from the August batch by T-14. 1 of 5 options breaks the wall's rule that an option is one line of at most 29 characters (D-15, SPEC 5.2): index 3 in bank order. The correct option is not among them, so the answer stands and the program need not change: only that distractor needs replacing. No why_tempting beats were drafted, because every incorrect option they would attach to is scheduled for replacement. Cannot be affirmed as it stands: the trace is empty and the middle beats are missing (SPEC 7.4, AC-95)."
+  }
+}
