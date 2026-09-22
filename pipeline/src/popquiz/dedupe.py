@@ -79,10 +79,11 @@ import hashlib
 import json
 import re
 import sys
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeGuard
 
 from popquiz.bank import (
     QUESTIONS_DIR,
@@ -118,12 +119,60 @@ class DedupeError(Exception):
 # wildcard, never a name, so it is never renamed. `union` and `macro_rules` are
 # contextual and handled where they matter; `'static` is a lifetime.
 KEYWORDS = frozenset(
-    """
-    as break const continue crate else enum extern false fn for if impl in let loop
-    match mod move mut pub ref return self Self static struct super trait true type
-    unsafe use where while async await dyn abstract become box do final macro
-    override priv typeof unsized virtual yield try _
-    """.split()
+    [
+        "as",
+        "break",
+        "const",
+        "continue",
+        "crate",
+        "else",
+        "enum",
+        "extern",
+        "false",
+        "fn",
+        "for",
+        "if",
+        "impl",
+        "in",
+        "let",
+        "loop",
+        "match",
+        "mod",
+        "move",
+        "mut",
+        "pub",
+        "ref",
+        "return",
+        "self",
+        "Self",
+        "static",
+        "struct",
+        "super",
+        "trait",
+        "true",
+        "type",
+        "unsafe",
+        "use",
+        "where",
+        "while",
+        "async",
+        "await",
+        "dyn",
+        "abstract",
+        "become",
+        "box",
+        "do",
+        "final",
+        "macro",
+        "override",
+        "priv",
+        "typeof",
+        "unsized",
+        "virtual",
+        "yield",
+        "try",
+        "_",
+    ]
 )
 
 TokenKind = Literal["ident", "keyword", "lifetime", "char", "string", "number", "punct"]
@@ -278,11 +327,11 @@ def _lex(source: str) -> tuple[list[Token], list[tuple[int, str]]]:
             i = end
             continue
         if source.startswith("b'", i):
-            end = _end_of_char(source, i + 1)
-            if end is None:
+            char_end = _end_of_char(source, i + 1)
+            if char_end is None:
                 raise DedupeError("malformed byte literal")
-            emit("char", i, end)
-            i = end
+            emit("char", i, char_end)
+            i = char_end
             continue
         raw_ident = _RAW_IDENT.match(source, i)
         if raw_ident:
@@ -295,14 +344,16 @@ def _lex(source: str) -> tuple[list[Token], list[tuple[int, str]]]:
             i = end
             continue
         if c == "'":
-            end = _end_of_char(source, i)
-            if end is not None:
-                emit("char", i, end)
-                i = end
+            char_end = _end_of_char(source, i)
+            if char_end is not None:
+                emit("char", i, char_end)
+                i = char_end
                 continue
             # `_IDENT_START` admits `_`, so `'_` is covered here too.
             if _IDENT_START.match(source, i + 1):
-                end = _IDENT_REST.match(source, i + 2).end()
+                rest = _IDENT_REST.match(source, i + 2)
+                assert rest is not None
+                end = rest.end()
                 emit("lifetime", i, end)
                 i = end
                 continue
@@ -313,7 +364,9 @@ def _lex(source: str) -> tuple[list[Token], list[tuple[int, str]]]:
             i = end
             continue
         if _IDENT_START.match(c):
-            end = _IDENT_REST.match(source, i + 1).end()
+            rest = _IDENT_REST.match(source, i + 1)
+            assert rest is not None  # The pattern accepts the empty string.
+            end = rest.end()
             word = source[i:end]
             emit("keyword" if word in KEYWORDS else "ident", i, end)
             i = end
@@ -333,13 +386,17 @@ def _number_end(source: str, i: int) -> int:
     if radix:
         j = radix.end()
     else:
-        j = _DIGITS.match(source, i).end()
+        digits = _DIGITS.match(source, i)
+        assert digits is not None  # The pattern accepts the empty string.
+        j = digits.end()
         # A fractional part, but not a range (`1..2`), a method (`1.max(2)`) or a
         # tuple index chain. `1.` on its own is a float, as in Rust.
         if j < len(source) and source[j] == "." and not source.startswith("..", j):
             after = source[j + 1] if j + 1 < len(source) else ""
             if after.isdigit():
-                j = _DIGITS.match(source, j + 1).end()
+                fraction = _DIGITS.match(source, j + 1)
+                assert fraction is not None
+                j = fraction.end()
             elif not (after == "_" or _IDENT_START.match(after or "0")):
                 j += 1
         exponent = _EXPONENT.match(source, j)
@@ -357,7 +414,7 @@ _OPENERS = {"(": ")", "[": "]", "{": "}"}
 _CLOSERS = frozenset(_OPENERS.values())
 
 
-def _is(token: Token | None, text: str) -> bool:
+def _is(token: Token | None, text: str) -> TypeGuard[Token]:
     return token is not None and token.kind == "punct" and token.text == text
 
 
@@ -406,9 +463,11 @@ class _Stream:
     def range_dot(self, k: int) -> bool:
         """Whether the `.` at `k` is part of `..`/`..=`, not a field access."""
         before, here, after = self.at(k - 1), self.at(k), self.at(k + 1)
-        return (_is(before, ".") and before.joint) or (_is(after, ".") and here.joint)
+        return (_is(before, ".") and before.joint) or (
+            _is(after, ".") and here is not None and here.joint
+        )
 
-    def find(self, start: int, end: int, stop) -> int:
+    def find(self, start: int, end: int, stop: Callable[[int], bool]) -> int:
         """The first index in `[start, end)` at this bracket depth where `stop`
         holds, skipping whole bracket groups. Stops at a closer that leaves the
         group; returns `end` when nothing matches."""
@@ -460,11 +519,15 @@ def _pattern_names(s: _Stream, a: int, b: int) -> set[str]:
             continue
         if t.kind != "ident":
             continue
-        bare = t.text[2:] if t.text.startswith("r#") else t.text
+        bare = t.text.removeprefix("r#")
         if not (bare[0] == "_" or bare[0].islower()):
             continue
         after = s.at(k + 1)
-        if after is not None and after.kind == "punct" and after.text in ("(", "{", "!"):
+        if (
+            after is not None
+            and after.kind == "punct"
+            and after.text in ("(", "{", "!")
+        ):
             continue
         if k + 1 < s.n and s.path_sep[k + 1]:
             continue
@@ -497,7 +560,9 @@ def _generic_names(s: _Stream, lt: int, names: set[str]) -> int:
                     entry_start = True
                     k += 1
                     continue
-            elif t.text == ">" and not (_is(s.at(k - 1), "-") and s.tokens[k - 1].joint):
+            elif t.text == ">" and not (
+                _is(s.at(k - 1), "-") and s.tokens[k - 1].joint
+            ):
                 depth -= 1
                 if depth == 0:
                     return k
@@ -510,7 +575,11 @@ def _generic_names(s: _Stream, lt: int, names: set[str]) -> int:
                 entry_start = False
                 continue
         if entry_start and depth == 1:
-            if _kw(t, "const") and s.at(k + 1) is not None and s.tokens[k + 1].kind == "ident":
+            if (
+                _kw(t, "const")
+                and s.at(k + 1) is not None
+                and s.tokens[k + 1].kind == "ident"
+            ):
                 names.add(s.tokens[k + 1].text)
             elif t.kind == "ident":
                 names.add(t.text)
@@ -553,12 +622,20 @@ def _variants(s: _Stream, brace: int, names: set[str], members: set[str]) -> Non
                 members.update(_field_names(s, a + 1))
 
 
-def _item_body(s: _Stream, k: int, kind: str, names: set[str], members: set[str]) -> None:
+def _item_body(
+    s: _Stream, k: int, kind: str, names: set[str], members: set[str]
+) -> None:
     """After a `struct`/`enum`/`union` name at `k`: generics, then the body."""
     j = k + 1
     if _is(s.at(j), "<"):
         j = _generic_names(s, j, names) + 1
-    body = s.find(j, s.n, lambda x: _is(s.tokens[x], "{") or _is(s.tokens[x], ";") or _is(s.tokens[x], "("))
+    body = s.find(
+        j,
+        s.n,
+        lambda x: (
+            _is(s.tokens[x], "{") or _is(s.tokens[x], ";") or _is(s.tokens[x], "(")
+        ),
+    )
     if body < s.n and _is(s.at(body), "{") and body in s.partner:
         if kind == "enum":
             _variants(s, body, names, members)
@@ -615,10 +692,14 @@ def _arm_start(s: _Stream, arrow: int) -> int:
                     return j + 1
                 if t.text == "}":
                     before = s.at(opener - 1)
-                    named_by_path = before is not None and before.kind == "ident" and not (
-                        s.at(opener - 2) is not None
-                        and s.tokens[opener - 2].kind == "keyword"
-                        and s.tokens[opener - 2].text in ("if", "while", "match")
+                    named_by_path = (
+                        before is not None
+                        and before.kind == "ident"
+                        and not (
+                            s.at(opener - 2) is not None
+                            and s.tokens[opener - 2].kind == "keyword"
+                            and s.tokens[opener - 2].text in ("if", "while", "match")
+                        )
                     )
                     if not named_by_path:
                         return j + 1
@@ -639,7 +720,11 @@ def _macro_rules_bodies(s: _Stream) -> set[int]:
     for k, t in enumerate(s.tokens):
         if t.kind == "ident" and t.text == "macro_rules" and _is(s.at(k + 1), "!"):
             body = k + 3
-            if s.at(k + 2) is not None and s.tokens[k + 2].kind == "ident" and body in s.partner:
+            if (
+                s.at(k + 2) is not None
+                and s.tokens[k + 2].kind == "ident"
+                and body in s.partner
+            ):
                 inside.update(range(body, s.partner[body] + 1))
     return inside
 
@@ -673,17 +758,23 @@ def _declared(s: _Stream) -> _Declared:
                 end = s.find(
                     k + 1,
                     s.n,
-                    lambda j: _is(tokens[j], "=")
-                    or _is(tokens[j], ";")
-                    or s.colon(j)
-                    or _kw(tokens[j], "else"),
+                    lambda j: (
+                        _is(tokens[j], "=")
+                        or _is(tokens[j], ";")
+                        or s.colon(j)
+                        or _kw(tokens[j], "else")
+                    ),
                 )
                 names |= _pattern_names(s, k + 1, end)
             elif word == "for" and not _is(s.at(k + 1), "<"):
                 end = s.find(
                     k + 1,
                     s.n,
-                    lambda j: _kw(tokens[j], "in") or _is(tokens[j], "{") or _is(tokens[j], ";"),
+                    lambda j: (
+                        _kw(tokens[j], "in")
+                        or _is(tokens[j], "{")
+                        or _is(tokens[j], ";")
+                    ),
                 )
                 if _kw(s.at(end), "in"):
                     names |= _pattern_names(s, k + 1, end)
@@ -717,7 +808,11 @@ def _declared(s: _Stream) -> _Declared:
                 end = s.find(k + 1, s.n, lambda j: _is(tokens[j], ";"))
                 for j in range(k + 1, min(end, s.n)):
                     alias = s.at(j + 1)
-                    if _kw(tokens[j], "as") and alias is not None and alias.kind == "ident":
+                    if (
+                        _kw(tokens[j], "as")
+                        and alias is not None
+                        and alias.kind == "ident"
+                    ):
                         names.add(alias.text)
         elif t.kind == "ident":
             after = s.at(k + 1)
@@ -759,12 +854,24 @@ def _declared(s: _Stream) -> _Declared:
 # literal that is printed as-is would make two programs with different output equal.
 _FORMAT_ARGUMENT = {
     **dict.fromkeys(
-        ("print", "println", "eprint", "eprintln", "format", "format_args", "panic",
-         "unreachable", "todo", "unimplemented"),
+        (
+            "print",
+            "println",
+            "eprint",
+            "eprintln",
+            "format",
+            "format_args",
+            "panic",
+            "unreachable",
+            "todo",
+            "unimplemented",
+        ),
         0,
     ),
     **dict.fromkeys(("write", "writeln", "assert", "debug_assert"), 1),
-    **dict.fromkeys(("assert_eq", "assert_ne", "debug_assert_eq", "debug_assert_ne"), 2),
+    **dict.fromkeys(
+        ("assert_eq", "assert_ne", "debug_assert_eq", "debug_assert_ne"), 2
+    ),
 }
 
 _FORMAT_PIECE = re.compile(r"\{\{|\}\}|\{([^{}]*)\}")
@@ -776,10 +883,18 @@ def _format_strings(s: _Stream, declared: _Declared) -> set[int]:
     """Indexes of the string literals that are format strings."""
     found: set[int] = set()
     for k, t in enumerate(s.tokens):
-        if t.kind != "ident" or t.text not in _FORMAT_ARGUMENT or t.text in declared.macros:
+        if (
+            t.kind != "ident"
+            or t.text not in _FORMAT_ARGUMENT
+            or t.text in declared.macros
+        ):
             continue
         bang, opener = s.at(k + 1), k + 2
-        if not _is(bang, "!") or opener not in s.partner or s.tokens[opener].text not in _OPENERS:
+        if (
+            not _is(bang, "!")
+            or opener not in s.partner
+            or s.tokens[opener].text not in _OPENERS
+        ):
             continue
         parts = s.split(opener + 1, s.partner[opener])
         position = _FORMAT_ARGUMENT[t.text]
@@ -806,7 +921,32 @@ def _is_macro_call(s: _Stream, k: int) -> bool:
 # time; the output glues adjacent characters back into these, as rustc's parser
 # does, so `a == b` and `a = = b` - which does not compile - stay two programs.
 _COMPOUND = frozenset(
-    "== != <= >= && || += -= *= /= %= ^= &= |= << >> <<= >>= :: -> => .. ... ..=".split()
+    [
+        "==",
+        "!=",
+        "<=",
+        ">=",
+        "&&",
+        "||",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "^=",
+        "&=",
+        "|=",
+        "<<",
+        ">>",
+        "<<=",
+        ">>=",
+        "::",
+        "->",
+        "=>",
+        "..",
+        "...",
+        "..=",
+    ]
 )
 
 # Methods and fields the standard library gives its own types. A program that
@@ -816,37 +956,182 @@ _COMPOUND = frozenset(
 # of these names is never renamed, anywhere. The list is not complete and cannot
 # be: a rarer name still carries the risk, and it is named in `bank/README.md`.
 _STD_MEMBERS = frozenset(
-    """
-    abs add all and_then any as_bytes as_mut as_ref as_slice as_str borrow
-    borrow_mut bytes capacity chain char_indices chars checked_add checked_sub
-    chunks clamp clear clone cloned cmp collect concat contains contains_key copied
-    count dedup dedup_by_key deref deref_mut div drain end ends_with entry enumerate
-    eq err expect extend fill filter filter_map find first flat_map flatten fmt fold
-    for_each from ge get get_mut gt hash index insert into into_iter is_empty
-    is_err is_none is_ok is_some iter iter_mut join keys last le len lines lt map
-    map_err max max_by_key min min_by_key mul ne neg next not ok or_else or_insert
-    or_insert_with parse partial_cmp peek pop position pow product push push_str
-    rem remove replace reserve resize retain rev reverse saturating_sub skip sort
-    sort_by sort_by_key sort_unstable split split_at split_off start starts_with
-    step_by sub sum swap take to_lowercase to_owned to_string to_uppercase to_vec
-    trim truncate unwrap unwrap_or unwrap_or_default unwrap_or_else values
-    values_mut windows wrapping_add zip
-    """.split()
+    [
+        "abs",
+        "add",
+        "all",
+        "and_then",
+        "any",
+        "as_bytes",
+        "as_mut",
+        "as_ref",
+        "as_slice",
+        "as_str",
+        "borrow",
+        "borrow_mut",
+        "bytes",
+        "capacity",
+        "chain",
+        "char_indices",
+        "chars",
+        "checked_add",
+        "checked_sub",
+        "chunks",
+        "clamp",
+        "clear",
+        "clone",
+        "cloned",
+        "cmp",
+        "collect",
+        "concat",
+        "contains",
+        "contains_key",
+        "copied",
+        "count",
+        "dedup",
+        "dedup_by_key",
+        "deref",
+        "deref_mut",
+        "div",
+        "drain",
+        "end",
+        "ends_with",
+        "entry",
+        "enumerate",
+        "eq",
+        "err",
+        "expect",
+        "extend",
+        "fill",
+        "filter",
+        "filter_map",
+        "find",
+        "first",
+        "flat_map",
+        "flatten",
+        "fmt",
+        "fold",
+        "for_each",
+        "from",
+        "ge",
+        "get",
+        "get_mut",
+        "gt",
+        "hash",
+        "index",
+        "insert",
+        "into",
+        "into_iter",
+        "is_empty",
+        "is_err",
+        "is_none",
+        "is_ok",
+        "is_some",
+        "iter",
+        "iter_mut",
+        "join",
+        "keys",
+        "last",
+        "le",
+        "len",
+        "lines",
+        "lt",
+        "map",
+        "map_err",
+        "max",
+        "max_by_key",
+        "min",
+        "min_by_key",
+        "mul",
+        "ne",
+        "neg",
+        "next",
+        "not",
+        "ok",
+        "or_else",
+        "or_insert",
+        "or_insert_with",
+        "parse",
+        "partial_cmp",
+        "peek",
+        "pop",
+        "position",
+        "pow",
+        "product",
+        "push",
+        "push_str",
+        "rem",
+        "remove",
+        "replace",
+        "reserve",
+        "resize",
+        "retain",
+        "rev",
+        "reverse",
+        "saturating_sub",
+        "skip",
+        "sort",
+        "sort_by",
+        "sort_by_key",
+        "sort_unstable",
+        "split",
+        "split_at",
+        "split_off",
+        "start",
+        "starts_with",
+        "step_by",
+        "sub",
+        "sum",
+        "swap",
+        "take",
+        "to_lowercase",
+        "to_owned",
+        "to_string",
+        "to_uppercase",
+        "to_vec",
+        "trim",
+        "truncate",
+        "unwrap",
+        "unwrap_or",
+        "unwrap_or_default",
+        "unwrap_or_else",
+        "values",
+        "values_mut",
+        "windows",
+        "wrapping_add",
+        "zip",
+    ]
 )
 
 # Macros whose arguments take a trailing comma with the same meaning. A macro
 # the program defines may not: its rules can treat `m!(1, 2,)` as another input.
 _TRAILING_COMMA_MACROS = frozenset(
-    """
-    print println eprint eprintln format format_args panic write writeln vec
-    assert_eq assert_ne debug_assert_eq debug_assert_ne dbg matches unreachable
-    todo unimplemented
-    """.split()
+    [
+        "print",
+        "println",
+        "eprint",
+        "eprintln",
+        "format",
+        "format_args",
+        "panic",
+        "write",
+        "writeln",
+        "vec",
+        "assert_eq",
+        "assert_ne",
+        "debug_assert_eq",
+        "debug_assert_ne",
+        "dbg",
+        "matches",
+        "unreachable",
+        "todo",
+        "unimplemented",
+    ]
 )
 
 # What can stand just before an expression begins: where a `[` opens an array
 # rather than indexing one, and where a path followed by `{` is a struct literal.
-_EXPRESSION_STARTS = frozenset("= ( [ { , ; & * !".split())
+_EXPRESSION_STARTS = frozenset(["=", "(", "[", "{", ",", ";", "&", "*", "!"])
 
 
 def _starts_expression(s: _Stream, k: int) -> bool:
@@ -881,14 +1166,24 @@ def _list_bodies(s: _Stream) -> set[int]:
     `{ f(), }` does not compile where `{ f() }` does."""
     bodies: set[int] = set()
     for k, t in enumerate(s.tokens):
-        if t.kind == "keyword" and t.text in ("struct", "enum") or (
-            t.kind == "ident" and t.text == "union" and s.at(k + 1) is not None
-            and s.tokens[k + 1].kind == "ident"
+        if (
+            t.kind == "keyword"
+            and t.text in ("struct", "enum")
+            or (
+                t.kind == "ident"
+                and t.text == "union"
+                and s.at(k + 1) is not None
+                and s.tokens[k + 1].kind == "ident"
+            )
         ):
             j = k + 2
             if _is(s.at(j), "<"):
                 j = _generic_names(s, j, set()) + 1
-            body = s.find(j, s.n, lambda x: s.tokens[x].kind == "punct" and s.tokens[x].text in "{;(")
+            body = s.find(
+                j,
+                s.n,
+                lambda x: s.tokens[x].kind == "punct" and s.tokens[x].text in "{;(",
+            )
             if _is(s.at(body), "{"):
                 bodies.add(body)
         elif _kw(t, "match"):
@@ -897,9 +1192,10 @@ def _list_bodies(s: _Stream) -> set[int]:
                 bodies.add(body)
         elif _is(t, "{") and k > 0:
             before = s.tokens[k - 1]
-            if before.kind == "ident" or _kw(before, "Self"):
-                if _starts_expression(s, _path_head(s, k - 1)):
-                    bodies.add(k)
+            if (before.kind == "ident" or _kw(before, "Self")) and _starts_expression(
+                s, _path_head(s, k - 1)
+            ):
+                bodies.add(k)
     return bodies
 
 
@@ -945,6 +1241,12 @@ def _dropped_comma(s: _Stream, k: int, bodies: set[int], user_macro: set[int]) -
         return False
     after = s.at(k + 1)
     before = s.at(k - 1)
+    # A trailing separator requires an entry. Removing a lone or repeated comma
+    # would turn an invalid list into a valid empty or single-entry list.
+    if before is None or (
+        before.kind == "punct" and before.text in ("(", "[", "{", ",")
+    ):
+        return False
     if _is(before, "}") and (k - 1) in s.partner and s.fat_arrow(s.partner[k - 1] - 2):
         return True
     if after is None or after.kind != "punct" or after.text not in _CLOSERS:
@@ -984,7 +1286,53 @@ def _compound_length(s: _Stream, k: int) -> int:
     return 1
 
 
-def _kept_doc_comments(tokens: list[Token], docs: list[tuple[int, str]]) -> dict[int, list[str]]:
+def _scope_sensitive_names(s: _Stream) -> set[str]:
+    """Keep a let-bound spelling if any use may resolve to a different binding.
+
+    This deliberately declines renaming instead of resolving Rust scopes. A use
+    before the declaration's semicolon (including its initializer), or outside
+    its enclosing braces, cannot be attributed to that declaration here.
+    """
+    protected: set[str] = set()
+    occurrences: dict[str, list[int]] = {}
+    for k, token in enumerate(s.tokens):
+        if token.kind == "ident":
+            occurrences.setdefault(token.text, []).append(k)
+    for k, token in enumerate(s.tokens):
+        if not _kw(token, "let"):
+            continue
+        pattern_end = s.find(
+            k + 1,
+            s.n,
+            lambda j: (
+                _is(s.tokens[j], "=")
+                or _is(s.tokens[j], ";")
+                or s.colon(j)
+                or _kw(s.tokens[j], "else")
+            ),
+        )
+        names = _pattern_names(s, k + 1, pattern_end)
+        scope_end = min(
+            (
+                end
+                for start, end in s.partner.items()
+                if start < k < end and _is(s.tokens[start], "{")
+            ),
+            default=s.n,
+        )
+        statement_end = s.find(k + 1, scope_end, lambda j: _is(s.tokens[j], ";"))
+        for name in names:
+            if any(
+                not (k < position < pattern_end or statement_end < position < scope_end)
+                for position in occurrences[name]
+            ):
+                protected.add(name)
+    return protected
+
+
+def _kept_doc_comments(
+    tokens: list[Token], docs: list[tuple[int, str]]
+) -> dict[int, list[str]]:
     """The doc comments that change what the program is, by the token they precede.
 
     A doc comment is layout when it documents something, and those are dropped. It
@@ -995,8 +1343,17 @@ def _kept_doc_comments(tokens: list[Token], docs: list[tuple[int, str]]) -> dict
     """
     kept: dict[int, list[str]] = {}
     for position, kind in docs:
-        dangling = position >= len(tokens) or _is(tokens[position], "}")
-        if kind == "//!" or dangling:
+        # Only discard docs immediately before an item keyword. In particular,
+        # a parameter or expression is not an item a doc comment can document.
+        item = (
+            position < len(tokens)
+            and tokens[position].kind == "keyword"
+            and (
+                tokens[position].text
+                in {"fn", "struct", "enum", "trait", "impl", "mod", "type"}
+            )
+        )
+        if kind == "//!" or not item:
             kept.setdefault(position, []).append(kind)
     return kept
 
@@ -1007,8 +1364,13 @@ def _normalize(
     s = _Stream(tokens)
     declared = _declared(s)
     kept_members = declared.members & _STD_MEMBERS
-    renamable = (declared.names | declared.members | declared.macros) - kept_members
-    members = declared.members - kept_members
+    protected = kept_members | {"main"} | _scope_sensitive_names(s)
+    # Derives can expose names (Debug) or interpret them (other derives). Without
+    # expanding those macros, alpha-renaming is not evidence of equivalence.
+    if any(t.text == "derive" for t in tokens):
+        protected |= declared.names | declared.members | declared.macros
+    renamable = (declared.names | declared.members | declared.macros) - protected
+    members = declared.members - protected
     format_strings = _format_strings(s, declared)
     bodies = _list_bodies(s)
     user_macro = _user_macro_arguments(s, declared)
@@ -1039,7 +1401,9 @@ def _normalize(
             out.append(t.text if t.text in ("'static", "'_") else placeholder(t.text))
         elif t.kind == "string" and k in format_strings:
             out.append(
-                _rename_inline_arguments(t.text, declared.names - kept_members, placeholder)
+                _rename_inline_arguments(
+                    t.text, declared.names - protected, placeholder
+                )
             )
         elif t.kind != "ident":
             out.append(t.text)
@@ -1052,7 +1416,10 @@ def _normalize(
                 segment = s.at(k - 3)
                 rename = name in renamable and (
                     (k - 3) in renamed_at
-                    or (segment is not None and segment.text in ("Self", "self", "crate", "super"))
+                    or (
+                        segment is not None
+                        and segment.text in ("Self", "self", "crate", "super")
+                    )
                 )
             elif _is_macro_call(s, k):
                 rename = name in declared.macros
@@ -1068,7 +1435,9 @@ def _normalize(
     return out
 
 
-def _rename_inline_arguments(literal: str, renamable: frozenset[str], placeholder) -> str:
+def _rename_inline_arguments(
+    literal: str, renamable: frozenset[str], placeholder: Callable[[str], str]
+) -> str:
     """`{v:?}` to `{$1:?}` inside a format string, and `{:>w$}` to `{:>$2$}`.
     `{{` and `}}` are escapes and are left alone; so are positional arguments."""
 
@@ -1080,7 +1449,10 @@ def _rename_inline_arguments(literal: str, renamable: frozenset[str], placeholde
         if _NAME.match(argument) and argument in renamable:
             argument = placeholder(argument)
         form = _NAMED_WIDTH.sub(
-            lambda w: placeholder(w.group(1)) if w.group(1) in renamable else w.group(1), form
+            lambda w: (
+                placeholder(w.group(1)) if w.group(1) in renamable else w.group(1)
+            ),
+            form,
         )
         return "{" + argument + colon + form + "}"
 
@@ -1122,7 +1494,7 @@ def _bigrams(stream: Sequence[str]) -> tuple[str, ...]:
     space, and a literal token always carries both of its quotes, so no two
     different pairs can spell the same string.
     """
-    return tuple(sorted({f"{a} {b}" for a, b in zip(stream, stream[1:])}))
+    return tuple(sorted({f"{a} {b}" for a, b in pairwise(stream)}))
 
 
 def entry_for(source: str) -> Entry:
@@ -1150,14 +1522,22 @@ def similarity(a: Iterable[str], b: Iterable[str]) -> float:
 def _holds(history: History, question_id: str) -> bool:
     return any(
         question_id in store
-        for store in (history.exact_hashes, history.ast_fingerprints, history.token_bigrams)
+        for store in (
+            history.exact_hashes,
+            history.ast_fingerprints,
+            history.token_bigrams,
+        )
     )
 
 
 def recorded_ids(history: History) -> tuple[str, ...]:
     """Every question id the history holds an entry for, in the order recorded."""
     seen: dict[str, None] = {}
-    for store in (history.exact_hashes, history.ast_fingerprints, history.token_bigrams):
+    for store in (
+        history.exact_hashes,
+        history.ast_fingerprints,
+        history.token_bigrams,
+    ):
         for question_id in store:
             seen.setdefault(question_id, None)
     return tuple(seen)
@@ -1177,7 +1557,11 @@ def entry_in(history: History, question_id: str) -> Entry | None:
     """The recorded entry for one question, or `None` unless all three stores hold it."""
     if not all(
         question_id in store
-        for store in (history.exact_hashes, history.ast_fingerprints, history.token_bigrams)
+        for store in (
+            history.exact_hashes,
+            history.ast_fingerprints,
+            history.token_bigrams,
+        )
     ):
         return None
     return Entry(
@@ -1251,7 +1635,9 @@ def sync_with_bank(
 # The check (AC-14, AC-15, AC-16)
 # --------------------------------------------------------------------------- #
 
-VerdictKind = Literal["exact_duplicate", "normalized_duplicate", "near_duplicate", "cleared"]
+VerdictKind = Literal[
+    "exact_duplicate", "normalized_duplicate", "near_duplicate", "cleared"
+]
 
 _ADMITTED = frozenset({"near_duplicate", "cleared"})
 
@@ -1287,7 +1673,9 @@ class Verdict:
         """One line for the run report."""
         about = self.candidate_id
         threshold = f"threshold {self.threshold:.2f}, uncalibrated"
-        queue = "added to the review queue" if written else "would join the review queue"
+        queue = (
+            "added to the review queue" if written else "would join the review queue"
+        )
         if self.kind == "exact_duplicate":
             return (
                 f"{about}: rejected — exact duplicate of {self.duplicate_of}: "
@@ -1322,7 +1710,9 @@ class Verdict:
             "statement": self.statement,
             "duplicate_of": self.duplicate_of,
             "closest": self.closest,
-            "similarity": None if self.similarity is None else round(self.similarity, 4),
+            "similarity": None
+            if self.similarity is None
+            else round(self.similarity, 4),
         }
         out.update({key: value for key, value in optional.items() if value is not None})
         return out
@@ -1353,7 +1743,9 @@ def _check_entry(
             return Verdict(candidate_id, "exact_duplicate", threshold, duplicate_of=qid)
     for qid in ids:
         if history.ast_fingerprints.get(qid) == entry.fingerprint:
-            return Verdict(candidate_id, "normalized_duplicate", threshold, duplicate_of=qid)
+            return Verdict(
+                candidate_id, "normalized_duplicate", threshold, duplicate_of=qid
+            )
 
     closest: str | None = None
     best = 0.0
@@ -1577,7 +1969,9 @@ def run(
     )
 
 
-def status(bank_dir: Path | str, *, threshold: float = NEAR_DUPLICATE_THRESHOLD) -> RunReport:
+def status(
+    bank_dir: Path | str, *, threshold: float = NEAR_DUPLICATE_THRESHOLD
+) -> RunReport:
     """The history as the review surface's first screen shows it (AC-17): its size
     on disk, and what the next run would make it. Writes nothing."""
     return run(bank_dir, (), threshold=threshold, write=False)
