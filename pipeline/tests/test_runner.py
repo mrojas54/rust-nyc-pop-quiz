@@ -22,6 +22,18 @@ FIXTURES = HERE / "fixtures"
 # surely as a module doing it, and would be an easy way to sidestep the seam.
 SCANNED = (HERE.parent / "src" / "popquiz", HERE)
 
+# `tests/sandbox` is the AC-12 containment suite. It runs real containers, so of
+# course it starts processes — and `just test` never collects it: `test-pipeline`
+# passes `--ignore=tests/sandbox`, and that directory's conftest refuses to run
+# unless asked. Scanning it would make this guard fail for files that are not part
+# of what it is a guard over.
+#
+# The exclusion is only sound while the ignore is real, so it is not taken on
+# trust: `test_sandbox.py::test_the_containment_suite_is_not_collected_by_the_inner_loop`
+# asserts the flag is in the justfile and the conftest's gate is in place. Remove
+# either and that test fails, which is what keeps this line honest.
+NOT_PART_OF_JUST_TEST = (HERE / "sandbox",)
+
 # Importing any of these gives a module the ability to start a process.
 # `importlib` is on the list because it is how a forbidden import gets made
 # without looking like one. That is broader than the threat — `importlib.
@@ -29,6 +41,24 @@ SCANNED = (HERE.parent / "src" / "popquiz", HERE)
 # innocent, narrow this to the dynamic-import calls rather than dropping the
 # entry.
 FORBIDDEN_IMPORTS = {"subprocess", "multiprocessing", "pty", "docker", "importlib"}
+
+# The modules that are allowed to start a process, by path relative to
+# `pipeline/`. T-15a narrowed this from "nobody" to "exactly one", as the guard's
+# own docstring below asks, so that the set stays visible at a glance instead of
+# the guard being deleted the first time something legitimately needs to execute.
+#
+# `popquiz/sandbox.py` owns execution: it is the only caller of `docker run`, and
+# `test_sandbox.py` proves separately that importing it starts nothing, which is
+# what lets `just test` import it at all.
+#
+# The check below is two-directional. An offender that is not on this list fails,
+# and an entry on this list that no longer offends fails too — a one-way
+# allowlist rots into a rubber stamp, and an exemption nobody needs any more is
+# exactly the kind of stale permission that lets the next one in unnoticed.
+#
+# Paths are relative to `pipeline/`, which is the one base that is unambiguous for
+# both halves of SCANNED — `src/popquiz` and `tests` sit side by side under it.
+MAY_START_A_PROCESS = {"src/popquiz/sandbox.py"}
 
 # `os` is not forbidden — modules want `os.environ` and `os.fspath`. These are
 # the calls on it that start something. Both families are complete: all seven
@@ -148,21 +178,71 @@ def test_nothing_just_test_imports_can_start_a_process() -> None:
     that genuinely needs to execute something has to say so in a way a reader
     sees, not so that the absence of a finding is a guarantee.
 
-    T-15b will legitimately need to break this — `RealRunner` executes things.
-    Narrow it to exempt the one module that owns execution rather than deleting
-    it, so the set of modules that can start a process stays visible at a glance.
+    **Narrowed by T-15a, not deleted.** `popquiz/sandbox.py` runs `docker`, so it
+    is on `MAY_START_A_PROCESS`. Two things keep that from being a hole: the check
+    is two-directional, so the exemption cannot outlive its reason; and
+    `test_sandbox.py` proves the exempt module executes nothing at import time,
+    which is the property `just test` actually needs — not "imports nothing that
+    could execute" but "executes nothing".
     """
-    offenders = []
+    found: dict[str, list[str]] = {}
     for root in SCANNED:
         for path in sorted(root.rglob("*.py")):
+            if any(path.is_relative_to(excluded) for excluded in NOT_PART_OF_JUST_TEST):
+                continue
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            where = str(path.relative_to(HERE.parent))
             for lineno, what in _process_starting_nodes(tree):
-                offenders.append(f"{path.relative_to(root.parent)}:{lineno} {what}")
+                found.setdefault(where, []).append(f"{where}:{lineno} {what}")
 
-    assert not offenders, (
-        "something `just test` imports can start a process, which it must never "
-        "do: " + "; ".join(offenders)
+    unexpected, stale = _classify(found, MAY_START_A_PROCESS)
+    assert not unexpected, (
+        "something `just test` imports can start a process, and it is not the one "
+        "module allowed to: " + "; ".join(unexpected)
     )
+    assert not stale, (
+        "these modules are exempted from the shell-out guard but no longer start "
+        "anything, so the exemption should be removed rather than left standing: "
+        + ", ".join(stale)
+    )
+
+
+def _classify(
+    found: dict[str, list[str]], allowed: set[str]
+) -> tuple[list[str], list[str]]:
+    """Split the scan's findings into offenders nobody exempted and exemptions
+    nobody needs. Exact path comparison, on purpose: see the test below."""
+    unexpected = [line for where, lines in found.items() if where not in allowed for line in lines]
+    stale = sorted(allowed - found.keys())
+    return unexpected, stale
+
+
+def test_the_exemption_covers_one_exact_path_and_nothing_near_it() -> None:
+    """The exemption is only as narrow as the comparison behind it. A prefix or a
+    directory match would let a sibling module — or one whose name merely starts
+    the same way — inherit the right to start a process without appearing on the
+    list, which is the one thing the list exists to prevent."""
+    exempt = "src/popquiz/sandbox.py"
+    found = {
+        exempt: [f"{exempt}:1 imports subprocess"],
+        "src/popquiz/verify.py": ["src/popquiz/verify.py:3 imports subprocess"],
+        "src/popquiz/sandbox_helpers.py": ["src/popquiz/sandbox_helpers.py:2 calls os.system"],
+        "src/popquiz/sandbox/extra.py": ["src/popquiz/sandbox/extra.py:5 imports pty"],
+    }
+
+    unexpected, stale = _classify(found, {exempt})
+
+    assert not stale
+    assert not [line for line in unexpected if line.startswith(f"{exempt}:")]
+    assert {line.split(":", 1)[0] for line in unexpected} == {
+        "src/popquiz/verify.py",
+        "src/popquiz/sandbox_helpers.py",
+        "src/popquiz/sandbox/extra.py",
+    }
+
+    # And the other direction: an exemption with no offence behind it is reported.
+    _, stale = _classify({}, {exempt})
+    assert stale == [exempt]
 
 
 def test_the_guard_catches_the_ways_it_claims_to() -> None:
@@ -193,4 +273,14 @@ def test_the_guard_catches_the_ways_it_claims_to() -> None:
     for source in allowed:
         assert not _process_starting_nodes(ast.parse(source)), (
             f"false positive: {source!r}"
+        )
+
+
+def test_every_shell_out_exemption_names_a_file_that_exists() -> None:
+    """A misspelled exemption would surface as a *stale* one, which is a
+    misleading way to find out you typed a path wrong. This says which it is."""
+    for where in sorted(MAY_START_A_PROCESS):
+        assert (HERE.parent / where).is_file(), (
+            f"{where} is exempted from the shell-out guard, but there is no such "
+            f"file under {HERE.parent}. Fix the path or drop the entry."
         )
