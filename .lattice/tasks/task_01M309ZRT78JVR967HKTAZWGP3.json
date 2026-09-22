@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 6,
+  "comment_count": 8,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -16,7 +16,7 @@
     }
   ],
   "id": "task_01M309ZRT78JVR967HKTAZWGP3",
-  "last_event_id": "ev_01M33TCTDNE5NTWGMTEGGBASF5",
+  "last_event_id": "ev_01M33TQG2SF73X8MGKGSD693J5",
   "last_status_changed_at": "2026-09-22T02:10:02Z",
   "priority": "medium",
   "relationships_out": [
@@ -39,6 +39,6 @@
   ],
   "title": "Dedupe",
   "type": "task",
-  "updated_at": "2026-09-22T05:46:07Z",
+  "updated_at": "2026-09-22T05:51:57Z",
   "urgency": null
 }

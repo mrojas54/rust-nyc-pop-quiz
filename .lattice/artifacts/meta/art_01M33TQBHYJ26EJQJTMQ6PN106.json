@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-22T05:51:52Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M33TQBHYJ26EJQJTMQ6PN106",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M33TQBHYJ26EJQJTMQ6PN106.md",
+    "size_bytes": 423
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #11 merged to main at 77c4a32 with a merge commit on the client's word, after both CI jobs passed on the exact head ea858ec. Code review PASS-WITH-NITS on c693574; ea858ec mechanical fixes unreview",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -151,10 +151,9 @@ The client paused the fleet at 23:48 on 2026-09-21 (in the dedupe tab) and at 01
 told the Orchestrator to save state and stop. The dispatch loop is stopped. The
 delegator tabs are left open and idle; nothing runs.
 
-**State at pause.** Done: PQ-1 (#8, `0742d35`), PQ-2 (#9, `36250b3`), PQ-18 (#10,
-`238146e`). At review, MERGEABLE/CLEAN, CI green on the exact head, receipts appended:
-PQ-3 (PR #11 @ `ea858ec`), PQ-19 (PR #12 @ `ff99bd2`); both on `0742d35`, both merge
-into `main` without conflict; their tabs are closed. Idle delegators, each with its
+**State at pause (updated 01:5x).** Done: PQ-1 (#8, `0742d35`), PQ-2 (#9, `36250b3`),
+PQ-18 (#10, `238146e`), PQ-24 (#13, `d88fab4`), PQ-3 (#11, `77c4a32`), PQ-19 (#12,
+`696b3ce`). `main` = `696b3ce`. No open PRs. M0 complete. Idle delegators, each with its
 state on its ticket:
 - PQ-24 bank audit: **done** since 01:45 (PR #13 merged at `d88fab4`); tab 34 closed.
 - PQ-22 dedupe, tab 35, `in_progress`, PAUSED comment on the ticket: HEAD `f6a8971`, 3
@@ -167,9 +166,7 @@ F-15, F-16, F-17, F-18 (see `sequence/run-state.md`).
 
 **Waiting on the client:** (1) Yes in tab 39 (PQ-20's Docker check). (2) The D-A go/no-go on PQ-3's numbers (AC-54 92 ms, AC-53 63 ms, AC-41 117 ms,
 all far under the limits): PQ-4 (T-04a, phase machine) and with it all of M1 dispatch on
-that word. (3) "merge 11", "merge 12" when ready (merge commit, CI re-checked on the
-exact head, then `lattice complete`, receipt, and the in-flight delegators told to merge
-`origin/main`). (4) Fly: the org has no card, so machines stop after 5 min; HC-0's re-run
+that word. (3) Fly: the org has no card, so machines stop after 5 min; HC-0's re-run
 needs a card or the same windowing. The spike app `rustnyc-popquiz-spike` is scaled to
 zero, not destroyed.
 
@@ -202,3 +199,4 @@ prompt on the guard line (footgun below) and answer it with `send-key enter`.
 - 2026-09-22 00:17 [autonomy: Moderate] Loop cadence lengthened to 30 min while the client's pause holds; a tick still banners the two prompts and verifies any DONE that lands.
 - 2026-09-22 01:2x [client: "save run state. 75% of usage is gone for the week"] Dispatch loop stopped; run-state, agents.md and receipts committed on `ai-c11-cc/lattice-build`. Two quiet ticks (00:49, 01:20) preceded this: no board, PR or tab change since 00:17. Delegator tabs 34, 35, 39 left open and idle. Not pushed.
 - 2026-09-22 01:45 [client: "merge pr 13"] The client answered tab 34 after the pause; PQ-24 opened PR #13 (`ai-c11-cc/bank-audit` @ `45cd8d0` on `238146e`) and posted DONE with eight deviations. Verified head == remote, both CI jobs SUCCESS on the exact head, MERGEABLE/CLEAN. Merged with a merge commit at `d88fab4`. PQ-24 completed; receipts appended; surface:34 closed; PQ-20 told to merge `origin/main`, PQ-22 told to rebase on resume (its branch was never pushed). Local `main` ref updated by fetch. Loop stays stopped; the client's pause holds.
+- 2026-09-22 01:5x [client: "merge all open prs if theyve been reviewed"] Both open PRs had a code-review verdict attached on their ticket (PQ-3: PASS-WITH-NITS on `c693574`; PQ-19: PASS-WITH-NITS on `f6fdf21`), plus a Validation note each. Re-verified CI SUCCESS on the exact heads and MERGEABLE/CLEAN after #13 moved main. Merged in order with merge commits: #11 → `77c4a32`, then #12 re-checked against the new main and merged → `696b3ce`. Both branches auto-deleted by GitHub. PQ-3 and PQ-19 completed; receipts appended. PQ-20 told its parent merged and to unset the dead upstream then merge `origin/main`; PQ-22 told main moved. `main` = `696b3ce`. M0 is complete; M3 has PQ-18, PQ-19, PQ-24 done. The client's pause and the stopped loop still hold; PQ-4 still waits for the D-A go.

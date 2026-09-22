@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-22T05:51:53Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M33TQCS1KM6SEFC6Z8XGPRYN",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M33TQCS1KM6SEFC6Z8XGPRYN.md",
+    "size_bytes": 305
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #12 merged to main at 696b3ce with a merge commit on the client's word, after both CI jobs passed on the exact head ff99bd2. Code review PASS-WITH-NITS on f6fdf21; AC-12 proven on aarch64 and x86_6",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

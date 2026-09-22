@@ -1,0 +1,1 @@
+PR #12 merged to main at 696b3ce with a merge commit on the client's word, after both CI jobs passed on the exact head ff99bd2. Code review PASS-WITH-NITS on f6fdf21; AC-12 proven on aarch64 and x86_64. Pin recorded from the image (1.98.1 / 48a229c, nightly-2026-09-19). Handover notes for T-15b on PQ-20.
