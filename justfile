@@ -79,8 +79,12 @@ test-full: test sandbox-build test-sandbox
 # Without it the suite refuses to collect, so a recipe that forgets to set it fails
 # instead of reporting a suite that never ran. Not --offline: the fixtures run
 # containers, and the container is where the network is denied.
+#
+# -vv, not -v: pyproject's addopts carries -q, and one -v only cancels it. The
+# suite names each fixture on purpose — "9 passed" says nothing about which ways
+# out were tried.
 test-sandbox:
-    cd pipeline && POPQUIZ_SANDBOX_SUITE=1 uv run --no-sync pytest tests/sandbox -v
+    cd pipeline && POPQUIZ_SANDBOX_SUITE=1 uv run --no-sync pytest tests/sandbox -vv
 
 # Build the verification image from pin.toml, then report what it actually says.
 #
