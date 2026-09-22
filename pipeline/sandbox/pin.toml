@@ -1,0 +1,101 @@
+# The verification toolchain pin — defined here, once (SPEC.md §7.2, D-17).
+#
+# This file is the only place the toolchain is declared. T-15b's verifier reads
+# it; the Dockerfile holds no version literal of its own and takes what it needs
+# from here as build arguments, so there is no second copy to drift against.
+# Nothing else re-declares any of this.
+#
+# WHAT [pin] MEANS. It is what a verified record is compared against. A
+# non-legacy record whose `rustc` does not match [pin] is stale: its question
+# re-verifies before it can be scheduled (AC-6). Nothing outside [pin] takes part
+# in that comparison — bumping a memory limit or retagging the image never
+# invalidates a verified question.
+#
+# HOW THE VALUES GET HERE. Two kinds of field, and the difference is the point:
+#
+#   * `rust_version` and `nightly` are REQUESTED. They are the inputs to the
+#     image build, chosen from the official channel manifests.
+#   * `release`, `commit_hash` and `miri_version` are RECORDED. They come out of
+#     `rustc -Vv` and `cargo miri --version` run inside the built image.
+#     `just sandbox-build` prints them and `read_pin()` refuses a [pin] with any
+#     of them empty.
+#
+# Nobody types a recorded field. This project does not write down what a program
+# prints (CLAUDE.md, house rules; G-2), and a toolchain version is not an
+# exception just because it is short.
+#
+# TO BUMP THE PIN: edit `rust_version` and/or `nightly`, blank the three recorded
+# fields, run `just sandbox-build`, paste back what it prints, then re-verify the
+# bank — every non-legacy record is now stale. See README.md.
+
+[pin]
+# Requested: the stable toolchain the image installs.
+rust_version = "1.98.1"
+
+# Recorded from `rustc -Vv` inside the image. `release` must equal
+# `rust_version`; read_pin() checks it, which is what catches an image built from
+# a tag that does not match what this file asked for.
+release = "1.98.1"
+commit_hash = "48a229ceaefd4985c50990b14116b6d856af0985"
+
+# The edition every candidate compiles under. The MVP's verifier used 2021
+# (`mvp/tools/verify.py:172`) and every migrated record says 2021
+# (`mvp/2026-08-12/verified.json`), so changing it would make the legacy records
+# incomparable with new ones for no gain.
+edition = "2021"
+
+# Requested: the nightly Miri runs under, by date. Checked against the channel
+# manifest for `miri-preview` availability on both linux-gnu targets before being
+# written here.
+nightly = "2026-09-19"
+
+# Recorded from `cargo +nightly-<nightly> miri --version` inside the image.
+miri_version = "miri 0.1.0 (420ed2a0c3 2026-09-18)"
+
+# Recorded per run, never compared. The image builds for the host's own
+# architecture, so both of these are supported and the runner records which one
+# actually ran (SPEC.md §3.2 makes `target_triple` a recorded field, and D-17's
+# pin is the release, the commit-hash and the nightly date — not the triple).
+target_triples = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+# The flag set the verifier compiles with — the flags the research found
+# unpinned, recorded in every verified record (SPEC.md §3.2, AC-6). These are
+# debug-profile values on purpose: a question about integer overflow has a
+# different answer under `overflow-checks = false`, so the flags are part of what
+# makes an answer reproducible rather than an incidental build detail.
+[pin.flags]
+opt-level = "0"
+overflow-checks = true
+debug-assertions = true
+
+# ---------------------------------------------------------------------------
+# Below here is NOT part of the pin and takes no part in the stale check.
+# ---------------------------------------------------------------------------
+
+[image]
+tag = "popquiz-sandbox"
+
+# Empty means: build for the host's own architecture. Setting it (for example
+# "linux/amd64") forces one architecture on every host, which makes Miri run
+# under emulation on Apple Silicon and inflates the wall-clock Q-E4 exists to
+# measure. It is one line to set if a real cross-architecture divergence ever
+# turns up; see README.md, "Why the platform is not pinned".
+platform = ""
+
+# AC-12's enforced limits. `memory_swap` matches `memory` deliberately: Docker
+# otherwise allows swap at twice the memory limit, and a program that swaps
+# instead of being killed is not a contained program.
+[limits]
+memory = "512m"
+memory_swap = "512m"
+cpus = "1.0"
+pids = 64
+timeout_seconds = 60
+
+# The tmpfs work dir. `exec` is deliberate and load-bearing: `rustc` writes a
+# binary into /work and the next step runs it, so the reflex `noexec` would break
+# the sandbox outright. Size stays at or under `memory` because a tmpfs is
+# charged to the container's memory cgroup — a larger one would let a program
+# reach the memory limit by writing files, which would make the memory fixture's
+# verdict ambiguous about which mechanism fired.
+tmpfs_size = "256m"
