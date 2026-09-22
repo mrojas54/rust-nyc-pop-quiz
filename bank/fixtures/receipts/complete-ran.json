@@ -1,0 +1,41 @@
+{
+  "_note": "SYNTHETIC. This record describes no Rust program and nothing ran to produce it; the stdout below is a placeholder that says so in its own text, following the precedent of pipeline/tests/fixtures/scaffold-placeholder.json. It exists to prove that a COMPLETE record — every SPEC 3.2 field present — renders exactly the same four lines as the legacy record beside it (D-25), so the receipt has no branch on `legacy`. The receipt never reads stdout's content, only whether the steps are present, which is why a placeholder is honest here. T-15b replaces it with a recorded case if it wants one.",
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)\nbinary: rustc\ncommit-hash: 31fca3adb0000000000000000000000000000000\ncommit-date: 2026-06-26\nhost: aarch64-apple-darwin\nrelease: 1.96.1\nLLVM version: 20.1.0",
+    "edition": "2021",
+    "target_triple": "aarch64-apple-darwin",
+    "flags": {
+      "opt_level": "0",
+      "overflow_checks": true,
+      "debug_assertions": true
+    },
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "SYNTHETIC FIXTURE - no program produced this\n",
+    "exit_code": 0,
+    "miri": {
+      "clean": true,
+      "output_matched": true,
+      "version": "miri 0.1.0 (nightly-2026-06-20)",
+      "configs": [
+        "stacked_borrows",
+        "tree_borrows"
+      ],
+      "seeds": [
+        0,
+        1,
+        2
+      ]
+    },
+    "verified_at": "2026-09-20T00:00:00Z",
+    "verifier_version": "0.1.0"
+  },
+  "expected_lines": [
+    "✓ Compiled",
+    "✓ Ran 5 times",
+    "✓ Output never varied",
+    "✓ Miri ran clean"
+  ]
+}

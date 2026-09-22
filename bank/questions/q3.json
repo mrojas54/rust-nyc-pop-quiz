@@ -1,0 +1,150 @@
+{
+  "id": "q3",
+  "source": "fn main() {\n    let mut v = vec![1, 2, 2, 3, 2, 1, 1];\n    v.dedup();\n    println!(\"{:?}\", v);\n}\n",
+  "topic": "Collections",
+  "difficulty_requested": 2,
+  "options": [
+    {
+      "text": "[1, 2, 3]",
+      "kind": "output",
+      "why_tempting": "In almost every other language, a method called dedup means unique: give me each value once. Rust's doesn't. It removes only consecutive duplicates. That word appears once in the docs and is easy to read past."
+    },
+    {
+      "text": "[1, 2, 2, 3, 2, 1, 1]",
+      "kind": "output",
+      "why_tempting": "A reasonable reading is that dedup wants a sorted vector and does nothing useful without one, so it leaves this vector alone. It does not check and it does not refuse - it makes its one pass regardless."
+    },
+    {
+      "text": "[1, 2, 3, 2, 1, 1]",
+      "kind": "output",
+      "why_tempting": "This is what you get if you catch the pair in the middle and stop looking. The other pair is the last two elements, which is the easiest place in a list to skim past."
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile",
+      "why_tempting": "dedup needs the vector mutably and this one is declared mut, so nothing here is a borrow problem. Reaching for this option is usually a guess that dedup has a precondition - sorted, or comparable - that the compiler would enforce. It has neither."
+    },
+    {
+      "text": "[1, 2, 3, 2, 1]",
+      "kind": "output"
+    }
+  ],
+  "hint": "Read dedup's documentation in your head, then read it again. The key word is one you might skip over.",
+  "explains": {
+    "what": "dedup only removes duplicates that are sitting next to each other. The 2,2 in the middle and the 1,1 at the end were adjacent, so they collapsed into one. The other 2 and the other 1 weren't next to their twins, so they stayed where they were.",
+    "takeaway": "To get each value once, either sort first, which puts the duplicates next to each other, or use a HashSet. Which you pick depends on whether you care about order.",
+    "legacy": "dedup removes *consecutive* duplicates only -- the word is easy to skip in the docs. The adjacent 2,2 and the trailing 1,1 collapse; the later 2 and 1 are not adjacent to their earlier occurrences, so they survive. If you want genuinely unique elements you have to sort first (making duplicates adjacent) or reach for a HashSet."
+  },
+  "trace": {
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          1,
+          5
+        ],
+        "note": "Seven elements go in — and two of the pairs happen to be sitting next to each other. Hold on to which ones.",
+        "values": [
+          {
+            "name": "v",
+            "was": "—",
+            "now": "[1, 2, 2, 3, 2, 1, 1]"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          2,
+          4
+        ],
+        "note": "dedup makes one pass, comparing each element with the one immediately before it. Only neighbours are ever compared — it never looks further back.",
+        "values": []
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "The 2, 2 in the middle collapses. Same value, side by side.",
+        "values": [
+          {
+            "name": "v",
+            "was": "[1, 2, 2, 3, 2, 1, 1]",
+            "now": "[1, 2, 3, 2, 1, 1]"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "The 1, 1 on the end collapses for exactly the same reason.",
+        "values": [
+          {
+            "name": "v",
+            "was": "[1, 2, 3, 2, 1, 1]",
+            "now": "[1, 2, 3, 2, 1]"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "And the other 2 and the other 1 survive — because they were never next to their twins. There is already a 2 near the front, and dedup did not look. This is the step the whole question turns on.",
+        "values": [],
+        "pivot": true
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          1,
+          5
+        ],
+        "note": "Five left. Two were dropped, and both of them only because of who they happened to be sitting next to.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "[1, 2, 3, 2, 1]"
+          }
+        ]
+      }
+    ]
+  },
+  "verified": {
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "edition": "2021",
+    "legacy": true,
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "[1, 2, 3, 2, 1]\n",
+    "miri": {
+      "clean": true,
+      "output_matched": true
+    }
+  },
+  "review": {
+    "reason": "Migrated from the August batch by T-14. Every option is one line of at most 29 characters, so this question runs on the wall as authored (D-15). The three beats and the trace were drafted from the August explanation and the loved prototype, and need an organizer to read them and affirm."
+  }
+}
