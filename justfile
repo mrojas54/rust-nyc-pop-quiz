@@ -5,13 +5,19 @@
 # do not exist yet; those print which ticket delivers them and fail, so that a
 # suite can never look green by not being there.
 #
-#   just setup       fetch dependencies (the one recipe allowed to use the network)
-#   just test        the inner loop: hermetic, parallel, offline, <= 60 s
-#   just test-full   everything that exists, plus what is still pending
+#   just setup          fetch dependencies
+#   just test           the inner loop: hermetic, parallel, offline, <= 60 s
+#   just test-full      everything that exists, plus what is still pending
+#   just sandbox-build  build the verification image from pin.toml (T-15a)
 #
 # Why `setup` exists: `test` has to be hermetic, and a fresh .venv has to come
-# from somewhere. Splitting the one network step out is what lets `test` be run
+# from somewhere. Splitting the network step out is what lets `test` be run
 # with --offline and held to it, rather than merely asked not to reach out.
+#
+# Two recipes use the network, and neither is reachable from `test`: `setup`, and
+# `sandbox-build`, which downloads a toolchain into an image. `sandbox-build` is a
+# prerequisite of `test-full` only. The image it produces runs with no network at
+# all, which is why the toolchain has to be baked in at build time.
 
 # Suites not built yet, and the ticket that delivers each. Read by both `_pending`
 # and `test-full`, so the two can never disagree about what is missing.
@@ -35,8 +41,13 @@ test-room:
     cd room && cargo test --offline --locked
 
 # The pipeline's decision logic, against StubRunner's recorded outputs.
+#
+# tests/sandbox is ignored here and nowhere else: it is the AC-12 containment suite
+# and it needs a real container, which this hook is forbidden from having. Ignoring
+# the directory means its conftest is never even imported — and that conftest
+# refuses to run unasked, so the suite has no way to look green without a container.
 test-pipeline:
-    cd pipeline && uv run --offline --no-sync pytest
+    cd pipeline && uv run --offline --no-sync pytest --ignore=tests/sandbox
 
 # Node's built-in runner. No package.json, no node_modules, nothing to install.
 # The glob is quoted so node expands it, not the shell: with no package.json
@@ -47,20 +58,68 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test
+test-full: test sandbox-build test-sandbox
     #!/usr/bin/env bash
     set -euo pipefail
     echo ""
     echo "=== test-full ==="
-    echo "Ran: test (room, pipeline, web) and the in-process canary seam."
+    echo "Ran: test (room, pipeline, web), the in-process canary seam, and the"
+    echo "     AC-12 containment suite on the sandbox image."
     echo ""
     echo "PENDING — these suites are not built yet:"
     for entry in {{ PENDING }}; do
         printf '  %-12s delivered by %s\n' "${entry%%:*}" "${entry##*:}"
     done
     echo ""
-    echo "T-15a adds the sandbox image and T-21 the deployed runs; both extend"
-    echo "this hook. Docker is installed for test-full only, and nothing uses it yet."
+    echo "T-21 adds the deployed runs and extends this hook further."
+
+# The AC-12 containment suite, on the image `sandbox-build` just produced.
+#
+# POPQUIZ_SANDBOX_SUITE is what tells tests/sandbox/conftest.py it was asked for.
+# Without it the suite refuses to collect, so a recipe that forgets to set it fails
+# instead of reporting a suite that never ran. Not --offline: the fixtures run
+# containers, and the container is where the network is denied.
+test-sandbox:
+    cd pipeline && POPQUIZ_SANDBOX_SUITE=1 uv run --no-sync pytest tests/sandbox -v
+
+# Build the verification image from pin.toml, then report what it actually says.
+#
+# Every version comes out of pin.toml and goes in as a build argument, because the
+# pin is defined in one place (SPEC.md 7.2, D-17). The Dockerfile holds no version
+# of its own and test_sandbox.py fails if it grows one.
+#
+# The three recorded fields are printed, not written. They go into pin.toml by hand,
+# once, after a build — read_pin() refuses a pin whose recorded fields are empty, so
+# a toolchain nobody has looked at cannot be verified against. Nobody types a
+# recorded field from memory; this is where the values come from.
+sandbox-build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd pipeline
+    read -r RUST NIGHTLY PLATFORM IMAGE <<<"$(uv run --no-sync python -c 'from popquiz.sandbox import read_pin; p = read_pin(require_recorded=False); print(p.rust_version, p.nightly, p.platform or "-", p.image)')"
+
+    # The tag carries the pin and a digest of the Dockerfile, so a tag that exists
+    # is by construction the image those two files describe — and changing either
+    # changes the tag, which rebuilds on its own. That is what makes skipping safe
+    # rather than merely fast, and what lets CI restore a cached image (keyed on the
+    # same two files) and have this step become a no-op.
+    if [ -z "${SANDBOX_REBUILD:-}" ] && docker image inspect "$IMAGE" >/dev/null 2>&1; then
+        echo "=== $IMAGE is already built — set SANDBOX_REBUILD=1 to force ==="
+    else
+        echo "=== building $IMAGE (rust $RUST, nightly-$NIGHTLY, platform ${PLATFORM/-/native}) ==="
+        args=(--build-arg "RUST_VERSION=$RUST" --build-arg "NIGHTLY=$NIGHTLY")
+        [ "$PLATFORM" = "-" ] || args+=(--platform "$PLATFORM")
+        docker build "${args[@]}" -t "$IMAGE" -f sandbox/Dockerfile sandbox
+    fi
+
+    echo ""
+    echo "=== what the image reports — paste these into sandbox/pin.toml [pin] ==="
+    vv=$(docker run --rm --network none "$IMAGE" rustc -Vv)
+    miri=$(docker run --rm --network none "$IMAGE" cargo "+nightly-$NIGHTLY" miri --version)
+    printf 'release = "%s"\n' "$(printf '%s\n' "$vv" | awk '/^release: /{print $2}')"
+    printf 'commit_hash = "%s"\n' "$(printf '%s\n' "$vv" | awk '/^commit-hash: /{print $2}')"
+    printf 'miri_version = "%s"\n' "$miri"
+    printf '# host triple this build produced: %s\n' "$(printf '%s\n' "$vv" | awk '/^host: /{print $2}')"
 
 # The secrecy suite, in-process: the router driven without a socket.
 # EVALUATION.md splits this hook — the in-process scan runs inside `test`, the
