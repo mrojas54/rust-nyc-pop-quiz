@@ -171,6 +171,75 @@ ran). T-19 did not add one either: `bank-audit` checks AC-24's shape on each raw
 file, so a malformed record is reported by name, and loads the rest through
 `question_from_dict`.
 
+## `history.json` and dedupe
+
+`pipeline/src/popquiz/dedupe.py` (T-17) checks every candidate against
+`history.json` before it joins the bank, and grows the history as it goes.
+
+    uv run python -m popquiz.dedupe candidate.json [more.json …]   # check and admit
+    uv run python -m popquiz.dedupe --dry-run candidate.json       # check, write nothing
+    uv run python -m popquiz.dedupe                                 # the history's size
+
+**Three checks, in order.** An *exact* duplicate (the same source bytes) is
+rejected. A *normalized* duplicate (the same program with its names changed or
+its formatting changed) is rejected. A *near* duplicate (Jaccard similarity of
+the two programs' normalized token pairs at or above the threshold) joins the
+review queue carrying `review.near_duplicate_of`, so an organizer makes the call.
+Everything else joins the queue unmarked. The only thing dedupe says about a
+candidate that passed is **no exact or normalized duplicate found**, and it says
+nothing beyond that (AC-18).
+
+**The review queue is the bank.** Dedupe admits a candidate by appending it
+under `questions/` with `review.status` unset, beside the migrated questions
+already waiting there. Rejected candidates are written nowhere. Every check runs
+against every question in the bank whatever its status, so a question that an
+organizer rejected and that comes back is still a resubmission.
+
+**The history describes the bank and can be rebuilt from it.** One entry per
+question id in each of the three stores. Every run first *backfills* any bank
+question the history is missing and *refreshes* any entry whose source has changed,
+and the run report shows the size before and after (AC-17). The committed file is
+still the empty shape T-14 wrote, so the first real run backfills the four
+migrated questions. That run will also fail
+`pipeline/tests/test_migration.py`'s byte-for-byte check of this file, which
+expects the migration's empty output, and re-running the migration empties the
+history again. Nothing is lost when that happens, because the next dedupe run
+rebuilds the history from the bank. The test's check needs narrowing to the
+file's shape before the first real run, and that fix belongs to the owner of
+T-14's test.
+
+**The normalized check works on tokens, not a syntax tree, and that is a
+deviation from `SPEC.md` §7.3.** The contract says "normalized AST". Python's
+standard library has no Rust parser, so dedupe lexes the program itself, drops
+comments, layout and the commas `rustfmt` moves, and renames **only the names the
+program declares** (bindings, parameters, functions, types, fields, variants,
+generics, lifetimes) to numbered placeholders in order of first use. Every name
+the program uses but did not declare is kept, whether it comes from `std`, the
+prelude or a macro. So two programs that call different library functions are
+never judged the same program. A false match would reject a question with no
+person in the loop. A miss only sends the pair to the near-duplicate check, which
+is where the approximation's gaps land: reordered statements, swapped
+operands, an expression rewritten into an equivalent one, and field shorthand
+against `field: binding`.
+
+**The threshold is 0.6 and it is uncalibrated** (D-13). It can be set per run with
+`--threshold`. The first measurements, taken by this code on the four migrated
+questions, are the start of its calibration:
+
+| Pair | Similarity |
+|---|---|
+| distinct bank questions, highest pair (q3, q8) | 0.55 |
+| distinct bank questions, lowest pair (q4, q7) | 0.20 |
+| q3 with its vector's values changed | 0.64 |
+| q3 with a binding added at the top and printed too | 0.78 |
+| q8 with `push` replaced by `clear` | 0.86 |
+| q3 with `v.sort();` added before `dedup` | 0.94 |
+
+Short programs share a lot of scaffolding (`fn main() {`, `let mut`, `println!`),
+so the gap between distinct programs and one-line edits is narrow: 0.55 against
+0.64. Every verdict reports its closest question and that pair's similarity, so
+real batches will show whether 0.6 floods the queue or lets edits through.
+
 ## What `bank-audit` checks, and why it can never touch a real night
 
 `just bank-audit` runs the whole bank against `SPEC.md` §7.6 and writes
