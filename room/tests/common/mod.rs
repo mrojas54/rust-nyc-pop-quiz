@@ -153,3 +153,190 @@ pub fn keys_named<'a>(v: &'a Value, name: &str) -> Vec<&'a Value> {
 pub fn stdout_rows(v: &Value) -> usize {
     keys_named(v, "name").iter().filter(|n| n.as_str() == Some("stdout")).count()
 }
+
+// --------------------------------------------------------------------------
+// T-04c: the transport's test session map and a loopback socket harness.
+// --------------------------------------------------------------------------
+
+use std::collections::HashMap;
+use std::time::Duration;
+
+use axum::body::Body;
+use axum::http::{header, Method, Request, StatusCode};
+use futures_util::{SinkExt, StreamExt};
+use room::question::Letter;
+use room::rooms::{AppState, Urls};
+use room::ws::{SessionId, SessionTokens, Transport};
+use tokio_tungstenite::tungstenite::Message;
+use tower::ServiceExt;
+
+/// The test implementation of the transport's session seam: a token →
+/// session map with each session's saved answer, and a log of `gone` calls.
+/// T-04b's real map replaces it.
+#[derive(Default)]
+pub struct TestTokens {
+    pub sessions: Mutex<HashMap<String, (SessionId, Option<Letter>)>>,
+    pub gone: Mutex<Vec<SessionId>>,
+}
+
+impl TestTokens {
+    pub fn add(&self, token: &str, session: u64, saved: Option<Letter>) {
+        self.sessions
+            .lock()
+            .unwrap()
+            .insert(token.to_string(), (SessionId(session), saved));
+    }
+
+    pub fn gone_count(&self, session: u64) -> usize {
+        self.gone.lock().unwrap().iter().filter(|s| s.0 == session).count()
+    }
+}
+
+impl SessionTokens for TestTokens {
+    fn resolve(&self, _room_id: &str, token: &str) -> Option<SessionId> {
+        self.sessions.lock().unwrap().get(token).map(|(s, _)| *s)
+    }
+    fn saved(&self, _room_id: &str, session: SessionId) -> Option<Letter> {
+        self.sessions
+            .lock()
+            .unwrap()
+            .values()
+            .find(|(s, _)| *s == session)
+            .and_then(|(_, saved)| *saved)
+    }
+    fn gone(&self, _room_id: &str, session: SessionId) {
+        self.gone.lock().unwrap().push(session);
+    }
+}
+
+pub type Socket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// The room served on `127.0.0.1:0` through `room::ws::serve`, with the
+/// transport layered on. HTTP goes in-process through the same router (the
+/// same layers run), sockets go over the loopback listener.
+pub struct Live {
+    pub app: axum::Router,
+    pub addr: std::net::SocketAddr,
+    pub state: Arc<AppState>,
+    pub transport: Transport,
+    pub tokens: Arc<TestTokens>,
+}
+
+pub struct LiveRoom {
+    pub id: String,
+    pub host: String,
+}
+
+impl Live {
+    pub async fn start() -> Live {
+        Live::start_with(|t| t).await
+    }
+
+    pub async fn start_with(configure: impl FnOnce(Transport) -> Transport) -> Live {
+        let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()));
+        let tokens = Arc::new(TestTokens::default());
+        let transport = configure(Transport::new(state.clone(), tokens.clone()));
+        let app = room::router_with(state.clone()).layer(axum::Extension(transport.clone()));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(room::ws::serve(listener, app.clone()));
+        Live {
+            app,
+            addr,
+            state,
+            transport,
+            tokens,
+        }
+    }
+
+    pub async fn call(&self, method: Method, uri: &str, bearer: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
+        let mut req = Request::builder().method(method).uri(uri);
+        if let Some(b) = bearer {
+            req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
+        }
+        let req = match body {
+            Some(v) => req
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(v.to_string())),
+            None => req.body(Body::empty()),
+        }
+        .unwrap();
+        let res = self.app.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+        let json = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
+        (status, json)
+    }
+
+    pub async fn create(&self) -> LiveRoom {
+        let id = q3_json()["id"].as_str().unwrap().to_string();
+        let (status, created) = self
+            .call(Method::POST, "/rooms", Some(ORGANIZER), Some(serde_json::json!({ "question_id": id })))
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{created}");
+        LiveRoom {
+            id: created["id"].as_str().unwrap().into(),
+            host: created["host_session"].as_str().unwrap().into(),
+        }
+    }
+
+    /// A host action through its HTTP route.
+    pub async fn act(&self, room: &LiveRoom, slug: &str) -> StatusCode {
+        self.call(Method::POST, &format!("/rooms/{}/{slug}", room.id), Some(&room.host), None)
+            .await
+            .0
+    }
+
+    pub fn url(&self, room: &LiveRoom, viewer: &str) -> String {
+        format!("ws://{}/rooms/{}/ws/{viewer}", self.addr, room.id)
+    }
+
+    /// Open a socket; send `{"t":"attach","token"}` if a token is given.
+    pub async fn open(&self, room: &LiveRoom, viewer: &str, token: Option<&str>) -> Socket {
+        let (mut socket, _) = tokio_tungstenite::connect_async(self.url(room, viewer)).await.unwrap();
+        if let Some(token) = token {
+            let attach = serde_json::json!({ "t": "attach", "token": token }).to_string();
+            socket.send(Message::text(attach)).await.unwrap();
+        }
+        socket
+    }
+}
+
+/// What the next thing off a socket was.
+#[derive(Debug)]
+pub enum Next {
+    Frame(Value),
+    Closed(Option<u16>),
+    Nothing,
+}
+
+/// The next frame or close within `wait`; `Nothing` if neither arrived.
+pub async fn next(socket: &mut Socket, wait: Duration) -> Next {
+    loop {
+        match tokio::time::timeout(wait, socket.next()).await {
+            Err(_) => return Next::Nothing,
+            Ok(None) | Ok(Some(Err(_))) => return Next::Closed(None),
+            Ok(Some(Ok(Message::Text(text)))) => return Next::Frame(serde_json::from_str(&text).unwrap()),
+            Ok(Some(Ok(Message::Close(frame)))) => return Next::Closed(frame.map(|f| u16::from(f.code))),
+            Ok(Some(Ok(_))) => continue,
+        }
+    }
+}
+
+/// The next frame, which must arrive within `wait`.
+pub async fn frame(socket: &mut Socket, wait: Duration) -> Value {
+    match next(socket, wait).await {
+        Next::Frame(v) => v,
+        other => panic!("expected a state frame, got {other:?}"),
+    }
+}
+
+/// The close code the socket ends with, skipping nothing: a state frame
+/// before the close is a failure.
+pub async fn closed_with(socket: &mut Socket, wait: Duration) -> Option<u16> {
+    match next(socket, wait).await {
+        Next::Closed(code) => code,
+        other => panic!("expected the socket to close, got {other:?}"),
+    }
+}
+
