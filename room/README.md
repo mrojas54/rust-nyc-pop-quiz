@@ -53,6 +53,10 @@ stand-in behind `HostAuth`; T-25 replaces seeding with
 A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
 is `401` with no body; an unknown room is `404`.
 
+### Pages
+
+- **The buzzer (T-06):** `GET /join` (`web/buzzer/`, embedded; `?code=` from the link, or typed), its assets at `/join/buzzer.{js,css}`, and the short link `GET /{code}` (the `join_url` shape) `303` → `/join?code=`; `tests/buzzer_page.rs`.
+
 ## The phase machine
 
 `phase::apply(state, command) -> Result<Applied, Refused>` is the only way a
