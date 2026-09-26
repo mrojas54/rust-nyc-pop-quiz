@@ -6,9 +6,9 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Orchestrator | — | surface:8 | pane:1 (workspace:1) | ai-c11-cc/lattice-build | (root checkout) | Phase 1 dispatch, wave 7 (session e86d681a, resumed 2026-09-26 10:1x); all five PRs merged, `main` = `cac818b` | 2026-09-26 11:3x | 2026-09-20 |
-| Delegator agent:delegator-pq31 (Opus, fast-track) | PQ-31 / follow-up of T-04a+T-15b, correct-index twin | surface:22 | pane:1 | ai-c11-cc/correct-index-twin | …-worktrees/correct-index-twin | launched 11:2x; first prompt answered with option 2 (auto mode) 11:3x; planning | 2026-09-26 11:3x | 2026-09-26 11:2x |
-| Delegator agent:delegator-pq32 (Opus, fast-track) | PQ-32 / follow-up of T-04b+T-04c, wire the session map into the transport | surface:23 | pane:1 | ai-c11-cc/wire-sessions | …-worktrees/wire-sessions | launched 11:3x; expect the auto-mode prompt on the guard line | 2026-09-26 11:3x | 2026-09-26 11:3x |
+| Orchestrator | — | surface:8 | pane:1 (workspace:1) | ai-c11-cc/lattice-build | (root checkout) | **Paused** 2026-09-26 11:4x on the client's "hold it" (session e86d681a); loop stopped; all five PRs merged, `main` = `cac818b` | 2026-09-26 11:4x | 2026-09-20 |
+| Delegator agent:delegator-pq31 (Opus, fast-track) | PQ-31 / follow-up of T-04a+T-15b, correct-index twin | surface:22 | pane:1 | ai-c11-cc/correct-index-twin | …-worktrees/correct-index-twin | **Paused, idle, tab open.** `in_progress`, HEAD `cac818b`, uncommitted edits to `answers.rs` and `twins.rs`; PAUSED comment on the ticket names the next step | 2026-09-26 11:37 | 2026-09-26 11:2x |
+| Delegator agent:delegator-pq32 (Opus, fast-track) | PQ-32 / follow-up of T-04b+T-04c, wire the session map into the transport | surface:23 | pane:1 | ai-c11-cc/wire-sessions | …-worktrees/wire-sessions | **Paused, idle, tab open.** `planned`, HEAD `cac818b`, uncommitted edits to `sessions.rs` and `rooms.rs`; PAUSED comment names the next step (join must call `Transport::changed`) | 2026-09-26 11:36 | 2026-09-26 11:3x |
 
 ### Archived (run history)
 
