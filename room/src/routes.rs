@@ -108,8 +108,94 @@ async fn show(state: Arc<AppState>, id: String, headers: HeaderMap, viewer: View
     }
 }
 
+// T-04b routes -------------------------------------------------------------
+//
+// | `POST /join` `{code}` | a participant session: `201 {room_id, token, buzzer}`, or `{refusal, reason}` — `404` unknown, `409` otherwise |
+// | `PUT /rooms/{id}/answer` `{letter}` | the upsert, the session token as bearer: `200 {saved}`; `409 {reason, phase, saved}` when not live; `401` unknown session; `400` bad letter |
+
+#[derive(Deserialize)]
+struct JoinBody {
+    code: String,
+}
+
+#[derive(Deserialize)]
+struct AnswerBody {
+    letter: String,
+}
+
+async fn join(State(state): State<Arc<AppState>>, Json(body): Json<JoinBody>) -> Response {
+    use crate::sessions::JoinRefusal;
+    match state.join(&body.code) {
+        Ok(joined) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "room_id": joined.room_id,
+                "token": joined.token.as_str(),
+                "buzzer": joined.buzzer,
+            })),
+        )
+            .into_response(),
+        Err(refusal) => {
+            let status = match refusal {
+                JoinRefusal::Unknown => StatusCode::NOT_FOUND,
+                _ => StatusCode::CONFLICT,
+            };
+            (
+                status,
+                Json(serde_json::json!({ "refusal": refusal.slug(), "reason": refusal.message() })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn answer(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<AnswerBody>,
+) -> Response {
+    use crate::rooms::AnswerError;
+    let Some(token) = bearer(&headers) else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let Some(letter) = crate::sessions::parse_letter(&body.letter) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "reason": "An answer is one of A, B, C, D or E." })),
+        )
+            .into_response();
+    };
+    match state.answer(&id, token, letter) {
+        Ok(saved) => Json(serde_json::json!({ "saved": saved })).into_response(),
+        Err(AnswerError::NotFound) => StatusCode::NOT_FOUND.into_response(),
+        Err(AnswerError::UnknownSession) => StatusCode::UNAUTHORIZED.into_response(),
+        Err(AnswerError::Refused { phase, saved }) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({
+                "reason": match phase {
+                    crate::phase::Phase::Idle => "Answers open when the question is on the screen.",
+                    _ => crate::copy::BUZZER_CLOSED,
+                },
+                "phase": phase,
+                "saved": saved,
+            })),
+        )
+            .into_response(),
+    }
+}
+
+fn session_routes(router: Router<Arc<AppState>>) -> Router<Arc<AppState>> {
+    router
+        .route("/join", post(join))
+        .route("/rooms/{id}/answer", axum::routing::put(answer))
+}
+
+// end T-04b routes ---------------------------------------------------------
+
 pub(crate) fn routes(state: Arc<AppState>) -> Router {
     let mut router = Router::new().route("/rooms", post(create));
+    router = session_routes(router); // T-04b
     for (command, path) in host_routes() {
         router = match command {
             Command::Host(HostAction::RunItAgain) => router.route(&path, post(run_again)),
