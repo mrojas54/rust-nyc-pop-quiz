@@ -17,10 +17,12 @@
 //! token (AC-37) would lose the answer.
 
 use std::collections::HashMap;
+use std::hash::{BuildHasher, RandomState};
 
 use crate::copy;
 use crate::question::Letter;
 use crate::rooms::{CloseSnapshot, LiveCounts, Sessions, Totals, CODE_ALPHABET};
+use crate::ws::SessionId;
 
 /// Sessions per room (SPEC §4.1, §9). Configurable through
 /// [`crate::rooms::AppState::with_capacity`].
@@ -115,11 +117,21 @@ pub fn parse_letter(input: &str) -> Option<Letter> {
 #[derive(Default)]
 pub struct SessionMap {
     sessions: HashMap<Token, Session>,
+    // PQ-32: the key for the transport's per-session handle. One per map, not
+    // per session, so a `Session` stays its token and its answer (AC-57).
+    ids: RandomState,
 }
 
 impl SessionMap {
     pub fn new() -> SessionMap {
         SessionMap::default()
+    }
+
+    // PQ-32: a session's stable handle for the transport — a keyed hash of its
+    // token, so the handle carries nothing of the credential. `join` never
+    // admits two sessions with the same handle.
+    fn id_of(&self, token: &Token) -> SessionId {
+        SessionId(self.ids.hash_one(token))
     }
 }
 
@@ -144,7 +156,9 @@ impl Sessions for SessionMap {
         }
         let token = loop {
             let token = Token::new();
-            if !self.sessions.contains_key(&token) {
+            // PQ-32: distinct handles imply distinct tokens.
+            let id = self.id_of(&token);
+            if self.sessions.keys().all(|t| self.id_of(t) != id) {
                 break token;
             }
         };
@@ -181,5 +195,16 @@ impl Sessions for SessionMap {
 
     fn session_count(&self) -> usize {
         self.sessions.len()
+    }
+
+    // PQ-32: the transport's view of the map.
+
+    fn session_id(&self, token: &str) -> Option<SessionId> {
+        let token = Token(token.to_string());
+        self.sessions.contains_key(&token).then(|| self.id_of(&token))
+    }
+
+    fn saved_by_id(&self, id: SessionId) -> Option<Option<Letter>> {
+        self.sessions.values().find(|s| self.id_of(&s.token) == id).map(|s| s.answer)
     }
 }

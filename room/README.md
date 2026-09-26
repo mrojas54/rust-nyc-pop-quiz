@@ -223,8 +223,11 @@ poke that changed nothing sends nothing. It is called:
   `// T-04c routes` block in `routes.rs`, which must stay last** (`layer` wraps
   only the routes already registered);
 - by the transport after each call into the session map;
-- by anything else that writes a room outside an HTTP route — T-04b if it takes
-  answers over a socket, T-11's reaper. Such a writer calls `changed` itself.
+- by `POST /join` itself: its path names no room, so `notify` cannot poke it;
+- by anything else that writes a room outside an HTTP route — T-11's grace
+  and reaper (the future callers of `AppState::leave`), T-05's fit writer if
+  it is not a `/rooms/{id}/…` route. Such a writer calls `changed` itself.
+  Today there is none.
 
 ### The seam for T-04b
 
@@ -234,15 +237,28 @@ poke that changed nothing sends nothing. It is called:
         fn gone(&self, room_id: &str, session: SessionId); // its current socket closed
     }
 
-**T-04b's session map implements it**, and is wired in by layering
-`Extension(Transport::new(state, map))` over `router_with(state)`. Until then
-the router supplies a `Transport` over `NoTokens`: walls and hosts are served,
-every buzzer is refused `4401`. `gone` is not called for a replaced socket.
-It is called with no transport lock held, so a socket that dies at the very
-instant its session re-attaches can report `gone` just after the new
-`resolve`; T-04b's map should let the later `resolve` win when counting
-`present`.
-The tests use `TestTokens` (`tests/common`).
+**T-04b's session map implements it**, through `AppState` (see *Wiring*).
+`gone` is not called for a replaced socket. It is called with no transport
+lock held, so a socket that dies at the very instant its session re-attaches
+can report `gone` just after the new `resolve`; the map lets the later
+`resolve` win, trivially, because `gone` changes nothing.
+`tests/transport.rs` and `tests/transport_full.rs` layer `TestTokens`
+(`tests/common`) to script sessions; `tests/wiring.rs` uses the real map.
+
+### Wiring (PQ-32)
+
+`router()` and `router_with(state)` serve the real session map: the router's
+default `Transport` is `Transport::new(state, state)`, since
+`impl ws::SessionTokens for AppState` is the adapter. Sessions live per room
+under the rooms lock, so the adapter is the state, not a `SessionMap`.
+`resolve` finds the token in that room's map (a released room's map is empty,
+so nothing resolves); `saved` is that session's own answer and no other;
+`gone` does nothing, because a drop keeps the session, its answer and its slot
+(see *Ghost sessions* above). A `SessionId` is a keyed hash of the token under
+a per-map `RandomState`, so it carries nothing of the credential; `join`
+redraws a token whose id collides. A test that wants another map layers its
+own `Extension(Transport::new(state, map))` over `router_with`, and the
+`provide` layer keeps it; `NoTokens` remains for such tests.
 
 ### `TCP_NODELAY`
 
@@ -274,6 +290,71 @@ spike's frames:
 - `tests/transport_full.rs` (`#[ignore]`d; `just test-transport-full`, inside
   `test-full`): the wall and 200 buzzers agree at every transition, and twenty
   drop in `closed` and resume in `split` (AC-81 and AC-37 as written).
+- `tests/wiring.rs` (in `test`): the default router and the real map — join,
+  attach with the returned token, answer, transitions, drop, re-attach with the
+  same token, release; one frame per revision to the wall, the host and the
+  buzzer, one phase across all, the counts moving on join and answer and not
+  on a drop (AC-37, AC-46, AC-81).
+
+## Pages
+
+The three surfaces are pages the room serves beside its JSON. Each is plain
+HTML, CSS and JS from `web/<surface>/`, embedded at compile time
+(`include_str!`) in its ticket's own block of `routes.rs` — no new crate, no
+`ServeDir`, nothing read from disk at run time, and a name not listed is `404`.
+
+| Path | What | Ticket |
+|---|---|---|
+| `GET /wall/{room_id}` | the wall; `404` for a room that does not exist | T-05 |
+| `GET /wall/wall.js`, `/wall/wall.css`, `/wall/qr.js` | the wall's own files | T-05 |
+| `GET /shared/{file}` | `web/shared/*.css` and `*.js`, as `text/css` / `text/javascript` | T-05 |
+| `GET /shared/fonts/{file}` | the vendored fonts `fonts.css` loads (`font/ttf`, D-14) | T-05 |
+| `PUT /rooms/{id}/fit` `{fit}` | the wall's measured verdict → the host's fit line; `204`, `400` for anything but the four verdicts. **No credential**: the wall is `fit`'s writer (§3.4) and has none. A stranger with the 128-bit room id can at most change the host's fit line | T-05 |
+
+**The wall page is static.** It is the same bytes in every phase: it carries
+no room state and draws every phase from the wall socket's frames
+(`/rooms/{id}/ws/wall`, no attach message), each frame the whole state, so a
+reload shows what was on the screen. A page that never changes cannot carry an
+answer before `reveal`; `tests/wall_page.rs` drives a planted room through
+every phase and holds the page to that.
+
+**The rendering is a pure function of a frame** — `PopQuiz.Wall.html(frame,
+{fontPx, fit})` in `web/wall/wall.js`, no DOM, no socket, no clock. The socket
+and the type model's measure-and-refit live in `mount()`/`boot()` around it.
+T-26's static fallback (`mode: "static"`, SPEC §12) drives the same function
+from a local state object, so the fallback is this design and never a second
+one.
+
+**Fixtures.** `web/wall/fixtures/q3-phases.json` is `view::wall` for q3 in every
+phase and trace step, generated by `tests/wall_page.rs` and held equal to what
+the room serves; `web/test/wall.test.js` renders from it. Regenerate after a
+payload change with `UPDATE_WALL_FIXTURES=1 cargo test --test wall_page`.
+
+**The measured layout (AC-100, AC-33)** needs a real layout engine, and there
+is no headless browser on the build machine or in CI, so it is not inside
+`test-full`: `just wall-layout` serves the repo and names the page to open —
+`web/wall/measure.html?run=1` — which runs the real wall code over every bank
+question in every phase that renders source and reports, per row, the derived
+and refitted size, the passes, the text box, the overflow and the verdict.
+Last run, 2026-09-26, c11 browser (WKWebView), default room 15 / 8.44 / 20 ft,
+floor 14.22 px:
+
+| Question | Reading (live · closed · split) | Trace (work · reveal) | Verdict |
+|---|---|---|---|
+| q3 · 5 × 42 | 22.1 px, 0 passes | 23.8 → 22.2 px, 1 pass | fits, overflow 0 |
+| q4 · 6 × 56 | 18.4 px, 0 passes | 19.8 → 18.8 px, 1 pass | fits, overflow 0 |
+| q7 · 5 × 69 | 22.1 px, 0 passes | 22.9 px, 0 passes | fits, overflow 0 |
+| q8 · 6 × 30 | 18.4 px, 0 passes | 19.8 → 18.8 px, 1 pass | fits, overflow 0 |
+
+Page overflow was 0 in both directions in every row. The reading layout's text
+box measures 994 × 177 in `live`, SPEC §5.2's number; the trace layout's
+measures 994 × 182 (§5.2 says 190 — the prototype's well overflowed its box by
+8 px into a block that overlapped it), which is what the one refit pass
+absorbs. The clip path, same run: a built 16 × 36 source (a shape, not a
+question) renders at the 14.22 px floor, measures 178 px of overflow at the
+bottom, reports `clipped_y`, and draws the 4 px red bottom edge, with the page
+still not scrolling. The sources q4, q7 and q8 are run under q3's payloads — the type
+model reads only the source — because only q3 has a trace today.
 
 ## The sealed module, and how the proof works
 

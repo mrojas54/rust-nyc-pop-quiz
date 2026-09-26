@@ -72,6 +72,9 @@ test-full: test sandbox-build test-sandbox test-verify-full test-transport-full
         printf '  %-12s delivered by %s\n' "${entry%%:*}" "${entry##*:}"
     done
     echo ""
+    echo "Run in a browser, not here — no headless browser on this machine or in CI:"
+    echo "  wall-layout  the wall's measured layout, AC-100 / AC-33 (just wall-layout)"
+    echo ""
     echo "T-21 adds the deployed runs and extends this hook further."
 
 # AC-81 and AC-37 at 200 buzzers over loopback sockets (T-04c). The test is
@@ -146,6 +149,15 @@ sandbox-build:
     printf 'commit_hash = "%s"\n' "$(printf '%s\n' "$vv" | awk '/^commit-hash: /{print $2}')"
     printf 'miri_version = "%s"\n' "$miri"
     printf '# host triple this build produced: %s\n' "$(printf '%s\n' "$vv" | awk '/^host: /{print $2}')"
+
+# The wall's measured layout (AC-100, AC-33): every bank question, every phase
+# that renders source, measured by the real wall code in a real layout engine.
+# Serves the repo on loopback and names the page; open it in a browser (the c11
+# browser, or any other) and read the JSON report it writes. room/README.md,
+# Pages, records the last run.
+wall-layout PORT="8765":
+    @echo "open http://127.0.0.1:{{ PORT }}/web/wall/measure.html?run=1"
+    python3 -m http.server {{ PORT }} --bind 127.0.0.1
 
 # The secrecy suite, in-process: the router driven without a socket.
 # EVALUATION.md splits this hook — the in-process scan runs inside `test`, the

@@ -38,33 +38,13 @@ use tower::ServiceExt;
 
 const WAIT: Duration = Duration::from_secs(5);
 
-/// `GET /shared/{file}` from `web/shared/`, for these tests only. PQ-7 owns the
-/// real route; this stands in so the page's references can be followed.
-fn shared() -> Router {
-    Router::new().route(
-        "/shared/{file}",
-        get(|Path(file): Path<String>| async move {
-            let dir = repo().join("web/shared");
-            let ty = match file.rsplit('.').next() {
-                Some("css") => "text/css; charset=utf-8",
-                Some("js") => "text/javascript; charset=utf-8",
-                _ => return StatusCode::NOT_FOUND.into_response(),
-            };
-            match (file.contains('/') || file.contains(".."), std::fs::read_to_string(dir.join(&file))) {
-                (false, Ok(body)) => ([(header::CONTENT_TYPE, ty)], body).into_response(),
-                _ => StatusCode::NOT_FOUND.into_response(),
-            }
-        }),
-    )
-}
-
 fn app() -> Router {
     let state = Arc::new(AppState::new(
         Arc::new(TestAuth),
         vec![load(&planted()), q3()],
         Urls::default(),
     ));
-    room::router_with(state).merge(shared())
+    room::router_with(state)
 }
 
 /// One GET: status, content type, body text.

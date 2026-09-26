@@ -23,9 +23,9 @@
 //! so a poke that changed nothing sends nothing, and two racing pokes cannot
 //! publish out of order. It is called by the `notify` middleware after every
 //! non-GET request under `/rooms/{id}/…` (every host action), and by the
-//! transport after each call into the session map. Any writer that is not an
-//! HTTP route — T-04b if it takes answers over a socket, T-11's reaper — calls
-//! it too. There is no polling and no per-client timer.
+//! transport after each call into the session map, and by `POST /join`, whose
+//! path names no room. Any writer that is not an HTTP route — T-11's reaper —
+//! calls it too. There is no polling and no per-client timer.
 //!
 //! **Attach.** The wall needs no credential: its projection is the public one
 //! `GET /rooms/{id}/wall` already serves. A buzzer and the host send one text
@@ -65,8 +65,7 @@ use crate::view::{self, Viewer};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SessionId(pub u64);
 
-/// The seam T-04b's session map implements. T-04b and T-04c were built in
-/// parallel; the two are wired when the second of them merges.
+/// The seam T-04b's session map implements, through [`AppState`] (PQ-32).
 pub trait SessionTokens: Send + Sync + 'static {
     /// A buzzer attaching with `token` to room `room_id`. This *is* the attach:
     /// the map may mark the session connected and move `present`, which is why
@@ -83,8 +82,8 @@ pub trait SessionTokens: Send + Sync + 'static {
     fn gone(&self, room_id: &str, session: SessionId);
 }
 
-/// Resolves nobody. The default until T-04b's map is wired, so a buzzer is
-/// refused rather than served without a session.
+/// Resolves nobody, so every buzzer is refused. For tests; the router's
+/// default is the real map (`impl SessionTokens for AppState`, PQ-32).
 pub struct NoTokens;
 
 impl SessionTokens for NoTokens {
@@ -201,9 +200,9 @@ struct Inner {
 /// The broadcast hub, and the session map it asks about buzzers.
 ///
 /// It travels as an axum [`Extension`]: layer `Extension(Transport::new(state,
-/// tokens))` over [`crate::router_with`] to choose the session map. Without
-/// one, the router supplies a `Transport` over [`NoTokens`], so the wall and
-/// host sockets work and every buzzer is refused.
+/// tokens))` over [`crate::router_with`] to choose another session map.
+/// Without one, the router supplies a `Transport` over the real map
+/// ([`AppState`] implements [`SessionTokens`]; PQ-32).
 #[derive(Clone)]
 pub struct Transport {
     inner: Arc<Inner>,
