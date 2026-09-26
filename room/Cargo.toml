@@ -47,8 +47,6 @@ spike = [
     "dep:tokio-tungstenite",
     "dep:rustls",
     "dep:futures-util",
-    "dep:serde",
-    "dep:serde_json",
     "axum/ws",
     "tokio/sync",
     "tokio/time",
@@ -57,6 +55,16 @@ spike = [
 [dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+# The room reads the bank's record shape (bank/schema/question.schema.json) and
+# answers in JSON. Both were already in the lock via axum's `json` feature.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Room ids, codes and host sessions are secrets or near-secrets; they come from
+# the OS generator. 0.3.4 was already in the lock (via rand_core).
+getrandom = "0.3"
+# The host-session check is constant-time (SPEC 8, AC-68). Already in the lock
+# (via rustls); T-25's admin-token check reuses it.
+subtle = "2.6"
 
 # --- spike-only, all optional -------------------------------------------------
 # tokio-tungstenite 0.29 is the version axum 0.8's own `ws` feature already
@@ -69,10 +77,8 @@ tokio-tungstenite = { version = "0.29", optional = true, features = ["rustls-tls
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring"] }
 # SinkExt/StreamExt over the split socket. Already in the lock via axum.
 futures-util = { version = "0.3", optional = true, default-features = false, features = ["sink", "std"] }
-# Already in the lock via axum's default `json` feature; named so the spike bins
-# may use them directly.
-serde = { version = "1", optional = true, features = ["derive"] }
-serde_json = { version = "1", optional = true }
+# serde and serde_json are no longer spike-only: the room itself uses them (T-04a),
+# so they are ordinary dependencies above and the spike bins use those.
 
 [dev-dependencies]
 # `tower::ServiceExt::oneshot` is how the canary seam drives the router with no
