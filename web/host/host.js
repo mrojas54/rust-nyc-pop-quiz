@@ -234,7 +234,7 @@
         post("/rooms", where.token, { question_id: where.question || "" }).then(function (r) {
           if (r.res.status === 201 && r.body) {
             storeSet(win, { token: where.token, question: where.question });
-            win.location.replace(roomPath(r.body.id, r.body.host_session));
+            win.location.replace(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
             return;
           }
           ui.busy = false; ui.status = statusLine(r.res, r.body); paintCreate();
@@ -251,6 +251,7 @@
     var payload = null;
     var revision = -1;
     var attempt = 0;
+    var socketOpen = false;
 
     function paint() {
       if (payload) el.innerHTML = render(payload, ui);
@@ -276,13 +277,24 @@
         if (!stored || !stored.token) { win.location.assign("/host"); return; }
         post("/rooms/" + encodeURIComponent(id) + "/run-it-again", stored.token, { question_id: stored.question || "" })
           .then(function (r) {
-            if (r.res.status === 201 && r.body) { win.location.assign(roomPath(r.body.id, r.body.host_session)); return; }
+            if (r.res.status === 201 && r.body) {
+              win.location.assign(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
+              return;
+            }
             done(statusLine(r.res, r.body));
           }, function (e) { done(String(e && e.message || e)); });
         return;
       }
       post("/rooms/" + encodeURIComponent(id) + "/" + slug, session).then(function (r) {
-        if (r.res.ok && r.body) { ui.busy = false; take(r.body); return; }
+        if (r.res.ok && r.body) {
+          // The response carries no revision, so while the socket is up it is
+          // the socket's frame for this change (pushed right after it) that
+          // paints; taking the body could paint over a newer frame from the
+          // other device. With no socket, the body is all there is.
+          ui.busy = false;
+          if (socketOpen) paint(); else take(r.body);
+          return;
+        }
         done(statusLine(r.res, r.body));
       }, function (e) { done(String(e && e.message || e)); });
     }
@@ -303,12 +315,14 @@
         try { f = JSON.parse(m.data); } catch (e) { return; }
         if (f.t !== "state") return;
         attempt = 0;
+        socketOpen = true;
         if (ui.status === PQ.t("buzzer_reconnecting")) ui.status = null;
         var rev = f.revision;
         delete f.t; delete f.revision;
         take(f, rev);
       };
       ws.onclose = function (ev) {
+        socketOpen = false;
         if (isTerminalClose(ev.code)) { ui.status = String(ev.code); paint(); return; }
         ui.status = PQ.t("buzzer_reconnecting"); paint();
         win.setTimeout(connect, backoff(attempt++));
