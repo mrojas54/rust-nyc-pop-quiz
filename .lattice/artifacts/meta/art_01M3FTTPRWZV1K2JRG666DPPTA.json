@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-26T21:44:35Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3FTTPRWZV1K2JRG666DPPTA",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3FTTPRWZV1K2JRG666DPPTA.md",
+    "size_bytes": 287
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #20, merge commit d6ef8c3). Fast-track; review PASS-WITH-NITS and validation attached; CI green on 2bdb0fd; MERGEABLE/CLEAN re-checked against b6df1",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

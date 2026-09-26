@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #19, merge commit b6df167). Fast-track; code review and validation attached; CI green on 814f22f; MERGEABLE/CLEAN re-checked immediately before merge. Deviation: one-sided cross-language pin (pipeline follow-up).

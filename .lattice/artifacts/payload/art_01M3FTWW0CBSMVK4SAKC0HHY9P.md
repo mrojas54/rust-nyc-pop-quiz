@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #21, merge commit ed32240). Review PASS, validation attached; CI green on 91bc599; MERGEABLE/CLEAN re-checked against d6ef8c3 immediately before merge. Seven deviations accepted; measured layout is a manual browser run (just wall-layout) until a headless browser exists in CI.

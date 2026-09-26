@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-26T21:43:25Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3FTRJM32H66QH8SV75TCQCY",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3FTRJM32H66QH8SV75TCQCY.md",
+    "size_bytes": 264
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #19, merge commit b6df167). Fast-track; code review and validation attached; CI green on 814f22f; MERGEABLE/CLEAN re-checked immediately before merg",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

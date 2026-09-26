@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #20, merge commit d6ef8c3). Fast-track; review PASS-WITH-NITS and validation attached; CI green on 2bdb0fd; MERGEABLE/CLEAN re-checked against b6df167 immediately before merge. Six deviations accepted; POST /join now pushes to screens.
