@@ -224,9 +224,16 @@ used anywhere outside every range of its declarations, it is kept as written
 everywhere. So `fn f(drop: i32) {}` beside a call to the library's `drop(1)` keeps
 `drop`, and the same program spelled with `nope`, which does not compile, stays
 apart from it. A binding named like a field of a library struct
-(`Range { start, end }`) is kept for the same reason. Where a range cannot be told
-from tokens it is drawn smaller, so the error is a missed rename, never a merge.
-This is scoping by token ranges, not Rust's name resolution.
+(`Range { start, end }`) is kept for the same reason. This is scoping by token
+ranges, not Rust's name resolution. The aim is ranges no wider than Rust's, so
+the error is a missed rename rather than a merge, and **that aim is not met yet**.
+Review round 3 (FAIL) found false matches, each confirmed with rustc, and they are
+open. A closure's range can run into an `if let` block after it. A top-level item
+reaches into nested `mod`s. `macro_rules!` names are renamed at every call. A
+comma-less arm body can be read as the next arm's pattern. A path's tail is
+renamed along with its head (`I::Item`). A lifetime `'a` and a name `a` share a
+placeholder. A free `fn` is renamed after a `.` where a library method of the
+same name is called.
 
 The rule behind every step is that **no normalization may make two different
 programs equal**, including a program that compiles and one that does not.
@@ -248,7 +255,7 @@ name.
 Other conservative choices: the entry point stays named `main`; empty-list commas
 and doc comments before parameters stay in the fingerprint; names in sources
 containing derives are kept, because a derive can expose or interpret them. Each
-can miss a renaming, never make one. Every boundary has a pair in
+can miss a renaming, never make one. Each boundary that is handled has a pair in
 `pipeline/tests/test_dedupe.py` where one program compiles and the other does not,
 and the pairs were run through `rustc` to confirm it.
 

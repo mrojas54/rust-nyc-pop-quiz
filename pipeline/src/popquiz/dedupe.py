@@ -29,7 +29,7 @@ a small hand-written lexer and normalizes the token stream instead:
   program means the same without them (`_dropped_comma` lists the places);
 * names **the program itself declares** - `let` and pattern bindings,
   parameters, closure parameters, functions, types, fields, variants, generics,
-  lifetimes, `macro_rules!` names - is renamed to a numbered placeholder in the
+  lifetimes, `macro_rules!` names - are renamed to a numbered placeholder in the
   order it first appears, including inline format arguments like `{v:?}`. The
   entry point, names used outside the scope that declares them, and names in
   sources with derives stay;
@@ -51,10 +51,15 @@ match-arm bindings their block or arm, items their module or block (and, inside 
 `impl` or `trait`, only their own name). A spelling with any bare use outside every
 range of its declarations - `fn f(drop: i32) {}` beside a call to the library's
 `drop(1)` - is kept verbatim everywhere, as is a spelling that names a field no
-struct in the program declares (`Range { start, end }`). Where a range cannot be
-told from tokens it is drawn smaller, so the error is a missed rename, never a
-merge. This is scoping by token ranges, not name resolution; the rule above is a
-requirement this module tests pair by pair, not a property it proves.
+struct in the program declares (`Range { start, end }`). The aim is ranges no
+wider than Rust's, so the error is a missed rename rather than a merge. **That aim
+is not met yet.** Review round 3 (FAIL) found false matches, each confirmed with
+rustc: a closure's range running into an `if let` block after it; a top-level item
+reaching into a nested `mod`; `macro_rules!` names renamed at every call; a
+comma-less arm body read as the next arm's pattern; a path's tail renamed with its
+head (`I::Item`); a lifetime `'a` and a name `a` sharing a placeholder; and a free
+`fn` renamed after a `.` where a library method of that name is called. The rule
+above is a requirement, not a property this approximation has established.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
@@ -796,9 +801,10 @@ class _Collector:
     block after the statement; an `if let` or `while let` its pattern and block; a
     `for` its pattern and body; a match arm its pattern, guard and body; an item its
     module or block, or - inside an `impl` or `trait` - only its own name, because
-    a method or associated item is never reached by its bare name. Where a range
-    cannot be told at the token level, it is drawn smaller, and a name used outside
-    every range of its declarations is kept (`_unscoped_names`).
+    a method or associated item is never reached by its bare name. A name used
+    outside every range of its declarations is kept (`_unscoped_names`). The ranges
+    are meant to be drawn smaller where tokens cannot tell; the module docstring
+    lists the known places where they are still drawn wider.
     """
 
     def __init__(self, s: _Stream) -> None:
@@ -868,8 +874,8 @@ class _Collector:
             j = gt + 1
         end = self.item_end(j)
         self.scope(found, k, end)
-        if not _is(s.at(end), "}"):
-            return
+        if not (_is(s.at(end), "}") and end in s.partner):
+            return  # no body, or an unmatched `}` in malformed source
         body = s.partner[end]
         if kind != "enum":
             declared = _field_names(s, body)

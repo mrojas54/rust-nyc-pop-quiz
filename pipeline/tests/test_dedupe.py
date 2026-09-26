@@ -623,6 +623,12 @@ SCOPED_THE_SAME = [
 ]
 
 
+@pytest.mark.parametrize("source", ["struct S}", "struct S x }", "enum E }"])
+def test_a_malformed_item_header_normalizes_without_crashing(source: str) -> None:
+    """Review round 3 found these raising KeyError: an unmatched `}` taken for a body."""
+    assert normalized_tokens(source)
+
+
 @pytest.mark.parametrize("label, a, b", SCOPED_THE_SAME, ids=[case[0] for case in SCOPED_THE_SAME])
 def test_a_name_used_within_its_scope_is_still_renamed(label: str, a: str, b: str) -> None:
     assert normalized_tokens(a) == normalized_tokens(b), label
