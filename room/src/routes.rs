@@ -134,5 +134,26 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             }),
         );
     }
+    // T-04c routes ----------------------------------------------------------
+    // The three sockets, and the two layers the transport needs. KEEP THIS
+    // BLOCK LAST: `layer` wraps only the routes registered above it, and the
+    // `notify` layer is what pushes a room after each of its writes. A block
+    // added below this one would change rooms without anyone being told.
+    for viewer in Viewer::ALL {
+        let name = match viewer {
+            Viewer::Wall => "wall",
+            Viewer::Buzzer => "buzzer",
+            Viewer::Host => "host",
+        };
+        router = router.route(
+            &format!("/rooms/{{id}}/ws/{name}"),
+            get(move |ws, id, transport| crate::ws::upgrade(ws, id, transport, viewer)),
+        );
+    }
+    let default = crate::ws::Transport::new(state.clone(), Arc::new(crate::ws::NoTokens));
+    let router = router
+        .layer(axum::middleware::from_fn(crate::ws::notify))
+        .layer(axum::middleware::from_fn_with_state(default, crate::ws::provide));
+    // end T-04c routes ------------------------------------------------------
     router.with_state(state)
 }

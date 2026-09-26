@@ -43,18 +43,20 @@ path = "src/bin/burst.rs"
 required-features = ["spike"]
 
 [features]
+# The WebSocket pieces (`axum/ws`, `tokio/sync`, `tokio/time`, `futures-util`)
+# were spike-only until T-04c made the socket part of the room; they are
+# ordinary dependencies below now. The spike keeps only its client's TLS.
 spike = [
     "dep:tokio-tungstenite",
     "dep:rustls",
-    "dep:futures-util",
-    "axum/ws",
-    "tokio/sync",
-    "tokio/time",
 ]
 
 [dependencies]
-axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+# `ws`: the room's one broadcast per room (T-04c). axum 0.8's `ws` feature is
+# what already pulled tokio-tungstenite 0.29 into the lock for the spike.
+axum = { version = "0.8", features = ["ws"] }
+# `sync` for the per-room watch channels, `time` for the attach deadline (T-04c).
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
 # The room reads the bank's record shape (bank/schema/question.schema.json) and
 # answers in JSON. Both were already in the lock via axum's `json` feature.
 serde = { version = "1", features = ["derive"] }
@@ -75,8 +77,9 @@ tokio-tungstenite = { version = "0.29", optional = true, features = ["rustls-tls
 # its first statement; naming rustls here is what makes that possible. native-tls
 # would drag OpenSSL into any later Linux or CI run for no gain here.
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring"] }
-# SinkExt/StreamExt over the split socket. Already in the lock via axum.
-futures-util = { version = "0.3", optional = true, default-features = false, features = ["sink", "std"] }
+# SinkExt/StreamExt over the split socket. Already in the lock via axum. The
+# room's transport uses it (T-04c), so it is no longer optional.
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 # serde and serde_json are no longer spike-only: the room itself uses them (T-04a),
 # so they are ordinary dependencies above and the spike bins use those.
 
@@ -84,3 +87,6 @@ futures-util = { version = "0.3", optional = true, default-features = false, fea
 # `tower::ServiceExt::oneshot` is how the canary seam drives the router with no
 # socket. It is a dev-dependency because nothing in the shipped binary needs it.
 tower = { version = "0.5", features = ["util"] }
+# The WebSocket client the transport tests attach with (T-04c): the same 0.29
+# that axum's `ws` feature already locks. No TLS — the tests are loopback.
+tokio-tungstenite = "0.29"
