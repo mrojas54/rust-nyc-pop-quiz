@@ -97,3 +97,5 @@ Reviewer: Sonnet subagent, 2026-09-26. Six findings.
 4. **Minor — `<noscript>` would need a typed string.** *Resolution:* no `<noscript>`. The shell types no string, and a test asserts that.
 5. **Minor — `4404` covers both release and inactivity expiry.** *Resolution:* the close carries no reason, and after release the socket normally sees `4401` first. So `4404` maps to *already ended*, the plainer of the two, and this is noted as a simplification. When T-11 lands the inactivity close, it can give it its own close code if it wants the other sentence.
 6. **Minor — there was no *Pages* heading in the README.** *Resolution:* the boot prompt says "one line under *Pages*", so the heading plus its one line is the intended change. Kept.
+
+## Reset 2026-09-26 by agent:delegator-pq8

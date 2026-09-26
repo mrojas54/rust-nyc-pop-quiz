@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 8,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
@@ -18,11 +18,16 @@
       "id": "art_01M3FPGAW1RPBDC9R6FTWN62XB",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3FR2RN831JA05JC5V38EYG3",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZQ2KFHXF1654GGMGZBJG",
-  "last_event_id": "ev_01M3FPGAW457QSJJE9C8WY4TNC",
-  "last_status_changed_at": "2026-09-26T20:24:41Z",
+  "last_event_id": "ev_01M3FRSAN09AHM8DC2EKMXC8R2",
+  "last_status_changed_at": "2026-09-26T20:56:37Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -57,13 +62,13 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-7",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m1",
     "inline-full"
   ],
   "title": "The wall",
   "type": "task",
-  "updated_at": "2026-09-26T20:29:01Z",
+  "updated_at": "2026-09-26T21:08:53Z",
   "urgency": null
 }

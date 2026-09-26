@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 4,
+  "comment_count": 7,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
@@ -13,11 +13,21 @@
       "id": "art_01M3FP75HQKZ6VP17AQB34MMYE",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3FQQBNJ1QRRDWTEXWW8XZCY",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3FRBPR7YREQ746YKNWND4HC",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZQ6HG40MJ9VQAW4J8YZF",
-  "last_event_id": "ev_01M3FPQYG3WFW9W6QF3FQ82D2R",
-  "last_status_changed_at": "2026-09-26T20:33:10Z",
+  "last_event_id": "ev_01M3FRSAWWVTQSR7TQKRCDDM3F",
+  "last_status_changed_at": "2026-09-26T21:01:30Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -49,16 +59,16 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-8",
-  "status": "needs_human",
+  "status": "review",
   "tags": [
     "m1",
     "inline-full"
   ],
   "title": "The buzzer",
   "type": "task",
-  "updated_at": "2026-09-26T20:33:10Z",
+  "updated_at": "2026-09-26T21:08:53Z",
   "urgency": null
 }

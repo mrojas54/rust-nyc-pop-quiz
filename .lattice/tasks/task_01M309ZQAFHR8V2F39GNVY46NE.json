@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 8,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
@@ -18,11 +18,16 @@
       "id": "art_01M3FPF696N2BK08EDY8DZY7GB",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3FR2QXDQ7RVQC0TRW9PQPQ0",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZQAFHR8V2F39GNVY46NE",
-  "last_event_id": "ev_01M3FPF69978VKQA5CZ2M4HM3N",
-  "last_status_changed_at": "2026-09-26T20:24:42Z",
+  "last_event_id": "ev_01M3FRSARZKF3P0E8K5VD6S6D1",
+  "last_status_changed_at": "2026-09-26T20:56:37Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -57,13 +62,13 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-9",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m1",
     "inline-full"
   ],
   "title": "The host phone",
   "type": "task",
-  "updated_at": "2026-09-26T20:28:23Z",
+  "updated_at": "2026-09-26T21:08:53Z",
   "urgency": null
 }
