@@ -15,6 +15,8 @@
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`auth`] — the `HostAuth` seam (G-9); T-09 and T-10 implement it.
 //! - [`copy`] — SPEC §11's strings, mirrored from `web/shared/copy.js`.
+//! - [`ws`] — the transport: one broadcast per room to the wall, the buzzers
+//!   and the host, and reconnect with the same session token (T-04c).
 //!
 //! `unsafe` is forbidden crate-wide: the seal is a safe-Rust guarantee, and a
 //! zero-sized witness could otherwise be conjured from nothing.
@@ -34,6 +36,7 @@ pub mod rooms;
 mod routes;
 pub mod sessions;
 pub mod view;
+pub mod ws;
 
 pub use routes::host_routes;
 

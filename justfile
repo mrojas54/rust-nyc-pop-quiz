@@ -58,13 +58,14 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test sandbox-build test-sandbox test-verify-full
+test-full: test sandbox-build test-sandbox test-verify-full test-transport-full
     #!/usr/bin/env bash
     set -euo pipefail
     echo ""
     echo "=== test-full ==="
     echo "Ran: test (room, pipeline, web), the in-process canary seam, the AC-12"
-    echo "     containment suite, and the verifier's cases on the sandbox image."
+    echo "     containment suite, the verifier's cases on the sandbox image, and"
+    echo "     the transport at 200 buzzers."
     echo ""
     echo "PENDING — these suites are not built yet:"
     for entry in {{ PENDING }}; do
@@ -72,6 +73,20 @@ test-full: test sandbox-build test-sandbox test-verify-full
     done
     echo ""
     echo "T-21 adds the deployed runs and extends this hook further."
+
+# AC-81 and AC-37 at 200 buzzers over loopback sockets (T-04c). The test is
+# #[ignore]d so `test` never runs it. 201 sockets are ~400 descriptors in one
+# process, so the soft limit is raised first, and a limit still under 1024 (the
+# `burst` client's own floor) fails here rather than as a flaky socket error.
+test-transport-full:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ulimit -n 4096 2>/dev/null || true
+    if [ "$(ulimit -n)" != unlimited ] && [ "$(ulimit -n)" -lt 1024 ]; then
+        echo "test-transport-full: ulimit -n is $(ulimit -n); 1024 or more is needed" >&2
+        exit 1
+    fi
+    cd room && cargo test --offline --locked --test transport_full -- --ignored
 
 # The AC-12 containment suite, on the image `sandbox-build` just produced.
 #
