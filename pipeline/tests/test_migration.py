@@ -87,9 +87,11 @@ def test_the_committed_records_are_what_a_fresh_run_writes(
         fresh = (tmp_path / "questions" / f"{qid}.json").read_text(encoding="utf-8")
         landed = (BANK / "questions" / f"{qid}.json").read_text(encoding="utf-8")
         assert fresh == landed, f"{qid}.json on disk is not what the migration writes"
-    assert (tmp_path / "history.json").read_text(encoding="utf-8") == (
-        BANK / "history.json"
-    ).read_text(encoding="utf-8")
+    # The shape, not the contents: dedupe grows the committed history (AC-17).
+    fresh_history = json.loads((tmp_path / "history.json").read_text(encoding="utf-8"))
+    landed_history = json.loads((BANK / "history.json").read_text(encoding="utf-8"))
+    assert landed_history.keys() == fresh_history.keys()
+    assert landed_history["version"] == fresh_history["version"]
 
 
 def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
