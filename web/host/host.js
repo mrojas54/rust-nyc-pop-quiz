@@ -1,0 +1,341 @@
+/* ===========================================================================
+   The host phone (T-07) — SPEC §4's host column, §6, §8.1, §8.2, §11.
+
+   One page serves two addresses:
+
+     /host?question=<id>#<credential>   the first screen, before a room exists.
+                                        *Create a room* presents the credential
+                                        in the fragment as a bearer (§8.2).
+     /host/<room_id>#<host session>     one screen per phase. This address IS
+                                        the resume link (rooms.rs builds
+                                        host_resume_url this way): a refresh
+                                        keeps the fragment, and opening it on a
+                                        second device attaches that device to
+                                        the same room (AC-50). The session never
+                                        rotates, and a fragment never reaches a
+                                        server log.
+
+   What the page reads: the host projection (GET /rooms/{id}/host) and the host
+   socket (/rooms/{id}/ws/host), nothing else. It never asks for the wall's or
+   the buzzer's payload, so it cannot preview an answer the room has not
+   revealed (AC-47, G-3).
+
+   Every string on the screen is copy.js's (SPEC §11) or text the room sent
+   (the step's words, the three beats, the fit line, the resume line). Nothing
+   is authored here. Errors show the server's `reason` or the HTTP status line.
+
+   Classic script on window.PopQuiz, like web/shared (web/README.md). The pure
+   parts — parseLocation, render, renderCreate, backoff — are what
+   web/test/host.test.js exercises; boot() wires them to the browser.
+   =========================================================================== */
+(function (root) {
+  "use strict";
+  var PQ = (root.PopQuiz = root.PopQuiz || {});
+
+  /* The eight host actions (AC-45), by the route slug the room uses
+     (room/src/phase.rs HostAction::slug), to their §11 string. */
+  var ACTIONS = {
+    "create": "host_action_create",
+    "put-on-screen": "host_action_put_on_screen",
+    "close-answers": "host_action_close",
+    "show-split": "host_action_show_split",
+    "walk-it": "host_action_walk",
+    "reveal": "host_action_reveal",
+    "release": "host_action_release",
+    "run-it-again": "host_action_run_again"
+  };
+
+  /* The two trace steps, `←` and `→`: in `work` and `reveal` only, and not
+     phase transitions (SPEC §4). */
+  var STEPS = { "step-back": "←", "step-forward": "→" };
+
+  /* Close codes after which reconnecting cannot help (room/src/ws.rs): the
+     credential was refused, or the room is gone. */
+  var TERMINAL_CLOSES = [4401, 4404];
+
+  function actionLabel(slug) {
+    if (!Object.prototype.hasOwnProperty.call(ACTIONS, slug)) {
+      throw new Error("host: no host action " + JSON.stringify(slug) + " (AC-45)");
+    }
+    return PQ.t(ACTIONS[slug]);
+  }
+
+  function decode(s) {
+    try { return decodeURIComponent(s); } catch (e) { return s; }
+  }
+
+  /* Where this page is. `loc` is anything with pathname, search and hash. */
+  function parseLocation(loc) {
+    var hash = String(loc.hash || "").replace(/^#/, "");
+    var secret = hash ? decode(hash) : null;
+    var path = String(loc.pathname || "").replace(/\/+$/, "");
+    var m = /^\/host\/([^\/]+)$/.exec(path);
+    if (m) return { mode: "room", roomId: decode(m[1]), session: secret };
+    var q = /(?:^\?|&)question=([^&]*)/.exec(String(loc.search || ""));
+    return { mode: "create", token: secret, question: q ? decode(q[1]) : null };
+  }
+
+  /* Reconnect delay in ms after `attempt` failures: 500, 1000, 2000, 4000,
+     then 8000 for as long as it takes. */
+  function backoff(attempt) {
+    var n = Math.max(0, attempt | 0);
+    return Math.min(8000, 500 * Math.pow(2, Math.min(n, 4)));
+  }
+
+  function isTerminalClose(code) {
+    return TERMINAL_CLOSES.indexOf(code) >= 0;
+  }
+
+  var esc = function (s) { return PQ.escapeHtml(s); };
+
+  function statusHtml(ui) {
+    return '<p class="host-status meta" role="status">' + (ui && ui.status ? esc(ui.status) : "") + "</p>";
+  }
+
+  function primaryHtml(slug, ui) {
+    return '<button type="button" class="btn btn-primary host-primary" data-primary="' + PQ.escapeAttr(slug) + '"' +
+      (ui && ui.busy ? " disabled" : "") + ">" + esc(actionLabel(slug)) + "</button>";
+  }
+
+  function notAGuaranteeHtml() {
+    return '<div class="no-preview">' +
+      "<p>" + esc(PQ.t("not_a_guarantee_options_public")) + "</p>" +
+      "<p>" + esc(PQ.t("not_a_guarantee_host_honest")) + "</p></div>";
+  }
+
+  /* The resume line as the room sent it (view.rs fills §11's host_first_resume
+     with the room's host_resume_url), with the link made followable. */
+  function resumeHtml(line) {
+    var prefix = PQ.t("host_first_resume").split("‹resume link›")[0];
+    var url = line.indexOf(prefix) === 0 ? line.slice(prefix.length) : "";
+    if (!/^https?:\/\//.test(url)) return '<p class="host-resume">' + esc(line) + "</p>";
+    return '<p class="host-resume">' + esc(prefix) +
+      '<a href="' + PQ.escapeAttr(url) + '">' + esc(url) + "</a></p>";
+  }
+
+  function codeHtml(code) {
+    return '<div class="panel host-code-panel"><div class="meta">' + esc(PQ.t("buzzer_join_label")) + "</div>" +
+      '<div class="host-code">' + esc(code) + "</div></div>";
+  }
+
+  function stepHtml(step, ui) {
+    var dots = "";
+    for (var i = 0; i < step.m; i++) {
+      dots += "<i" + (i < step.at ? ' class="past"' : i === step.at ? ' class="on"' : "") + "></i>";
+    }
+    var btn = function (slug, enabled) {
+      return '<button type="button" class="btn host-step-btn" data-step="' + slug + '" aria-label="' +
+        PQ.escapeAttr(STEPS[slug]) + '"' + (enabled && !(ui && ui.busy) ? "" : " disabled") + ">" +
+        esc(STEPS[slug]) + "</button>";
+    };
+    return '<div class="trace host-trace">' +
+      '<div class="trace-note"><span class="step-n">' +
+      esc(PQ.t("wall_trace_step", { N: step.at + 1, M: step.m })) + "</span>" + esc(step.note) + "</div>" +
+      '<div class="trace-nav">' + btn("step-back", step.can_back) + btn("step-forward", step.can_forward) +
+      '<span class="trace-dots" aria-hidden="true">' + dots + "</span></div></div>";
+  }
+
+  /* The three beats (§4.5): human-reviewed prose, so the human provenance
+     marker, distinct from the receipt's machine one (AC-74). The middle beat's
+     heading is the room's: *Why ‹n› of us said ‹X›* for the most-chosen
+     incorrect option, or *Why nobody said anything else* with no text. */
+  function readAloudHtml(r) {
+    var beat = function (cls, heading, text) {
+      return '<div class="beat' + cls + '"><h3>' + esc(heading) + "</h3>" +
+        (text ? "<p>" + esc(text) + "</p>" : "") + "</div>";
+    };
+    return '<section class="panel by-human host-read-aloud" data-provenance="human">' +
+      '<span class="provenance human">✎</span>' +
+      '<h2 class="host-read-h">' + esc(PQ.t("host_reveal_read_aloud")) + "</h2>" +
+      beat("", PQ.t("host_reveal_beat_what"), r.what && r.what.text) +
+      beat(" beat-company", r.middle.heading, r.middle.text) +
+      beat("", PQ.t("host_reveal_beat_remember"), r.takeaway && r.takeaway.text) +
+      "</section>";
+  }
+
+  function countsHtml(p) {
+    var answered = typeof p.answered === "number" ? p.answered : 0;
+    return '<div class="ratio host-counts">' +
+      "<div>" + esc(PQ.t("wall_split_answered", { answered: answered, present: p.present })) + "</div>" +
+      (p.fit ? '<div class="host-fit">' + esc(p.fit) + "</div>" : "") + "</div>";
+  }
+
+  /* One screen for one host payload (view::HostPayload). `ui`: {status, busy}. */
+  function render(p, ui) {
+    var phase = PQ.assertPhase(p.phase);
+    var html = '<h1 class="host-h" data-phase="' + phase + '">' + esc(PQ.HOST_PHASE_LABEL[phase]) + "</h1>" +
+      '<div class="stack">';
+    // The code while joining is still possible: every phase but `released`.
+    if (phase !== "released") html += codeHtml(p.code);
+    if (phase === "idle" && p.first_screen) {
+      html += resumeHtml(p.first_screen.resume) + notAGuaranteeHtml();
+    }
+    if ((phase === "work" || phase === "reveal") && p.step) html += stepHtml(p.step, ui);
+    if (phase === "reveal" && p.read_aloud) html += readAloudHtml(p.read_aloud);
+    html += primaryHtml(p.primary.action, ui) + statusHtml(ui) + "</div>" + countsHtml(p);
+    return html;
+  }
+
+  /* The first screen before a room exists: *Create a room*, and §8.1's two
+     sentences. It carries the idle label — the room it makes starts there. */
+  function renderCreate(ui) {
+    return '<h1 class="host-h" data-phase="idle">' + esc(PQ.HOST_PHASE_LABEL.idle) + "</h1>" +
+      '<div class="stack">' + notAGuaranteeHtml() + primaryHtml("create", ui) + statusHtml(ui) + "</div>";
+  }
+
+  /* ------------------------------------------------------------------------
+     The browser half.
+     ------------------------------------------------------------------------ */
+
+  var STORE_KEY = "popquiz.host.create";
+
+  function storeGet(win) {
+    try { return JSON.parse(win.sessionStorage.getItem(STORE_KEY) || "null"); } catch (e) { return null; }
+  }
+
+  function storeSet(win, v) {
+    try { win.sessionStorage.setItem(STORE_KEY, JSON.stringify(v)); } catch (e) { /* private mode */ }
+  }
+
+  function statusLine(res, body) {
+    if (body && typeof body.reason === "string") return body.reason;
+    return res.status + (res.statusText ? " " + res.statusText : "");
+  }
+
+  function roomPath(id, session) {
+    return "/host/" + encodeURIComponent(id) + "#" + session;
+  }
+
+  function boot(win) {
+    var el = win.document.getElementById("host");
+    var where = parseLocation(win.location);
+    var ui = { status: null, busy: false };
+
+    function post(url, bearer, body) {
+      var headers = {};
+      if (bearer) headers.Authorization = "Bearer " + bearer;
+      if (body) headers["Content-Type"] = "application/json";
+      return win.fetch(url, { method: "POST", headers: headers, body: body ? JSON.stringify(body) : undefined })
+        .then(function (res) {
+          return res.text().then(function (t) {
+            var json = null;
+            try { json = t ? JSON.parse(t) : null; } catch (e) { json = null; }
+            return { res: res, body: json };
+          });
+        });
+    }
+
+    if (where.mode === "create") {
+      var paintCreate = function () { el.innerHTML = renderCreate(ui); };
+      el.addEventListener("click", function (ev) {
+        var b = ev.target.closest && ev.target.closest("[data-primary]");
+        if (!b || ui.busy) return;
+        ui.busy = true; ui.status = null; paintCreate();
+        post("/rooms", where.token, { question_id: where.question || "" }).then(function (r) {
+          if (r.res.status === 201 && r.body) {
+            storeSet(win, { token: where.token, question: where.question });
+            win.location.replace(roomPath(r.body.id, r.body.host_session));
+            return;
+          }
+          ui.busy = false; ui.status = statusLine(r.res, r.body); paintCreate();
+        }, function (e) {
+          ui.busy = false; ui.status = String(e && e.message || e); paintCreate();
+        });
+      });
+      paintCreate();
+      return;
+    }
+
+    var id = where.roomId;
+    var session = where.session;
+    var payload = null;
+    var revision = -1;
+    var attempt = 0;
+
+    function paint() {
+      if (payload) el.innerHTML = render(payload, ui);
+      else el.innerHTML = statusHtml(ui);
+    }
+
+    function take(next, rev) {
+      if (typeof rev === "number") {
+        if (rev < revision) return;
+        revision = rev;
+      }
+      var before = payload && payload.phase;
+      payload = next;
+      if (before && before !== next.phase) PQ.announce(PQ.HOST_PHASE_LABEL[next.phase]);
+      paint();
+    }
+
+    function act(slug) {
+      ui.busy = true; ui.status = null; paint();
+      var done = function (status) { ui.busy = false; ui.status = status; paint(); };
+      if (slug === "run-it-again") {
+        var stored = storeGet(win);
+        if (!stored || !stored.token) { win.location.assign("/host"); return; }
+        post("/rooms/" + encodeURIComponent(id) + "/run-it-again", stored.token, { question_id: stored.question || "" })
+          .then(function (r) {
+            if (r.res.status === 201 && r.body) { win.location.assign(roomPath(r.body.id, r.body.host_session)); return; }
+            done(statusLine(r.res, r.body));
+          }, function (e) { done(String(e && e.message || e)); });
+        return;
+      }
+      post("/rooms/" + encodeURIComponent(id) + "/" + slug, session).then(function (r) {
+        if (r.res.ok && r.body) { ui.busy = false; take(r.body); return; }
+        done(statusLine(r.res, r.body));
+      }, function (e) { done(String(e && e.message || e)); });
+    }
+
+    el.addEventListener("click", function (ev) {
+      if (!ev.target.closest || ui.busy) return;
+      var b = ev.target.closest("[data-primary],[data-step]");
+      if (!b || b.disabled) return;
+      act(b.getAttribute("data-primary") || b.getAttribute("data-step"));
+    });
+
+    function connect() {
+      var scheme = win.location.protocol === "https:" ? "wss:" : "ws:";
+      var ws = new win.WebSocket(scheme + "//" + win.location.host + "/rooms/" + encodeURIComponent(id) + "/ws/host");
+      ws.onopen = function () { ws.send(JSON.stringify({ t: "attach", token: session })); };
+      ws.onmessage = function (m) {
+        var f;
+        try { f = JSON.parse(m.data); } catch (e) { return; }
+        if (f.t !== "state") return;
+        attempt = 0;
+        if (ui.status === PQ.t("buzzer_reconnecting")) ui.status = null;
+        var rev = f.revision;
+        delete f.t; delete f.revision;
+        take(f, rev);
+      };
+      ws.onclose = function (ev) {
+        if (isTerminalClose(ev.code)) { ui.status = String(ev.code); paint(); return; }
+        ui.status = PQ.t("buzzer_reconnecting"); paint();
+        win.setTimeout(connect, backoff(attempt++));
+      };
+    }
+
+    if (!session) { ui.status = "401"; paint(); return; }
+    win.fetch("/rooms/" + encodeURIComponent(id) + "/host", { headers: { Authorization: "Bearer " + session } })
+      .then(function (res) {
+        return res.text().then(function (t) {
+          var body = null;
+          try { body = t ? JSON.parse(t) : null; } catch (e) { body = null; }
+          if (res.ok && body) { take(body); connect(); }
+          else { ui.status = statusLine(res, body); paint(); }
+        });
+      }, function (e) { ui.status = String(e && e.message || e); paint(); connect(); });
+  }
+
+  PQ.host = {
+    ACTIONS: ACTIONS,
+    STEPS: STEPS,
+    actionLabel: actionLabel,
+    parseLocation: parseLocation,
+    backoff: backoff,
+    isTerminalClose: isTerminalClose,
+    render: render,
+    renderCreate: renderCreate,
+    boot: boot
+  };
+})(typeof window !== "undefined" ? window : globalThis);

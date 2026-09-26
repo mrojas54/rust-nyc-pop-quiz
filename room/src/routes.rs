@@ -220,6 +220,36 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             }),
         );
     }
+    // T-07 pages ------------------------------------------------------------
+    // The host phone: `/host` (the first screen, *Create a room*) and
+    // `/host/{room_id}` (one screen per phase) are one page, embedded at
+    // compile time with its script and style. The credential rides in the URL
+    // fragment, which no request carries, so `no-store` and `no-referrer` are
+    // belt and braces for the page that reads it (SPEC §8.2, AC-50).
+    {
+        const HOST_HTML: &str = include_str!("../../web/host/index.html");
+        const HOST_JS: &str = include_str!("../../web/host/host.js");
+        const HOST_CSS: &str = include_str!("../../web/host/host.css");
+        fn page(body: &'static str, content_type: &'static str) -> Response {
+            (
+                [
+                    (header::CONTENT_TYPE, content_type),
+                    (header::CACHE_CONTROL, "no-store"),
+                    (header::REFERRER_POLICY, "no-referrer"),
+                    (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+                ],
+                body,
+            )
+                .into_response()
+        }
+        let html = || async { page(HOST_HTML, "text/html; charset=utf-8") };
+        router = router
+            .route("/host", get(html))
+            .route("/host/{room_id}", get(html))
+            .route("/host/host.js", get(|| async { page(HOST_JS, "text/javascript; charset=utf-8") }))
+            .route("/host/host.css", get(|| async { page(HOST_CSS, "text/css; charset=utf-8") }));
+    }
+    // end T-07 pages --------------------------------------------------------
     // T-04c routes ----------------------------------------------------------
     // The three sockets, and the two layers the transport needs. KEEP THIS
     // BLOCK LAST: `layer` wraps only the routes registered above it, and the
