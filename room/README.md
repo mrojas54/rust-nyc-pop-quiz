@@ -81,6 +81,116 @@ place a room's machine is reassigned, from `apply`'s result.
   pushes. Each carries exactly one `phase`, read from the room's one phase value
   (AC-81).
 
+## The transport (T-04c)
+
+`src/ws.rs`. One broadcast per room to the wall, the buzzers and the host, and
+reconnect with the same session token.
+
+### Sockets
+
+| Route | Credential | Close codes |
+|---|---|---|
+| `GET /rooms/{id}/ws/wall` | none — the public projection `GET …/wall` already serves | `4404` room gone |
+| `GET /rooms/{id}/ws/buzzer` | first message `{"t":"attach","token":"<session token>"}` → `SessionTokens::resolve` | `4401`, `4408`, `4000`, `4404` |
+| `GET /rooms/{id}/ws/host` | first message `{"t":"attach","token":"<host session>"}` → `HostAuth::authorize_host` | `4401`, `4408`, `4404` |
+
+An unknown room is `404` before the upgrade. `4401` is a missing, malformed or
+wrong credential and says nothing else (AC-70); `4408` is no attach message
+within 10 s; `4000` is *replaced* — a newer socket attached for the same
+session. The credential is a message, not a query string, because the host's
+resume link keeps its session in a `#fragment` to keep it out of logs.
+
+### Frames
+
+Every frame is the viewer's **whole** state:
+
+    {"t":"state","revision":N, …view::wall / view::buzzer / view::host, flattened…}
+
+The payload's own `phase` is the frame's only `phase` (AC-81). Less `t` and
+`revision`, a frame is byte-for-byte the `GET /rooms/{id}/<viewer>` projection
+the canary scans; `tests/transport.rs` asserts that at every revision.
+
+- **On attach, the current state comes first** (§4.3, AC-37), then one frame per
+  new revision. The client leaves *paused* on that first frame (T-06).
+- **A buzzer's attach frame, and only that one,** adds
+  `"session":{"saved":<letter|null>}` — its own saved answer, so a phone that
+  reconnects in `closed` can show it. That frame is parsed and re-serialized for
+  that one socket; broadcasts are never personalized.
+- Hosts are not keyed: several host devices may be attached at once (AC-50).
+- A socket that cannot take a frame within 10 s is dropped; that bound is per
+  send, and nothing is ever sent because time passed.
+
+### One broadcast per room
+
+Each room has one `tokio::sync::watch` channel per viewer kind, holding
+pre-serialized frames. A room's three payloads are built and serialized once
+per revision, in `Transport::changed`, and every subscriber of that kind gets
+the same bytes. `watch`, not `broadcast`: each frame is a whole state, so a slow
+phone skips superseded ones instead of lagging behind them, and no receiver can
+drop a reveal the way the spike's `broadcast` could (it had to count `Lagged`).
+The channel exists only while someone is subscribed.
+
+**What triggers a push.** `rooms.rs` has no change hook, and polling is out.
+`Transport::changed(room_id)` publishes only if `Room::revision()` moved, so a
+poke that changed nothing sends nothing. It is called:
+
+- by the `notify` layer after every non-GET request under `/rooms/{id}/…` — all
+  host actions, and any HTTP writer whose routes are registered **above the
+  `// T-04c routes` block in `routes.rs`, which must stay last** (`layer` wraps
+  only the routes already registered);
+- by the transport after each call into the session map;
+- by anything else that writes a room outside an HTTP route — T-04b if it takes
+  answers over a socket, T-11's reaper. Such a writer calls `changed` itself.
+
+### The seam for T-04b
+
+    pub trait SessionTokens {
+        fn resolve(&self, room_id: &str, token: &str) -> Option<SessionId>; // the attach
+        fn saved(&self, room_id: &str, session: SessionId) -> Option<Letter>;
+        fn gone(&self, room_id: &str, session: SessionId); // its current socket closed
+    }
+
+**T-04b's session map implements it**, and is wired in by layering
+`Extension(Transport::new(state, map))` over `router_with(state)`. Until then
+the router supplies a `Transport` over `NoTokens`: walls and hosts are served,
+every buzzer is refused `4401`. `gone` is not called for a replaced socket.
+It is called with no transport lock held, so a socket that dies at the very
+instant its session re-attaches can report `gone` just after the new
+`resolve`; T-04b's map should let the later `resolve` win when counting
+`present`.
+The tests use `TestTokens` (`tests/common`).
+
+### `TCP_NODELAY`
+
+`ws::serve(listener, router)` sets it on every accepted socket (the spike's
+finding: without it a 40 ms delayed-ACK mode reads as the server being slow).
+The tests serve through it. `main.rs` still calls `axum::serve`; T-09, which
+owns the bind, switches it.
+
+### For T-21's `burst`
+
+The reveal broadcast is the path AC-41 measures; its p95 is `burst`'s, against
+the deployed room, and is not claimed by these tests. The mapping from the
+spike's frames:
+
+| Spike | Room |
+|---|---|
+| `GET /ws`, one socket for everything | `GET /rooms/{id}/ws/buzzer`, then `{"t":"attach","token"}` |
+| `{"t":"reveal","reveal_id":n,…}` | `{"t":"state","phase":"reveal","revision":n,…}` — key on `phase` and use `revision` as the id |
+| `{"t":"hello",…}` | the attach frame (`t:"state"`); no instance field yet |
+| padded 2048-byte reveal | the real reveal payload |
+| `control` frames | the HTTP host routes with the host bearer |
+
+### Tests
+
+- `tests/transport.rs` (in `test`): wall + host + three buzzers through every
+  transition — one frame per revision each, one phase across all (AC-81); drop
+  and re-attach — current state first, saved answer intact (AC-37);
+  replacement; refusals; the attach deadline; teardown.
+- `tests/transport_full.rs` (`#[ignore]`d; `just test-transport-full`, inside
+  `test-full`): the wall and 200 buzzers agree at every transition, and twenty
+  drop in `closed` and resume in `split` (AC-81 and AC-37 as written).
+
 ## The sealed module, and how the proof works
 
 `answers::load` reads a bank record and splits it on the spot. The public half
