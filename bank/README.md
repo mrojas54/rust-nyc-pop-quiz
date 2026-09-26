@@ -25,10 +25,12 @@ program. If you find yourself reasoning about what a program prints, stop and ru
 it.
 
 There is no `correct` field to edit. `SPEC.md` §3.1 marks the correct answer
-*derived* (G-2), so `bank.correct_index()` computes it — for a question that ran,
-the option whose text equals `verified.stdout`; for a does-not-compile question,
-the single `does_not_compile` option. A record with nowhere to write an answer
-down is a record nobody can hand-edit one into (AC-7).
+*derived* (G-2), so `bank.correct_index()` computes it — for a does-not-compile
+question, the single `does_not_compile` option; for UB that Miri reported under
+both borrow models, the single `ub` option; for a question that panicked, the
+single `panic` option; otherwise the option whose text equals `verified.stdout`.
+A record with nowhere to write an answer down is a record nobody can hand-edit
+one into (AC-7).
 
 **Answer position is a pure function of the date, and nothing else.** No
 history, no ledger, no bank state, no "not the same letter as last time". Every
@@ -83,6 +85,48 @@ measurement rather than typed.
 no `affirmed_by` / `affirmed_at`, so none of them can reach a deck (AC-72, G-12).
 The beats and q3's trace were *drafted* — from the August explanation and the
 prototype the client loved — and are waiting for an organizer to read them.
+
+## How a record is verified
+
+`just verify <candidate.json> --expect ran|does_not_compile|ub` runs
+`pipeline/src/popquiz/verify.py` on the pinned image (`just sandbox-build` first)
+and, if the candidate is accepted, writes its `verified` record into the file. The
+declared answer is an argument, not a field: it is never stored, and a file that
+already has a record recovers it from there. Exit 0 accepted, 1 rejected (file
+untouched), 2 refused.
+
+In order, each step only if the one before passed:
+
+1. **The pin.** The image's `rustc -Vv` release and commit-hash and its
+   `cargo miri --version` must equal `pipeline/sandbox/pin.toml`, and its host
+   triple must be one the pin lists. Otherwise the verifier refuses to run at all.
+2. **Compile** under the pin's edition and flags. Declared *does not compile*: it
+   must fail with at least one `error[Exxxx]`, and every code is recorded;
+   compiling is a rejection. Anything else that fails to compile is rejected.
+3. **Five native runs**, each its own container. Stdout and exit code identical
+   every time, or rejected with the count of distinct outputs (AC-8). Exit 0 or a
+   panic (101) is an answer; any other exit is rejected.
+4. **Miri, Stacked Borrows, strict provenance.** UB not declared: rejected. Miri's
+   stdout or exit different from the native run: rejected (AC-10). Miri unable to
+   run it (an operation isolation refuses): rejected.
+5. **Tree Borrows**, for declared UB only; accepted only if both models report UB
+   (AC-9), and Miri's output before the UB must equal the native output exactly —
+   so a UB question prints only before its UB.
+
+Every field of the record is read off a step or the pin, never typed. A
+re-verified legacy record is replaced whole. `verify.is_stale(record, pin)` is
+what scheduling asks: a record made under a different pin re-verifies first; a
+legacy record is exempt. `verify.check_provenance(file)` is the build's AC-7
+check: it refuses a stored `correct` field, a record the verifier did not write,
+and options that no longer derive an answer from the record. It cannot see an
+edit *inside* the record that leaves it self-consistent — nothing in §3.2 binds a
+record to the run that produced it — and says so.
+
+The four migrated questions below still carry their `legacy` records; they were
+not re-verified on T-15b. That is an organizer step (T-20), and q4 and q7 need
+their programs re-authored first.
+
+Miri checks only the paths the program executed (AC-43).
 
 ## Where the migrated records came from
 

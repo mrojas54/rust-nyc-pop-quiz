@@ -2,20 +2,23 @@
 
 These tests are about the harness, not about verification. The verifier's actual
 decisions — determinism at N=5, compile failure with its error code, Miri under
-both borrow models — belong to T-15b and arrive with real recorded fixtures.
+both borrow models — are in `test_verify.py`, against the recordings here.
 """
 
 from __future__ import annotations
 
 import ast
+import json
 import pathlib
 
 import pytest
 
+from popquiz import sandbox
 from popquiz.runner import FixtureError, RealRunner, RunStep, StubRunner
 
 HERE = pathlib.Path(__file__).parent
 FIXTURES = HERE / "fixtures"
+RECORDINGS = FIXTURES / "verify" / "recordings"
 
 # Both halves of what `just test` imports. The tests are scanned too: a test that
 # called out to a toolchain directly would make `just test` shell out just as
@@ -73,40 +76,138 @@ FORBIDDEN_OS_CALLS = {
 
 
 def test_stub_runner_replays_a_recorded_step() -> None:
-    step = StubRunner(FIXTURES).run("placeholder-step", "scaffold-placeholder")
+    """Replays exactly what the file holds - compared against the file, never
+    against a typed-in expectation of what the compiler said."""
+    recorded = json.loads((RECORDINGS / "q8.json").read_text(encoding="utf-8"))["compile"]
+
+    step = StubRunner(RECORDINGS).run("compile", "q8")
 
     assert isinstance(step, RunStep)
-    assert step.kind == "placeholder-step"
-    assert step.exit_code == 0
-    assert step.recorded_from
+    assert step.kind == "compile"
+    assert (step.exit_code, step.stdout, step.stderr) == (
+        recorded["exit_code"], recorded["stdout"], recorded["stderr"]
+    )
+    assert step.recorded_from == recorded["recorded_from"]
 
 
-def test_stub_runner_refuses_a_step_that_does_not_say_where_it_came_from() -> None:
+def _write(tmp_path: pathlib.Path, program: str, payload: dict) -> pathlib.Path:
+    (tmp_path / f"{program}.json").write_text(json.dumps(payload), encoding="utf-8")
+    return tmp_path
+
+
+# The steps below are shapes, not outputs: every stdout and stderr is empty, and
+# no program is behind them.
+_EMPTY = {"exit_code": 0, "stdout": "", "stderr": ""}
+
+
+def test_stub_runner_refuses_a_step_that_does_not_say_where_it_came_from(tmp_path) -> None:
     """The provenance guard.
 
     An output with no toolchain behind it is indistinguishable from one somebody
-    typed, so it is refused rather than replayed. This is what stops T-15b from
+    typed, so it is refused rather than replayed. This is what stops anyone
     hand-writing a fixture.
     """
+    directory = _write(tmp_path, "p", {"compile": {**_EMPTY, "recorded_from": ""}})
     with pytest.raises(FixtureError, match="recorded from"):
-        StubRunner(FIXTURES).run(
-            "placeholder-step-without-provenance", "scaffold-placeholder"
-        )
+        StubRunner(directory).run("compile", "p")
 
 
 def test_stub_runner_reports_a_program_it_has_never_recorded() -> None:
     with pytest.raises(FixtureError, match="no recorded output"):
-        StubRunner(FIXTURES).run("placeholder-step", "a-program-nobody-recorded")
+        StubRunner(RECORDINGS).run("compile", "a-program-nobody-recorded")
 
 
 def test_stub_runner_reports_a_step_it_has_never_recorded() -> None:
     with pytest.raises(FixtureError, match="no recorded"):
-        StubRunner(FIXTURES).run("a-step-nobody-recorded", "scaffold-placeholder")
+        StubRunner(RECORDINGS).run("a-step-nobody-recorded", "q8")
 
 
-def test_real_runner_refuses_until_the_sandbox_exists() -> None:
-    with pytest.raises(NotImplementedError, match="T-15a/T-15b"):
-        RealRunner().run("compile", "anything")
+def test_bookkeeping_keys_are_neither_replayed_nor_listed_as_steps(tmp_path) -> None:
+    """`_recorded` and `_source_sha256` describe the file, not a step."""
+    directory = _write(
+        tmp_path,
+        "p",
+        {"_recorded": {"by": "a test"}, "compile": {**_EMPTY, "recorded_from": "a test"}},
+    )
+    with pytest.raises(FixtureError) as refused:
+        StubRunner(directory).run("_recorded", "p")
+    assert "(it has: compile)" in str(refused.value)
+
+
+def test_a_stopped_step_replays_with_what_stopped_it(tmp_path) -> None:
+    directory = _write(
+        tmp_path,
+        "p",
+        {"run:1": {"exit_code": None, "stdout": "", "stderr": "",
+                   "recorded_from": "a test", "stopped_by": ["TIMEOUT"]}},
+    )
+    step = StubRunner(directory).run("run:1", "p")
+    assert step.exit_code is None and step.stopped_by == ("TIMEOUT",)
+
+
+# --- RealRunner, driven with a fake process runner: no Docker ------------------
+
+
+class _Done:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
+
+
+def _real(calls: list) -> RealRunner:
+    def fake(argv, *, input=None, timeout=None):
+        calls.append((list(argv), input))
+        return _Done(0)
+
+    return RealRunner(
+        {"p": "fn main() {}\n"}, pin=sandbox.read_pin(), process_runner=fake
+    )
+
+
+@pytest.mark.parametrize(
+    ("kind", "script_has"),
+    [
+        ("compile", "rustc "),
+        ("run:3", "exec ./main"),
+        ("miri:stacked_borrows:0", "-Zmiri-seed=0"),
+        ("miri:tree_borrows:7", "-Zmiri-tree-borrows -Zmiri-seed=7"),
+        ("toolchain", "rustc -Vv"),
+    ],
+)
+def test_real_runner_maps_each_kind_onto_one_sandbox_step(kind: str, script_has: str) -> None:
+    calls: list = []
+    step = _real(calls).run(kind, "p")
+
+    assert len(calls) == 1
+    argv, stdin = calls[0]
+    assert argv[:2] == ["docker", "run"]
+    assert script_has in argv[-1]
+    assert stdin == ("" if kind == "toolchain" else "fn main() {}\n")
+    assert step.kind == kind and step.recorded_from == sandbox.read_pin().image
+
+
+def test_real_runner_asks_the_toolchain_once() -> None:
+    calls: list = []
+    runner = _real(calls)
+    runner.run("toolchain", "p")
+    runner.run("toolchain", "p")
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("kind", ["run:0", "run:x", "miri:weak_borrows:0", "miri:tree_borrows", "link"])
+def test_real_runner_refuses_a_kind_outside_the_vocabulary(kind: str) -> None:
+    with pytest.raises(ValueError, match="unknown step kind"):
+        _real([]).run(kind, "p")
+
+
+def test_real_runner_reports_what_stopped_a_step() -> None:
+    def fake(argv, *, input=None, timeout=None):
+        if argv[:2] == ["docker", "kill"]:
+            return _Done(0)
+        raise sandbox.RunnerTimeout(argv, timeout)
+
+    runner = RealRunner({"p": "fn main() {}\n"}, pin=sandbox.read_pin(), process_runner=fake)
+    step = runner.run("run:1", "p")
+    assert step.exit_code is None and step.stopped_by == (sandbox.TIMEOUT,)
 
 
 def _process_starting_nodes(tree: ast.AST) -> list[tuple[int, str]]:
