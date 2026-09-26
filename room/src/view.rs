@@ -171,6 +171,11 @@ pub struct BuzzerPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mark: Option<&'static str>,
     pub foot: &'static str,
+    // T-04b: the calling session's own saved answer, on the per-session paths
+    // only (the join response, T-04c's re-attach). Never another session's;
+    // the public buzzer query never sets it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub yours: Option<Letter>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -256,6 +261,11 @@ pub fn buzzer(room: &Room) -> BuzzerPayload {
         Some(opened) => revealed::buzzer(room.public(), &opened),
         None => sealed::buzzer(room.public()),
     }
+}
+
+// T-04b: the buzzer for one session, carrying its own saved answer.
+pub fn buzzer_for(room: &Room, yours: Option<Letter>) -> BuzzerPayload {
+    BuzzerPayload { yours, ..buzzer(room) }
 }
 
 pub fn host(room: &Room) -> HostPayload {
@@ -498,6 +508,7 @@ mod sealed {
             correct: None,
             mark: None,
             foot: copy::BUZZER_FOOT,
+            yours: None,
         };
         match view.phase {
             Phase::Idle => p.lines = vec![copy::BUZZER_IDLE.into()],
@@ -616,6 +627,7 @@ mod revealed {
             correct: Some(correct),
             mark: None,
             foot: copy::BUZZER_FOOT_COMPUTED,
+            yours: None,
         }
     }
 
