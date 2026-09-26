@@ -11,6 +11,7 @@
 //! - [`question`] — the public half of a question.
 //! - [`rooms`] — the room record (§3.4) and the seams for sessions (T-04b) and
 //!   the socket (T-04c).
+//! - [`sessions`] — participant sessions and the answer store (T-04b).
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`auth`] — the `HostAuth` seam (G-9); T-09 and T-10 implement it.
 //! - [`copy`] — SPEC §11's strings, mirrored from `web/shared/copy.js`.
@@ -33,6 +34,7 @@ pub mod phase;
 pub mod question;
 pub mod rooms;
 mod routes;
+pub mod sessions;
 pub mod view;
 pub mod ws;
 

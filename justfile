@@ -21,7 +21,7 @@
 
 # Suites not built yet, and the ticket that delivers each. Read by both `_pending`
 # and `test-full`, so the two can never disagree about what is missing.
-PENDING := "verify:T-15b burst:T-21 a11y:T-13 smoke:T-09"
+PENDING := "burst:T-21 a11y:T-13 smoke:T-09"
 
 _default:
     @just --list --unsorted
@@ -58,13 +58,14 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test sandbox-build test-sandbox test-transport-full
+test-full: test sandbox-build test-sandbox test-verify-full test-transport-full
     #!/usr/bin/env bash
     set -euo pipefail
     echo ""
     echo "=== test-full ==="
-    echo "Ran: test (room, pipeline, web), the in-process canary seam, and the"
-    echo "     AC-12 containment suite on the sandbox image."
+    echo "Ran: test (room, pipeline, web), the in-process canary seam, the AC-12"
+    echo "     containment suite, the verifier's cases on the sandbox image, and"
+    echo "     the transport at 200 buzzers."
     echo ""
     echo "PENDING — these suites are not built yet:"
     for entry in {{ PENDING }}; do
@@ -99,6 +100,13 @@ test-transport-full:
 # out were tried.
 test-sandbox:
     cd pipeline && POPQUIZ_SANDBOX_SUITE=1 uv run --no-sync pytest tests/sandbox -vv
+
+# The verifier's cases (tests/fixtures/verify/cases.toml) on the real toolchain,
+# the twin of what `test` replays on StubRunner (D-18). A recording that no longer
+# describes what the toolchain does fails here. POPQUIZ_VERIFY_FULL is this
+# directory's own switch, so `test-sandbox` stays the containment suite alone.
+test-verify-full: sandbox-build
+    cd pipeline && POPQUIZ_SANDBOX_SUITE=1 POPQUIZ_VERIFY_FULL=1 uv run --no-sync pytest tests/sandbox/verify -vv
 
 # Build the verification image from pin.toml, then report what it actually says.
 #
@@ -151,8 +159,11 @@ canary:
 # Each fails loudly rather than passing quietly. `test` and `test-full` do not
 # depend on them, which is why those two are green while these are not.
 
+# One candidate on the pinned toolchain: writes its verified record and prints the
+# verdict and the Miri wall-clock (Q-E4). Needs the image (`just sandbox-build`).
+#   just verify path/to/candidate.json    (relative to the repo root) --expect ran|does_not_compile|ub
 verify *ARGS:
-    @just _pending verify
+    uv run --offline --no-sync --project pipeline python -m popquiz.verify {{ ARGS }}
 
 # The whole bank against SPEC 7.6; writes bank/audit/<date>.json (T-19). Every
 # check also runs inside `test`. Room flags: --screen-width-ft --screen-height-ft

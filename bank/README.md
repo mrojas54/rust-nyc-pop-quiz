@@ -25,10 +25,12 @@ program. If you find yourself reasoning about what a program prints, stop and ru
 it.
 
 There is no `correct` field to edit. `SPEC.md` §3.1 marks the correct answer
-*derived* (G-2), so `bank.correct_index()` computes it — for a question that ran,
-the option whose text equals `verified.stdout`; for a does-not-compile question,
-the single `does_not_compile` option. A record with nowhere to write an answer
-down is a record nobody can hand-edit one into (AC-7).
+*derived* (G-2), so `bank.correct_index()` computes it — for a does-not-compile
+question, the single `does_not_compile` option; for UB that Miri reported under
+both borrow models, the single `ub` option; for a question that panicked, the
+single `panic` option; otherwise the option whose text equals `verified.stdout`.
+A record with nowhere to write an answer down is a record nobody can hand-edit
+one into (AC-7).
 
 **Answer position is a pure function of the date, and nothing else.** No
 history, no ledger, no bank state, no "not the same letter as last time". Every
@@ -83,6 +85,48 @@ measurement rather than typed.
 no `affirmed_by` / `affirmed_at`, so none of them can reach a deck (AC-72, G-12).
 The beats and q3's trace were *drafted* — from the August explanation and the
 prototype the client loved — and are waiting for an organizer to read them.
+
+## How a record is verified
+
+`just verify <candidate.json> --expect ran|does_not_compile|ub` runs
+`pipeline/src/popquiz/verify.py` on the pinned image (`just sandbox-build` first)
+and, if the candidate is accepted, writes its `verified` record into the file. The
+declared answer is an argument, not a field: it is never stored, and a file that
+already has a record recovers it from there. Exit 0 accepted, 1 rejected (file
+untouched), 2 refused.
+
+In order, each step only if the one before passed:
+
+1. **The pin.** The image's `rustc -Vv` release and commit-hash and its
+   `cargo miri --version` must equal `pipeline/sandbox/pin.toml`, and its host
+   triple must be one the pin lists. Otherwise the verifier refuses to run at all.
+2. **Compile** under the pin's edition and flags. Declared *does not compile*: it
+   must fail with at least one `error[Exxxx]`, and every code is recorded;
+   compiling is a rejection. Anything else that fails to compile is rejected.
+3. **Five native runs**, each its own container. Stdout and exit code identical
+   every time, or rejected with the count of distinct outputs (AC-8). Exit 0 or a
+   panic (101) is an answer; any other exit is rejected.
+4. **Miri, Stacked Borrows, strict provenance.** UB not declared: rejected. Miri's
+   stdout or exit different from the native run: rejected (AC-10). Miri unable to
+   run it (an operation isolation refuses): rejected.
+5. **Tree Borrows**, for declared UB only; accepted only if both models report UB
+   (AC-9), and Miri's output before the UB must equal the native output exactly —
+   so a UB question prints only before its UB.
+
+Every field of the record is read off a step or the pin, never typed. A
+re-verified legacy record is replaced whole. `verify.is_stale(record, pin)` is
+what scheduling asks: a record made under a different pin re-verifies first; a
+legacy record is exempt. `verify.check_provenance(file)` is the build's AC-7
+check: it refuses a stored `correct` field, a record the verifier did not write,
+and options that no longer derive an answer from the record. It cannot see an
+edit *inside* the record that leaves it self-consistent — nothing in §3.2 binds a
+record to the run that produced it — and says so.
+
+The four migrated questions below still carry their `legacy` records; they were
+not re-verified on T-15b. That is an organizer step (T-20), and q4 and q7 need
+their programs re-authored first.
+
+Miri checks only the paths the program executed (AC-43).
 
 ## Where the migrated records came from
 
@@ -170,6 +214,112 @@ no duplicate option text, and a trace that ends on `stdout` when the question
 ran). T-19 did not add one either: `bank-audit` checks AC-24's shape on each raw
 file, so a malformed record is reported by name, and loads the rest through
 `question_from_dict`.
+
+## `history.json` and dedupe
+
+`pipeline/src/popquiz/dedupe.py` (T-17) checks every candidate against
+`history.json` before it joins the bank, and grows the history as it goes.
+
+    uv run python -m popquiz.dedupe candidate.json [more.json …]   # check and admit
+    uv run python -m popquiz.dedupe --dry-run candidate.json       # check, write nothing
+    uv run python -m popquiz.dedupe                                 # the history's size
+
+**Three checks, in order.** An *exact* duplicate (the same source bytes) is
+rejected. A *normalized* duplicate (the same program with its names changed or
+its formatting changed) is rejected. A *near* duplicate (Jaccard similarity of
+the two programs' normalized token pairs at or above the threshold) joins the
+review queue carrying `review.near_duplicate_of`, so an organizer makes the call.
+Everything else joins the queue unmarked. The only thing dedupe says about a
+candidate that passed is **no exact or normalized duplicate found**, and it says
+nothing beyond that (AC-18).
+
+**The review queue is the bank.** Dedupe admits a candidate by appending it
+under `questions/` with `review.status` unset, beside the migrated questions
+already waiting there. Rejected candidates are written nowhere. Every check runs
+against every question in the bank whatever its status, so a question that an
+organizer rejected and that comes back is still a resubmission.
+
+**The history describes the bank and can be rebuilt from it.** One entry per
+question id in each of the three stores. Every run first *backfills* any bank
+question the history is missing and *refreshes* any entry whose source has changed,
+and the run report shows the size before and after (AC-17). The committed file is
+still the empty shape T-14 wrote, so the first real run backfills the four
+migrated questions. `pipeline/tests/test_migration.py` checks only this file's
+shape (its version and three stores), not its contents, so a grown history keeps
+the suite green. Re-running the migration empties the history again; nothing is
+lost when that happens, because the next dedupe run rebuilds it from the bank.
+
+**The normalized check works on tokens, not a syntax tree, and that is a
+deviation from `SPEC.md` §7.3.** The contract says "normalized AST". Python's
+standard library has no Rust parser, so dedupe lexes the program itself. It drops
+comments and layout, and drops a comma only where `rustfmt` moves it and the
+program means the same without it. It renames **only the names the program
+declares** (bindings, parameters, functions, types, fields, variants, generics,
+lifetimes) to numbered placeholders in order of first use. Every name the program
+uses but did not declare is kept, whether it comes from `std`, the prelude or a
+macro.
+
+**A declared name is renamed only inside its scope.** Each declaration reaches a
+token range no wider than Rust's: parameters and generics their function, closure
+parameters their closure, `let`, `if let`, `while let`, `for` and match-arm
+bindings their block or arm, items their module or block, and a method or
+associated item only its own name (a bare name never reaches it). If a spelling is
+used anywhere outside every range of its declarations, it is kept as written
+everywhere. So `fn f(drop: i32) {}` beside a call to the library's `drop(1)` keeps
+`drop`, and the same program spelled with `nope`, which does not compile, stays
+apart from it. A binding named like a field of a library struct
+(`Range { start, end }`) is kept for the same reason. This is scoping by token
+ranges, not Rust's name resolution. The aim is ranges no wider than Rust's, so
+the error is a missed rename rather than a merge, and **that aim is not met yet**.
+Review round 3 (FAIL) found false matches, each confirmed with rustc, and they are
+open. A closure's range can run into an `if let` block after it. A top-level item
+reaches into nested `mod`s. `macro_rules!` names are renamed at every call. A
+comma-less arm body can be read as the next arm's pattern. A path's tail is
+renamed along with its head (`I::Item`). A lifetime `'a` and a name `a` share a
+placeholder. A free `fn` is renamed after a `.` where a library method of the
+same name is called.
+
+The rule behind every step is that **no normalization may make two different
+programs equal**, including a program that compiles and one that does not.
+*Does not compile* is an answer in this quiz, and a false match rejects a question
+with no person in the loop. That is why `a = = b` stays apart from `a == b`, and
+why `P { a: Q { n: 1 }, b: 2 }` stays apart from the same line missing its comma.
+A dangling `///` stays apart from no comment at all. A struct's own `fn len` is
+never renamed, because the program may also call the library's `len`. That last
+guard covers the library names a quiz program is likely to use. A rarer method
+name that a program both declares and calls on a library type can still be
+renamed in both places, and that is a known gap.
+
+A miss only sends the pair to the near-duplicate check, which is where the
+approximation's gaps land: reordered statements, swapped operands, an expression
+rewritten into an equivalent one, field shorthand against `field: binding`, a
+trailing comma in a tuple, and a declared member renamed to or from a library
+name.
+
+Other conservative choices: the entry point stays named `main`; empty-list commas
+and doc comments before parameters stay in the fingerprint; names in sources
+containing derives are kept, because a derive can expose or interpret them. Each
+can miss a renaming, never make one. Each boundary that is handled has a pair in
+`pipeline/tests/test_dedupe.py` where one program compiles and the other does not,
+and the pairs were run through `rustc` to confirm it.
+
+**The threshold is 0.6 and it is uncalibrated** (D-13). It can be set per run with
+`--threshold`. The first measurements, taken by this code on the four migrated
+questions, are the start of its calibration:
+
+| Pair | Similarity |
+|---|---|
+| distinct bank questions, highest pair (q3, q8) | 0.55 |
+| distinct bank questions, lowest pair (q4, q7) | 0.20 |
+| q3 with its vector's values changed | 0.64 |
+| q3 with a binding added at the top and printed too | 0.78 |
+| q8 with `push` replaced by `clear` | 0.86 |
+| q3 with `v.sort();` added before `dedup` | 0.94 |
+
+Short programs share a lot of scaffolding (`fn main() {`, `let mut`, `println!`),
+so the gap between distinct programs and one-line edits is narrow: 0.55 against
+0.64. Every verdict reports its closest question and that pair's similarity, so
+real batches will show whether 0.6 floods the queue or lets edits through.
 
 ## What `bank-audit` checks, and why it can never touch a real night
 

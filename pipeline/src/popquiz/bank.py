@@ -361,33 +361,69 @@ def normalized_output(stdout: str) -> str:
     return stdout[:-1] if stdout.endswith("\n") else stdout
 
 
+#: The two Miri borrow models (AC-9). A record's `miri.configs` names the ones
+#: that ran; `verify` runs Tree Borrows only for a candidate declared UB, and
+#: accepts that candidate only when both models reported the UB.
+BORROW_MODELS = ("stacked_borrows", "tree_borrows")
+
+
+def ub_confirmed(verified: Verified) -> bool:
+    """Whether Miri reported UB under both borrow models (AC-9).
+
+    A legacy record carries no `configs`, so its unclean Miri pass cannot say which
+    models agreed, and this is false for it: nothing is inferred (D-16).
+    """
+    miri = verified.miri
+    return (
+        miri is not None
+        and miri.clean is False
+        and miri.configs is not None
+        and set(BORROW_MODELS) <= set(miri.configs)
+    )
+
+
 def correct_index(question: Question) -> int | None:
     """Which option is correct, derived from `verified` (SPEC 3.1, G-2).
 
-    There is no stored answer to disagree with. For a record that ran, the correct
-    option is the one whose text equals the verified output; for a does-not-compile
-    record it is the single `does_not_compile` option. `None` when the question has
+    There is no stored answer to disagree with. The rules, in order, and the first
+    that applies decides - it never falls through to a later one:
+
+    1. a does-not-compile record: the single `does_not_compile` option;
+    2. a record that ran, where Miri reported UB under both borrow models: the
+       single `ub` option. UB outranks the exit code, because the UB is what the
+       question is about, whatever the native binary happened to do;
+    3. a record that ran and exited non-zero (a panic): the single `panic` option;
+    4. otherwise, a record that ran: the option whose text equals the output.
+
+    Rules 1-3 match by option *kind*, never by text. `None` when the question has
     no verified record yet, or when nothing matches - and *nothing matching is a
     finding, not a default*: it means the options and the machine's output have
     drifted apart, which is what AC-7's provenance check is looking for.
 
-    Raises `BankError` when two options match, because then "the option whose text
-    equals the output" names no single option and a caller silently taking the
-    first would be inventing an answer.
+    Raises `BankError` when two options match, because then the rule names no
+    single option and a caller silently taking the first would be inventing an
+    answer.
     """
-    if question.verified is None:
+    verified = question.verified
+    if verified is None:
         return None
 
-    kind = receipt_class(question.verified)
+    def of_kind(kind: OptionKind) -> list[int]:
+        return [i for i, o in enumerate(question.options) if o.kind == kind]
+
+    kind = receipt_class(verified)
     if kind == "does_not_compile":
-        matches = [
-            i for i, o in enumerate(question.options) if o.kind == "does_not_compile"
-        ]
+        matches = of_kind("does_not_compile")
     elif kind == "ran":
-        if question.verified.stdout is None:
+        if ub_confirmed(verified):
+            matches = of_kind("ub")
+        elif verified.exit_code is not None and verified.exit_code != 0:
+            matches = of_kind("panic")
+        elif verified.stdout is None:
             return None
-        wanted = normalized_output(question.verified.stdout)
-        matches = [i for i, o in enumerate(question.options) if o.text == wanted]
+        else:
+            wanted = normalized_output(verified.stdout)
+            matches = [i for i, o in enumerate(question.options) if o.text == wanted]
     else:
         return None
 

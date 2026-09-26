@@ -29,6 +29,7 @@ ones named in `BUILDPLAN.md` section 2:
 | `answers` | **The sealed one.** Correct option, receipt, explanation, the resolving step | T-04a |
 | `question` | The public half of a question | T-04a |
 | `rooms` | The room record's shape and its phase-driven writes; the seams for sessions and the socket | T-04a (shape), T-04b (sessions) |
+| `sessions` | Participant sessions and the answer store: join, capacity, the upsert, `leave` | T-04b |
 | `view` | The public state query: wall, buzzer and host payloads | T-04a (data), T-05/06/07 (pages) |
 | `copy` | SPEC §11's strings, mirrored from `web/shared/copy.js` | T-04a, T-22 (lint) |
 | `auth` | The `HostAuth` seam: may this bearer create a room, may it host this one | T-04a (seam), T-09 (stand-in), T-10 (Discord) |
@@ -73,13 +74,92 @@ place a room's machine is reassigned, from `apply`'s result.
   `answered` and `totals` from it and decides §4.5's middle beat then.
   `release()` is called at release.
 - **`AppState::set_live_counts(room, LiveCounts { present, answered_live })`**
-  — T-04b calls it on join, leave and upsert. `present` keeps moving after
-  close; the frozen `answered` does not.
+  — the counts' writer from outside the rooms lock. T-04b's own join, leave
+  and upsert already hold that lock, so they write the same two fields through
+  `Room::set_live_counts` before letting go (see *Sessions* below). `present`
+  keeps moving after close; the frozen `answered` does not.
 - **`Room::accepts_answers()`** — `true` only in `live`; T-04b's upsert asks it.
 - **`Room::revision()`** — bumped on every change; T-04c broadcasts on it.
 - **`view::wall` / `view::buzzer` / `view::host`** — the three payloads T-04c
   pushes. Each carries exactly one `phase`, read from the room's one phase value
   (AC-81).
+
+## Sessions (T-04b)
+
+`sessions::SessionMap` is the `rooms::Sessions` implementation, and
+`AppState::new` uses it by default. A session is a `token` and an
+`answer ∈ A..E | none` and nothing else (AC-57): an exhaustive pattern in
+`sessions.rs` stops the crate compiling if a field is added. Sessions live in
+memory beside their room and are dropped whole at release (AC-56).
+
+| Route | What | Credential |
+|---|---|---|
+| `POST /join` `{code}` | a session: `201 {room_id, token, buzzer}` | none |
+| `PUT /rooms/{id}/answer` `{letter}` | the answer upsert | the session token, as `Authorization: Bearer` |
+
+**Joining (§4.1).** The code is trimmed and upper-cased, then must be six
+symbols from the code alphabet. Any phase from `idle` to `reveal` admits a
+join: the idle buzzer is *You're in.*, and `present` keeps counting after close.
+A refusal is `{refusal, reason}`, where `refusal` is the name the buzzer
+branches on and `reason` is its §11 sentence. It is `404` for `unknown` and
+`409` for the rest:
+
+| `refusal` | When |
+|---|---|
+| `malformed` | the code is not six alphabet symbols |
+| `unknown` | no room has that code |
+| `already_ended` | the room is `released` |
+| `full` | the room holds `capacity` sessions (200; `AppState::with_capacity`) |
+| `not_yet_open` | ships with its string; no phase of the seven reaches it |
+| `closed_for_inactivity` | ships with its string; T-11 sets the condition |
+
+Capacity is checked before a token is drawn, so a refused join creates,
+reserves and moves nothing (AC-30).
+
+**Answering (§4.3): the response contract T-06 renders from.** The phone shows
+*saving…* while a `PUT` is in flight, then exactly one of these:
+
+| Response | Means | The buzzer shows |
+|---|---|---|
+| `200 {saved}` | stored; last write wins; the same letter twice is a no-op | *saved — ‹saved›* |
+| `409 {reason, phase, saved}` | not `live`. `saved` is the stored answer (or `null`), restated | from `phase` and `saved`: *answers are closed · you said ‹saved›* / *you didn't answer* |
+| `401`, no body | the token names no session: never joined, left, or released | re-join |
+| `400 {reason}` / any other 4xx | a malformed write; nothing was stored | *couldn't save. Your last answer, ‹X›, is safe.* |
+| no response, 5xx | — | the same *couldn't save…*, where ‹X› is the last `200`'s letter |
+
+The `409` is a superset of the generic `{reason}`: a client that reads only
+`reason` still works, but render from `phase` and `saved`, never from `reason`.
+Every non-`200` leaves the stored answer as it was (AC-36).
+`tests/sessions.rs::ac35_response_contract` holds the server to the table. The
+phone half (exactly one of the three on screen) is T-06's.
+
+**Counts.** Join, upsert and leave recompute `present` (sessions that exist) and
+`answered_live` (those holding an answer) from the map. They write both through
+`Room::set_live_counts` inside the same lock, so the host never sees counts that
+disagree with the sessions (AC-46).
+
+**Ghost sessions, and what `leave` means.** A session has no "connected" flag;
+the record is only its token and its answer. A session whose socket dropped
+therefore stays a session: it counts in `present`, holds a capacity slot, and
+its answer counts in `totals`. `AppState::leave(room, token)` removes it
+whole. **T-04c calls `leave` only when a socket is gone for good** (its
+re-attach grace has run out), never on a mere drop, or AC-37's re-attach with
+the same token would lose the answer. Keeping the ghost's slot also means a
+re-attach can never push a room past capacity. While `live`,
+`answered_live ≤ present` always holds.
+
+**The seams T-04c uses:** `AppState::buzzer_for(room, token)` returns the
+buzzer payload with that session's own saved answer in `yours`; it is `Denied`
+when the token resolves to no session. `AppState::leave` is described above.
+`yours` appears only on these per-session paths. The public
+`GET /rooms/{id}/buzzer` never carries it, and it never names another session's
+answer.
+
+**Close and release.** `close_snapshot` counts each session's final answer
+once. `release` empties the map, so afterwards no token resolves and a join is
+`already_ended`. `tests/sessions.rs::ac52_in_process_reconciliation` checks
+200 sessions in-process. It supplements AC-52, which is `burst`'s against the
+deployed room, and does not discharge it.
 
 ## The transport (T-04c)
 

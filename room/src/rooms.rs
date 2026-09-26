@@ -10,7 +10,9 @@
 //! - [`Sessions`] — T-04b implements it over its per-room session map. The
 //!   close transition calls [`Sessions::close_snapshot`] exactly once; release
 //!   calls [`Sessions::release`].
-//! - [`AppState::set_live_counts`] — T-04b calls it on join, leave, and upsert.
+//! - [`AppState::set_live_counts`] — the counts' writer from outside the lock.
+//!   T-04b's own join, leave and upsert write the same fields through
+//!   [`Room::set_live_counts`] while they already hold it.
 //! - [`Room::accepts_answers`] — T-04b's upsert asks it; it is `true` only in
 //!   `live`.
 //! - [`Room::revision`] — bumped on every change; T-04c broadcasts on it.
@@ -123,6 +125,37 @@ pub trait Sessions: Send {
     fn close_snapshot(&self) -> CloseSnapshot;
     /// Called at release: drop every session (§3.4, D-12).
     fn release(&mut self) {}
+
+    // T-04b: the participant half, implemented by `sessions::SessionMap`. The
+    // defaults describe a room nobody can join, which is what `NoSessions`
+    // and the test doubles are.
+
+    /// A new session, if fewer than `capacity` exist. Nothing is created or
+    /// reserved when the answer is `None` (AC-30).
+    fn join(&mut self, _capacity: usize) -> Option<crate::sessions::Token> {
+        None
+    }
+    /// Last write wins (§4.3). `None` if the token names no session. The
+    /// caller has already asked [`Room::accepts_answers`].
+    fn upsert(&mut self, _token: &str, _letter: crate::question::Letter) -> Option<crate::question::Letter> {
+        None
+    }
+    /// The session's saved answer; `None` if the token names no session.
+    fn answer_of(&self, _token: &str) -> Option<Option<crate::question::Letter>> {
+        None
+    }
+    /// Drop one session whole — T-04c's call when a socket is gone for good.
+    fn leave(&mut self, _token: &str) -> bool {
+        false
+    }
+    /// `present` and `answered_live`, from the sessions as they stand.
+    fn counts(&self) -> LiveCounts {
+        LiveCounts::default()
+    }
+    /// How many sessions exist (capacity and AC-30's "nothing reserved").
+    fn session_count(&self) -> usize {
+        0
+    }
 }
 
 /// T-04a's stand-in until T-04b lands: nobody has answered.
@@ -489,6 +522,30 @@ pub struct AppState {
     auth: Arc<dyn HostAuth>,
     sessions: SessionFactory,
     urls: Urls,
+    // T-04b: sessions per room (§4.1, §9).
+    capacity: usize,
+}
+
+// T-04b: what the participant routes hand back.
+
+/// A successful join: the token, once, and the caller's buzzer view.
+pub struct Joined {
+    pub room_id: String,
+    pub token: crate::sessions::Token,
+    pub buzzer: crate::view::BuzzerPayload,
+}
+
+/// Why an answer write did not happen. The previous answer is intact in every
+/// case (AC-36).
+#[derive(Debug, PartialEq, Eq)]
+pub enum AnswerError {
+    /// No room with that id.
+    NotFound,
+    /// The token names no session in this room — never joined, left, or the
+    /// room was released.
+    UnknownSession,
+    /// Not `live`: refused, with the saved answer restated (§4.3).
+    Refused { phase: Phase, saved: Option<crate::question::Letter> },
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -508,9 +565,17 @@ impl AppState {
             ),
             released_questions: Mutex::new(HashSet::new()),
             auth,
-            sessions: Box::new(|| Box::new(NoSessions)),
+            // T-04b: the real sessions by default.
+            sessions: Box::new(|| Box::new(crate::sessions::SessionMap::new())),
             urls,
+            capacity: crate::sessions::DEFAULT_CAPACITY,
         }
+    }
+
+    /// T-04b: sessions per room; 200 unless configured (§4.1, §9).
+    pub fn with_capacity(mut self, capacity: usize) -> AppState {
+        self.capacity = capacity;
+        self
     }
 
     /// Replace the sessions factory (T-04b; tests).
@@ -657,5 +722,84 @@ impl AppState {
         let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
         self.auth.authorize_host(&entry.room, bearer)?;
         Ok(f(&entry.room))
+    }
+
+    // ----------------------------------------------------------------------
+    // T-04b: joins, answers and leaves. Each runs under the one `rooms` lock
+    // and writes `present` and `answered_live` through `Room::set_live_counts`
+    // before letting go, so the counts and the sessions are never seen apart.
+    // ----------------------------------------------------------------------
+
+    /// Join by code (§4.1). Any phase from `idle` to `reveal` admits a join;
+    /// `released` has ended. Capacity is checked before anything is created.
+    pub fn join(&self, code: &str) -> Result<Joined, crate::sessions::JoinRefusal> {
+        use crate::sessions::{parse_code, JoinRefusal};
+        let code = parse_code(code).ok_or(JoinRefusal::Malformed)?;
+        let mut rooms = lock(&self.rooms);
+        let entry = rooms
+            .values_mut()
+            .find(|e| e.room.code == code)
+            .ok_or(JoinRefusal::Unknown)?;
+        if entry.room.phase() == Phase::Released {
+            return Err(JoinRefusal::AlreadyEnded);
+        }
+        let token = entry.sessions.join(self.capacity).ok_or(JoinRefusal::Full)?;
+        entry.room.set_live_counts(entry.sessions.counts());
+        Ok(Joined {
+            room_id: entry.room.id.clone(),
+            token,
+            buzzer: crate::view::buzzer_for(&entry.room, None),
+        })
+    }
+
+    /// The answer upsert (§4.3): only while `live`, last write wins, and the
+    /// saved letter comes back. Anything else leaves the saved answer as it
+    /// was (AC-36).
+    pub fn answer(
+        &self,
+        room_id: &str,
+        token: &str,
+        letter: crate::question::Letter,
+    ) -> Result<crate::question::Letter, AnswerError> {
+        let mut rooms = lock(&self.rooms);
+        let entry = rooms.get_mut(room_id).ok_or(AnswerError::NotFound)?;
+        let saved = entry.sessions.answer_of(token).ok_or(AnswerError::UnknownSession)?;
+        if !entry.room.accepts_answers() {
+            return Err(AnswerError::Refused {
+                phase: entry.room.phase(),
+                saved,
+            });
+        }
+        let saved = entry.sessions.upsert(token, letter).ok_or(AnswerError::UnknownSession)?;
+        entry.room.set_live_counts(entry.sessions.counts());
+        Ok(saved)
+    }
+
+    /// Drop one session whole. T-04c calls this when a socket is gone for
+    /// good; a mere drop keeps the session, its answer and its slot (AC-37).
+    /// `Ok(false)` if the token named no session.
+    pub fn leave(&self, room_id: &str, token: &str) -> Result<bool, RoomError> {
+        let mut rooms = lock(&self.rooms);
+        let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
+        let left = entry.sessions.leave(token);
+        entry.room.set_live_counts(entry.sessions.counts());
+        Ok(left)
+    }
+
+    /// The buzzer payload for one session, carrying its own saved answer and
+    /// nothing about any other. T-04c pushes this on re-attach. A token that
+    /// names no session is `Denied`.
+    pub fn buzzer_for(&self, room_id: &str, token: &str) -> Result<crate::view::BuzzerPayload, RoomError> {
+        let rooms = lock(&self.rooms);
+        let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
+        let yours = entry.sessions.answer_of(token).ok_or(RoomError::Denied)?;
+        Ok(crate::view::buzzer_for(&entry.room, yours))
+    }
+
+    /// How many sessions a room holds (AC-30's "nothing reserved", AC-56).
+    pub fn session_count(&self, room_id: &str) -> Result<usize, RoomError> {
+        let rooms = lock(&self.rooms);
+        let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
+        Ok(entry.sessions.session_count())
     }
 }

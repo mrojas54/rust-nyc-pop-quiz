@@ -1,0 +1,110 @@
+# The verifier's decisions, one case each (T-15b). Shared by three readers:
+#
+#   tests/test_verify.py                      replays them on StubRunner (just test)
+#   tests/sandbox/verify/test_verify_full.py  runs them on RealRunner   (just test-full)
+#   tests/fixtures/verify/record.py           records the StubRunner fixtures
+#
+# `verdict` is the code `verify` must return. Nothing here is a program's output:
+# what a program prints lives only in recordings/, and only because a machine ran
+# it (CLAUDE.md, G-2).
+
+# Program id -> where its source is. `bank:<id>` reads the bank question's source,
+# so the fixture cannot drift from the question it stands for.
+[programs]
+q3 = "bank:q3"
+q8 = "bank:q8"
+hashmap-order = "programs/hashmap-order.rs"
+syntax-error = "programs/syntax-error.rs"
+loops-forever = "../../sandbox/programs/loops_forever.rs"
+panics = "programs/panics.rs"
+ub-both = "programs/ub-both.rs"
+ub-sb-only = "programs/ub-sb-only.rs"
+miri-differs = "programs/miri-differs.rs"
+miri-unsupported = "programs/miri-unsupported.rs"
+
+[[case]]
+name = "deterministic program, declared to run: accepted at N=5 with Miri clean (AC-8, AC-9)"
+program = "q3"
+expect = "ran"
+verdict = "accepted"
+
+[[case]]
+name = "program that compiles, declared not to: rejected (AC-11)"
+program = "q3"
+expect = "does_not_compile"
+verdict = "compiled_but_declared_does_not_compile"
+
+[[case]]
+name = "clean program, declared UB: rejected (AC-9)"
+program = "q3"
+expect = "ub"
+verdict = "declared_ub_but_miri_clean"
+
+[[case]]
+name = "E0502, declared not to compile: accepted with the code recorded (AC-11)"
+program = "q8"
+expect = "does_not_compile"
+verdict = "accepted"
+
+[[case]]
+name = "program that fails to compile, declared to run: rejected"
+program = "q8"
+expect = "ran"
+verdict = "did_not_compile"
+
+[[case]]
+name = "compile failure with no error code, declared not to compile: rejected (AC-11)"
+program = "syntax-error"
+expect = "does_not_compile"
+verdict = "failed_without_an_error_code"
+
+[[case]]
+name = "program that never ends: stopped by the sandbox's deadline and rejected (AC-12)"
+program = "loops-forever"
+expect = "ran"
+verdict = "stopped_by_a_limit"
+# The deadline is shortened for this case so the suites stay quick; the number in
+# pin.toml is proven separately (test_sandbox.py).
+timeout_seconds = 5
+
+[[case]]
+name = "HashMap iteration order varies between runs: rejected (AC-8)"
+program = "hashmap-order"
+expect = "ran"
+verdict = "output_varied"
+
+[[case]]
+name = "program that panics identically every run: accepted, exit code recorded"
+program = "panics"
+expect = "ran"
+verdict = "accepted"
+
+[[case]]
+name = "UB under Stacked Borrows, not declared: rejected (AC-9)"
+program = "ub-both"
+expect = "ran"
+verdict = "ub_not_declared"
+
+[[case]]
+name = "UB declared, both borrow models agree: accepted (AC-9)"
+program = "ub-both"
+expect = "ub"
+verdict = "accepted"
+
+[[case]]
+name = "UB declared, the borrow models disagree: rejected (AC-9)"
+program = "ub-sb-only"
+expect = "ub"
+verdict = "borrow_models_disagree"
+
+[[case]]
+name = "Miri's output differs from the native output: rejected (AC-10)"
+program = "miri-differs"
+expect = "ran"
+verdict = "miri_output_differs"
+
+[[case]]
+name = "Miri cannot run it (isolation refuses an operation): rejected"
+program = "miri-unsupported"
+expect = "ran"
+verdict = "miri_could_not_run"
