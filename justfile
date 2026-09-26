@@ -21,7 +21,7 @@
 
 # Suites not built yet, and the ticket that delivers each. Read by both `_pending`
 # and `test-full`, so the two can never disagree about what is missing.
-PENDING := "verify:T-15b bank-audit:T-19 burst:T-21 a11y:T-13 smoke:T-09"
+PENDING := "verify:T-15b burst:T-21 a11y:T-13 smoke:T-09"
 
 _default:
     @just --list --unsorted
@@ -140,8 +140,11 @@ canary:
 verify *ARGS:
     @just _pending verify
 
+# The whole bank against SPEC 7.6; writes bank/audit/<date>.json (T-19). Every
+# check also runs inside `test`. Room flags: --screen-width-ft --screen-height-ft
+# --back-row-ft (SPEC 5.2 defaults, a hypothesis until HC-1); --strict fails on any flag.
 bank-audit *ARGS:
-    @just _pending bank-audit
+    cd pipeline && uv run --offline --no-sync python -m popquiz.audit --repo .. {{ ARGS }}
 
 burst *ARGS:
     @just _pending burst

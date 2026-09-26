@@ -9,7 +9,7 @@ diffable, with no server in front of it (BUILDPLAN D-C).
 | `schema/question.schema.json` | the published shape of that file | by hand, kept in step with the types by a test — see below |
 | `history.json` | dedupe's memory across runs: exact hashes, normalized-AST fingerprints, token-bigram sets (§3.3) | **T-17**. The three stores are empty; T-14 fixed the shape |
 | `fixtures/receipts/*.json` | the receipt's cases, with the lines each must render | by hand from `SPEC.md` §7.5 |
-| `audit/` | `bank-audit`'s report | **T-19** |
+| `audit/` | `bank-audit`'s run reports, organizer-only and gitignored — see [below](#what-bank-audit-checks-and-why-it-can-never-touch-a-real-night) | **T-19** |
 
 ## This directory is private, and that is load-bearing
 
@@ -167,11 +167,54 @@ another ticket, so adding a dependency was not T-14's call. Records are validate
 by being loaded through `bank.question_from_dict`, which refuses unknown fields
 and enforces the structural rules (five options, exactly one *does not compile*,
 no duplicate option text, and a trace that ends on `stdout` when the question
-ran). T-19 may want the validator; it is not here yet, and this paragraph exists
-so nobody assumes otherwise.
+ran). T-19 did not add one either: `bank-audit` checks AC-24's shape on each raw
+file, so a malformed record is reported by name, and loads the rest through
+`question_from_dict`.
 
-## `bank/audit/`
+## What `bank-audit` checks, and why it can never touch a real night
 
-`bank-audit` writes its report under `bank/audit/`. Nothing participant-facing
-reads that directory — the tell audit necessarily names answer categories and
-their frequencies, which is exactly what AC-25 keeps away from attendees.
+`just bank-audit` runs the whole bank against `SPEC.md` §7.6 and writes
+`bank/audit/<date>.json`. The same checks run inside `just test`. The code is
+`pipeline/src/popquiz/audit.py`.
+
+**It cannot move tonight's answer.** Where the correct answer sits is decided by
+`slot_for_day(date)` in `pipeline/src/popquiz/slot.py`. That file imports nothing
+but `hashlib` and `datetime`, keeps no state, and takes the date and nothing else.
+The audit checks all of that on every run. The audit calls `slot_for_day` only on
+made-up nights — 20,000 of them starting from 2026-08-12 — and looks at what comes
+out. It never reads a real meetup, never reads which questions were used, and never
+hands anything back. It measures the dice; it does not roll them. That matters
+because this rule has broken four times, and the worst break was a "fairness"
+rule: once a check can change tonight's letter, an attendee can run the same check
+(`PHILOSOPHY.md` §2).
+
+What it checks:
+
+| Check | Criteria | What it measures |
+|---|---|---|
+| The generator | AC-23b | 20,000 made-up nights must look random in **both** directions. Too lopsided means the generator is broken; too even means somebody is balancing it, which is the exploitable failure. It must also repeat a letter on consecutive nights sometimes. |
+| Attendees with perfect memory | AC-23a | Three attendees who remember every past night each guess over 10,000 nights: the most-used letter, the least-used letter, and anything but last night's. Each must land between 18 % and 22 %. Chance is 20 %. |
+| The slot path | AC-23, G-1, G-10 | `slot.py` takes the date and nothing else, and every caller passes the literal 5. Nothing in the pipeline reads, writes or imports `mvp/answer-history.json`, and no function both draws a slot and writes a file — the shape of the MVP's old ledger-writer, under any name. |
+| Five options | AC-24 | Every question has five options, and exactly one is *does not compile*. |
+| No published distribution | AC-25, G-11 | No percentage or ratio sits within a line of *compile*, *UB*, *undefined*, *panic* or *output* in anything an attendee could read: the copy table, take-it-home text, the public README, and the organizer docs. Nothing under `web/` or `room/` may mention `bank/audit`. |
+| The tells | AC-26 | For each tell there is a short list of rules an attendee might learn — "`unsafe` means undefined behaviour", "long programs don't compile", "pick the longest option", "it's always E", "this topic never compiles". A sixth line checks the answer categories themselves ("always pick *does not compile*"). A rule fails when it beats chance by more than 1.5× **and** luck cannot explain it. With four questions, beating chance by luck is easy, so a rule that is merely lucky is shown as a warning. |
+| `unsafe` parity | AC-27 | If any accepted question's answer is undefined behaviour, some accepted question whose answer is not UB must contain `unsafe` too. |
+| Fits the room | AC-100, D-15 | Each program fits the wall's reading area at the smallest size the back row can read, using the same arithmetic as `web/shared/typemodel.js`. Each option is one line of at most 29 characters. |
+| Difficulty drift | AC-88 | Across accepted questions, the organizer's judged difficulty averages within one level of what was asked for. If not, the **run** fails, not any one question. |
+
+**What fails the run, and what is only reported.** The run fails on any failing
+check in the table, and on a question that is flagged for fit or option length
+*while it is in the reserve* — accepted, affirmed and unused, so tonight's
+schedule could pick it. A flagged question still waiting for review is listed but
+does not fail the run. Otherwise every too-long draft would keep the audit red
+until someone reviewed it. `--strict` fails on any flag or warning.
+
+As of this ticket, q4, q7 and q8 are flagged for option length, as the table
+above says. The option-position tell warns because every migrated record has its
+correct option last in the file. The file order is not meant to be the order a
+room sees. But until the room's arrangement exists and is shown to reshuffle it,
+the audit treats it as visible, and a fifth record written answer-last will fail.
+
+**The report is organizer-only and not committed.** It names answer categories and
+how often a rule would have won, which is exactly what AC-25 keeps from attendees.
+It is gitignored and regenerated on demand; see `bank/audit/README.md`.
