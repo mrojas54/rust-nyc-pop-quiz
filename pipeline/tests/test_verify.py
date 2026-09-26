@@ -330,11 +330,12 @@ def test_a_toolchain_that_is_not_the_pin_is_refused_before_any_candidate_step(ch
     assert runner.asked == ["toolchain"]
 
 
-@pytest.mark.parametrize("blank", ["release", "commit_hash", "miri_version"])
+@pytest.mark.parametrize("blank", ["release", "commit_hash", "miri_version", "target_triples"])
 def test_a_pin_with_no_recorded_value_is_refused_before_anything_runs(blank: str) -> None:
     runner = _Counting()
+    empty = () if blank == "target_triples" else ""
     with pytest.raises(verify.PinUnreadable):
-        _verify("q3", "ran", pin=dataclasses.replace(_pin(), **{blank: ""}), runner=runner)
+        _verify("q3", "ran", pin=dataclasses.replace(_pin(), **{blank: empty}), runner=runner)
     assert runner.asked == []
 
 
@@ -464,6 +465,27 @@ def test_ub_under_one_borrow_model_is_refused() -> None:
     data = _file("ub-both", "ub", options=KINDED)
     data["verified"]["miri"]["configs"] = ["stacked_borrows"]
     with pytest.raises(verify.ProvenanceError, match="one borrow model"):
+        verify.check_provenance(data)
+
+
+def test_a_miri_config_that_is_not_a_borrow_model_is_refused() -> None:
+    data = _file("q3", "ran")
+    data["verified"]["miri"]["configs"] = ["weak_borrows"]
+    with pytest.raises(verify.ProvenanceError, match="not borrow models"):
+        verify.check_provenance(data)
+
+
+def test_a_second_ub_option_is_refused() -> None:
+    data = _file("ub-both", "ub", options=KINDED)
+    data["options"][0]["kind"] = "ub"
+    with pytest.raises(verify.ProvenanceError, match="options match"):
+        verify.check_provenance(data)
+
+
+def test_an_exit_code_with_no_runs_is_refused() -> None:
+    data = _file("q3", "ran")
+    del data["verified"]["runs"]
+    with pytest.raises(verify.ProvenanceError, match="neither runs nor a compile error"):
         verify.check_provenance(data)
 
 

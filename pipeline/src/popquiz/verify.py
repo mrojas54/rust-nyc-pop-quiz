@@ -225,18 +225,20 @@ def check_toolchain(toolchain: Toolchain, pin: sandbox.Pin) -> None:
 
 
 def _load_pin(pin: sandbox.Pin | None) -> sandbox.Pin:
-    if pin is not None:
-        missing = [f for f in ("release", "commit_hash", "miri_version") if not getattr(pin, f)]
-        if missing:
-            raise PinUnreadable(
-                f"the pin has no recorded {', '.join(missing)}, so there is nothing to "
-                "compare the toolchain with. The verifier will not run."
-            )
-        return pin
-    try:
-        return sandbox.read_pin()
-    except sandbox.PinError as exc:
-        raise PinUnreadable(f"{exc} The verifier will not run.") from exc
+    if pin is None:
+        try:
+            pin = sandbox.read_pin()
+        except sandbox.PinError as exc:
+            raise PinUnreadable(f"{exc} The verifier will not run.") from exc
+    missing = [
+        f for f in ("release", "commit_hash", "miri_version", "target_triples") if not getattr(pin, f)
+    ]
+    if missing:
+        raise PinUnreadable(
+            f"the pin has no {', '.join(missing)}, so there is nothing to compare the "
+            "toolchain with. The verifier will not run."
+        )
+    return pin
 
 
 # --------------------------------------------------------------------------- #
