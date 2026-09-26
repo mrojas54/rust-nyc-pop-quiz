@@ -153,3 +153,59 @@ pub fn keys_named<'a>(v: &'a Value, name: &str) -> Vec<&'a Value> {
 pub fn stdout_rows(v: &Value) -> usize {
     keys_named(v, "name").iter().filter(|n| n.as_str() == Some("stdout")).count()
 }
+
+// T-04b: an in-process driver for the participant routes.
+
+/// One request through the router, no socket: `(status, JSON body or Null)`.
+pub async fn http(
+    app: &axum::Router,
+    method: axum::http::Method,
+    uri: &str,
+    bearer: Option<&str>,
+    body: Option<Value>,
+) -> (axum::http::StatusCode, Value) {
+    use axum::body::Body;
+    use axum::http::{header, Request};
+    use tower::ServiceExt;
+    let mut req = Request::builder().method(method).uri(uri);
+    if let Some(b) = bearer {
+        req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
+    }
+    let req = match body {
+        Some(v) => req
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(v.to_string())),
+        None => req.body(Body::empty()),
+    }
+    .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    let status = res.status();
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let json = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, json)
+}
+
+/// A room as its host and its participants know it.
+pub struct HostedRoom {
+    pub id: String,
+    pub code: String,
+    pub host: String,
+}
+
+/// *Create a room* on q3 as [`ORGANIZER`].
+pub async fn host_room(app: &axum::Router) -> HostedRoom {
+    let (status, created) = http(
+        app,
+        axum::http::Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(serde_json::json!({"question_id": "q3"})),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::CREATED, "{created}");
+    HostedRoom {
+        id: created["id"].as_str().unwrap().into(),
+        code: created["code"].as_str().unwrap().into(),
+        host: created["host_session"].as_str().unwrap().into(),
+    }
+}
