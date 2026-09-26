@@ -31,7 +31,8 @@ a small hand-written lexer and normalizes the token stream instead:
   parameters, closure parameters, functions, types, fields, variants, generics,
   lifetimes, `macro_rules!` names - is renamed to a numbered placeholder in the
   order it first appears, including inline format arguments like `{v:?}`. The
-  entry point, scope-sensitive let names, and names in sources with derives stay;
+  entry point, names used outside the scope that declares them, and names in
+  sources with derives stay;
 * every other name is kept exactly: keywords, every standard-library type,
   function, method and macro the program uses without declaring, and declared
   members on the library keep-list (`fn len`). That list is incomplete.
@@ -43,18 +44,24 @@ this quiz a program that does not compile is as good a question as one that does
 comma would throw away a question. Documentation comments outside recognized
 item positions are kept as markers, including comments before parameters.
 
-**Round-two review remains blocked on scope resolution.** A parameter named
-`drop` in one function still causes an unrelated `drop(1)` call in another to
-normalize equal to an unresolved `nope(1)` call when that parameter is renamed.
-The let guard does not resolve parameter, closure, or pattern scopes. The rule
-above is a requirement, not a property this approximation has established.
+**A declared name is renamed only where it is in scope.** Every declaration
+reaches a token range no wider than its Rust scope: parameters and generics their
+function, closure parameters their closure, `let` / `if let` / `while let` / `for` /
+match-arm bindings their block or arm, items their module or block (and, inside an
+`impl` or `trait`, only their own name). A spelling with any bare use outside every
+range of its declarations - `fn f(drop: i32) {}` beside a call to the library's
+`drop(1)` - is kept verbatim everywhere, as is a spelling that names a field no
+struct in the program declares (`Range { start, end }`). Where a range cannot be
+told from tokens it is drawn smaller, so the error is a missed rename, never a
+merge. This is scoping by token ranges, not name resolution; the rule above is a
+requirement this module tests pair by pair, not a property it proves.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
 rewritten into an equivalent one (`x + x` for `2 * x`), a struct built with field
 shorthand in one program and `field: binding` in the other, a trailing comma in
 a tuple, a declared member renamed to or from a library name, names preserved
-for ambiguous let scopes or derives, and anything a `macro_rules!` body does. Each of those is two token streams, so the check says
+for names used out of scope or derives, and anything a `macro_rules!` body does. Each of those is two token streams, so the check says
 "not a normalized duplicate" and the near-duplicate check - which sees them as very
 similar - sends the pair to an organizer. A miss costs a person a look; a false
 match would cost a question silently. The approximation is built to fail in the
@@ -617,37 +624,6 @@ def _field_names(s: _Stream, brace: int) -> set[str]:
     return fields
 
 
-def _variants(s: _Stream, brace: int, names: set[str], members: set[str]) -> None:
-    for a, b in s.split(brace + 1, s.partner[brace]):
-        a = _skip_attributes_and_visibility(s, a, b)
-        t = s.at(a)
-        if a < b and t is not None and t.kind == "ident":
-            names.add(t.text)
-            if _is(s.at(a + 1), "{") and (a + 1) in s.partner:
-                members.update(_field_names(s, a + 1))
-
-
-def _item_body(
-    s: _Stream, k: int, kind: str, names: set[str], members: set[str]
-) -> None:
-    """After a `struct`/`enum`/`union` name at `k`: generics, then the body."""
-    j = k + 1
-    if _is(s.at(j), "<"):
-        j = _generic_names(s, j, names) + 1
-    body = s.find(
-        j,
-        s.n,
-        lambda x: (
-            _is(s.tokens[x], "{") or _is(s.tokens[x], ";") or _is(s.tokens[x], "(")
-        ),
-    )
-    if body < s.n and _is(s.at(body), "{") and body in s.partner:
-        if kind == "enum":
-            _variants(s, body, names, members)
-        else:
-            members.update(_field_names(s, body))
-
-
 def _closure_opens(s: _Stream, k: int) -> bool:
     """Whether the `|` at `k` opens a closure's parameter list rather than being a
     bitwise or, a logical or, or an or-pattern. Decided by what comes before it: a
@@ -736,21 +712,341 @@ def _macro_rules_bodies(s: _Stream) -> set[int]:
 
 @dataclass(frozen=True)
 class _Declared:
-    """The names the program itself declares.
+    """The names the program itself declares, and where each one reaches.
 
     `names` are renamed wherever they stand on their own; `members` - fields and
     functions - are also renamed after a `.`; `macros` are renamed before `!(`.
+    `fields` are the declared field names. `scopes` holds, per spelling, the token
+    ranges (inclusive) where a bare use of it may mean one of its declarations;
+    `fields_at` marks the tokens that name a field, true where the name is also a
+    binding or a use (`P { x }`).
     """
 
     names: frozenset[str]
     members: frozenset[str]
     macros: frozenset[str]
+    fields: frozenset[str]
+    scopes: dict[str, list[tuple[int, int]]]
+    fields_at: dict[int, bool]
+
+
+# Words that, in the tokens before a `{`, make it a block or an item body rather
+# than a struct expression. Rust itself forbids a struct literal in the head of an
+# `if`, `while`, `match` or `for` for this reason.
+_BLOCK_WORDS = frozenset(
+    [
+        "if",
+        "while",
+        "match",
+        "for",
+        "loop",
+        "else",
+        "fn",
+        "impl",
+        "trait",
+        "struct",
+        "enum",
+        "union",
+        "mod",
+        "unsafe",
+        "async",
+        "extern",
+    ]
+)
+
+
+def _enclosing_braces(s: _Stream) -> list[int | None]:
+    """For every token, the `{` of the innermost brace group around it."""
+    enclosing: list[int | None] = [None] * s.n
+    stack: list[int] = []
+    for k, t in enumerate(s.tokens):
+        enclosing[k] = stack[-1] if stack else None
+        if _is(t, "{") and k in s.partner:
+            stack.append(k)
+        elif _is(t, "}") and stack and s.partner.get(k) == stack[-1]:
+            stack.pop()
+    return enclosing
+
+
+def _header_words(s: _Stream, brace: int) -> set[str]:
+    """The keywords and names between the `{` at `brace` and the start of its
+    statement or item: back to a `;`, a `}` or an opener, over `(...)` and `[...]`."""
+    words: set[str] = set()
+    j = brace - 1
+    while j >= 0:
+        t = s.tokens[j]
+        if t.kind == "punct":
+            if t.text in (")", "]") and j in s.partner:
+                j = s.partner[j] - 1
+                continue
+            if t.text in _OPENERS or t.text in (";", "}", ")", "]"):
+                break
+        elif t.kind in ("keyword", "ident"):
+            words.add(t.text)
+        j -= 1
+    return words
+
+
+class _Collector:
+    """Gathers declarations, and for each the range where its bare name reaches.
+
+    Token-level scoping, not name resolution. Every range is at most the Rust
+    scope: a function's parameters and generics its signature and body; a
+    closure's parameters the closure; a `let` its pattern and the rest of its
+    block after the statement; an `if let` or `while let` its pattern and block; a
+    `for` its pattern and body; a match arm its pattern, guard and body; an item its
+    module or block, or - inside an `impl` or `trait` - only its own name, because
+    a method or associated item is never reached by its bare name. Where a range
+    cannot be told at the token level, it is drawn smaller, and a name used outside
+    every range of its declarations is kept (`_unscoped_names`).
+    """
+
+    def __init__(self, s: _Stream) -> None:
+        self.s = s
+        self.names: set[str] = set()
+        self.members: set[str] = set()
+        self.macros: set[str] = set()
+        self.fields: set[str] = set()
+        self.scopes: dict[str, list[tuple[int, int]]] = {}
+        self.patterns: list[tuple[int, int]] = []
+        self.bodies: set[int] = set()
+        self.enclosing = _enclosing_braces(s)
+
+    def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
+        for name in names:
+            self.scopes.setdefault(name, []).append((lo, hi))
+
+    def bind(self, a: int, b: int) -> set[str]:
+        """The names the pattern in `[a, b)` binds, recorded as declared."""
+        self.patterns.append((a, b))
+        bound = _pattern_names(self.s, a, b)
+        self.names |= bound
+        return bound
+
+    def item_end(self, start: int) -> int:
+        """Where the item or closure whose header continues at `start` ends: the
+        `}` of its body, or its `;`."""
+        s = self.s
+        end = s.find(
+            start, s.n, lambda x: _is(s.tokens[x], "{") or _is(s.tokens[x], ";")
+        )
+        if _is(s.at(end), "{") and end in s.partner:
+            self.bodies.add(end)
+            return s.partner[end]
+        return min(end, s.n - 1)
+
+    def item(self, d: int) -> None:
+        """The item named at `d`: reached throughout its module or block, and by
+        its bare name nowhere else."""
+        s = self.s
+        name = s.tokens[d].text
+        self.names.add(name)
+        brace = self.enclosing[d]
+        if brace is None:
+            self.scope([name], 0, s.n - 1)
+        elif _header_words(s, brace) & {"impl", "trait"}:
+            self.scope([name], d, d)
+        else:
+            self.scope([name], brace, s.partner[brace])
+
+    def generics(self, lt: int) -> tuple[int, set[str]]:
+        """The type and const parameters of the `<...>` at `lt`, and its `>`."""
+        found: set[str] = set()
+        gt = _generic_names(self.s, lt, found)
+        self.names |= found
+        return gt, found
+
+    def data_type(self, k: int, kind: str) -> None:
+        """A `struct`, `enum` or `union` named at `k`: its generics, fields and
+        variants."""
+        s = self.s
+        self.item(k)
+        j = k + 1
+        found: set[str] = set()
+        if _is(s.at(j), "<"):
+            gt, found = self.generics(j)
+            j = gt + 1
+        end = self.item_end(j)
+        self.scope(found, k, end)
+        if not _is(s.at(end), "}"):
+            return
+        body = s.partner[end]
+        if kind != "enum":
+            declared = _field_names(s, body)
+            self.members |= declared
+            self.fields |= declared
+            return
+        for a, b in s.split(body + 1, end):
+            a = _skip_attributes_and_visibility(s, a, b)
+            t = s.at(a)
+            if a < b and t is not None and t.kind == "ident":
+                self.names.add(t.text)
+                self.scope([t.text], a, a)
+                if _is(s.at(a + 1), "{") and (a + 1) in s.partner:
+                    declared = _field_names(s, a + 1)
+                    self.members |= declared
+                    self.fields |= declared
+
+    def function(self, k: int) -> None:
+        """A `fn` named at `k + 1`: its parameters and generics reach its body."""
+        s = self.s
+        self.item(k + 1)
+        self.members.add(s.tokens[k + 1].text)
+        j = k + 2
+        found: set[str] = set()
+        if _is(s.at(j), "<"):
+            gt, found = self.generics(j)
+            j = gt + 1
+        if not (_is(s.at(j), "(") and j in s.partner):
+            self.scope(found, k + 2, j)
+            return
+        close = s.partner[j]
+        params: set[str] = set()
+        for a, b in s.split(j + 1, close):
+            params |= self.bind(a, _cut_at_colon(s, a, b))
+        end = self.item_end(close + 1)
+        self.scope(params, j, end)
+        self.scope(found, k + 2, end)
+
+    def let(self, k: int) -> None:
+        s = self.s
+        tokens = s.tokens
+        pattern_end = s.find(
+            k + 1,
+            s.n,
+            lambda j: (
+                _is(tokens[j], "=")
+                or _is(tokens[j], ";")
+                or s.colon(j)
+                or _kw(tokens[j], "else")
+            ),
+        )
+        bound = self.bind(k + 1, pattern_end)
+        self.scope(bound, k + 1, pattern_end - 1)
+        before = s.at(k - 1)
+        conditional = (
+            _kw(before, "if")
+            or _kw(before, "while")
+            or (_is(before, "&") and _is(s.at(k - 2), "&") and s.tokens[k - 2].joint)
+        )
+        if conditional:
+            # `if let` / `while let`: the block after the condition, not the
+            # initializer and not an `else`.
+            brace = s.find(pattern_end, s.n, lambda j: _is(tokens[j], "{"))
+            if _is(s.at(brace), "{") and brace in s.partner:
+                self.scope(bound, brace, s.partner[brace])
+            return
+        # A `let` statement: the rest of its block, after its own `;`, so never
+        # its own initializer or `else`.
+        block = self.enclosing[k]
+        block_end = s.partner[block] if block is not None else s.n
+        statement_end = s.find(k + 1, block_end, lambda j: _is(tokens[j], ";"))
+        if statement_end + 1 <= block_end - 1:
+            self.scope(bound, statement_end + 1, block_end - 1)
+
+    def for_loop(self, k: int) -> None:
+        s = self.s
+        tokens = s.tokens
+        end = s.find(
+            k + 1,
+            s.n,
+            lambda j: _kw(tokens[j], "in") or _is(tokens[j], "{") or _is(tokens[j], ";"),
+        )
+        if not _kw(s.at(end), "in"):
+            return
+        bound = self.bind(k + 1, end)
+        self.scope(bound, k + 1, end - 1)
+        brace = s.find(end + 1, s.n, lambda j: _is(tokens[j], "{"))
+        if _is(s.at(brace), "{") and brace in s.partner:
+            self.scope(bound, brace, s.partner[brace])
+
+    def match_arm(self, arrow: int) -> None:
+        """The arm whose `=>` is at `arrow`: its pattern reaches its guard and body,
+        and the body ends at its `,`, or at the next arm when a block-like body
+        leaves the comma out."""
+        s = self.s
+        tokens = s.tokens
+        start = _arm_start(s, arrow)
+        guard = s.find(start, arrow, lambda j: _kw(tokens[j], "if"))
+        bound = self.bind(start, guard)
+        body = arrow + 2
+        if _is(s.at(body), "{") and body in s.partner:
+            end = s.partner[body]
+        else:
+            end = s.find(body, s.n, lambda j: _is(tokens[j], ",")) - 1
+        following = s.find(body, s.n, s.fat_arrow)
+        if following < s.n and s.fat_arrow(following):
+            end = min(end, _arm_start(s, following) - 1)
+        self.scope(bound, start, end)
+
+    def closure(self, k: int) -> None:
+        """The closure whose parameter list opens at the `|` at `k`: its parameters
+        reach its body, which is a block after `-> T`, or else runs to the next `,`
+        or `;` or the end of the group around it."""
+        s = self.s
+        tokens = s.tokens
+        if tokens[k].joint and _is(s.at(k + 1), "|"):
+            return  # `||`: no parameters
+        close = s.find(k + 1, s.n, lambda j: _is(tokens[j], "|"))
+        bound: set[str] = set()
+        for a, b in s.split(k + 1, close):
+            bound |= self.bind(a, _cut_at_colon(s, a, b))
+        after = close + 1
+        if _is(s.at(after), "-") and s.tokens[after].joint and _is(s.at(after + 1), ">"):
+            end = self.item_end(after + 2)
+        else:
+            if _is(s.at(after), "{") and after in s.partner:
+                self.bodies.add(after)
+            end = s.find(
+                after, s.n, lambda j: _is(tokens[j], ",") or _is(tokens[j], ";")
+            ) - 1
+        self.scope(bound, k, end)
+
+    def field_positions(self, skip: set[int]) -> dict[int, bool]:
+        """The tokens that name a field: an entry's leading name followed by a lone
+        `:` in any brace group, and in a struct expression or pattern also a name
+        standing alone (`P { x }`, where it is the field and a binding or use).
+        A brace group is a struct expression or pattern when a path names it and it
+        is not a block: inside a pattern always; elsewhere unless it is a known
+        body or its statement opens with a block or item keyword."""
+        s = self.s
+        in_pattern = [False] * (s.n + 1)
+        for a, b in self.patterns:
+            for j in range(a, b):
+                in_pattern[j] = True
+        positions: dict[int, bool] = {}
+        for brace, close in s.partner.items():
+            if brace > close or not _is(s.tokens[brace], "{") or brace in skip:
+                continue
+            before = s.at(brace - 1)
+            named = before is not None and (
+                before.kind == "ident"
+                or _kw(before, "Self")
+                or (_is(before, ">") and not s.fat_arrow(brace - 2))
+            )
+            struct = named and (
+                in_pattern[brace]
+                or (
+                    brace not in self.bodies
+                    and not (_header_words(s, brace) & _BLOCK_WORDS)
+                )
+            )
+            for a, b in s.split(brace + 1, close):
+                a = _skip_attributes_and_visibility(s, a, b)
+                while a < b and (_kw(s.at(a), "ref") or _kw(s.at(a), "mut")):
+                    a += 1
+                t = s.at(a)
+                if a >= b or t is None or t.kind != "ident":
+                    continue
+                if s.colon(a + 1):
+                    positions[a] = False
+                elif struct and a + 1 == b:
+                    positions[a] = True
+        return positions
 
 
 def _declared(s: _Stream) -> _Declared:
-    names: set[str] = set()
-    members: set[str] = set()
-    macros: set[str] = set()
+    c = _Collector(s)
     skip = _macro_rules_bodies(s)
     tokens = s.tokens
 
@@ -760,55 +1056,28 @@ def _declared(s: _Stream) -> _Declared:
         if t.kind == "keyword":
             word = t.text
             if word == "let":
-                end = s.find(
-                    k + 1,
-                    s.n,
-                    lambda j: (
-                        _is(tokens[j], "=")
-                        or _is(tokens[j], ";")
-                        or s.colon(j)
-                        or _kw(tokens[j], "else")
-                    ),
-                )
-                names |= _pattern_names(s, k + 1, end)
+                c.let(k)
             elif word == "for" and not _is(s.at(k + 1), "<"):
-                end = s.find(
-                    k + 1,
-                    s.n,
-                    lambda j: (
-                        _kw(tokens[j], "in")
-                        or _is(tokens[j], "{")
-                        or _is(tokens[j], ";")
-                    ),
-                )
-                if _kw(s.at(end), "in"):
-                    names |= _pattern_names(s, k + 1, end)
+                c.for_loop(k)
             elif word == "fn":
                 name = s.at(k + 1)
-                if name is None or name.kind != "ident":
-                    continue
-                names.add(name.text)
-                members.add(name.text)
-                j = k + 2
-                if _is(s.at(j), "<"):
-                    j = _generic_names(s, j, names) + 1
-                if _is(s.at(j), "(") and j in s.partner:
-                    for a, b in s.split(j + 1, s.partner[j]):
-                        names |= _pattern_names(s, a, _cut_at_colon(s, a, b))
+                if name is not None and name.kind == "ident":
+                    c.function(k)
             elif word in ("struct", "enum"):
                 name = s.at(k + 1)
                 if name is not None and name.kind == "ident":
-                    names.add(name.text)
-                    _item_body(s, k + 1, word, names, members)
+                    c.data_type(k + 1, word)
             elif word in ("trait", "type", "mod", "const", "static"):
                 j = k + 2 if word == "static" and _kw(s.at(k + 1), "mut") else k + 1
                 name = s.at(j)
                 if name is not None and name.kind == "ident":
-                    names.add(name.text)
+                    c.item(j)
                     if _is(s.at(j + 1), "<"):
-                        _generic_names(s, j + 1, names)
+                        gt, found = c.generics(j + 1)
+                        c.scope(found, j, c.item_end(gt + 1))
             elif word == "impl" and _is(s.at(k + 1), "<"):
-                _generic_names(s, k + 1, names)
+                gt, found = c.generics(k + 1)
+                c.scope(found, k, c.item_end(gt + 1))
             elif word == "use":
                 end = s.find(k + 1, s.n, lambda j: _is(tokens[j], ";"))
                 for j in range(k + 1, min(end, s.n)):
@@ -818,7 +1087,7 @@ def _declared(s: _Stream) -> _Declared:
                         and alias is not None
                         and alias.kind == "ident"
                     ):
-                        names.add(alias.text)
+                        c.item(j + 1)
         elif t.kind == "ident":
             after = s.at(k + 1)
             if (
@@ -827,25 +1096,26 @@ def _declared(s: _Stream) -> _Declared:
                 and after.kind == "ident"
                 and (_is(s.at(k + 2), "{") or _is(s.at(k + 2), "<"))
             ):
-                names.add(after.text)
-                _item_body(s, k + 1, "union", names, members)
+                c.data_type(k + 1, "union")
             elif t.text == "macro_rules" and _is(after, "!"):
                 name = s.at(k + 2)
                 if name is not None and name.kind == "ident":
-                    macros.add(name.text)
+                    c.macros.add(name.text)
+                    c.scope([name.text], k + 2, k + 2)
         elif t.kind == "punct":
             if s.fat_arrow(k):
-                start = _arm_start(s, k)
-                guard = s.find(start, k, lambda j: _kw(tokens[j], "if"))
-                names |= _pattern_names(s, start, guard)
+                c.match_arm(k)
             elif t.text == "|" and _closure_opens(s, k):
-                if t.joint and _is(s.at(k + 1), "|"):
-                    continue  # `||`: no parameters
-                close = s.find(k + 1, s.n, lambda j: _is(tokens[j], "|"))
-                for a, b in s.split(k + 1, close):
-                    names |= _pattern_names(s, a, _cut_at_colon(s, a, b))
+                c.closure(k)
 
-    return _Declared(frozenset(names), frozenset(members), frozenset(macros))
+    return _Declared(
+        frozenset(c.names),
+        frozenset(c.members),
+        frozenset(c.macros),
+        frozenset(c.fields),
+        c.scopes,
+        c.field_positions(skip),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1291,47 +1561,58 @@ def _compound_length(s: _Stream, k: int) -> int:
     return 1
 
 
-def _scope_sensitive_names(s: _Stream) -> set[str]:
-    """Keep a let-bound spelling if any use may resolve to a different binding.
-
-    This deliberately declines renaming instead of resolving Rust scopes. A use
-    before the declaration's semicolon (including its initializer), or outside
-    its enclosing braces, cannot be attributed to that declaration here.
-    """
-    protected: set[str] = set()
-    occurrences: dict[str, list[int]] = {}
-    for k, token in enumerate(s.tokens):
-        if token.kind == "ident":
-            occurrences.setdefault(token.text, []).append(k)
-    for k, token in enumerate(s.tokens):
-        if not _kw(token, "let"):
+def _inline_argument_names(literal: str) -> set[str]:
+    """The names a format string captures: `{v:?}`'s `v` and `{:>w$}`'s `w`."""
+    names: set[str] = set()
+    for match in _FORMAT_PIECE.finditer(literal):
+        spec = match.group(1)
+        if spec is None:
             continue
-        pattern_end = s.find(
-            k + 1,
-            s.n,
-            lambda j: (
-                _is(s.tokens[j], "=")
-                or _is(s.tokens[j], ";")
-                or s.colon(j)
-                or _kw(s.tokens[j], "else")
-            ),
-        )
-        names = _pattern_names(s, k + 1, pattern_end)
-        scope_end = min(
-            (
-                end
-                for start, end in s.partner.items()
-                if start < k < end and _is(s.tokens[start], "{")
-            ),
-            default=s.n,
-        )
-        statement_end = s.find(k + 1, scope_end, lambda j: _is(s.tokens[j], ";"))
-        for name in names:
-            if any(
-                not (k < position < pattern_end or statement_end < position < scope_end)
-                for position in occurrences[name]
-            ):
-                protected.add(name)
+        argument, _, form = spec.partition(":")
+        if _NAME.match(argument):
+            names.add(argument)
+        names.update(_NAMED_WIDTH.findall(form))
+    return names
+
+
+def _unscoped_names(
+    s: _Stream, declared: _Declared, format_strings: set[int]
+) -> set[str]:
+    """Declared spellings to keep, because some bare use of one is outside the
+    reach of every declaration of it.
+
+    Such a use means something the program does not declare - the library's
+    `drop`, a field of the library's `Range` - so renaming the spelling would make
+    that use the same token as any other name, resolved or not. This declines the
+    rename instead of resolving the name. A use after `.`, after `::` or before `!`
+    is left to the member, path and macro rules. A field position needs a declared
+    field of that spelling, and, in `P { x }`, a declaration in reach as well.
+    """
+    candidates = declared.names | declared.members | declared.macros
+    protected: set[str] = set()
+
+    def reached(name: str, k: int) -> bool:
+        return any(lo <= k <= hi for lo, hi in declared.scopes.get(name, ()))
+
+    for k, t in enumerate(s.tokens):
+        if t.kind == "string" and k in format_strings:
+            for name in _inline_argument_names(t.text):
+                if name in candidates and not reached(name, k):
+                    protected.add(name)
+            continue
+        if t.kind != "ident" or t.text not in candidates or t.text in protected:
+            continue
+        if _is(s.at(k - 1), ".") and not s.range_dot(k - 1):
+            continue
+        if (k > 0 and s.path_sep[k - 1]) or _is_macro_call(s, k):
+            continue
+        shorthand = declared.fields_at.get(k)
+        if shorthand is None:
+            fine = reached(t.text, k)
+        else:
+            fine = t.text in declared.fields and (not shorthand or reached(t.text, k))
+        if not fine:
+            protected.add(t.text)
     return protected
 
 
@@ -1368,14 +1649,14 @@ def _normalize(
     s = _Stream(tokens)
     declared = _declared(s)
     kept_members = declared.members & _STD_MEMBERS
-    protected = kept_members | {"main"} | _scope_sensitive_names(s)
+    format_strings = _format_strings(s, declared)
+    protected = kept_members | {"main"} | _unscoped_names(s, declared, format_strings)
     # Derives can expose names (Debug) or interpret them (other derives). Without
     # expanding those macros, alpha-renaming is not evidence of equivalence.
     if any(t.text == "derive" for t in tokens):
         protected |= declared.names | declared.members | declared.macros
     renamable = (declared.names | declared.members | declared.macros) - protected
     members = declared.members - protected
-    format_strings = _format_strings(s, declared)
     bodies = _list_bodies(s)
     user_macro = _user_macro_arguments(s, declared)
     kept_docs = _kept_doc_comments(tokens, docs)

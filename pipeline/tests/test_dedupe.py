@@ -478,6 +478,156 @@ def test_normalization_never_equates_two_different_programs(label: str, a: str, 
     assert check(label, b, record(History(), "a", a)).kind != "normalized_duplicate"
 
 
+# Review round 2's open Critical, verbatim: a parameter's spelling was renamed
+# program-wide, so a call to the library's `drop` in another function became the
+# same token as an unresolved `nope`. The first program compiles; the second does not.
+def test_a_function_parameter_does_not_bind_a_separate_function_call():
+    a = 'fn f(drop: i32) {} fn main() { drop(1); }'
+    b = 'fn f(nope: i32) {} fn main() { nope(1); }'
+    assert check('new', b, record(History(), 'old', a)).kind != 'normalized_duplicate'
+
+
+# The same defect for every other kind of declaration with a scope. In each pair the
+# first program compiles and the second does not (rustc exit codes are in the
+# ticket's validation note): the declared spelling is used once outside the scope
+# that declared it, where it means the library's name, or a field it cannot rename.
+SCOPE_NEVER_THE_SAME = [
+    (
+        "a closure parameter does not bind a call outside the closure",
+        "fn main() { let f = |drop: i32| drop; drop(f(1)); }",
+        "fn main() { let f = |nope: i32| nope; nope(f(1)); }",
+    ),
+    (
+        "a closure passed as an argument ends with the call",
+        "fn main() { let v: Vec<i32> = vec![1].into_iter().map(|drop| drop).collect(); drop(v); }",
+        "fn main() { let v: Vec<i32> = vec![1].into_iter().map(|nope| nope).collect(); nope(v); }",
+    ),
+    (
+        "a match arm's binding does not bind past its arm",
+        "fn main() { match 1 { drop => { let _ = drop; } } drop(1); }",
+        "fn main() { match 1 { nope => { let _ = nope; } } nope(1); }",
+    ),
+    (
+        "a match arm without a comma ends where the next arm starts",
+        "fn main() { let n = match 1 { 0 => 0, drop => if drop > 0 { 1 } else { 2 } _ => { drop(3); 4 } }; let _ = n; }",
+        "fn main() { let n = match 1 { 0 => 0, nope => if nope > 0 { 1 } else { 2 } _ => { nope(3); 4 } }; let _ = n; }",
+    ),
+    (
+        "an if-let binding does not bind past its block",
+        "fn main() { if let Some(drop) = Some(1) { let _ = drop; } drop(2); }",
+        "fn main() { if let Some(nope) = Some(1) { let _ = nope; } nope(2); }",
+    ),
+    (
+        "an if-let binding does not bind the statements after it",
+        "fn main() { if let Some(drop) = Some(1) { let _ = drop; } let _ = 0; drop(2); }",
+        "fn main() { if let Some(nope) = Some(1) { let _ = nope; } let _ = 0; nope(2); }",
+    ),
+    (
+        "a while-let binding does not bind past its loop",
+        "fn main() { let mut o = Some(1); while let Some(drop) = o { o = None; let _ = drop; } drop(2); }",
+        "fn main() { let mut o = Some(1); while let Some(nope) = o { o = None; let _ = nope; } nope(2); }",
+    ),
+    (
+        "a for-loop pattern does not bind past its loop",
+        "fn main() { for drop in 0..1 { let _ = drop; } drop(2); }",
+        "fn main() { for nope in 0..1 { let _ = nope; } nope(2); }",
+    ),
+    (
+        "a parameter pattern does not bind past its function",
+        "fn f((drop, _): (i32, i32)) -> i32 { drop } fn main() { drop(f((1, 2))); }",
+        "fn f((nope, _): (i32, i32)) -> i32 { nope } fn main() { nope(f((1, 2))); }",
+    ),
+    (
+        "a generic parameter does not bind past its item",
+        "fn f<String>(_: String) {} fn main() { let _ = String::new(); }",
+        "fn f<Nope>(_: Nope) {} fn main() { let _ = Nope::new(); }",
+    ),
+    (
+        "a method is not a free function",
+        "struct S; impl S { fn drop(&self) {} } fn main() { drop(1); }",
+        "struct S; impl S { fn nope(&self) {} } fn main() { nope(1); }",
+    ),
+    (
+        "a function declared in a block does not bind outside it",
+        "fn main() { { fn drop(_: i32) {} } drop(1); }",
+        "fn main() { { fn nope(_: i32) {} } nope(1); }",
+    ),
+    (
+        "a function in a module does not bind outside it",
+        "mod m { pub fn drop(_: i32) {} } fn main() { drop(1); }",
+        "mod m { pub fn nope(_: i32) {} } fn main() { nope(1); }",
+    ),
+    (
+        "a field is not a free function",
+        "struct S { drop: i32 } fn main() { drop(1); }",
+        "struct S { nope: i32 } fn main() { nope(1); }",
+    ),
+    (
+        "a macro is not a function",
+        "macro_rules! drop { () => {}; } fn main() { drop(1); }",
+        "macro_rules! nope { () => {}; } fn main() { nope(1); }",
+    ),
+    (
+        "a parameter named like a library field, in that struct's shorthand",
+        "use std::ops::Range; fn f(start: i32) -> Range<i32> { Range { start, end: 5 } } fn main() { f(1); }",
+        "use std::ops::Range; fn f(begin: i32) -> Range<i32> { Range { begin, end: 5 } } fn main() { f(1); }",
+    ),
+    (
+        "a parameter named like a library field, beside that field",
+        "use std::ops::Range; fn f(start: i32) -> Range<i32> { Range { start: start, end: 5 } } fn main() { f(1); }",
+        "use std::ops::Range; fn f(begin: i32) -> Range<i32> { Range { begin: begin, end: 5 } } fn main() { f(1); }",
+    ),
+    (
+        "a binding named like a library field, in that struct's pattern",
+        "fn main() { let std::ops::Range { start, end: _ } = 0..1; let _ = start; }",
+        "fn main() { let std::ops::Range { begin, end: _ } = 0..1; let _ = begin; }",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label, a, b", SCOPE_NEVER_THE_SAME, ids=[case[0] for case in SCOPE_NEVER_THE_SAME]
+)
+def test_a_declared_name_binds_only_within_its_scope(label: str, a: str, b: str) -> None:
+    assert normalized_tokens(a) != normalized_tokens(b), label
+    assert check(label, b, record(History(), "a", a)).kind != "normalized_duplicate"
+
+
+# And the renames scoping must keep: each name used only where it is declared.
+SCOPED_THE_SAME = [
+    (
+        "a parameter used in its body",
+        "fn f(a: i32) -> i32 { a + 1 } fn main() { f(2); }",
+        "fn f(b: i32) -> i32 { b + 1 } fn main() { f(2); }",
+    ),
+    (
+        "a closure parameter used in its body",
+        "fn main() { let g = |a: i32| a * 2; g(3); }",
+        "fn main() { let g = |b: i32| b * 2; g(3); }",
+    ),
+    (
+        "match, if-let and for bindings used in their scopes",
+        "fn main() { for a in 0..2 { match a { b => { if let Some(c) = Some(b) { let _ = c; } } } } }",
+        "fn main() { for x in 0..2 { match x { y => { if let Some(z) = Some(y) { let _ = z; } } } } }",
+    ),
+    (
+        "a generic parameter and a method",
+        "struct W<T>(T); impl<T> W<T> { fn get(&self) -> &T { &self.0 } }",
+        "struct W<U>(U); impl<U> W<U> { fn get(&self) -> &U { &self.0 } }",
+    ),
+    (
+        "a struct with its fields, built and destructured",
+        "struct P { x: i32 } fn main() { let p = P { x: 1 }; let P { x } = p; let _ = x; }",
+        "struct Q { y: i32 } fn main() { let p = Q { y: 1 }; let Q { y } = p; let _ = y; }",
+    ),
+]
+
+
+@pytest.mark.parametrize("label, a, b", SCOPED_THE_SAME, ids=[case[0] for case in SCOPED_THE_SAME])
+def test_a_name_used_within_its_scope_is_still_renamed(label: str, a: str, b: str) -> None:
+    assert normalized_tokens(a) == normalized_tokens(b), label
+
+
 # And the optional commas that are dropped, because rustfmt moves them and the
 # program means the same either way.
 THE_SAME = [
