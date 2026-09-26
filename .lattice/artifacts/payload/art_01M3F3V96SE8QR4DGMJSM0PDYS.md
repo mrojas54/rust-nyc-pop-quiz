@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #16, merge commit 8775255). Review PASS-WITH-NITS over 0156b13..a6d2b0a, the one Minor fixed in ed20c2a; Validation attached. CI: just test + just test-full SUCCESS on ed20c2a. Eight deviations accepted; F-19 by-kind rule live (PQ-31 follows); F-21 routed upstream.

@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #15, merge commit 43c8e23). Review PASS on 16471a6, f7faccd a test-only Minor fix. CI: just test + just test-full SUCCESS on f7faccd. Eight deviations accepted: (1) correct-index twin -> PQ-31; (2) options arranged by T-20 -> PQ-25 note; (7) refusal diagnostics -> PQ-27 note.

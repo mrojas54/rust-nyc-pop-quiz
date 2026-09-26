@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-26T15:00:56Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3F3QK5RHPPERQJZ5MWQGDM2",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3F3QK5RHPPERQJZ5MWQGDM2.md",
+    "size_bytes": 269
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #14, merge commit befc7f8). Review: round 3 FAIL on 27b93fd accepted ship-as-is by the client; seven false-match classes C1-C7 tracked on PQ-30; F-2",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

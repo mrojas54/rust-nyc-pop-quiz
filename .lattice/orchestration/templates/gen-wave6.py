@@ -10,6 +10,9 @@ PR = "#15"
 
 PRESS_AHEAD = f"""**Press-ahead ticket.** Your branch starts from the in-review phase-machine branch `{PARENT}` @ `{PARENT_SHA}` (PR {PR}, code review PASS, CI green on `just test`), not from `main`, because you need the machine, the room record and the seams it adds (`room/README.md`, *The seams for T-04b and T-04c*). Rebase onto `origin/{PARENT}` while {PR} is open (the Orchestrator will tell you if it moves); the Orchestrator retargets your PR to `main` once {PR} merges. **Your sibling ticket runs in parallel on the same parent** (T-04b sessions and T-04c transport are one wave): the shared-file list in §2 is what keeps you apart; whichever of the two PRs merges second merges `origin/main` and wires the other's seam, and the Orchestrator will say which."""
 
+# Historical record of wave 6 (2026-09-26). Since then header.py carries these learned
+# clauses itself (§1a) plus the serial attach-then-status rule and the commit bypass, so a
+# later generator must NOT append EXTRA again — import HEADER and pass the body only.
 EXTRA = """
 
 **Additional standing clauses (learned this run).**
