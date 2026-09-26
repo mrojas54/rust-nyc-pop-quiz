@@ -6,9 +6,10 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Orchestrator | — | surface:8 | pane:1 | ai-c11-cc/lattice-build | (root checkout) | Phase 1 dispatch, wave 4 (session f8540abf, resumed 2026-09-21 23:47) | 2026-09-21 | 2026-09-20 |
-| Delegator (fast-track, Opus) | PQ-22 / T-17 Dedupe | surface:35 | pane:1 | ai-c11-cc/dedupe (off bank-format @ b4d946c; HEAD f6a8971, 3 signed commits, not pushed) | …-worktrees/dedupe | **PAUSED by the client 23:48 (weekly quota).** Code review round 1 FAIL; fix written, uncommitted; 226 tests green 0.97 s. Resume steps in its PAUSED comment | 2026-09-22 01:20 | 2026-09-21 |
-| Delegator (sub-agent-full inline, Opus) | PQ-20 / T-15b Verifier with Miri and the pin | surface:39 | pane:1 | ai-c11-cc/verifier (off sandbox-image @ ff99bd2, merges origin/main @ 238146e first) | …-worktrees/verifier | in_planning; READY posted; holding a `docker image inspect` ask-rule prompt (client's) | 2026-09-22 01:20 | 2026-09-21 23:53 |
+| Orchestrator | — | surface:8 | pane:1 (workspace:1, after the c11 restart) | ai-c11-cc/lattice-build | (root checkout) | Phase 1 dispatch, wave 5 (session 226a33ef, resumed 2026-09-26 03:3x) | 2026-09-26 | 2026-09-20 |
+| Delegator (sub-agent-full inline, Opus) | PQ-4 / T-04a Phase machine and sealed answers | surface:18 | pane:1 | ai-c11-cc/phase-machine (off origin/main @ 696b3ce) | …-worktrees/phase-machine | launched; READY awaited | 2026-09-26 03:4x | 2026-09-26 03:4x |
+| Delegator (sub-agent-full inline, Opus) | PQ-20 / T-15b Verifier with Miri and the pin | surface:17 | pane:1 | ai-c11-cc/verifier (HEAD 9a758cd = merge of main 238146e onto ff99bd2; merges origin/main @ 696b3ce first) | …-worktrees/verifier | respawned from `.claude/resume-prompt.md`; in_planning; READY awaited | 2026-09-26 03:4x | 2026-09-26 03:4x |
+| Delegator round 3 (fast-track, Opus, `agent:delegator-pq22r3`) | PQ-22 / T-17 Dedupe | surface:19 | pane:1 | ai-c11-cc/dedupe (HEAD 285b22d on 696b3ce, pushed) | …-worktrees/dedupe | respawned from `.claude/resume-prompt.md`; needs_human → in_progress on READY; scope: parameter/closure/pattern scoping + regression + test_migration:90 | 2026-09-26 03:4x | 2026-09-26 03:4x |
 
 ### Archived (run history)
 

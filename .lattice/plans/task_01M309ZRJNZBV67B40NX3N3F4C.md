@@ -174,6 +174,7 @@ Pins are always altered with `dataclasses.replace(read_pin(), …)`; no version 
 14. **The rejection tally across a batch** belongs to T-16's run report; `verify` reports per-candidate codes.
 
 ## Next session, in order
+0. **PR #12 merged at 2026-09-22T05:51Z** (main `696b3ce`), and `ai-c11-cc/sandbox-image` was deleted. Run `git fetch origin && git merge origin/main`; the branch then descends cleanly from main. Drop the "Based on #12" PR-body line. Never rebase.
 1. Read `lattice comments PQ-20` for the Orchestrator's answers.
 2. Run the plan-review subagent (Sonnet, contract paths only).
 3. Append `## Plan-review resolutions`.
