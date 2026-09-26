@@ -156,6 +156,18 @@ pub trait Sessions: Send {
     fn session_count(&self) -> usize {
         0
     }
+
+    // PQ-32: what the transport asks, through `impl ws::SessionTokens for
+    // AppState`.
+
+    /// The session's stable handle, if `token` names a session.
+    fn session_id(&self, _token: &str) -> Option<crate::ws::SessionId> {
+        None
+    }
+    /// That session's own saved answer; `None` if the handle names no session.
+    fn saved_by_id(&self, _id: crate::ws::SessionId) -> Option<Option<crate::question::Letter>> {
+        None
+    }
 }
 
 /// T-04a's stand-in until T-04b lands: nobody has answered.
@@ -802,4 +814,31 @@ impl AppState {
         let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
         Ok(entry.sessions.session_count())
     }
+}
+
+// --------------------------------------------------------------------------
+// PQ-32: the session map, as the transport sees it. Sessions live per room
+// under the rooms lock, so the adapter is `AppState` itself and the map
+// answers through `Sessions::session_id` / `Sessions::saved_by_id`.
+// --------------------------------------------------------------------------
+
+impl crate::ws::SessionTokens for AppState {
+    /// A released room's map is empty, so its tokens resolve to nothing.
+    fn resolve(&self, room_id: &str, token: &str) -> Option<crate::ws::SessionId> {
+        let rooms = lock(&self.rooms);
+        rooms.get(room_id)?.sessions.session_id(token)
+    }
+
+    /// Only that session's own answer (AC-57).
+    fn saved(&self, room_id: &str, session: crate::ws::SessionId) -> Option<crate::question::Letter> {
+        let rooms = lock(&self.rooms);
+        rooms.get(room_id)?.sessions.saved_by_id(session).flatten()
+    }
+
+    /// Nothing. A dropped socket leaves its session, its answer and its slot
+    /// exactly as they were: `present` counts sessions that exist, and only
+    /// [`AppState::leave`], once a socket is gone for good (T-11's grace),
+    /// removes one (AC-37). With nothing done here, a `resolve` that races a
+    /// `gone` has nothing to win against.
+    fn gone(&self, _room_id: &str, _session: crate::ws::SessionId) {}
 }

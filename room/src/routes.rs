@@ -20,7 +20,7 @@ use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
 use crate::phase::{Command, HostAction};
@@ -123,18 +123,27 @@ struct AnswerBody {
     letter: String,
 }
 
-async fn join(State(state): State<Arc<AppState>>, Json(body): Json<JoinBody>) -> Response {
+async fn join(
+    State(state): State<Arc<AppState>>,
+    Extension(transport): Extension<crate::ws::Transport>,
+    Json(body): Json<JoinBody>,
+) -> Response {
     use crate::sessions::JoinRefusal;
     match state.join(&body.code) {
-        Ok(joined) => (
-            StatusCode::CREATED,
-            Json(serde_json::json!({
-                "room_id": joined.room_id,
-                "token": joined.token.as_str(),
-                "buzzer": joined.buzzer,
-            })),
-        )
-            .into_response(),
+        Ok(joined) => {
+            // PQ-32: `/join` is not under `/rooms/{id}/`, so the `notify` layer
+            // cannot tell which room moved; the new `present` is pushed here.
+            transport.changed(&joined.room_id);
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({
+                    "room_id": joined.room_id,
+                    "token": joined.token.as_str(),
+                    "buzzer": joined.buzzer,
+                })),
+            )
+                .into_response()
+        }
         Err(refusal) => {
             let status = match refusal {
                 JoinRefusal::Unknown => StatusCode::NOT_FOUND,
@@ -236,7 +245,10 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             get(move |ws, id, transport| crate::ws::upgrade(ws, id, transport, viewer)),
         );
     }
-    let default = crate::ws::Transport::new(state.clone(), Arc::new(crate::ws::NoTokens));
+    // PQ-32: by default a buzzer's token resolves against the real session
+    // map (`impl ws::SessionTokens for AppState`). A test that wants another
+    // map layers its own `Extension(Transport)`; `provide` keeps it.
+    let default = crate::ws::Transport::new(state.clone(), state.clone());
     let router = router
         .layer(axum::middleware::from_fn(crate::ws::notify))
         .layer(axum::middleware::from_fn_with_state(default, crate::ws::provide));
