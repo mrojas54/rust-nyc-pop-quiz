@@ -704,6 +704,16 @@ impl AppState {
         Ok(())
     }
 
+    // T-05: the wall's writer for `fit` (§3.4, §5.2), behind `PUT /rooms/{id}/fit`.
+    /// Record the wall's measured verdict. A verdict that did not change does
+    /// not bump the revision, so it pushes nothing.
+    pub fn record_fit(&self, room_id: &str, fit: Fit) -> Result<(), RoomError> {
+        let mut rooms = lock(&self.rooms);
+        let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
+        entry.room.record_fit(fit);
+        Ok(())
+    }
+
     /// Run `f` over a room, read-only. Views go through here.
     pub fn with_room<T>(&self, room_id: &str, f: impl FnOnce(&Room) -> T) -> Result<T, RoomError> {
         let rooms = lock(&self.rooms);
