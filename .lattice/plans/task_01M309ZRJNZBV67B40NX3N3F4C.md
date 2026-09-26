@@ -180,3 +180,40 @@ Pins are always altered with `dataclasses.replace(read_pin(), …)`; no version 
 3. Append `## Plan-review resolutions`.
 4. `lattice status PQ-20 planned`.
 5. Implement per the arc in the boot prompt.
+
+# Resume amendments (delegator, 2026-09-26) — override the draft above on conflict
+
+Branch now: `0156b13` = signed merge of origin/main `696b3ce` onto `9a758cd`; upstream unset; PR opens against `main` with no "Based on" line.
+
+**A1 — toolchain mode (ruling 1).** `sandbox.MODES` gains `toolchain`: script `rustc -Vv` then `cargo +nightly-<pin.nightly date> miri --version`, same docker argv and limits, no `-e`, no mount. The probe-program fallback is dropped. RealRunner maps kind `toolchain` onto it (cached per runner). Tests on the fake docker callable, like the other modes. `sandbox.py` clearance = Miri flag set (MIRIFLAGS per config, seed) + this mode; nothing else. Draft item "`[profile.dev]` from `pin.flags` in the generated Cargo.toml" stays, read as part of the Miri flag set (Miri must run the same profile the native run used); flagged under deviations.
+
+**A2 — PENDING (ruling 2).** When `just verify` becomes a real recipe (`verify *ARGS` → `uv run python -m popquiz.verify {{ARGS}}`), remove the single token `verify:T-15b` from `PENDING`; touch nothing else on that line. Supersedes draft choice 7.
+
+**A3 — correct_index (ruling 3, F-19).** Minimal change in `bank.correct_index`, by option kind, never text:
+- ran, `exit_code` present and non-zero → the single option of kind `panic`.
+- ran, `miri.clean is False` and `miri.configs` contains both `stacked_borrows` and `tree_borrows` → the single option of kind `ub`.
+- otherwise the existing output/dnc rules. Two matches still raise `BankError`.
+A legacy UB record (no `configs`) still derives `None`, so `test_audit.py:627` (PQ-24's, asserts None) and `audit.answer_index`'s fallback are untouched. Tests in `test_bank.py`: panic → panic option; UB with both configs → ub option; UB with SB only → None; two panic options → BankError; a panic whose stdout equals an output option's text → the panic option, not the output. Supersedes draft choice 4; `check_provenance` now derives through `correct_index` for all three answer kinds instead of failing closed on UB/panic.
+
+**A4 — merged tree.** `popquiz/slot.py` and `audit.py` do not construct `Verified` or touch the verifier seam; `tests/test_audit.py` constructs `Verified(` in test code, so the row-23 static test scans `src/popquiz` only.
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+Review: Sonnet subagent, 2026-09-26, 2 Critical / 2 Major / 3 Minor.
+
+**C1 — A3 rule order: a genuine UB record with a nonzero native exit could derive `panic`.** *Accepted.* Order becomes: (1) does-not-compile → the single `does_not_compile` option; (2) ran, `miri.clean is False` and `configs` ⊇ {stacked_borrows, tree_borrows} → the single `ub` option; (3) ran, `exit_code` present and non-zero → the single `panic` option; (4) ran → the output option equal to `normalized_output(stdout)`. Each rule that fires is final: if its kind has no option it returns `None` and never falls through to text equality (nothing is guessed); two matches raise `BankError`. The UB verdict outranks the exit code because Miri's UB finding is what the question is about, whatever the native binary happened to do. New `test_bank.py` case: both configs UB, `exit_code` 101, options include a `panic` and a `ub` → the `ub` index. Also: a panic record with no `panic` option → `None` even when an output option equals stdout.
+
+**C2 — `check_provenance` has no test for the panic/UB path.** *Accepted.* Row 22 gains:
+- accepts a genuine panic record and a genuine both-configs UB record (derives through `correct_index`);
+- refuses an option whose `kind` was hand-edited (e.g. the `panic` option relabelled `output`, or a second `ub` option added) — `correct_index` then yields `None` or raises, and the check refuses in plain words;
+- refuses a record whose fields contradict each other: `miri.clean is False` with fewer than both configs, a `configs` entry outside the known set, `exit_code` present without `runs`, a does-not-compile record carrying `runs`/`stdout`/`exit_code`/`miri`.
+Hand edits *inside* a genuine record that stay internally consistent (e.g. `exit_code` 101→0 with a matching output option) are the same gap as C5/M3 below and are stated in the docstring.
+
+**M3 — a hand edit of `verified.stdout` passes `check_provenance`, against AC-7.** *Partly accepted; side taken.* AC-7 reads "a hand-edited answer in a candidate file fails the build's provenance check". The answer is not stored (§3.1, G-2), so the edits that can change the correct option are: option text/kind (caught), an added answer field (caught), and forging the machine record itself. Closing the last one needs a field §3.2 does not list (a digest or signature over the record), and "`verified.json` gains no field code did not write" plus rule 7 (no contract edits) keep it off this ticket. The AC-7 test proves the option-side edits; the record-forgery gap goes to the Orchestrator as a contract finding in DONE, with the digest proposal. Listed under deviations.
+
+**M4 — Files ledger omits `bank.py` and `test_bank.py`.** *Accepted.* Change list gains `pipeline/src/popquiz/bank.py` (`correct_index` only, per ruling 3) and `pipeline/tests/test_bank.py` (the A3/C1 cases). Also `pipeline/src/popquiz/audit.py` is **not** changed: its UB fallback becomes redundant for complete records but stays correct and is PQ-24's; noted for the Orchestrator.
+
+**m5 — `[profile.dev]` from `pin.flags` stretches the sandbox.py clearance.** *Kept, as a deviation.* Without it the Miri run and the native run each rely on cargo's/rustc's default rather than the pin's flags, so the record's `flags` would describe inputs nobody passed. The profile goes into the Cargo.toml the `run` and `miri` modes already generate; no other sandbox.py change.
+
+**m6 — `verify *ARGS` omits `--offline --no-sync`.** *Accepted.* Recipe: `cd pipeline && uv run --offline --no-sync python -m popquiz.verify {{ ARGS }}`, matching `bank-audit` (justfile:147).
+
+**m7 — `_recorded` / `_source_sha256` keys would show in StubRunner's "it has:" message.** *Accepted.* StubRunner skips `_`-prefixed keys both when looking up a kind and when listing what a fixture has; a test asserts the message lists step kinds only. Provenance still requires `_recorded` (FixtureError when absent).

@@ -244,3 +244,7 @@ names kept)" is implemented as *every name the program does not declare is kept*
 — a closed list of std names can never be complete, and an unlisted std method
 renamed in two programs would make `v.a()` and `v.b()` equal. No separate
 keep-list.
+
+## Reset 2026-09-26 by agent:delegator-pq22r3
+
+## Reset 2026-09-26 by agent:delegator-pq22r3

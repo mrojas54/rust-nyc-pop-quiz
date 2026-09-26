@@ -1,0 +1,3 @@
+# PQ-31: Room correct-index twin follows F-19: panic and ub by option kind
+
+Follow-up minted by the Orchestrator 2026-09-26. PQ-4 built room/src/answers.rs as an exact twin of pipeline bank.correct_index (by text for panic and ub). PQ-20 was cleared under F-19 to derive panic and ub answers by option kind (panic <-> non-zero exit_code; ub <-> Miri UB with both borrow models agreeing), never by text equality. Once both PRs are on main, change the Rust twin to the same rule so the two cannot drift, with the same test cases as bank.py's. Criteria: AC-7 (derived, never stored), G-2. Depends on PQ-4 and PQ-20. Mode: fast-track. Terminal pre-merge status: review. PR base: origin/main.
