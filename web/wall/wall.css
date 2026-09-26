@@ -1,0 +1,161 @@
+/* ===========================================================================
+   The wall — ported from prototypes/C-projector-first.html (its <style>, the
+   `projector` and `receipt`/`company` rules of prototypes/_shared/tokens.css)
+   onto the §1 token names. The prototype is the visual contract (DESIGN.md);
+   where this file departs from it, the comment says why.
+
+   Requires /shared/tokens.css and /shared/components.css first.
+
+   Not ported: the switcher, the phones, the notes under the wall, the
+   `data-room="dim"` palette (an instrument, not a product mode — SPEC §1.1, no
+   dark mode) and the PROTOTYPE badge (removed in the build, §5.1).
+   =========================================================================== */
+
+/* The prototype's review chrome sets border-box on everything, and every
+   measured number in SPEC §5.2 (the 994 x 177 text box, the 190px options
+   block) was taken under it. The shared files do not carry it, so the wall does. */
+.wall-page, .wall-page *, .wall-page *::before, .wall-page *::after { box-sizing: border-box; }
+
+/* AC-33: the page never scrolls, in either direction. The canvas is scaled to
+   fit the viewport; everything outside it is the projector's black. */
+html:has(body.wall-page) { height: 100%; overflow: hidden; background: #12151c; }
+body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c; }
+.wall-stage { position: fixed; inset: 0; overflow: hidden; }
+
+/* §5.1: laid out at 1120 x 630 and scaled as a unit — never width:100%. */
+.wall-wrap { position: absolute; left: 0; top: 0; width: 1120px; height: 630px;
+             transform-origin: top left; }
+
+.projector {
+  width: 1120px; height: 630px; flex: none;
+  background: var(--bg-primary); color: var(--text-primary);
+  border: 14px solid #12151c; border-radius: 6px;
+  overflow: hidden; position: relative; display: flex; flex-direction: column;
+}
+
+.proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
+.proj-top { display: flex; justify-content: space-between; align-items: baseline;
+            flex: none; margin-bottom: 12px; }
+.proj-brand { font-size: 13px; letter-spacing: var(--tracking-caps);
+              text-transform: uppercase; color: var(--text-secondary); }
+
+/* Full-width in every phase (touchpoint T-20 item 15): the source takes the
+   whole wall and the block beneath it is a FIXED reserve (§5.2). */
+.proj-main.full { flex: 1; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+/* The well must CLIP, never bleed, and never scroll: the wall has no thumb and
+   no control (AC-33, AC-79). Overflow lands inside the scroll region, where
+   typemodel.js measures it, and the red edge says which side lost content. */
+.wall .rn-src { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.wall .rn-src-head { flex: none; }
+.wall .rn-src-scroll { flex: 1; min-height: 0; overflow: hidden; }
+
+/* The blocks beneath the source. Constants, so both code areas are constants
+   an offline auditor can use (§5.2, D-15). */
+.wall-block { flex: none; min-height: 0; overflow: hidden; }
+.wall-block.reading { height: 190px; }
+.wall-block.trace { height: 203px; display: grid; gap: 14px; }
+.wall-block.trace.work { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wall-block.trace.reveal { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr) minmax(0, 1.05fr); }
+
+/* --- The options (live, closed) ------------------------------------------ */
+.wall-options { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr));
+                align-content: start; }
+.opt { display: flex; align-items: center; gap: 14px; min-height: 52px;
+       padding: 8px 14px; border: 1px solid var(--border-default); border-radius: var(--radius);
+       background: var(--white); font-size: 24px; }
+.opt .letter { flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+               border: 1px solid var(--border-default); border-radius: var(--radius);
+               font-weight: 700; background: var(--bg-secondary); font-size: 22px; }
+/* D-15: one line of at most 29 characters. The wall has no design for a
+   wrapped option; bank-audit refuses one, so nothing here wraps it. */
+.opt .otext { white-space: pre; overflow: hidden; }
+
+/* --- The split (split, reveal) -------------------------------------------- */
+.wall-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bars { display: flex; flex-direction: column; gap: 7px; }
+/* line-height 1.2 keeps each row at the track's 30px (five rows and four 7px
+   gaps = 178px), inside the reading layout's constant 190px block (§5.2). At
+   the body's 1.6 a 22px row is 35px and the bars spill 13px past it. */
+.bar-row { display: flex; align-items: center; gap: 10px; font-size: 22px; line-height: 1.2; }
+.bar-row .letter { flex: none; width: 30px; font-weight: 700; }
+.bar-track { flex: 1; height: 30px; background: var(--bg-tertiary); border: 1px solid var(--border-default);
+             border-radius: var(--radius); overflow: hidden; }
+/* A span inside a non-flex track stays inline and ignores its width, so
+   every bar rendered empty — numbers with no bars (client, 2026-09-03). */
+.bar-fill { display: block; height: 100%; background: var(--text-secondary); }
+.bar-n { flex: none; width: 92px; text-align: right; font-size: 19px; }
+
+/* AC-40: the green keys off check.js's element, which only ever arrives with
+   its ✓ inside it. There is no class to set that colours a bar or an option
+   without the glyph. */
+.bar-row:has(.rn-correct) .bar-fill { background: var(--success); }
+.bar-row:has(.rn-correct) .bar-track { border: 2px solid var(--success); }
+.bar-row .letter.rn-correct { width: auto; min-width: 30px; }
+.opt:has(.rn-correct) { border-color: var(--success); border-width: 4px; padding: 5px 11px; }
+.opt .letter.rn-correct { width: auto; min-width: 40px; padding: 0 6px; display: inline-flex; gap: 4px;
+                          align-items: center; justify-content: center;
+                          background: var(--success); color: #fff; border-color: var(--success); }
+
+/* --- The trace (work, reveal) --------------------------------------------- */
+.wall-trace { min-width: 0; overflow: hidden; }
+/* §5.2: the step note is clamped to three lines. The step number is the first
+   line box of the note, so the clamp is four; the ellipsis says words were cut.
+   The host phone carries every word of every step (AC-39 keeps the reading on
+   the host's side). */
+.wall .trace-note { margin-top: 0; font-size: 15px; line-height: 1.5; padding: 8px 12px;
+                    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
+                    line-clamp: 4; overflow: hidden; }
+.wall .trace-values { margin-top: 6px; }
+.wall .tval { font-size: 13px; padding: 3px 8px; }
+.wall .trace-nav { margin-top: 8px; }
+
+.workbeat { display: flex; flex-direction: column; gap: 10px;
+            border-left: 4px solid var(--accent-primary); padding-left: 14px; font-size: 21px;
+            line-height: 1.45; color: var(--text-secondary); }
+.workbeat b { color: var(--text-primary); font-size: 30px; font-family: var(--font-heading); font-weight: 400; }
+.workbeat .second { font-size: 18px; }
+
+/* --- Reveal ---------------------------------------------------------------- */
+.wall-block.reveal .bars { gap: 5px; }
+.wall-block.reveal .bar-row { font-size: 18px; gap: 8px; }
+.wall-block.reveal .bar-track { height: 24px; }
+.wall-block.reveal .bar-n { width: 76px; font-size: 16px; }
+.wall-middle { margin-top: 8px; font-size: 18px; color: var(--text-primary); }
+
+/* Machine-established fact (AC-74): the answer and the receipt. */
+.wall-machine { min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px;
+                padding: 8px 10px; border-radius: var(--radius); }
+.wall-machine .opt { font-size: 16px; min-height: 0; padding: 4px 8px; gap: 8px; }
+.wall-machine .opt:has(.rn-correct) { padding: 1px 5px; }
+.wall-machine .opt .letter { height: 30px; font-size: 16px; }
+.receipt { display: flex; flex-direction: column; gap: 2px;
+           border: var(--border-w) solid var(--border-default);
+           border-left: 3px solid var(--success); border-radius: var(--radius);
+           background: var(--bg-input); padding: 8px 12px;
+           font-size: 15px; color: var(--text-secondary); }
+.receipt .provenance { margin-bottom: 2px; }
+
+/* --- Title cards (idle, released) ----------------------------------------- */
+.title-card-main { flex: 1; display: flex; min-height: 0; }
+.title-card { flex: 1; display: grid; place-items: center; text-align: center; }
+.title-card h2 { font-size: 62px; }
+
+.endcard { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.endlink { font-family: var(--font-mono); font-size: 40px; color: var(--accent-hover);
+           border: 2px solid var(--accent-primary); border-radius: var(--radius); padding: 10px 22px; }
+.endsub { font-size: 19px; color: var(--text-secondary); }
+.endqr { width: 120px; height: 120px; }
+
+/* --- The join strip ---------------------------------------------------------- */
+.joinstrip { flex: none; display: flex; justify-content: space-between; align-items: baseline;
+             border-top: 1px solid var(--border-default); padding-top: 10px; margin-top: 12px;
+             min-height: 41px; font-size: 19px; color: var(--text-secondary); }
+.joinstrip b { color: var(--accent-primary); font-family: var(--font-heading); font-size: 30px; font-weight: 400; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-page *, .wall-page *::before, .wall-page *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
