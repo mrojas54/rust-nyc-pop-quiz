@@ -284,6 +284,7 @@ HTML, CSS and JS from `web/<surface>/`, embedded at compile time
 | `GET /wall/wall.js`, `/wall/wall.css`, `/wall/qr.js` | the wall's own files | T-05 |
 | `GET /shared/{file}` | `web/shared/*.css` and `*.js`, as `text/css` / `text/javascript` | T-05 |
 | `GET /shared/fonts/{file}` | the vendored fonts `fonts.css` loads (`font/ttf`, D-14) | T-05 |
+| `PUT /rooms/{id}/fit` `{fit}` | the wall's measured verdict → the host's fit line; `204`, `400` for anything but the four verdicts. **No credential**: the wall is `fit`'s writer (§3.4) and has none. A stranger with the 128-bit room id can at most change the host's fit line | T-05 |
 
 **The wall page is static.** It is the same bytes in every phase: it carries
 no room state and draws every phase from the wall socket's frames
