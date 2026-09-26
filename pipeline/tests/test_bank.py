@@ -153,6 +153,69 @@ def test_two_options_matching_the_output_is_an_error() -> None:
         correct_index(q)
 
 
+# A panic and UB are answers by option *kind* (ruling on F-19, 2026-09-25). The
+# records below are shapes, not observations: no program is behind them.
+_KINDED = (
+    Option(text="one", kind="output"),
+    Option(text="two", kind="output"),
+    Option(text="it panics", kind="panic"),
+    Option(text="undefined behaviour", kind="ub"),
+    Option(text="does not compile", kind="does_not_compile"),
+)
+_BOTH_MODELS = Miri(clean=False, output_matched=True, configs=bank.BORROW_MODELS)
+
+
+def _ran(**fields: object) -> Verified:
+    return dataclasses.replace(RAN, legacy=False, **fields)  # type: ignore[arg-type]
+
+
+def test_a_panic_derives_the_panic_option_by_kind() -> None:
+    q = _question(options=_KINDED, verified=_ran(exit_code=101))
+    assert correct_index(q) == 2
+
+
+def test_a_panic_is_never_the_output_option_even_when_the_text_matches() -> None:
+    """The printed text before a panic can equal an output option; kind decides."""
+    q = _question(options=_KINDED, verified=_ran(stdout="two\n", exit_code=101))
+    assert correct_index(q) == 2
+
+
+def test_a_panic_with_no_panic_option_derives_nothing_rather_than_the_output() -> None:
+    """A rule that fires is final: it does not fall through to text equality."""
+    q = _question(verified=_ran(stdout="two\n", exit_code=101))
+    assert correct_index(q) is None
+
+
+def test_ub_under_both_borrow_models_derives_the_ub_option() -> None:
+    q = _question(options=_KINDED, verified=_ran(exit_code=0, miri=_BOTH_MODELS))
+    assert correct_index(q) == 3
+
+
+def test_ub_outranks_a_nonzero_exit() -> None:
+    q = _question(options=_KINDED, verified=_ran(exit_code=101, miri=_BOTH_MODELS))
+    assert correct_index(q) == 3
+
+
+def test_ub_under_one_borrow_model_is_not_a_ub_answer() -> None:
+    """verify accepts declared UB only when both models agree (AC-9); a record naming
+    one model is not that, so it is not read as one."""
+    one = Miri(clean=False, output_matched=True, configs=("stacked_borrows",))
+    q = _question(options=_KINDED, verified=_ran(stdout="nine\n", exit_code=0, miri=one))
+    assert correct_index(q) is None
+
+
+def test_a_legacy_unclean_miri_record_is_not_read_as_confirmed_ub() -> None:
+    """No configs recorded, so which models agreed is unknown and nothing is inferred."""
+    legacy = dataclasses.replace(RAN, stdout="nine\n", miri=Miri(clean=False, output_matched=True))
+    assert correct_index(_question(options=_KINDED, verified=legacy)) is None
+
+
+def test_two_options_of_the_derived_kind_is_an_error() -> None:
+    options = _KINDED[:1] + (Option(text="panics", kind="panic"),) + _KINDED[2:]
+    with pytest.raises(BankError, match="options match"):
+        correct_index(_question(options=options, verified=_ran(exit_code=101)))
+
+
 def test_a_question_with_no_verified_record_has_no_derived_answer() -> None:
     assert correct_index(_question(verified=None)) is None
 
