@@ -249,9 +249,16 @@ async fn drive_and_scan(question: &str, totals: [u32; 5]) -> Value {
             let released = views(&h.app, &room).await;
             for (viewer, v) in &released {
                 let s = v.to_string();
-                for plant in [PLANT_RESOLVING_NOTE, PLANT_WHAT, PLANT_TAKEAWAY, PLANT_HINT] {
+                // Released closes the answers again: every plant is gone.
+                let whys: Vec<String> = ["A", "B", "C", "D", "E"].iter().map(|l| plant_why(l)).collect();
+                for plant in [PLANT_RESOLVING_NOTE, PLANT_WHAT, PLANT_TAKEAWAY, PLANT_HINT, PLANT_MIDDLE_STDOUT, PLANT_ERROR_CODE]
+                    .into_iter()
+                    .chain(whys.iter().map(String::as_str))
+                {
                     assert!(!s.contains(plant), "released {viewer} carries {plant}");
                 }
+                assert_eq!(stdout_rows(v), 0, "released {viewer}: a stdout row");
+                assert!(keys_named(v, "receipt").is_empty() && keys_named(v, "correct").is_empty());
             }
             break;
         }
