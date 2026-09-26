@@ -19,23 +19,146 @@ Or directly:
 
 ## What is here
 
-`router()` and a binary that serves it. No routes yet — that is deliberate, and
-it is what lets `tests/canary.rs` prove the harness without asserting anything
-about room behaviour.
+`router()` serves the room: create a room, one route per host action, and the
+public state query for the wall, the buzzer and the host. The modules are the
+ones named in `BUILDPLAN.md` section 2:
 
-The modules that will hold the behaviour are named in `BUILDPLAN.md` section 2:
-
-| Module | What it will do | Ticket |
+| Module | What it does | Ticket |
 |---|---|---|
-| `phase` | `idle → live → closed → split → work → reveal → released`, no skipping | T-04a |
-| `answers` | **The sealed one.** Correct option, receipt, explanation | T-04a |
-| `rooms` | Sessions, capacity, totals frozen at close | T-04b |
+| `phase` | The machine: `idle → live → closed → split → work → reveal → released`, host actions only, no skipping, `trace_step` | T-04a |
+| `answers` | **The sealed one.** Correct option, receipt, explanation, the resolving step | T-04a |
+| `question` | The public half of a question | T-04a |
+| `rooms` | The room record's shape and its phase-driven writes; the seams for sessions and the socket | T-04a (shape), T-04b (sessions) |
+| `view` | The public state query: wall, buzzer and host payloads | T-04a (data), T-05/06/07 (pages) |
+| `copy` | SPEC §11's strings, mirrored from `web/shared/copy.js` | T-04a, T-22 (lint) |
+| `auth` | The `HostAuth` seam: may this bearer create a room, may it host this one | T-04a (seam), T-09 (stand-in), T-10 (Discord) |
 | `ws` | One broadcast per room: wall, buzzers, host | T-04c |
-| `auth` | Discord OAuth, role-**ID** check at room creation | T-10 |
 
-`answers` is sealed in the structural sense: it must be unreachable from the
-public state query by a module boundary or the type system, not by anyone
-remembering to be careful (SPEC.md G-3, AC-61).
+As built, the binary schedules no question and authorizes nobody (`DenyAll`),
+so it can create no room. T-09 wires the HC-0 mock question and the §8.2
+stand-in behind `HostAuth`; T-25 replaces seeding with
+`PUT /admin/questions/{id}`.
+
+### Routes
+
+| Route | What | Credential |
+|---|---|---|
+| `POST /rooms` `{question_id}` | *Create a room* | `HostAuth::authorize_create` |
+| `POST /rooms/{id}/put-on-screen`, `close-answers`, `show-split`, `walk-it`, `reveal`, `release`, `step-back`, `step-forward` | one per host action, plus `←`/`→` | the room's host session |
+| `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; this one stays released | `authorize_create`, same organizer |
+| `GET /rooms/{id}/wall`, `/buzzer` | the public state query | none |
+| `GET /rooms/{id}/host` | the host's projection | the room's host session |
+
+A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
+is `401` with no body; an unknown room is `404`.
+
+## The phase machine
+
+`phase::apply(state, command) -> Result<Applied, Refused>` is the only way a
+phase changes, and it is pure: no clock, so no timer and no auto-advance. Each
+phase has exactly one action that leaves it (`Phase::next_action`, which is also
+the host screen's one primary action), so nothing can be skipped: seven legal
+transitions (*Create a room* into `idle`, then one per phase), *Run it again*
+from `released` (a new room; this one never moves again), and `←`/`→`, which
+step the trace and never change the phase. `work` enters at step `0` and stops
+at `M-2`; `reveal` enters at `M-1`, the step that prints, and may step the whole
+trace (D-10). Every other pair is refused with a reason. `Room::act` is the one
+place a room's machine is reassigned, from `apply`'s result.
+`tests/phase_table.rs` checks the whole 8 × 10 table cell by cell.
+
+## The seams for T-04b and T-04c
+
+- **`rooms::Sessions`** — T-04b implements it over its session map.
+  `close_snapshot()` is called by the close transition, once; the room freezes
+  `answered` and `totals` from it and decides §4.5's middle beat then.
+  `release()` is called at release.
+- **`AppState::set_live_counts(room, LiveCounts { present, answered_live })`**
+  — T-04b calls it on join, leave and upsert. `present` keeps moving after
+  close; the frozen `answered` does not.
+- **`Room::accepts_answers()`** — `true` only in `live`; T-04b's upsert asks it.
+- **`Room::revision()`** — bumped on every change; T-04c broadcasts on it.
+- **`view::wall` / `view::buzzer` / `view::host`** — the three payloads T-04c
+  pushes. Each carries exactly one `phase`, read from the room's one phase value
+  (AC-81).
+
+## The sealed module, and how the proof works
+
+`answers::load` reads a bank record and splits it on the spot. The public half
+(`question::PublicQuestion`) holds option texts in arrival order, the source,
+the hint, and trace steps `0..M-2` with any `stdout` row removed. Everything
+that joins an option to the verified output goes into a vault. That covers the
+correct option (derived the way `bank.correct_index` derives it), the receipt
+(the twin of `receipt.receipt_lines`, tested against the same
+`bank/fixtures/receipts/*.json`), the beats, every `why_tempting`, and the full
+trace.
+
+The vault is a private module nested inside `answers`, and its fields are
+private to it. Rust field privacy is per module, so not even the rest of
+`answers.rs` can read them. Its one read, `open`, demands a
+`phase::RevealWitness`. `Machine::revealed()` mints that witness, only in
+`reveal`, and nothing else can build one: its field is private, and `unsafe` is
+forbidden crate-wide. The witness borrows the machine, and `Room::open()`
+borrows the room, so nothing opened in `reveal` survives a phase change. The
+three projections branch on `room.open()`, not on the phase. The pre-reveal
+builders receive a `PublicView`, which has no path to the vault.
+
+The proof is in two halves, and neither is "we reviewed it":
+
+1. **`compile_fail` doctests**, in `src/phase.rs`, `src/answers.rs` and
+   `src/rooms.rs`, cover six attempts to cross the boundary:
+   - forge a witness;
+   - forge a machine in `reveal`;
+   - read a room's question;
+   - read the vault;
+   - open the vault from a `PublicView`;
+   - hold what was opened across `act`.
+
+   Each is paired with an ordinary doctest, its twin, which compiles the same
+   paths and differs only in the forbidden line. So a rename or typo breaks the
+   twin loudly rather than letting the `compile_fail` pass for the wrong reason.
+   They carry no error codes: on stable, `compile_fail,E0xxx` silently stops
+   running.
+2. **`tests/boundary.rs`** is the in-crate half that a doctest cannot see. It
+   reads the source and asserts:
+   - the witness is built in one place;
+   - the vault holds only `seal`, `judge` and `open`, and every read takes the
+     witness;
+   - nothing sealed derives or implements `Debug`, `Clone`, `Copy` or
+     `Serialize`;
+   - nothing outside `answers.rs` touches the vault;
+   - `Room::act` alone reassigns the machine;
+   - the pre-reveal builders take only a `PublicView`.
+
+Both halves were mutation-checked when they were written: opening each boundary
+in a scratch copy turned exactly the matching test red.
+
+`tests/canary.rs` is the runtime complement. It drives `router_with()` through
+every phase. Before `reveal`, it asserts that no payload for any viewer carries:
+- a ✓, a receipt line, the explanation or any `why_tempting`;
+- the resolving step, a `stdout` values entry, or a step beyond `M-2`;
+- the hint (before `live`, and outside the buzzer's `live` payload).
+
+It also asserts that every option object is exactly `{letter, text}` in arrival
+order, and that the buzzer never carries source, trace or option text. At
+`reveal` it asserts that the plants do appear. The plants are T-04a's seam:
+**T-08** replaces them with its canary set and extends the scan to pages and
+socket frames, and **T-25** adds `POPQUIZ_ADMIN_TOKEN`. G-6's machine half is
+proven here; its full canary half is T-08's.
+
+### Choices worth knowing
+
+- **Option order.** The room never arranges options: the pushed record's order
+  is the wall's order. The date-drawn arrangement (AC-23) belongs to the
+  pipeline's push (T-20). `bank/questions/q3.json` is in bank order, which is
+  fine for tests but is not a record to put in front of a room.
+- **The correct-option rule mirrors `bank.correct_index` exactly.** It matches
+  by kind for a does-not-compile record, and otherwise by the option equal to
+  `stdout` less one trailing newline. If the rule changes, both twins change
+  together.
+- **Copy.** `src/copy.rs` has one constant per `copy.js` key, with the same
+  name upper-cased. `tests/twins.rs` compares the two in both directions, so
+  T-22's lint has matching keys to compare. Edit SPEC §11 first, then
+  `copy.js`, then `copy.rs`.
 
 ## The toolchain
 
@@ -52,11 +175,12 @@ machine that did not happen to have the pinned toolchain already.
 
 ## The canary seam
 
-`tests/canary.rs` drives `router()` in-process, with no socket. Today it asserts
-one thing — that the router answers at all — because the mechanism is the point.
-T-08 lands the real scan on top of it: canaries planted in the resolving trace
-step's `note`, the explanation, the receipt and the hint, asserted absent from
-every pre-reveal payload. T-25 adds the admin token as a fifth plant.
+`tests/canary.rs` drives the router in-process, with no socket.
+T-04a extended it to drive every phase in order for all three viewers (above).
+T-08 lands its canary set on top: canaries planted in the resolving trace step's
+`note`, the explanation, the receipt and the hint, asserted absent from every
+pre-reveal payload, pages and frames included. T-25 adds the admin token as a
+fifth plant.
 
 The other half of that hook — scanning the deployed room's real frames and pages
 — runs in `just test-full` once T-09 has something deployed.
