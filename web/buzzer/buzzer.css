@@ -23,7 +23,7 @@
 .buzzer .btn:hover { background: var(--bg-tertiary); }
 .buzzer .btn:focus-visible { outline: 3px solid var(--border-focus); outline-offset: 2px; }
 .buzzer .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary);
-                       color: #2d3748; font-weight: 600; }
+                       color: var(--gray-800); font-weight: 600; }
 .buzzer .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
 .buzzer .btn:disabled { opacity: .5; cursor: not-allowed; }
 .buzzer .panel { background: var(--bg-secondary); border: var(--border-w) solid var(--border-default);
