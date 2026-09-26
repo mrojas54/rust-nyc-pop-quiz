@@ -102,3 +102,28 @@ Changed:
 - D5 (test-full measured layout): no headless Chrome here or in CI; measured in the c11 browser and recorded, not wired into `just test-full`.
 - D6 (fit route): rooms.rs not cleared; asked.
 - D7 (prototype overlap in work/reveal): non-overlapping layout inside §5.2's reserve.
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+
+Reviewer: general-purpose subagent (sonnet), 2026-09-26. One Critical, two Major, two Minor.
+
+1. **Critical — AC-33/AC-100's `test-full` measured claim downgraded to a manual note, not named in the harness.**
+   Concern: EVALUATION marks both `autonomous` under `test-full`; web/shared/README assigns the headline measured claim to T-05; the justfile's rule is that a suite that cannot run is *named*, never silently absent.
+   Resolution: the measured run is **built** — `web/wall/measure.html?run=1` runs the real wall code (mount → derive → render → measure → refit → verdict → edge) over every bank question (q3, q4, q7, q8) in all five source phases on the real q3 payloads and emits a JSON report (font px, passes, text box, overflow, verdict, edge, page overflow). It needs a real layout engine, and this machine and CI have no headless browser (no Chrome/Chromium installed; network-free `test`). So: `justfile` gains a `wall-layout` recipe that serves the repo and prints the URL, and `test-full`'s report names it on its own line as run in a browser, not headless — the suite is named, not dropped. The recorded run goes in the Validation attachment and `room/README.md` (Pages). First run (c11 browser, WKWebView, default room 15/8.44/20, floor 14.22px): every question fits in every phase, overflow 0 on both axes, page overflow 0. Flagged to the Orchestrator as a deviation needing sign-off (wiring a headless browser into `test-full` is T-21's deploy-side harness or a follow-up, not a new dependency PQ-7 may add).
+
+2. **Major — the reveal "most-chosen incorrect option" line has no prototype precedent.**
+   Resolution: recorded as its own deviation (D8): the element is new UI required by SPEC §4/§4.5 and AC-95/AC-39 and carried by the payload (`reveal.middle.line`); styled as plain 18px text beneath the reveal bars, no colour, no mark on that bar (§9: nobody is marked wrong). Not presented as a port.
+
+3. **Major — D6 leaves the host's fit line empty by default.**
+   Resolution: asked the Orchestrator (comment 19:56Z). The wall already computes and exposes the verdict (`mount(..., {onFit})`), so the route is a small addition once `AppState::record_fit` is cleared. If no answer arrives before the PR, the PR ships without the route, says so as the first deviation, and the DONE comment lists it as the open item — merge is the Orchestrator's call, not mine.
+
+4. **Minor — criteria proofs not yet written.** Resolution: noted; they are the Implement phase (wall.test.js, wall_page.rs, the fixture golden).
+
+5. **Minor — `with_room` on every page request plus `no-store`.** Resolution: kept. The 404 for a room that does not exist is required by the ticket, and `no-store` stops a projector laptop from showing yesterday's page after a deploy. One mutex read per page load.
+
+Additional (found while prototyping, before review returned):
+- D9: SPEC §5.2's trace text box is 994×190; the built wall measures 994×182 in `work`/`reveal` (the prototype's 190 came from a well that overflowed its container into the overlapping block). The refit is measured, so this costs one refit pass (q3: derived 23.8 → fitted 22.2px), never a clip. Reading layout measures exactly 994×177 in `live`, matching §5.2 and bank-audit.
+- Join strip and released link display without the URL scheme (`join @ 127.0.0.1:3000/…`); the QR encodes the full link.
+- QR encoder independently verified: macOS CoreImage `CIDetector` decodes my output exactly for versions 2, 3, 7 and a UTF-8 URL.
+
+## Reset 2026-09-26 by agent:delegator-pq7

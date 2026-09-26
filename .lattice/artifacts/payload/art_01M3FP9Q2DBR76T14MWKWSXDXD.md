@@ -1,0 +1,10 @@
+End-to-end in the c11 browser against a throwaway local server (room::router_with + a stand-in create auth + q3 + /shared served from disk; uncommitted, deleted after). Reviewed build HEAD 33360d4.
+1. /host?question=q3#dev-token: 'before the question', Create a room, the two SPEC 8.1 sentences. Create -> 201 -> navigated to the server's host_resume_url /host/<id>#<session>; dev token gone from the address bar.
+2. Idle: phase label, room code (serif, amber), resume line with the room's link, the two sentences, Put it on the screen, '0 of 0 in the room answered'. Fonts load from /shared.
+3. Live: two joins via POST /join moved present to 2 on the page without a click; answers via PUT /rooms/<id>/answer moved answered 0->1 live (AC-46).
+4. Second device (second tab on the same resume link): acted Close answers from device two; both tabs showed 'answers closed'. A hidden tab paints late (WKWebView throttles hidden tabs) and caught up to the newest step when shown (AC-50).
+5. Split, walk-it, step-forward: 'Step 2 of 6' + the step's words, back/forward disabled at the ends. Reveal: 'Step 6 of 6', Read it aloud under the human marker (dashed orange rule, warm tint, pencil glyph), What happens / Why 1 of us said A (tie on A,B,C -> lower letter) / What to remember (AC-74). No check mark or script in any earlier phase (AC-47).
+6. Release: no code shown; refresh (location.reload) kept the session and the released screen (AC-50). Run it again -> the room's refusal 'That question has already been run. Pick another.' (only q3 scheduled).
+7. document scrollWidth <= clientWidth: no horizontal scroll.
+Found and fixed during validation: the page's .panel rule overrode the shared .by-human marker (commit 7b53e76).
+Tests: just test-room green (host_page 6/6; socket tests need loopback, run with the sandbox bypass), just test-web 124/124, warm ~5 s. just test-pipeline not run: the client's pyenv python lacks libintl (known env).

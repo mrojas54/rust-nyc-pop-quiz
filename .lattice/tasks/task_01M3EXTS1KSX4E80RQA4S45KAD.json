@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 7,
   "complexity": "low",
   "created_at": "2026-09-26T13:17:48Z",
   "created_by": "agent:orchestrator",
@@ -18,11 +18,16 @@
       "id": "art_01M3FKH6BN98ADGMH9F2ANJXKW",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3FN5SMEBV5K927E3WDD7R2M",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M3EXTS1KSX4E80RQA4S45KAD",
-  "last_event_id": "ev_01M3FMYWBWK4J6RJ08QGM5GXK0",
-  "last_status_changed_at": "2026-09-26T19:22:35Z",
+  "last_event_id": "ev_01M3FNWVBYQBZMG0EZD9EJXWR8",
+  "last_status_changed_at": "2026-09-26T20:05:52Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -43,7 +48,7 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-32",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m1",
     "fast-track",
@@ -52,6 +57,6 @@
   ],
   "title": "Wire the session map into the transport",
   "type": "task",
-  "updated_at": "2026-09-26T20:02:00Z",
+  "updated_at": "2026-09-26T20:18:22Z",
   "urgency": null
 }

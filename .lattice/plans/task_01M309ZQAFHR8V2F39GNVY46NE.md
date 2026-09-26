@@ -93,3 +93,5 @@ Reviewer: fresh-eyes subagent (Sonnet), 2026-09-26. No Critical findings; it con
 4. **Minor: reusing `buzzer_reconnecting` on the host phone is a cross-row borrow.** Resolution: acknowledged; listed as a deviation beside the counts-line borrow in the DONE comment.
 5. **Minor: the page-level plant scan is mostly vacuous.** Resolution: kept as a cheap guard against anyone inlining question data into the page later, but described honestly; the page test's real content is the served routes, content types, asset references, AC-45's refusals per phase, AC-46's live counts and AC-50's two devices. The payload scan's host half overlaps `canary.rs` by design (the ticket asks for it).
 6. **Minor: the web-test load mechanism.** Resolution: `host.test.js` calls `_load.js`'s `load('all', {timers:false})`, takes the returned `sandbox`, and `vm.runInContext(fs.readFileSync('web/host/host.js'), sandbox)`; `_load.js` is not edited.
+
+## Reset 2026-09-26 by agent:delegator-pq9
