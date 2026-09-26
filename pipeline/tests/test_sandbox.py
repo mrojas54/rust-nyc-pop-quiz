@@ -14,10 +14,12 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+import tomllib
 
 import pytest
 
 from popquiz import sandbox
+from popquiz.bank import BORROW_MODELS
 from popquiz.sandbox import (
     CAPABILITIES_DROPPED,
     ENV_NOT_PASSED,
@@ -245,7 +247,7 @@ def test_the_platform_flag_appears_only_when_the_pin_sets_one() -> None:
     assert argv[argv.index("--platform") + 1] == "linux/amd64"
 
 
-@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("mode", sandbox.SOURCE_MODES)
 def test_every_mode_builds_a_command_that_reads_stdin(mode: str) -> None:
     command = container_command(mode, _pin())
 
@@ -282,6 +284,94 @@ def test_the_miri_mode_uses_the_pinned_nightly_and_stays_offline() -> None:
     assert "--offline" in script
     # The root filesystem is read-only, so cargo's home has to be on the tmpfs.
     assert f"CARGO_HOME={sandbox.WORK_DIR}" in script
+
+
+def test_the_source_modes_are_every_mode_but_the_toolchain_probe() -> None:
+    assert set(MODES) - set(sandbox.SOURCE_MODES) == {"toolchain"}
+
+
+def test_the_toolchain_mode_reports_the_pinned_rustc_and_miri_and_runs_nothing() -> None:
+    """D-17: what the verifier compares against the pin comes out of the image."""
+    pin = _pin()
+    script = container_command("toolchain", pin)[2]
+
+    assert "rustc -Vv" in script
+    assert f"cargo '+{pin.nightly_toolchain}' miri --version" in script
+    assert "cat >" not in script, "the probe reads no candidate"
+    assert "./main" not in script and "miri run" not in script
+
+
+def test_the_toolchain_mode_keeps_every_containment_flag() -> None:
+    """Same docker argv as the other modes: no -e, no mount, the same limits."""
+    argv = docker_argv("toolchain", _pin(), container_name="c")
+    assert sandbox.configuration_verdicts(argv) == sandbox.configuration_verdicts(
+        docker_argv("run", _pin(), container_name="c")
+    )
+
+
+def test_the_miri_configs_are_the_bank_borrow_models() -> None:
+    """A record's `miri.configs` names what ran; the two lists cannot drift."""
+    assert tuple(sandbox.MIRI_CONFIGS) == BORROW_MODELS
+
+
+@pytest.mark.parametrize("config", BORROW_MODELS)
+def test_both_borrow_models_run_under_strict_provenance(config: str) -> None:
+    assert "-Zmiri-strict-provenance" in sandbox.miri_flags(config, 0)
+
+
+def test_only_the_tree_borrows_config_asks_for_tree_borrows() -> None:
+    assert "-Zmiri-tree-borrows" not in sandbox.miri_flags("stacked_borrows", 0)
+    assert "-Zmiri-tree-borrows" in sandbox.miri_flags("tree_borrows", 0)
+
+
+def test_the_miri_config_and_seed_reach_the_script_and_not_the_environment() -> None:
+    argv = docker_argv(
+        "miri", _pin(), container_name="c", miri_config="tree_borrows", miri_seed=3
+    )
+    script = argv[-1]
+
+    assert f"export MIRIFLAGS='{sandbox.miri_flags('tree_borrows', 3)}'" in script
+    assert "-Zmiri-seed=3" in script
+    assert sandbox.ENV_NOT_PASSED in sandbox.configuration_verdicts(argv)
+
+
+def test_an_unknown_miri_config_is_refused() -> None:
+    with pytest.raises(sandbox.SandboxError, match="unknown Miri config"):
+        container_command("miri", _pin(), miri_config="weak_borrows")
+
+
+def test_miri_builds_under_the_pinned_flag_set() -> None:
+    """Miri builds through cargo; without a profile table it would use cargo's
+    defaults and the record's `flags` would describe a build Miri never did."""
+    pin = _pin()
+    manifest = sandbox.cargo_manifest(pin)
+    parsed = tomllib.loads(manifest)
+
+    assert parsed["package"]["edition"] == pin.edition
+    profile = parsed["profile"]["dev"]
+    assert str(profile["opt-level"]) == str(pin.flags["opt-level"])
+    assert profile["overflow-checks"] is pin.flags["overflow-checks"]
+    assert profile["debug-assertions"] is pin.flags["debug-assertions"]
+    assert manifest in container_command("miri", pin)[2]
+
+
+def test_a_non_numeric_opt_level_is_quoted_in_the_manifest() -> None:
+    pin = dataclass_replace(_pin(), flags={**_pin().flags, "opt-level": "s"})
+    assert tomllib.loads(sandbox.cargo_manifest(pin))["profile"]["dev"]["opt-level"] == "s"
+
+
+def test_the_miri_config_is_passed_through_run_in_sandbox() -> None:
+    seen: list[str] = []
+
+    def fake(argv, *, input=None, timeout=None):
+        seen.append(argv[-1])
+        return _Done(0, "", "")
+
+    run_in_sandbox(
+        "fn main() {}", "miri", pin=_pin(), runner=fake, container_name="c",
+        miri_config="tree_borrows", miri_seed=0,
+    )
+    assert "-Zmiri-tree-borrows" in seen[0]
 
 
 # --- The verdicts ------------------------------------------------------------

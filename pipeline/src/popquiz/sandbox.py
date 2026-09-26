@@ -51,9 +51,26 @@ PIN_PATH = Path(__file__).resolve().parents[2] / "sandbox" / "pin.toml"
 #: The container's working directory, and the only writable path in it.
 WORK_DIR = "/work"
 
-#: What a caller may ask for. T-15b may rename these; they are defined here once
-#: and every command template is keyed on them, so a rename is one dict.
-MODES = ("compile", "run", "miri")
+#: What a caller may ask for. Every command template is keyed on them.
+#:
+#: `toolchain` runs no candidate: it prints the image's `rustc -Vv` and
+#: `cargo miri --version`, which the verifier compares against the pin before it
+#: runs anything (D-17, AC-6). It is the only mode that reads no source.
+MODES = ("compile", "run", "miri", "toolchain")
+
+#: The modes that take a candidate's source on stdin.
+SOURCE_MODES = ("compile", "run", "miri")
+
+#: `MIRIFLAGS` per borrow model (AC-9). Strict provenance under both: a
+#: candidate whose answer leans on an integer-to-pointer cast is one Miri should
+#: refuse to call clean. Tree Borrows is the second opinion the verifier asks
+#: for when a candidate declares UB. The keys are `bank.BORROW_MODELS`, which
+#: `test_sandbox.py` holds this dict to.
+MIRI_CONFIGS: Mapping[str, tuple[str, ...]] = {
+    "stacked_borrows": ("-Zmiri-strict-provenance",),
+    "tree_borrows": ("-Zmiri-strict-provenance", "-Zmiri-tree-borrows"),
+}
+DEFAULT_MIRI_CONFIG = "stacked_borrows"
 
 # Configuration verdicts — true because of how the container was asked for.
 NETWORK_UNREACHABLE = "NETWORK_UNREACHABLE"
@@ -270,7 +287,52 @@ def _rustc_flags(pin: Pin) -> list[str]:
     ]
 
 
-def container_command(mode: str, pin: Pin) -> list[str]:
+def _profile_value(value: Any) -> str:
+    """A `[pin.flags]` value as Cargo.toml spells it: booleans and integers bare,
+    anything else (`"s"`, `"z"`) quoted."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    text = str(value)
+    return text if text.isdigit() else f'"{text}"'
+
+
+def cargo_manifest(pin: Pin) -> str:
+    """The Cargo.toml of the Miri project, with the pinned flag set as `[profile.dev]`.
+
+    Miri builds through cargo, not through `rustc` with `-C` flags, so without the
+    profile table it would run under cargo's defaults and the record's `flags`
+    would describe a build Miri never did. Written from the pin, like
+    `_rustc_flags`, so the two cannot disagree.
+    """
+    return (
+        "[package]\n"
+        'name = "candidate"\n'
+        'version = "0.0.0"\n'
+        f'edition = "{pin.edition}"\n'
+        "\n"
+        "[profile.dev]\n"
+        f"opt-level = {_profile_value(pin.flags['opt-level'])}\n"
+        f"overflow-checks = {_profile_value(pin.flags['overflow-checks'])}\n"
+        f"debug-assertions = {_profile_value(pin.flags['debug-assertions'])}\n"
+    )
+
+
+def miri_flags(config: str, seed: int) -> str:
+    """The `MIRIFLAGS` value for one borrow model and one seed."""
+    if config not in MIRI_CONFIGS:
+        raise SandboxError(
+            f"unknown Miri config {config!r}; the configs are {', '.join(MIRI_CONFIGS)}."
+        )
+    return " ".join((*MIRI_CONFIGS[config], f"-Zmiri-seed={int(seed)}"))
+
+
+def container_command(
+    mode: str,
+    pin: Pin,
+    *,
+    miri_config: str = DEFAULT_MIRI_CONFIG,
+    miri_seed: int = 0,
+) -> list[str]:
     """The command the container runs, as `["sh", "-c", script]`.
 
     The source arrives on **stdin** and is written to a file by the script's first
@@ -289,7 +351,17 @@ def container_command(mode: str, pin: Pin) -> list[str]:
 
     flags = " ".join(_rustc_flags(pin))
 
-    if mode == "compile":
+    if mode == "toolchain":
+        # No candidate: the toolchain reporting itself, from inside the image the
+        # candidate will run in. Cargo's home moves onto the tmpfs for the same
+        # reason as in the Miri mode.
+        script = (
+            "set -e\n"
+            "export CARGO_HOME=/work/.cargo\n"
+            "rustc -Vv\n"
+            f"exec cargo '+{pin.nightly_toolchain}' miri --version\n"
+        )
+    elif mode == "compile":
         # Diagnostics only. A candidate declared non-compiling (AC-11) is this
         # call's exit code and stderr; nothing is executed.
         script = f"set -e\ncat > main.rs\nrustc {flags} -o main main.rs\n"
@@ -304,14 +376,19 @@ def container_command(mode: str, pin: Pin) -> list[str]:
         # and the target dir move onto the tmpfs because the root filesystem is
         # read-only; --offline makes a reach for the network a loud failure rather
         # than a hang, on top of --network none already making it impossible.
+        #
+        # MIRIFLAGS is exported inside the script, never passed with `-e`: the
+        # container's environment stays the image's (ENV_NOT_PASSED). The manifest
+        # goes through a quoted heredoc so no character in it is the shell's.
         script = (
             "set -e\n"
             "export CARGO_HOME=/work/.cargo CARGO_TARGET_DIR=/work/target\n"
+            f"export MIRIFLAGS='{miri_flags(miri_config, miri_seed)}'\n"
             "mkdir -p candidate/src\n"
             "cat > candidate/src/main.rs\n"
-            "printf '[package]\\nname = \"candidate\"\\nversion = \"0.0.0\"\\n"
-            "edition = \"%s\"\\n' "
-            f"'{pin.edition}' > candidate/Cargo.toml\n"
+            "cat > candidate/Cargo.toml <<'POPQUIZ_MANIFEST'\n"
+            f"{cargo_manifest(pin)}"
+            "POPQUIZ_MANIFEST\n"
             "cd candidate\n"
             f"exec cargo '+{pin.nightly_toolchain}' miri run --offline -q\n"
         )
@@ -319,7 +396,14 @@ def container_command(mode: str, pin: Pin) -> list[str]:
     return ["sh", "-c", script]
 
 
-def docker_argv(mode: str, pin: Pin, *, container_name: str) -> list[str]:
+def docker_argv(
+    mode: str,
+    pin: Pin,
+    *,
+    container_name: str,
+    miri_config: str = DEFAULT_MIRI_CONFIG,
+    miri_seed: int = 0,
+) -> list[str]:
     """The full `docker run` argv for one step.
 
     Every flag here is load-bearing for AC-12, and
@@ -368,7 +452,9 @@ def docker_argv(mode: str, pin: Pin, *, container_name: str) -> list[str]:
         WORK_DIR,
         pin.image,
     ]
-    return argv + container_command(mode, pin)
+    return argv + container_command(
+        mode, pin, miri_config=miri_config, miri_seed=miri_seed
+    )
 
 
 def configuration_verdicts(argv: Sequence[str]) -> frozenset[str]:
@@ -498,6 +584,8 @@ def run_in_sandbox(
     pin: Pin | None = None,
     runner: Runner | None = None,
     container_name: str | None = None,
+    miri_config: str = DEFAULT_MIRI_CONFIG,
+    miri_seed: int = 0,
 ) -> SandboxResult:
     """Run one step on `program_source` inside the sandbox.
 
@@ -509,12 +597,17 @@ def run_in_sandbox(
     On expiry the container is killed, not merely abandoned. `subprocess`'s own
     timeout kills the `docker` CLI and leaves the container running, so the
     second call is what makes "hard timeout" true rather than approximately true.
+
+    `miri_config` and `miri_seed` shape the `miri` mode only. The `toolchain` mode
+    reads no source; pass `""`.
     """
     pin = pin or read_pin()
     run = runner or _subprocess_runner
     name = container_name or f"popquiz-sandbox-{uuid.uuid4().hex[:12]}"
 
-    argv = docker_argv(mode, pin, container_name=name)
+    argv = docker_argv(
+        mode, pin, container_name=name, miri_config=miri_config, miri_seed=miri_seed
+    )
     timeout = pin.limits.timeout_seconds
 
     started = time.monotonic()
