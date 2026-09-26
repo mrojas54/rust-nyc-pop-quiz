@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 3,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZQAFHR8V2F39GNVY46NE",
-  "last_event_id": "ev_01M3FM1HA8V0N90ZSBWK7H0BDM",
-  "last_status_changed_at": "2026-09-20T21:01:37Z",
+  "last_event_id": "ev_01M3FMYM0G9S1054NY205QFMDH",
+  "last_status_changed_at": "2026-09-26T20:01:52Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -46,13 +46,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-9",
-  "status": "backlog",
+  "status": "in_progress",
   "tags": [
     "m1",
     "inline-full"
   ],
   "title": "The host phone",
   "type": "task",
-  "updated_at": "2026-09-26T19:45:59Z",
+  "updated_at": "2026-09-26T20:01:52Z",
   "urgency": null
 }

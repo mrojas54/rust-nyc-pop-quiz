@@ -10,7 +10,7 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 | Delegator agent:delegator-pq32 (Opus, fast-track) | PQ-32 / wire the session map into the transport | surface:9 | pane:1 | ai-c11-cc/wire-sessions | …-worktrees/wire-sessions | implemented, tests + 200-buzzer suite green, code review done; **at the client's `git push` prompt** since 15:3x (3 commits unpushed) | 2026-09-26 15:5x | 2026-09-26 11:3x |
 | Delegator agent:delegator-pq7 (Opus, inline-full) | PQ-7 / T-05 the wall | surface:19 | pane:1 | ai-c11-cc/wall | …-worktrees/wall | launched 15:5x off main @ cac818b; expect the option-2 prompt | 2026-09-26 15:5x | 2026-09-26 15:5x |
 | Delegator agent:delegator-pq9 (Opus, inline-full) | PQ-9 / T-07 the host phone | surface:20 | pane:1 | ai-c11-cc/host-phone | …-worktrees/host-phone | launched 15:5x off main @ cac818b; expect the option-2 prompt | 2026-09-26 15:5x | 2026-09-26 15:5x |
-| (PQ-8 buzzer: dispatches off `origin/ai-c11-cc/wire-sessions` once PQ-32 pushes; worktree `buzzer`) | | | | | | | | |
+| Delegator agent:delegator-pq8 (Opus, inline-full) | PQ-8 / T-06 the buzzer | surface:23 | pane:1 | ai-c11-cc/buzzer | …-worktrees/buzzer | launched 16:0x by press-ahead off `origin/ai-c11-cc/wire-sessions` @ `2bdb0fd`; expect the option-2 prompt; PR stacks on PQ-32's until it merges | 2026-09-26 16:0x | 2026-09-26 16:0x |
 
 ### Archived (run history)
 
