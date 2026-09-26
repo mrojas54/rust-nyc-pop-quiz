@@ -258,7 +258,9 @@ async fn a_room_nobody_watches_keeps_no_broadcast() {
 }
 
 #[tokio::test]
-async fn without_a_session_map_the_router_serves_walls_and_refuses_buzzers() {
+/// The default router is wired to the real session map (PQ-32): walls are
+/// served, and a token no join handed out is refused.
+async fn the_default_router_serves_walls_and_refuses_unknown_tokens() {
     let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()));
     let app = room::router_with(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

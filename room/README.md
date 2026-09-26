@@ -219,8 +219,11 @@ poke that changed nothing sends nothing. It is called:
   `// T-04c routes` block in `routes.rs`, which must stay last** (`layer` wraps
   only the routes already registered);
 - by the transport after each call into the session map;
-- by anything else that writes a room outside an HTTP route — T-04b if it takes
-  answers over a socket, T-11's reaper. Such a writer calls `changed` itself.
+- by `POST /join` itself: its path names no room, so `notify` cannot poke it;
+- by anything else that writes a room outside an HTTP route — T-11's grace
+  and reaper (the future callers of `AppState::leave`), T-05's fit writer if
+  it is not a `/rooms/{id}/…` route. Such a writer calls `changed` itself.
+  Today there is none.
 
 ### The seam for T-04b
 
@@ -230,15 +233,28 @@ poke that changed nothing sends nothing. It is called:
         fn gone(&self, room_id: &str, session: SessionId); // its current socket closed
     }
 
-**T-04b's session map implements it**, and is wired in by layering
-`Extension(Transport::new(state, map))` over `router_with(state)`. Until then
-the router supplies a `Transport` over `NoTokens`: walls and hosts are served,
-every buzzer is refused `4401`. `gone` is not called for a replaced socket.
-It is called with no transport lock held, so a socket that dies at the very
-instant its session re-attaches can report `gone` just after the new
-`resolve`; T-04b's map should let the later `resolve` win when counting
-`present`.
-The tests use `TestTokens` (`tests/common`).
+**T-04b's session map implements it**, through `AppState` (see *Wiring*).
+`gone` is not called for a replaced socket. It is called with no transport
+lock held, so a socket that dies at the very instant its session re-attaches
+can report `gone` just after the new `resolve`; the map lets the later
+`resolve` win, trivially, because `gone` changes nothing.
+`tests/transport.rs` and `tests/transport_full.rs` layer `TestTokens`
+(`tests/common`) to script sessions; `tests/wiring.rs` uses the real map.
+
+### Wiring (PQ-32)
+
+`router()` and `router_with(state)` serve the real session map: the router's
+default `Transport` is `Transport::new(state, state)`, since
+`impl ws::SessionTokens for AppState` is the adapter. Sessions live per room
+under the rooms lock, so the adapter is the state, not a `SessionMap`.
+`resolve` finds the token in that room's map (a released room's map is empty,
+so nothing resolves); `saved` is that session's own answer and no other;
+`gone` does nothing, because a drop keeps the session, its answer and its slot
+(see *Ghost sessions* above). A `SessionId` is a keyed hash of the token under
+a per-map `RandomState`, so it carries nothing of the credential; `join`
+redraws a token whose id collides. A test that wants another map layers its
+own `Extension(Transport::new(state, map))` over `router_with`, and the
+`provide` layer keeps it; `NoTokens` remains for such tests.
 
 ### `TCP_NODELAY`
 
@@ -270,6 +286,11 @@ spike's frames:
 - `tests/transport_full.rs` (`#[ignore]`d; `just test-transport-full`, inside
   `test-full`): the wall and 200 buzzers agree at every transition, and twenty
   drop in `closed` and resume in `split` (AC-81 and AC-37 as written).
+- `tests/wiring.rs` (in `test`): the default router and the real map — join,
+  attach with the returned token, answer, transitions, drop, re-attach with the
+  same token, release; one frame per revision to the wall, the host and the
+  buzzer, one phase across all, the counts moving on join and answer and not
+  on a drop (AC-37, AC-46, AC-81).
 
 ## The sealed module, and how the proof works
 

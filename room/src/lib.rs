@@ -40,7 +40,8 @@ pub mod ws;
 
 pub use routes::host_routes;
 
-/// The room's HTTP surface as the binary serves it today: nothing scheduled
+/// The room's HTTP surface as the binary serves it today, with the sockets
+/// wired to the real session map: nothing scheduled
 /// and nothing authorized ([`auth::DenyAll`]), so no room can be created until
 /// T-09 wires the stand-in (§8.2) or T-10 wires Discord, and T-25 or T-09
 /// supplies a question.
@@ -52,8 +53,9 @@ pub fn router() -> Router {
     )))
 }
 
-/// The room's HTTP surface over a given state. Tests drive this in-process; T-25
-/// adds its two admin routes and T-09 whatever deploy needs.
+/// The room's HTTP surface over a given state, its sockets resolving buzzer
+/// tokens against that state's sessions (PQ-32). Tests drive this in-process;
+/// T-25 adds its two admin routes and T-09 whatever deploy needs.
 pub fn router_with(state: Arc<rooms::AppState>) -> Router {
     routes::routes(state)
 }
