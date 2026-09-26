@@ -200,13 +200,10 @@ question id in each of the three stores. Every run first *backfills* any bank
 question the history is missing and *refreshes* any entry whose source has changed,
 and the run report shows the size before and after (AC-17). The committed file is
 still the empty shape T-14 wrote, so the first real run backfills the four
-migrated questions. That run will also fail
-`pipeline/tests/test_migration.py`'s byte-for-byte check of this file, which
-expects the migration's empty output, and re-running the migration empties the
-history again. Nothing is lost when that happens, because the next dedupe run
-rebuilds the history from the bank. The test's check needs narrowing to the
-file's shape before the first real run, and that fix belongs to the owner of
-T-14's test.
+migrated questions. `pipeline/tests/test_migration.py` checks only this file's
+shape (its version and three stores), not its contents, so a grown history keeps
+the suite green. Re-running the migration empties the history again; nothing is
+lost when that happens, because the next dedupe run rebuilds it from the bank.
 
 **The normalized check works on tokens, not a syntax tree, and that is a
 deviation from `SPEC.md` §7.3.** The contract says "normalized AST". Python's
@@ -216,8 +213,20 @@ program means the same without it. It renames **only the names the program
 declares** (bindings, parameters, functions, types, fields, variants, generics,
 lifetimes) to numbered placeholders in order of first use. Every name the program
 uses but did not declare is kept, whether it comes from `std`, the prelude or a
-macro. The global spelling map is still incomplete as a model of Rust name
-resolution; the round-two blocker below is a concrete counterexample.
+macro.
+
+**A declared name is renamed only inside its scope.** Each declaration reaches a
+token range no wider than Rust's: parameters and generics their function, closure
+parameters their closure, `let`, `if let`, `while let`, `for` and match-arm
+bindings their block or arm, items their module or block, and a method or
+associated item only its own name (a bare name never reaches it). If a spelling is
+used anywhere outside every range of its declarations, it is kept as written
+everywhere. So `fn f(drop: i32) {}` beside a call to the library's `drop(1)` keeps
+`drop`, and the same program spelled with `nope`, which does not compile, stays
+apart from it. A binding named like a field of a library struct
+(`Range { start, end }`) is kept for the same reason. Where a range cannot be told
+from tokens it is drawn smaller, so the error is a missed rename, never a merge.
+This is scoping by token ranges, not Rust's name resolution.
 
 The rule behind every step is that **no normalization may make two different
 programs equal**, including a program that compiles and one that does not.
@@ -236,21 +245,12 @@ rewritten into an equivalent one, field shorthand against `field: binding`, a
 trailing comma in a tuple, and a declared member renamed to or from a library
 name.
 
-**PQ-22 is blocked after review round two.** The entry point stays named `main`;
-empty-list commas and doc comments before parameters stay in the fingerprint;
-let names used outside their enclosing braces or before the end of their
-initializer are preserved; names in sources containing derives are preserved
-because a derive can expose or interpret them. These conservative choices can
-miss renamings. Ten regression controls cover these boundaries, and local rustc
-probes confirm their semantic differences.
-
-One Critical false match remains: `fn f(drop: i32) {} fn main() { drop(1); }`
-compiles, while replacing both `drop` spellings with `nope` produces E0425, yet
-the normalized check rejects the second as a duplicate. The let guard does not
-resolve function-parameter scopes; closure and pattern scopes are also not
-resolved. The final review verdict is FAIL and the ticket needs human direction
-under the two-round cap. Passing the existing suite and the scratch-bank CLI
-exercise does not clear this blocker.
+Other conservative choices: the entry point stays named `main`; empty-list commas
+and doc comments before parameters stay in the fingerprint; names in sources
+containing derives are kept, because a derive can expose or interpret them. Each
+can miss a renaming, never make one. Every boundary has a pair in
+`pipeline/tests/test_dedupe.py` where one program compiles and the other does not,
+and the pairs were run through `rustc` to confirm it.
 
 **The threshold is 0.6 and it is uncalibrated** (D-13). It can be set per run with
 `--threshold`. The first measurements, taken by this code on the four migrated
