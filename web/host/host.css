@@ -60,6 +60,9 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
 
 /* The read-aloud script: human-reviewed prose (AC-74). */
 .host-read-aloud { font-size: var(--text-sm); }
+/* .panel above would otherwise win over components.css's .by-human, and the
+   human marker is the point of this panel (AC-74). */
+.panel.by-human { border-left: 3px dashed var(--warning); background: var(--warning-subtle); }
 .host-read-h { font-size: var(--text-2xl); margin: 4px 0 10px; }
 .beat + .beat { margin-top: var(--space-3); padding-top: var(--space-3);
                 border-top: var(--border-w) solid var(--border-default); }
