@@ -395,3 +395,180 @@ pub async fn closed_with(socket: &mut Socket, wait: Duration) -> Option<u16> {
         other => panic!("expected the socket to close, got {other:?}"),
     }
 }
+
+// --------------------------------------------------------------------------
+// T-08: the canary set.
+//
+// Every plant is `CANARY-<NAME>-<16 hex>`, the hex drawn from the OS once per
+// test process, so no line of the room can have been written to match one and
+// no two runs share a value. Only `[A-Z0-9-]`, so HTML escaping never changes
+// what a scan looks for. The admin-token plant is the same shape and is never a
+// literal anywhere in the repository (T-25's repo-wide scan looks for exactly
+// that); it is set as `POPQUIZ_ADMIN_TOKEN` in this process and every child.
+// --------------------------------------------------------------------------
+
+/// One run's canaries. [`plants`] returns the process's one set.
+#[derive(Debug)]
+pub struct Plants {
+    /// Option E's text and the synthetic record's `stdout` (the join itself).
+    pub correct: String,
+    /// `runs.count` — rendered by the receipt as `✓ Ran ‹N› times`.
+    pub runs: u32,
+    /// The receipt line that carries `runs`: `Ran ‹N› times`.
+    pub receipt: String,
+    pub what: String,
+    pub takeaway: String,
+    /// `why_tempting` for A–E (E's is used only by the does-not-compile twin).
+    pub why: [String; 5],
+    pub hint: String,
+    /// A trailing comment on the source's first line.
+    pub source: String,
+    /// The `note` of every step but the last.
+    pub notes: Vec<String>,
+    /// The resolving (final) step's `note`.
+    pub resolving: String,
+    /// A non-`stdout` value in the second step.
+    pub trace_value: String,
+    /// A `stdout` row slipped into a middle step (G-3: *any* such row).
+    pub middle_stdout: String,
+    /// The does-not-compile twin's one error code.
+    pub error_code: String,
+    /// `POPQUIZ_ADMIN_TOKEN` (AC-101's canary half).
+    pub admin: String,
+}
+
+impl Plants {
+    /// Every plant, named, for scans that forbid all of them.
+    pub fn all(&self) -> Vec<(String, &str)> {
+        let mut out: Vec<(String, &str)> = vec![
+            ("correct".into(), self.correct.as_str()),
+            ("receipt".into(), self.receipt.as_str()),
+            ("what".into(), self.what.as_str()),
+            ("takeaway".into(), self.takeaway.as_str()),
+            ("hint".into(), self.hint.as_str()),
+            ("source".into(), self.source.as_str()),
+            ("resolving".into(), self.resolving.as_str()),
+            ("trace_value".into(), self.trace_value.as_str()),
+            ("middle_stdout".into(), self.middle_stdout.as_str()),
+            ("error_code".into(), self.error_code.as_str()),
+            ("admin".into(), self.admin.as_str()),
+        ];
+        for (letter, why) in ["A", "B", "C", "D", "E"].iter().zip(&self.why) {
+            out.push((format!("why_{letter}"), why.as_str()));
+        }
+        for (i, note) in self.notes.iter().enumerate() {
+            out.push((format!("note_{i}"), note.as_str()));
+        }
+        out
+    }
+}
+
+fn canary_suffix() -> String {
+    let mut bytes = [0u8; 8];
+    getrandom::fill(&mut bytes).expect("the OS random source is available");
+    bytes.iter().map(|b| format!("{b:02X}")).collect()
+}
+
+/// The process's canaries, drawn once. The first call also sets
+/// `POPQUIZ_ADMIN_TOKEN` to the admin plant, before any server starts.
+pub fn plants() -> &'static Plants {
+    static PLANTS: std::sync::OnceLock<Plants> = std::sync::OnceLock::new();
+    PLANTS.get_or_init(|| {
+        let sfx = canary_suffix();
+        let p = |name: &str| format!("CANARY-{name}-{sfx}");
+        let steps = q3_json()["trace"]["steps"].as_array().unwrap().len();
+        let mut n = [0u8; 4];
+        getrandom::fill(&mut n).expect("the OS random source is available");
+        // Five digits, never a count a real record would carry.
+        let runs = 10_000 + u32::from_le_bytes(n) % 90_000;
+        let plants = Plants {
+            correct: p("CORRECT"),
+            runs,
+            receipt: format!("Ran {runs} times"),
+            what: p("EXPLAINS-WHAT"),
+            takeaway: p("EXPLAINS-TAKEAWAY"),
+            why: ["A", "B", "C", "D", "E"].map(|l| p(&format!("WHY-{l}"))),
+            hint: p("HINT"),
+            source: p("SOURCE"),
+            notes: (0..steps - 1).map(|i| p(&format!("NOTE-{i}"))).collect(),
+            resolving: p("RESOLVING-NOTE"),
+            trace_value: p("TRACE-VALUE"),
+            middle_stdout: p("MIDDLE-STDOUT"),
+            error_code: format!("E{}", p("ERROR")),
+            admin: p("ADMIN-TOKEN"),
+        };
+        // Edition 2021: `set_var` is safe. Nothing in the room reads the
+        // environment concurrently; this runs once, before any server.
+        std::env::set_var("POPQUIZ_ADMIN_TOKEN", &plants.admin);
+        plants
+    })
+}
+
+/// A SYNTHETIC record, id `canary`: q3's shape with every field T-08 plants
+/// carrying its canary. Its source is itself a plant and its verified record
+/// says no compiler ran, so nothing here writes down what a program prints;
+/// `stdout` is set equal to option E's text because that equality **is** the
+/// join G-3 withholds, which is the thing under test.
+pub fn canary_question() -> Value {
+    let p = plants();
+    let mut v = q3_json();
+    v["id"] = "canary".into();
+    let source = v["source"].as_str().unwrap().to_string();
+    let (first, rest) = source.split_once('\n').unwrap();
+    v["source"] = format!("{first} // {}\n{rest}", p.source).into();
+    v["hint"] = p.hint.clone().into();
+    v["explains"]["what"] = p.what.clone().into();
+    v["explains"]["takeaway"] = p.takeaway.clone().into();
+    for i in 0..4 {
+        v["options"][i]["why_tempting"] = p.why[i].clone().into();
+    }
+    v["options"][4]["text"] = p.correct.clone().into();
+    v["verified"] = serde_json::json!({
+        "rustc": "SYNTHETIC - no compiler ran",
+        "edition": "2021",
+        "runs": {"count": p.runs, "byte_identical": true},
+        "stdout": format!("{}\n", p.correct),
+        "exit_code": 0,
+        "miri": {"clean": true, "output_matched": true},
+    });
+    let steps = v["trace"]["steps"].as_array_mut().unwrap();
+    let last = steps.len() - 1;
+    for (i, step) in steps.iter_mut().enumerate() {
+        if i == last {
+            step["note"] = p.resolving.clone().into();
+            for row in step["values"].as_array_mut().unwrap() {
+                if row["name"] == "stdout" {
+                    row["now"] = p.correct.clone().into();
+                }
+            }
+        } else {
+            step["note"] = p.notes[i].clone().into();
+        }
+    }
+    steps[1]["values"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"name": "canary", "was": "—", "now": p.trace_value}));
+    steps[2]["values"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"name": "stdout", "was": "—", "now": p.middle_stdout}));
+    v
+}
+
+/// The does-not-compile twin, id `canary-dnc`: the same plants, a verified
+/// record that names no program and one canary error code. D is correct, so
+/// E (whose text is still the `correct` plant) needs a `why_tempting`.
+pub fn canary_question_dnc() -> Value {
+    let p = plants();
+    let mut v = canary_question();
+    v["id"] = "canary-dnc".into();
+    v["verified"] = serde_json::json!({
+        "rustc": "SYNTHETIC - no compiler ran",
+        "edition": "2021",
+        "compile_error_code": [p.error_code],
+    });
+    v["options"][4]["why_tempting"] = p.why[4].clone().into();
+    v["options"][3].as_object_mut().unwrap().remove("why_tempting");
+    v
+}
