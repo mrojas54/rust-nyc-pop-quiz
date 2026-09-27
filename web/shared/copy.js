@@ -154,7 +154,7 @@
     host_fit_clipped_x: "too wide for this room — clipped at the right",
     host_fit_clipped_xy: "too long and too wide for this room",
 
-    /* --- Title — the wordmark, the surface's role beneath -------------- */
+    /* --- Title — the wordmark; on a phone, the surface's role beneath -- */
     title_wordmark: "Rust NYC Pop Quiz",
     host_title_role: "Host",
     buzzer_title_role: "Guest",
@@ -244,7 +244,7 @@
                        "host_reveal_beat_remember"],
     "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
                        "host_fit_clipped_xy"],
-    "Title (host phone, buzzer)": ["title_wordmark", "host_title_role", "buzzer_title_role"],
+    "Title (host phone, buzzer, wall)": ["title_wordmark", "host_title_role", "buzzer_title_role"],
     "Host + wall, count (AC-46)": ["count_joined", "count_answered"],
     "Static fallback": ["static_next_phase", "static_step_trace", "static_back_phase"],
     "Uniqueness (organizer-facing, AC-18)": ["uniqueness"],

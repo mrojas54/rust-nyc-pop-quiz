@@ -331,15 +331,6 @@ test('AC-79: the wall has no interactive control in any phase', () => {
 // Copy: every visible string is the payload's or copy.js's
 // --------------------------------------------------------------------------
 
-// SPEC §11's Forbidden row and the §11.1 trope patterns, for the one string
-// the wall authors itself (the brand line, which §11 does not list).
-const FORBIDDEN = [/turn to/i, /ask (someone|the person|your neighbou?r)/i, /find someone/i, /volunteer/i,
-  /who (said|picked|chose)/i, /\bwrong\b/i, /\bincorrect\b/i, /✗/, /argu/i];
-const TROPES = [/\bnot (just|only|merely|simply)\b/i,
-  /\b(genuinely|truly|honestly|quietly|extremely|deeply|fundamentally|literally)\b/i,
-  /\bworth (a|the|stopping|talking|noting|remembering)\b/i, /\bdon'?t worry\b/i,
-  /\bthat'?s (fine|okay|ok|totally fine)\b/i, /\bit'?s (fine|okay|ok|normal) to\b/i];
-
 test('AC-46: Joined in idle, Joined and Answered in live, at the join strip\'s end; neither after', () => {
   const idle = W.html({ ...F.idle, joined: 'Joined: 12' });
   assert.ok(idle.includes('<span class="wall-counts"><span>Joined: 12</span></span></div>'));
@@ -373,15 +364,29 @@ test('every visible string on the wall is payload data or a copy.js string', () 
       const link = [...data].some((s) => s.includes(`http://${t}`) || s.includes(`https://${t}`));
       // Program text, cut into tokens by the syntax colour.
       const program = f.source !== undefined && f.source.includes(t);
-      const ok = t === W.BRAND || data.has(t) || lines.has(t) || copyPieces.has(t) || link || program ||
+      const ok = data.has(t) || lines.has(t) || copyPieces.has(t) || link || program ||
         structural.some((re) => re.test(t));
       assert.ok(ok, `${name}: "${t}" is neither payload nor copy.js`);
     }
   }
 });
 
-test('the brand line passes the Forbidden and trope patterns (SPEC §11, §11.1)', () => {
-  for (const re of [...FORBIDDEN, ...TROPES]) assert.ok(!re.test(W.BRAND), `${W.BRAND} matches ${re}`);
+// HC-0 (2026-09-27): the wall is headed by the wordmark, from copy.js, in
+// every phase. The hard-coded brand line is gone, so the string has one source
+// and copy.test.js's Forbidden and trope lints cover it as a copy.js entry.
+test('every phase is headed top-left by the wordmark from copy.js', () => {
+  assert.strictEqual(PQ.COPY.title_wordmark, 'Rust NYC Pop Quiz');
+  for (const [name, f] of ALL) {
+    const h = W.html(f);
+    assert.ok(h.includes(`<div class="proj-top"><h1 class="proj-brand">${PQ.COPY.title_wordmark}</h1></div>`), name);
+  }
+  assert.strictEqual(W.BRAND, undefined, 'the brand constant is gone');
+  const js = fs.readFileSync(path.join(WALL, 'wall.js'), 'utf8');
+  assert.ok(!/Rust NYC/i.test(js), 'wall.js types no brand string of its own');
+  const css = fs.readFileSync(path.join(WALL, 'wall.css'), 'utf8');
+  assert.match(css, /\.proj-brand \{[^}]*font-family: var\(--font-heading\);[^}]*font-size: 30px;/);
+  const page = fs.readFileSync(path.join(WALL, 'index.html'), 'utf8');
+  assert.ok(page.includes(`<title>${PQ.COPY.title_wordmark}</title>`), 'the page title');
 });
 
 // --------------------------------------------------------------------------

@@ -221,7 +221,7 @@ def build_html(
         '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         f'<meta http-equiv="Content-Security-Policy" content="{CSP}">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        "<title>Rust NYC · Pop Quiz</title>\n"
+        "<title>Rust NYC Pop Quiz</title>\n"
         f"<style>\n{_styles(web)}\n</style>\n</head>\n"
         '<body class="wall-page">\n'
         '<div class="wall-stage"><div class="wall-wrap" id="wallWrap" data-mode="static"></div></div>\n'

@@ -170,7 +170,7 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
-| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` · `Joined: ‹n›` | Room code; ↑ *You're in.* | *Start*; the code; *Joined: ‹n›* (AC-46) |
+| **idle** | *Create a room* | Title card: the wordmark top-left (§11, Title); **Time for a pop quiz.**; join strip `join @ ‹link›` · `Joined: ‹n›` | Room code; ↑ *You're in.* | *Start*; the code; *Joined: ‹n›* (AC-46) |
 | **live** | *Start* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link›` · `Joined: ‹n›` · `Answered: ‹n›`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
 | **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Trace* |
@@ -245,7 +245,7 @@ room and the schedule refuses a used question (G-10).
 
 The wall lays out at a **1120 × 630 design canvas** and scales as a unit
 (`transform: scale`) to the projector's actual pixels — never `width: 100%`
-on the box. Brand line top-left, `PROTOTYPE` badge removed in the build,
+on the box. The wordmark top-left (§11, *Title*), `PROTOTYPE` badge removed in the build,
 the join strip at the bottom.
 
 ### 5.2 Layout and the type model (AC-100, AC-78)
@@ -630,7 +630,7 @@ same homes.
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
-| Title — every host and buzzer screen's heading: the wordmark with the surface's role beneath; page titles `Rust NYC Pop Quiz · Host` / `Rust NYC Pop Quiz · Guest` | **Rust NYC Pop Quiz** · **Host** (host phone) · **Guest** (buzzer, join form included) |
+| Title — every host and buzzer screen's heading: the wordmark with the surface's role beneath; the wall's, top-left in every phase and in the static fallback: the wordmark alone; page titles `Rust NYC Pop Quiz · Host` / `Rust NYC Pop Quiz · Guest` / `Rust NYC Pop Quiz` (wall) | **Rust NYC Pop Quiz** · **Host** (host phone) · **Guest** (buzzer, join form included) · the wordmark alone (wall) |
 | Host + wall, count (AC-46) | Host, one line per screen: `Joined: ‹n›` before `live` (present) · `Answered: ‹n›` from `live` on. Wall join strip: `Joined: ‹n›` in `idle`; `Joined: ‹n›` · `Answered: ‹n›` in `live`; neither after, nor in the static fallback |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
