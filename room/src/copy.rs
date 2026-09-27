@@ -85,6 +85,8 @@ pub const HOST_FIT_CLIPPED_Y: &str = "too long for this room — clipped at the 
 pub const HOST_FIT_CLIPPED_X: &str = "too wide for this room — clipped at the right";
 pub const HOST_FIT_CLIPPED_XY: &str = "too long and too wide for this room";
 pub const HOST_TITLE: &str = "Pop Quiz Host";
+pub const HOST_COUNT_JOINED: &str = "Joined: ‹n›";
+pub const HOST_COUNT_ANSWERED: &str = "Answered: ‹n›";
 pub const STATIC_NEXT_PHASE: &str = "Space next phase";
 pub const STATIC_STEP_TRACE: &str = "← → step the trace";
 pub const STATIC_BACK_PHASE: &str = "Esc back a phase";
@@ -178,6 +180,8 @@ pub const ALL: &[(&str, &str)] = &[
     ("host_fit_clipped_x", HOST_FIT_CLIPPED_X),
     ("host_fit_clipped_xy", HOST_FIT_CLIPPED_XY),
     ("host_title", HOST_TITLE),
+    ("host_count_joined", HOST_COUNT_JOINED),
+    ("host_count_answered", HOST_COUNT_ANSWERED),
     ("static_next_phase", STATIC_NEXT_PHASE),
     ("static_step_trace", STATIC_STEP_TRACE),
     ("static_back_phase", STATIC_BACK_PHASE),

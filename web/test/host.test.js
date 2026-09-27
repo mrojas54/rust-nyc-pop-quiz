@@ -125,7 +125,20 @@ test('the create screen: Pop Quiz Host and Create a room, nothing else', () => {
   assert.equal(t, `${PQ.COPY.host_title} ${PQ.COPY.host_action_create}`);
 });
 
-test('no host screen shows counts, a fit line, a resume line or first-screen prose', () => {
+test('AC-46: one count line — Joined: n in idle, Answered: n from live on', () => {
+  const idle = unescape(PQ.host.render(payload('idle', { present: 15 })));
+  assert.ok(idle.includes(`<div class="host-count">Joined: 15</div>`));
+  assert.ok(!idle.includes('Answered:'));
+  for (const phase of PQ.PHASES.filter((p) => p !== 'idle')) {
+    const html = unescape(PQ.host.render(payload(phase, { present: 15, answered: 9 })));
+    assert.ok(html.includes(`<div class="host-count">Answered: 9</div>`), phase);
+    assert.ok(!html.includes('Joined:'), phase);
+  }
+  // moves when the payload does
+  assert.ok(unescape(PQ.host.render(payload('live', { answered: 3 }))).includes('Answered: 3'));
+});
+
+test('no host screen shows the old count sentence, a fit line, a resume line or first-screen prose', () => {
   for (const phase of PQ.PHASES) {
     const html = unescape(PQ.host.render(payload(phase, { present: 15, answered: 9, fit: PQ.COPY.host_fit_clipped_y })));
     assert.ok(!html.includes('9 of 15'), `${phase}: counts`);

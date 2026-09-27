@@ -157,6 +157,10 @@
     /* --- Host, title — every host screen's heading and the page title --- */
     host_title: "Pop Quiz Host",
 
+    /* --- Host, count (AC-46) — Joined before live, Answered from live on - */
+    host_count_joined: "Joined: ‹n›",
+    host_count_answered: "Answered: ‹n›",
+
     /* --- Static fallback (AC-102) --------------------------------------- */
     /* SPEC writes the key names in markdown code fencing; the backticks are
        its formatting, not punctuation the organizer reads off a screen — the
@@ -239,6 +243,7 @@
     "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
                        "host_fit_clipped_xy"],
     "Host, title": ["host_title"],
+    "Host, count (AC-46)": ["host_count_joined", "host_count_answered"],
     "Static fallback": ["static_next_phase", "static_step_trace", "static_back_phase"],
     "Uniqueness (organizer-facing, AC-18)": ["uniqueness"],
     "Receipt (§7.5)": ["receipt_heading", "receipt_compiled", "receipt_ran_n_times",

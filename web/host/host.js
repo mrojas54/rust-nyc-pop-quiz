@@ -143,6 +143,15 @@
       "</section>";
   }
 
+  /* AC-46, in the client's form: one word, a colon, a number. How many are
+     in the room before the question is live; how many answered after. */
+  function countHtml(p) {
+    var line = p.phase === "idle"
+      ? PQ.t("host_count_joined", { n: p.present })
+      : PQ.t("host_count_answered", { n: typeof p.answered === "number" ? p.answered : 0 });
+    return '<div class="host-count">' + esc(line) + "</div>";
+  }
+
   /* One screen for one host payload (view::HostPayload). `ui`: {status, busy}. */
   function render(p, ui) {
     var phase = PQ.assertPhase(p.phase);
@@ -151,7 +160,7 @@
     if (phase !== "released") html += codeHtml(p.code);
     if ((phase === "work" || phase === "reveal") && p.step) html += stepHtml(p.step, ui);
     if (phase === "reveal" && p.read_aloud) html += readAloudHtml(p.read_aloud);
-    html += primaryHtml(p.primary.action, ui) + statusHtml(ui) + "</div>";
+    html += primaryHtml(p.primary.action, ui) + statusHtml(ui) + "</div>" + countHtml(p);
     return html;
   }
 

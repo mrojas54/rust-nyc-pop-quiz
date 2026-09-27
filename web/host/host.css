@@ -66,6 +66,10 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
 .host-status { margin: 0; min-height: 1em; }
 .host-status:empty { display: none; }
 
+/* The count: the prototype's .ratio footer, one line. */
+.host-count { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+              color: var(--text-secondary); border-top: 1px solid var(--border-default); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

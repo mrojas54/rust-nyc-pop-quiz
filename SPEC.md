@@ -170,8 +170,8 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
-| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in.* | *Put it on the screen*; the code |
-| **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; **no answer** (AC-47) |
+| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in.* | *Put it on the screen*; the code; *Joined: ‹n›* (AC-46) |
+| **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
 | **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Let's walk it* |
 | **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code only | `←` `→`; the step's words; *Reveal* |
@@ -631,6 +631,7 @@ same homes.
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
 | Host, title — every host screen's heading and the page title | **Pop Quiz Host** |
+| Host, count (AC-46), one line per screen | `Joined: ‹n›` before `live` (present) · `Answered: ‹n›` from `live` on |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
 | Uniqueness (organizer-facing, AC-18) | *no exact or normalized duplicate found* — never *original* |
