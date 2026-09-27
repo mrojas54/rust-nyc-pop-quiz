@@ -65,7 +65,7 @@
 //! }
 //! ```
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime};
 
@@ -75,8 +75,10 @@ use subtle::ConstantTimeEq;
 use crate::answers::{Middle, Revealed, Scheduled, Verdict};
 use crate::auth::{Denied, HostAuth, OrganizerId};
 use crate::copy;
+use crate::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
 use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
 use crate::question::PublicQuestion;
+use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
 
 /// Per-option counts, A–E in arrival order. The only answer data a room holds
 /// (AC-56, D-12).
@@ -245,6 +247,18 @@ pub struct Room {
     released_at: Option<SystemTime>,
     fit: Option<Fit>,
     revision: u64,
+    // T-11: §4.6's quiet clock, written by `create` and every host action.
+    last_host_action: SystemTime,
+    // T-11: what the release transition built while it still held the reveal
+    // witness, until `AppState::act` takes it under the same lock.
+    parting: Option<Parting>,
+}
+
+/// T-11: what a room leaves behind at release — the take-it-home snapshot and
+/// the wall's last verdict, for the used record.
+struct Parting {
+    take_home: TakeHome,
+    fit: Option<Fit>,
 }
 
 /// What a room shows once it is in `reveal`: the vault's contents and §4.5's
@@ -341,6 +355,8 @@ impl Room {
             released_at: None,
             fit: None,
             revision: 0,
+            last_host_action: now,
+            parting: None,
         })
     }
 
@@ -415,9 +431,10 @@ impl Room {
         }
     }
 
-    /// The wall's writer for `fit` (§5.2).
+    /// The wall's writer for `fit` (§5.2). A released room has handed its
+    /// verdict to the used record and takes no more.
     pub fn record_fit(&mut self, fit: Fit) {
-        if self.fit != Some(fit) {
+        if self.phase() != Phase::Released && self.fit != Some(fit) {
             self.fit = Some(fit);
             self.revision += 1;
         }
@@ -447,13 +464,50 @@ impl Room {
                         verdict,
                     });
                 }
-                Phase::Released => self.released_at = Some(now),
+                // T-11: the machine is still `reveal` here, so `open` holds the
+                // witness. Copy out what outlives the room, then hollow it:
+                // no totals, no answered, no verdict, no counts (AC-56, D-12).
+                Phase::Released => {
+                    let take_home = {
+                        let opened = self.open().expect("release is entered only from reveal");
+                        crate::used::take_home(
+                            &self.question_id,
+                            crate::used::meetup_date(self.created_at),
+                            &self.public(),
+                            &opened,
+                        )
+                    };
+                    self.parting = Some(Parting {
+                        take_home,
+                        fit: self.fit.take(),
+                    });
+                    self.frozen = None;
+                    self.present = 0;
+                    self.answered_live = 0;
+                    self.released_at = Some(now);
+                }
                 Phase::Idle | Phase::Live | Phase::Split | Phase::Work | Phase::Reveal => {}
             }
         }
         self.machine = next;
         self.revision += 1;
+        self.last_host_action = now;
         Ok(Acted::Changed)
+    }
+
+    /// T-11: whether this room has ended at `now` — four hours up, or quiet for
+    /// §4.6's bound (`lifecycle::verdict`).
+    pub fn ended(&self, now: SystemTime) -> Option<Ended> {
+        crate::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
+    }
+
+    /// T-11: the last host action (§4.6).
+    pub fn last_host_action(&self) -> SystemTime {
+        self.last_host_action
+    }
+
+    fn take_parting(&mut self) -> Option<Parting> {
+        self.parting.take()
     }
 
     /// The public state: what any projection may read before `reveal`.
@@ -487,7 +541,7 @@ impl Room {
 
 // --------------------------------------------------------------------------
 // The rooms, in memory. No persistence (D-12: nothing outlives the room but
-// the `used` record, which is T-11's).
+// the `used` record and the take-it-home snapshot, both T-11's, below).
 // --------------------------------------------------------------------------
 
 struct Entry {
@@ -506,6 +560,8 @@ pub enum RoomError {
     Denied,
     /// The machine or the schedule refused it, in plain words.
     Refused(String),
+    /// T-11: the room has ended — four hours up, or quiet too long.
+    Ended(Ended),
 }
 
 impl From<Denied> for RoomError {
@@ -528,9 +584,15 @@ impl From<Refused> for RoomError {
 pub struct AppState {
     rooms: Mutex<HashMap<String, Entry>>,
     questions: Mutex<HashMap<String, Arc<Scheduled>>>,
-    /// Questions whose room was released. Its only writer is the release
-    /// transition (G-10); T-11's `used` ledger replaces it.
-    released_questions: Mutex<HashSet<String>>,
+    // T-11: what outlives a room — the used ledger, whose only writer is the
+    // release transition (G-10), and the take-it-home snapshot, replaced at
+    // every release (§13).
+    used: UsedLedger,
+    take_home: Mutex<Option<TakeHome>>,
+    // T-11: rooms that expired or went quiet, by id: their code and why, for
+    // `ENDED_MEMORY`, so a late join is told what happened (AC-29).
+    ended: Mutex<HashMap<String, Tombstone>>,
+    clock: Arc<dyn Clock>,
     auth: Arc<dyn HostAuth>,
     sessions: SessionFactory,
     urls: Urls,
@@ -558,6 +620,16 @@ pub enum AnswerError {
     UnknownSession,
     /// Not `live`: refused, with the saved answer restated (§4.3).
     Refused { phase: Phase, saved: Option<crate::question::Letter> },
+    /// T-11: the room has ended.
+    Ended(Ended),
+}
+
+/// T-11: what is remembered of a room that expired or went quiet. Its id is
+/// the map's key; nothing else about it — no question, no person, no count.
+struct Tombstone {
+    code: String,
+    ended: Ended,
+    at: SystemTime,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -575,7 +647,10 @@ impl AppState {
                     .map(|q| (q.public().id().to_string(), Arc::new(q)))
                     .collect(),
             ),
-            released_questions: Mutex::new(HashSet::new()),
+            used: UsedLedger::default(),
+            take_home: Mutex::new(None),
+            ended: Mutex::new(HashMap::new()),
+            clock: Arc::new(SystemClock),
             auth,
             // T-04b: the real sessions by default.
             sessions: Box::new(|| Box::new(crate::sessions::SessionMap::new())),
@@ -603,6 +678,71 @@ impl AppState {
         &self.urls
     }
 
+    // ----------------------------------------------------------------------
+    // T-11: the clock, what outlives a room, and the sweep.
+    // ----------------------------------------------------------------------
+
+    /// Replace the clock (tests; `lifecycle::ManualClock`).
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> AppState {
+        self.clock = clock;
+        self
+    }
+
+    /// The time, from the one clock.
+    pub fn now(&self) -> SystemTime {
+        self.clock.now()
+    }
+
+    /// The used-question ledger (G-10). T-25's `GET /admin/used` and T-20's
+    /// sync read [`UsedLedger::all`].
+    pub fn used(&self) -> &UsedLedger {
+        &self.used
+    }
+
+    /// The last released question, for T-12's `/last`. `None` until a room
+    /// has been released on this machine.
+    pub fn take_home(&self) -> Option<TakeHome> {
+        lock(&self.take_home).clone()
+    }
+
+    /// How many room records exist, released shells included (AC-56, by
+    /// inspection).
+    pub fn room_count(&self) -> usize {
+        lock(&self.rooms).len()
+    }
+
+    /// Why a room that is gone ended, while it is remembered.
+    pub fn ended_room(&self, room_id: &str) -> Option<Ended> {
+        lock(&self.ended).get(room_id).map(|t| t.ended)
+    }
+
+    /// Delete every room that has ended at `now` — the record and its
+    /// sessions, whole — and remember its code and why. Forget remembered
+    /// rooms older than [`ENDED_MEMORY`]. The one deletion path (§4.6); the
+    /// reaper calls it and tells the transport about the ids it returns.
+    pub fn sweep(&self, now: SystemTime) -> Vec<String> {
+        let mut rooms = lock(&self.rooms);
+        let mut ended = lock(&self.ended);
+        ended.retain(|_, t| now < t.at + ENDED_MEMORY);
+        let gone: Vec<(String, Ended)> = rooms
+            .iter()
+            .filter_map(|(id, e)| e.room.ended(now).map(|why| (id.clone(), why)))
+            .collect();
+        for (id, why) in &gone {
+            if let Some(entry) = rooms.remove(id) {
+                ended.insert(
+                    id.clone(),
+                    Tombstone {
+                        code: entry.room.code.clone(),
+                        ended: *why,
+                        at: now,
+                    },
+                );
+            }
+        }
+        gone.into_iter().map(|(id, _)| id).collect()
+    }
+
     /// *Create a room*: authorized by the one create check (G-9, §8).
     pub fn create_room(
         &self,
@@ -620,7 +760,7 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        if lock(&self.released_questions).contains(question_id) {
+        if self.used.contains(question_id) {
             return Err(RoomError::Refused(
                 "That question has already been run. Pick another.".into(),
             ));
@@ -630,12 +770,14 @@ impl AppState {
             .cloned()
             .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
         let mut rooms = lock(&self.rooms);
+        let ended = lock(&self.ended);
         let code = loop {
             let code = new_code();
-            if !rooms.values().any(|e| e.room.code == code) {
+            if !rooms.values().any(|e| e.room.code == code) && !ended.values().any(|t| t.code == code) {
                 break code;
             }
         };
+        drop(ended);
         let room = Room::create(question, organizer, code, &self.urls, now)?;
         let created = Created {
             id: room.id.clone(),
@@ -666,6 +808,9 @@ impl AppState {
         let mut rooms = lock(&self.rooms);
         let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
         self.auth.authorize_host(&entry.room, bearer)?;
+        if let Some(why) = entry.room.ended(now) {
+            return Err(RoomError::Ended(why));
+        }
         let Entry { room, sessions } = entry;
         match room.act(command, now, || sessions.close_snapshot())? {
             Acted::Changed => {}
@@ -675,9 +820,20 @@ impl AppState {
                 ))
             }
         }
-        if command == Command::Host(HostAction::ReleaseRoom) {
+        // T-11: the release transition's side effects, under the same lock as
+        // the transition itself. The used record's one writer (G-10).
+        if let Some(parting) = room.take_parting() {
             sessions.release();
-            lock(&self.released_questions).insert(room.question_id.clone());
+            self.used.append(UsedEntry {
+                question_id: room.question_id.clone(),
+                used: UsedRecord {
+                    meetup_date: crate::used::meetup_date(room.created_at),
+                    room_id: room.id.clone(),
+                    released_at: crate::used::rfc3339(now),
+                    fit: parting.fit,
+                },
+            });
+            *lock(&self.take_home) = Some(parting.take_home);
         }
         Ok(())
     }
@@ -697,6 +853,9 @@ impl AppState {
             let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
             if entry.room.organizer != organizer {
                 return Err(RoomError::Denied);
+            }
+            if let Some(why) = entry.room.ended(now) {
+                return Err(RoomError::Ended(why));
             }
             match entry.room.act(Command::Host(HostAction::RunItAgain), now, || {
                 unreachable!("Run it again never closes answers")
@@ -757,11 +916,18 @@ impl AppState {
     pub fn join(&self, code: &str) -> Result<Joined, crate::sessions::JoinRefusal> {
         use crate::sessions::{parse_code, JoinRefusal};
         let code = parse_code(code).ok_or(JoinRefusal::Malformed)?;
+        let now = self.now();
         let mut rooms = lock(&self.rooms);
-        let entry = rooms
-            .values_mut()
-            .find(|e| e.room.code == code)
-            .ok_or(JoinRefusal::Unknown)?;
+        let Some(entry) = rooms.values_mut().find(|e| e.room.code == code) else {
+            // T-11: a room that expired or went quiet says so (AC-29).
+            return Err(lock(&self.ended)
+                .values()
+                .find(|t| t.code == code)
+                .map_or(JoinRefusal::Unknown, |t| t.ended.refusal()));
+        };
+        if let Some(why) = entry.room.ended(now) {
+            return Err(why.refusal());
+        }
         if entry.room.phase() == Phase::Released {
             return Err(JoinRefusal::AlreadyEnded);
         }
@@ -783,9 +949,13 @@ impl AppState {
         token: &str,
         letter: crate::question::Letter,
     ) -> Result<crate::question::Letter, AnswerError> {
+        let now = self.now();
         let mut rooms = lock(&self.rooms);
         let entry = rooms.get_mut(room_id).ok_or(AnswerError::NotFound)?;
         let saved = entry.sessions.answer_of(token).ok_or(AnswerError::UnknownSession)?;
+        if let Some(why) = entry.room.ended(now) {
+            return Err(AnswerError::Ended(why));
+        }
         if !entry.room.accepts_answers() {
             return Err(AnswerError::Refused {
                 phase: entry.room.phase(),
@@ -812,9 +982,13 @@ impl AppState {
     /// nothing about any other. T-04c pushes this on re-attach. A token that
     /// names no session is `Denied`.
     pub fn buzzer_for(&self, room_id: &str, token: &str) -> Result<crate::view::BuzzerPayload, RoomError> {
+        let now = self.now();
         let rooms = lock(&self.rooms);
         let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
         let yours = entry.sessions.answer_of(token).ok_or(RoomError::Denied)?;
+        if let Some(why) = entry.room.ended(now) {
+            return Err(RoomError::Ended(why));
+        }
         Ok(crate::view::buzzer_for(&entry.room, yours))
     }
 
