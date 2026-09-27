@@ -115,7 +115,7 @@ fn the_host_actions_are_exactly_the_eight_of_ac_45() {
             "Show the room its split",
             "Trace",
             "Reveal",
-            "Release the room",
+            "End Pop Quiz",
             "Run it again",
         ]
     );

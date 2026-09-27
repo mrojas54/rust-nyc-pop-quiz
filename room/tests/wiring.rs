@@ -9,7 +9,7 @@
 //! - AC-37: a buzzer that drops and re-attaches with the same token gets the
 //!   room's current state first, with its saved answer from the real map; the
 //!   drop changes no count.
-//! - After *Release the room* the token resolves to nothing.
+//! - After *End Pop Quiz* the token resolves to nothing.
 
 mod common;
 

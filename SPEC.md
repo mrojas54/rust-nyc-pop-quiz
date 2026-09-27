@@ -175,8 +175,8 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
 | **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Trace* |
 | **work** | *Trace* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code only | `←` `→`; the step's words; *Reveal* |
-| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | **✓ It was X.**, with *You didn't answer.* above it on a phone that holds no answer. No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
-| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px and a QR. Nothing else (touchpoint T-20, item 13) | Room code only | *Run it again* → a new room (never the same question, G-10) |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | **✓ It was X.**, with *You didn't answer.* above it on a phone that holds no answer. No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *End Pop Quiz* |
+| **released** | *End Pop Quiz* | **Let's go to the bar.** The take-it-home link at 40 px and a QR. Nothing else (touchpoint T-20, item 13) | Room code only | *Run it again* → a new room (never the same question, G-10) |
 
 ### 4.1 Joining (AC-28…AC-31)
 
@@ -626,7 +626,7 @@ same homes.
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
 | Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
-| Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · Release the room · Run it again |
+| Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · End Pop Quiz · Run it again |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
