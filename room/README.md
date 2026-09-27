@@ -306,6 +306,7 @@ HTML, CSS and JS from `web/<surface>/`, embedded at compile time
 | `GET /shared/{file}` | `web/shared/*.css` and `*.js`, as `text/css` / `text/javascript` | T-05 |
 | `GET /shared/fonts/{file}` | the vendored fonts `fonts.css` loads (`font/ttf`, D-14) | T-05 |
 | `PUT /rooms/{id}/fit` `{fit}` | the wall's measured verdict → the host's fit line; `204`, `400` for anything but the four verdicts. **No credential**: the wall is `fit`'s writer (§3.4) and has none. A stranger with the 128-bit room id can at most change the host's fit line | T-05 |
+| *(none)* | the static fallback file and its host sheet (`popquiz.fallback`, SPEC §12, D-24) hold the answer and live on the organizer's laptop; no route serves either, nor its driver `web/wall/fallback/static.js` — `tests/no_fallback_route.rs` | T-26 |
 
 **The wall page is static.** It is the same bytes in every phase: it carries
 no room state and draws every phase from the wall socket's frames
@@ -351,6 +352,35 @@ question) renders at the 14.22 px floor, measures 178 px of overflow at the
 bottom, reports `clipped_y`, and draws the 4 px red bottom edge, with the page
 still not scrolling. The sources q4, q7 and q8 are run under q3's payloads — the type
 model reads only the source — because only q3 has a trace today.
+
+**The static fallback (AC-102, T-26)**, same reason for being outside
+`test-full`: `python -m popquiz.fallback q3 --out <dir>/q3.html` writes the file
+and `q3.host-sheet.txt` beside it; open the file in a browser and step it with
+`Space`, `←` `→` and `Esc`. The file carries a Content-Security-Policy of
+`default-src 'none'` and `connect-src 'none'`, so the browser itself refuses any
+request, fetch and WebSocket included. Last run, 2026-09-26, c11 browser
+(WKWebView), `file://`, q3. c11 drives keys and reads state by injecting script,
+which the file's CSP refuses, so the run used a harness copy whose only difference
+is `'unsafe-eval'` added to `script-src`; every network directive was unchanged.
+Results:
+
+- `Space` from `idle` walked idle → live → closed → split → work (Step 1 of 6)
+  → reveal (Step 6 of 6) → released, and did nothing past released.
+- `→` in work stopped at Step 5 of 6 (M-2); `←`/`→` in reveal covered 6 → 1
+  and stopped at both ends. Arrows in every other phase did nothing.
+- `Esc` from released walked back to idle, entering reveal at 6 of 6 and work
+  at 1 of 6. At idle it did nothing.
+- Syntax colour: 13 spans in live, closed and split, 0 in work and reveal.
+- ✓ and receipt: none before reveal. In reveal there were 6 ✓ (the bar, the
+  option chip and the 4 receipt lines).
+- Strip: the key legend in idle, *answers are closed* in closed, empty elsewhere.
+- Page overflow 0 × 0 in every view.
+- Network: `performance.getEntriesByType('resource')` was 0 and no
+  `securitypolicyviolation` fired. The fonts rendered from data URIs.
+
+Opening the unmodified file showed the idle view with the legend. That c11 could
+not script it is itself the CSP working. Stepping it on a real keyboard with the
+network off is HC-0's *felt* half, and it is the client's.
 
 ## The sealed module, and how the proof works
 
