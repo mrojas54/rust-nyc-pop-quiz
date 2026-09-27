@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T01:27:17Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3G7JFA9094527AFHRHWRMR5",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3G7JFA9094527AFHRHWRMR5.md",
+    "size_bytes": 842
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Merge resolution e390440 (Orchestrator)",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T01:25:20Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3G7EXEV34H6XSCV3TY7VNXC",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3G7EXEV34H6XSCV3TY7VNXC.md",
+    "size_bytes": 417
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #22, merge commit 65722ce). Review PASS-WITH-NITS on 92d8d13 with Majors fixed; validation attached; Orchestrator merge-resolution note for 9c31204 ",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

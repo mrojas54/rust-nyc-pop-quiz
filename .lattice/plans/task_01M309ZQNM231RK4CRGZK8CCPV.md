@@ -56,3 +56,21 @@ One question record -> `bake(question)` (Python, the pipeline) -> a JSON literal
 - Middle beat on the sheet: all incorrect options' `why_tempting`, since the room's choice (most-chosen) cannot be computed without votes. Every line is still affirmed text (AC-72, AC-95).
 - Key legend: shown in the idle strip (§11 *Static fallback* row has copy for it and nowhere else to live).
 - CLI shape `python -m popquiz.fallback` (pyproject has no scripts table).
+
+## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)
+
+Review: sonnet subagent, 2026-09-26 (re-run after the usage-limit pause; the code was being drafted in parallel, so the reviewer also read it).
+
+1. **Critical: `bake()` refused less than `answers::load`** (no AC-24 exactly-one-does-not-compile check, no AC-95 why_tempting check; the sheet wrote `why_tempting or ""`). *Resolution:* both refusals added to `bake()`, which `host_sheet()` calls first, so neither file can be written for such a record; the `or ""` is gone. Tests cover 0 DNC options and a missing/blank why_tempting for both bake and sheet.
+2. **Major: `/home` vs SPEC §13's `/last`.** *Resolution:* the default take-it-home link is now `https://popquiz.rustnyc.org/last` (SPEC §13; also PQ-7's QR golden). The room's own dev default `Urls.home = …/home` (room/src/rooms.rs) is a pre-existing divergence outside this ticket (room/src not cleared) — reported to the Orchestrator, not fixed.
+3. **Major: no runnable recipe for the AC-102 browser check, unlike `wall-layout`.** *Resolution:* not taken. The justfile clearance is one `test-full` line, and the run needs no server — the CLI writes a file:// page. The line names the run and room/README.md gives the exact command and the recorded results. Deviation recorded.
+4. **Minor: answered line omitted with the join strip is inferred, not quoted.** *Resolution:* kept, flagged in the DONE comment as a deviation for the Orchestrator/client. With no phones the line would read "0 of 0 in the room answered".
+5. **Minor: qr.js item already done.** Noted; the item is done.
+6. **Minor: plan said `html(frame, {strip})`; the build uses the existing `frame.strip` field in idle.** *Resolution:* the build is authoritative: idle renders `frame.join`, else `frame.strip`. No new opts.
+
+Changes made during implementation, also authoritative:
+- The driver lives at `web/wall/fallback/static.js`, not `web/wall/static.js`. PQ-7's `wall_page.rs` requires every top-level `web/wall/*.js` to be served, and this ticket requires the fallback's driver not to be; the subdirectory keeps both true without touching routes.rs or PQ-7's test.
+- The driver accepts `ev.code === "Space"` and the literal key `"Space"` besides `" "` (c11's synthetic keydown sends `key: "Space"`).
+- `test-full` browser run: c11's `eval`/`press` inject script, which the file's own CSP refuses. The recorded run used a harness copy that adds only `'unsafe-eval'` to `script-src`; every network directive is unchanged.
+
+## Reset 2026-09-27 by agent:delegator-pq12
