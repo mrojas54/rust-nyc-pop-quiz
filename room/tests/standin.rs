@@ -185,8 +185,10 @@ mod with_the_feature {
     fn ac64_missing_or_empty_is_a_startup_error() {
         let name = var_name();
         assert!(matches!(Config::from_vars(vars(&[])), Err(ConfigError::MissingHostToken)));
-        let empty = [(name.as_str(), "")];
-        assert!(matches!(Config::from_vars(vars(&empty)), Err(ConfigError::MissingHostToken)));
+        for blank in ["", " ", "\t\n"] {
+            let env = [(name.as_str(), blank)];
+            assert!(matches!(Config::from_vars(vars(&env)), Err(ConfigError::MissingHostToken)), "{blank:?}");
+        }
     }
 
     #[test]

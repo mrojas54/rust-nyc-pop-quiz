@@ -837,6 +837,19 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     let wall_reveal = wall.last("reveal").unwrap_or(Value::Null);
     check(f, s.found_in(&host_reveal).contains(&"explains.what".to_string()), "reveal: the host's read-aloud does not carry the explanation — the scan may be blind");
     check(f, s.found_in(&wall_reveal).contains(&"the resolving note".to_string()), "reveal: the wall does not carry the resolving step — the scan may be blind");
+    // Across every reveal surface: each kind of secret the scan looks for shows
+    // up at least once, so none of its pre-reveal checks can pass by being blind.
+    // Only the most-chosen incorrect option's why_tempting is read aloud (§4.5),
+    // so one why_tempting is what reveal owes.
+    let mut surfaced: Vec<String> = s.found_in(&host_reveal);
+    surfaced.extend(s.found_in(&wall_reveal));
+    for p in &people {
+        surfaced.extend(s.found_in(&p.watcher.last("reveal").unwrap_or(Value::Null)));
+    }
+    for want in ["explains.what", "explains.takeaway", "the resolving note", "check mark", "key correct"] {
+        check(f, surfaced.iter().any(|h| h == want), format!("reveal: no surface carries {want} — the scan may be blind to it"));
+    }
+    check(f, surfaced.iter().any(|h| h.starts_with("why_tempting")), "reveal: no surface carries any why_tempting — the scan may be blind to it");
     let correct = people[0].watcher.last("reveal").map(|b| b["correct"].clone()).unwrap_or(Value::Null);
     check(f, correct.is_string(), "reveal: the buzzer names no correct letter");
     check(f, !s.get("the resolving note").is_empty(), "q3 has no resolving note to scan for");

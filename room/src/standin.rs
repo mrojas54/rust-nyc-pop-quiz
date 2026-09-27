@@ -45,7 +45,7 @@ impl DevHostToken {
     /// a stand-in that accepted nothing would look like a broken host page.
     pub fn from_var(value: Option<String>) -> Result<DevHostToken, ConfigError> {
         match value {
-            Some(v) if !v.is_empty() => Ok(DevHostToken {
+            Some(v) if !v.trim().is_empty() => Ok(DevHostToken {
                 token: v.into_bytes().into_boxed_slice(),
             }),
             _ => Err(ConfigError::MissingHostToken),
