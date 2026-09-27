@@ -1,0 +1,64 @@
+# The room on Fly.io (T-09, BUILDPLAN D-A): the M1 skeleton behind SPEC §8.2's
+# stand-in. Written by hand. Create the app with `fly apps create` and deploy
+# with `fly deploy --ha=false`; never `fly launch`, which rewrites this file and
+# strips every comment (PQ-3). room/README.md, Deploying, has the commands.
+#
+# Not the spike: `room/fly.spike.toml` describes `rustnyc-popquiz-spike`, a
+# throwaway app that stays as it is.
+
+app            = "rustnyc-popquiz"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  # Where people reach the room: join links are `{this}/{code}`, and the host's
+  # resume link lives under it (AC-28, AC-50). DNS for popquiz.rustnyc.org is
+  # not in place (H-2), so this is Fly's own hostname. When DNS lands:
+  # `fly certs add popquiz.rustnyc.org`, change this line, deploy.
+  POPQUIZ_PUBLIC_URL = "https://rustnyc-popquiz.fly.dev"
+  # HOST_DEV_TOKEN is a Fly secret (`fly secrets set`), never a line here.
+
+[http_service]
+  internal_port = 8080
+  force_https   = true
+
+  # One machine, and only one. The room is one authoritative state in memory
+  # (SPEC §9): a second machine would hold a second copy, and a phone routed to
+  # it would join a room the wall has never heard of. This is also why deploys
+  # take `--ha=false` — `fly deploy` otherwise adds a second machine "for high
+  # availability" regardless of the settings below (PQ-3 saw it happen).
+  #
+  # Never stopped for idleness: a stopped machine loses every room it held.
+  # Started on demand, though: an org with no payment method has every machine
+  # stopped after about five minutes, and this lets the next request start a
+  # fresh one (with no rooms) rather than fail.
+  auto_stop_machines   = "off"
+  auto_start_machines  = true
+  min_machines_running = 1
+  processes            = ["app"]
+
+  [http_service.concurrency]
+    # Fly's default is 25 connections. A room is 200 phones' sockets plus the
+    # wall, the host and their HTTP requests; at the default the proxy would
+    # shed connections long before the machine was under any strain (PQ-3).
+    type       = "connections"
+    hard_limit = 400
+    soft_limit = 350
+
+  [[http_service.checks]]
+    # The join page: served from memory by every build, no state, no credential.
+    method       = "GET"
+    path         = "/join"
+    interval     = "30s"
+    timeout      = "5s"
+    grace_period = "10s"
+
+[[vm]]
+  # The size the T-03 burst spike passed on (PQ-3): 5x headroom on AC-54.
+  size     = "shared-cpu-1x"
+  cpu_kind = "shared"
+  cpus     = 1
+  memory   = "256mb"

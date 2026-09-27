@@ -1,9 +1,9 @@
 # Rust NYC Pop Quiz — the harness.
 #
 # The eight recipe names below are reserved by EVALUATION.md's harness table and
-# mean the same thing everywhere in the contract. Five of them name suites that
-# do not exist yet; those print which ticket delivers them and fail, so that a
-# suite can never look green by not being there.
+# mean the same thing everywhere in the contract. Those whose suites do not exist
+# yet (PENDING) print which ticket delivers them and fail, so that a suite can
+# never look green by not being there.
 #
 #   just setup          fetch dependencies
 #   just test           the inner loop: hermetic, parallel, offline, <= 60 s
@@ -21,7 +21,7 @@
 
 # Suites not built yet, and the ticket that delivers each. Read by both `_pending`
 # and `test-full`, so the two can never disagree about what is missing.
-PENDING := "burst:T-21 a11y:T-13 smoke:T-09"
+PENDING := "burst:T-21 a11y:T-13"
 
 _default:
     @just --list --unsorted
@@ -197,6 +197,25 @@ canary *ARGS:
         cargo test --offline --locked --test canary_full -- --ignored
     fi
 
+# The deployed room end to end (T-09): all seven phases over real sockets with
+# mock participants, the join link and the stand-in's refusals checked, q3's
+# secrets scanned for in every pre-reveal frame (room/README.md, Deploying).
+# The host credential is read from HOST_DEV_TOKEN in the environment, never
+# from the command line. A by-hand gate until T-21 puts it in test-full.
+#
+#   just smoke https://rustnyc-popquiz.fly.dev [--participants N]   (1-200, default 20)
+#
+# One run releases q3, and a machine refuses a question it has already run
+# until it restarts: `fly apps restart rustnyc-popquiz` before the next run.
+#
+# The deployed room, all seven phases (HOST_DEV_TOKEN in the environment).
+smoke URL *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ulimit -n 4096 2>/dev/null || true
+    cd room
+    cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
+
 # --- Reserved names whose suites do not exist yet ------------------------------
 # Each fails loudly rather than passing quietly. `test` and `test-full` do not
 # depend on them, which is why those two are green while these are not.
@@ -219,8 +238,6 @@ burst *ARGS:
 a11y *ARGS:
     @just _pending a11y
 
-smoke *ARGS:
-    @just _pending smoke
 
 # Prints which ticket delivers a suite, then fails.
 _pending SUITE:
