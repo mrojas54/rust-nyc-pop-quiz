@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T15:27:54Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3HQNPSKKXQ07HNNF0H7E7K3",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3HQNPSKKXQ07HNNF0H7E7K3.md",
+    "size_bytes": 381
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #26 (ai-c11-cc/deploy @ 5bab340 on 66a962c) merged to main with a merge commit at 88e0018 on the client's word 2026-09-27 11:2x EDT, after re-verifying OPEN/MERGEABLE/CLEAN and both CI jobs SUCCESS",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
