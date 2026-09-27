@@ -86,7 +86,6 @@ body { overflow-x: hidden; }
 .buzz-after { max-width: 240px; margin: 14px auto 0; }
 .buzz-itwas { font-size: 19px; margin: 14px 0 0; }
 
-.buzz-foot { flex: none; font-size: var(--text-xs); text-align: center; color: var(--text-secondary); }
 
 /* The join form: one field, one button, one line beneath (AC-28). */
 .buzz-join { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
@@ -102,7 +101,6 @@ body { overflow-x: hidden; }
 .buzz-join-go { width: 100%; }
 .buzz-refusal { margin: 0; padding: 8px 12px; font-size: var(--text-sm);
                 border-left: 3px solid var(--accent-hover); background: var(--accent-subtle); }
-.buzz-join-beneath { text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .buzzer * { transition: none !important; animation: none !important; }

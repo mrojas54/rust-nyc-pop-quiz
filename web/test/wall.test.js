@@ -131,15 +131,13 @@ test('split: five bars with n · p%, the answered line, and no answer', () => {
   assert.ok(!h.includes('<div class="opt">'), 'the bars take the options\' place (prototype)');
 });
 
-test('work: the trace without colour, the step within 0..M-2, and the three beats', () => {
+test('work: the trace without colour, the step within 0..M-2, and no beat panel', () => {
   const m = F.work[0].trace.m;
   F.work.forEach((f, i) => {
     const h = W.html(f);
     assert.ok(h.includes(`Step ${i + 1} of ${m}`), `step ${i}`);
     assert.ok(!h.includes(`Step ${m} of ${m}`), 'the resolving step is never shown in work (D-10)');
-    for (const beat of [PQ.COPY.wall_work_lead, PQ.COPY.wall_work_no_answer, PQ.COPY.wall_work_nobody]) {
-      assert.ok(h.includes(PQ.escapeHtml(beat)), beat);
-    }
+    assert.ok(!h.includes('workbeat'), 'no beat panel (PQ-34)');
     // highlight-and-dim from the step
     for (const n of f.trace.step.lines) {
       assert.match(h, new RegExp(`<span class="rn-src-line hl"><span class="rn-src-ln" aria-hidden="true" style="width:1ch">${n}</span>`));
@@ -192,12 +190,12 @@ test('reveal with no incorrect votes: "Nobody read it another way."', () => {
   assert.ok(h.includes(`<div class="wall-middle">${PQ.COPY.wall_reveal_nobody_else}</div>`));
 });
 
-test('released: the bar line, the link at 40px, one line, a QR of the same link — nothing else', () => {
+test('released: the bar line, the link at 40px, a QR of the same link — nothing else', () => {
   const f = F.released;
   const h = W.html(f);
   assert.ok(h.includes(`<h2>${PQ.escapeHtml(PQ.COPY.wall_released_title)}</h2>`));
   assert.ok(h.includes(`<div class="endlink">${f.released.link.replace(/^https?:\/\//, '')}</div>`));
-  assert.ok(h.includes(`<div class="endsub">${PQ.COPY.wall_released_line}</div>`));
+  assert.ok(!h.includes('endsub'), 'no line under the link (PQ-34)');
   assert.ok(h.includes(`<svg class="endqr"`) && h.includes(`aria-label="${f.released.link}"`));
   // the QR in the page is the QR of the whole link
   const expected = PQ.qrSvg(f.released.link, { className: 'endqr' });

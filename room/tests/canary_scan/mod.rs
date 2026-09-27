@@ -1214,12 +1214,14 @@ pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> E
     w.stop("closed, after the page re-attached").await;
 
     // split
-    let [_, split_buzzer, _] = w.transition(HostAction::ShowSplit.slug()).await;
+    w.transition(HostAction::ShowSplit.slug()).await;
     let split = page_do(&mut page, json!({"cmd": "wait", "phase": "split"}));
-    let b_total = split_buzzer["counts"]["totals"][1].as_u64().unwrap();
+    // PQ-34 (HC-0): counts are the wall's; the phone renders none. What AC-58
+    // guards — nothing carrying the answer leaves the phone after close — is
+    // the request-log scan below, and it is unchanged.
     assert!(
-        split["html"].as_str().unwrap().contains(&format!("data-count=\"{b_total}\"")),
-        "AC-58: the page's own count is the broadcast total for the letter it holds"
+        !split["html"].as_str().unwrap().contains("data-count"),
+        "PQ-34: the page renders no count"
     );
 
     // work: every step to the bound, and one more is refused.

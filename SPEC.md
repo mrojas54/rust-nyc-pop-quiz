@@ -170,13 +170,13 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
-| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in. Everything happens on the screen at the front — look up.*; foot `no account · no name · no score` | *Put it on the screen*; present count; the code |
-| **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; present and answered counts (AC-46); **no answer** (AC-47) |
+| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in.* | *Put it on the screen*; the code |
+| **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
-| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | *Look up. Where the room landed.* — the count `n`, *people said X, including you.*; foot `computed on this phone · never sent anywhere` | *Let's walk it* |
-| **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots); beat panel: **Let's walk it. / Still no answer. / Nobody has to say anything.** **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | *Look up. We're walking it through.* — the count; *Nothing to do. Nobody knows the answer yet.* | `←` `→`; the step's words; *Reveal* |
-| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | *The answer is on the screen.* — the count; **✓ It was X.**; *You and ‹n−1› other people read it the same way. The host is reading out the why now.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
-| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px, one line of what is behind it, a QR. Nothing else (touchpoint T-20, item 13) | ✓ *Nothing about you was recorded.* | *Run it again* → a new room (never the same question, G-10) |
+| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Let's walk it* |
+| **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code only | `←` `→`; the step's words; *Reveal* |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | **✓ It was X.**, with *You didn't answer.* above it on a phone that holds no answer. No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
+| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px and a QR. Nothing else (touchpoint T-20, item 13) | Room code only | *Run it again* → a new room (never the same question, G-10) |
 
 ### 4.1 Joining (AC-28…AC-31)
 
@@ -345,8 +345,7 @@ gains the ✓ and the green border; no bar is ever marked wrong.
 ### 5.5 Released
 
 *Let's go to the bar.* in Instrument Serif; the link in 40 px monospace; the
-QR encoding the same link; one line: *the question, the walk-through and the
-why — at your own pace.*
+QR encoding the same link.
 
 ---
 
@@ -538,8 +537,7 @@ the 10,000-invalid-requests ban is IP-wide.
 
 ### 8.1 What is not a security guarantee (AC-62, AC-63)
 
-The organizer runbook and the host phone's first screen carry these two
-sentences verbatim: *Option text is public — the correct answer is always one
+The organizer runbook carries these two sentences verbatim: *Option text is public — the correct answer is always one
 of the five visible options.* And: *A host who reads Rust can work out the
 answer from the source; the host's not being shown it keeps the host honest,
 it is not a security guarantee.*
@@ -612,33 +610,27 @@ same homes.
 | Wall, idle | **Time for a pop quiz.** · `join @ ‹link›` |
 | Wall, live | `join @ ‹link› · still open` · well header: **What does this program print?** |
 | Wall, trace (work, reveal) | **Step ‹N› of ‹M›** with dots · *Pause here.* on a `pivot` step |
-| Buzzer, join form | label **room code** · button **join** · beneath: *or open the link on the screen* |
+| Buzzer, join form | label **room code** · button **join** |
 | Wall, closed | **answers are closed** |
 | Wall, split on | `‹answered› of ‹present› in the room answered` |
-| Wall, work | **Let's walk it.** / Still no answer. / Nobody has to say anything. |
 | Wall, reveal | `‹n› of us said ‹X›` beside the named incorrect option |
-| Wall, released | **Let's go to the bar.** · ‹link› · *the question, the walk-through and the why — at your own pace.* |
-| Buzzer, idle | You're in. Everything happens on the screen at the front — look up. |
-| Buzzer, foot | no account · no name · no score |
-| Buzzer, split | **Look up.** Where the room landed. · `‹n›` · people said **‹X›**, including you. · Five different readings. Nobody knows what anyone picked. |
-| Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet. |
-| Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way *(when n−1 is 1: **You and 1 other person read it the same way.**)*. The host is reading out the why now. / You were the only one who read it that way. |
-| Buzzer, split → reveal, **no answer given** | **Look up.** · **‹k› people didn't answer, you included.** *(k = `present` − `answered`; when k is 1: **You didn't answer.**)* · (split) Where the room landed. / (work) We're walking it through. / (reveal) ✓ It was **‹Y›**. The host is reading out the why now. |
+| Wall, released | **Let's go to the bar.** · ‹link› |
+| Buzzer, idle | You're in. |
+| Buzzer, reveal | ✓ It was **‹Y›**. |
+| Buzzer, reveal, **no answer given** | You didn't answer. |
 | Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
-| Buzzer, foot (split→reveal) | computed on this phone · never sent anywhere |
-| Buzzer, released | Nothing about you was recorded. |
-| Buzzer, hint | Show me a hint · *(once shown)* Only you can see this. Nobody is told you looked. |
+| Buzzer, hint | Show me a hint |
 | Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **tap a letter** |
 | Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe / *(no answer yet)* **paused — reconnecting…** |
 | Buzzer, closed | **answers are closed** · you said **‹X›** / you didn't answer |
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
-| Host, phase labels (AC-49), one per screen | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
+| Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
 | Host, actions | Create a room · Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
-| Host, fit line (AC-100), shown from `live` on | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
-| Host, first screen | If you lose this phone, open this on another one: ‹resume link› · plus §8.1's two sentences |
+| Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
+| Host, title — every host screen's heading and the page title | **Pop Quiz Host** |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
 | Uniqueness (organizer-facing, AC-18) | *no exact or normalized duplicate found* — never *original* |

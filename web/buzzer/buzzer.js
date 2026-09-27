@@ -1,8 +1,8 @@
 /* ===========================================================================
    The buzzer (T-06) — the phone in everyone's hand.
 
-   Five letters, a private hint, and after the split one number: how many
-   people said what you said. No source, no trace, no option text, ever (G-8):
+   Five letters, a private hint, and at the reveal the answer's letter. No
+   source, no trace, no option text, ever (G-8):
    nothing in this file reads a payload's `source`, `trace` or `options`.
 
    Two halves:
@@ -352,10 +352,6 @@
       '</header>';
   }
 
-  function foot(key) {
-    return '<footer class="buzz-foot">' + esc(t(key)) + '</footer>';
-  }
-
   function joinScreen(s) {
     var msg = null;
     if (s.refusal === "unknown_error") msg = null;
@@ -369,9 +365,7 @@
       esc(t("buzzer_join_button")) + '</button>' +
       (msg ? '<p class="buzz-refusal" id="pq-refusal" role="status" data-refusal="' + attr(s.refusal) + '">' +
         esc(msg) + '</p>' : '') +
-      '<p class="meta buzz-join-beneath">' + esc(t("buzzer_join_beneath")) + '</p>' +
-      '</form>' +
-      foot("buzzer_foot");
+      '</form>';
   }
 
   function paused(s) {
@@ -398,8 +392,7 @@
       return '<button class="btn buzz-hint-go" type="button" data-act="hint">' +
         esc(t("buzzer_hint_action")) + '</button>';
     }
-    return '<div class="panel buzz-hint" data-state="hint-shown">' + esc(h.text) +
-      '<br><span class="meta">' + esc(t("buzzer_hint_shown")) + '</span></div>';
+    return '<div class="panel buzz-hint" data-state="hint-shown">' + esc(h.text) + '</div>';
   }
 
   function liveScreen(s) {
@@ -414,8 +407,7 @@
             ? ' <button class="btn buzz-retry" type="button" data-act="retry">' + esc(t("buzzer_save_retry")) + '</button>'
             : '') +
           '</p>') +
-      (paused_ ? '' : hint(s)) +
-      foot("buzzer_foot");
+      (paused_ ? '' : hint(s));
   }
 
   function closedScreen(s) {
@@ -424,24 +416,7 @@
       (s.conn !== "attached" ? paused(s) :
         '<p class="buzz-said">' + (s.saved
           ? bold(PQ.COPY.buzzer_closed_you_said, "X", s.saved)
-          : esc(t("buzzer_closed_you_didnt"))) + '</p>') +
-      foot("buzzer_foot");
-  }
-
-  /* `‹n›` and `people said ‹X›, including you.` from the totals the payload
-     carries and the answer this phone holds. Computed here, never sent
-     (AC-58). */
-  function mine(s) {
-    var c = s.frame.counts;
-    if (!c || !s.saved) return null;
-    var n = c.totals[LETTERS.indexOf(s.saved)] || 0;
-    return { n: Math.max(n, 1), letter: s.saved };
-  }
-
-  function noAnswerCount(s) {
-    var c = s.frame.counts || { present: 1, answered: 0 };
-    var k = Math.max((c.present || 0) - (c.answered || 0), 1);
-    return k === 1 ? t("buzzer_noanswer_count_one") : t("buzzer_noanswer_count", { k: k });
+          : esc(t("buzzer_closed_you_didnt"))) + '</p>');
   }
 
   function bold(template, name, value) {
@@ -459,87 +434,41 @@
     return '<p class="buzz-itwas">' + PQ.correctHtml(line, { srLabel: "" }) + '</p>';
   }
 
-  /* SPEC §11, *Buzzer, split / work / reveal* and *…, no answer given*: the
-     head's bold word and the line after it, per phase. */
-  var COUNT_HEAD = {
-    split: { lookup: "buzzer_split_lookup", line: "buzzer_split_where" },
-    work: { lookup: "buzzer_work_lookup", line: "buzzer_work_walking" },
-    reveal: { lookup: "buzzer_reveal_lookup", line: "buzzer_reveal_on_screen" }
-  };
-  var NO_ANSWER_HEAD = {
-    split: "buzzer_noanswer_split",
-    work: "buzzer_noanswer_work",
-    reveal: null   // the reveal's line is the ✓ line, in the body
-  };
-
+  /* split, work, reveal: the phone carries no line of its own until the
+     answer exists — the room is on the wall. At reveal, ✓ It was ‹Y›, and
+     *You didn't answer.* above it for a phone that holds no answer. */
   function countScreen(s) {
-    var p = s.frame.phase;
-    var correct = s.frame.correct;
-    var m = mine(s);
-    var lookup, body;
-    if (m) {
-      lookup = '<b>' + esc(t(COUNT_HEAD[p].lookup)) + '</b> ' + esc(t(COUNT_HEAD[p].line));
-      body = '<div class="vb" data-count="' + m.n + '">' + esc(t("buzzer_split_count", { n: m.n })) + '</div>' +
-        '<p class="buzz-said">' + bold(PQ.COPY.buzzer_split_said, "X", m.letter) + '</p>';
-      if (p === "split") {
-        body += '<p class="meta buzz-after">' + esc(t("buzzer_split_readings")) + '</p>';
-      } else if (p === "work") {
-        body += '<p class="meta buzz-after">' + esc(t("buzzer_work_nothing")) + '</p>';
-      } else {
-        var others = m.n - 1;
-        var company = others === 0 ? t("buzzer_reveal_only_one")
-          : others === 1 ? t("buzzer_reveal_company_one")
-          : t("buzzer_reveal_company", { "n−1": others });
-        body += itWas(correct) +
-          '<p class="meta buzz-after">' + esc(company) + ' ' + esc(t("buzzer_reveal_host_reading")) + '</p>';
-      }
-    } else {
-      var line = NO_ANSWER_HEAD[p];
-      lookup = '<b>' + esc(t("buzzer_noanswer_lookup")) + '</b>' + (line ? ' ' + esc(t(line)) : '');
-      body = '<p class="buzz-said">' + esc(noAnswerCount(s)) + '</p>';
-      if (p === "reveal") {
-        // "✓ It was ‹Y›. The host is reading out the why now." — the first
-        // sentence is the ✓ line (glyph and colour together), the rest after.
-        var full = t("buzzer_noanswer_reveal", { Y: correct });
-        var first = t("buzzer_reveal_it_was", { Y: correct });
-        var rest = full.indexOf(first) === 0 ? full.slice(first.length).trim() : "";
-        body += (rest ? itWas(correct) + '<p class="meta buzz-after">' + esc(rest) + '</p>'
-                      : '<p class="buzz-itwas">' + esc(full) + '</p>');
-      }
+    var body = "";
+    if (s.frame.phase === "reveal") {
+      body = (s.saved ? "" : '<p class="buzz-said">' + esc(t("buzzer_noanswer_count_one")) + '</p>') +
+        itWas(s.frame.correct);
     }
-    return head(s, lookup) +
+    return head(s, null) +
       (s.conn !== "attached" ? paused(s) : '') +
-      '<div class="buzz-verdict"><div>' + body + '</div></div>' +
-      foot("buzzer_foot_computed");
+      '<div class="buzz-verdict"><div>' + body + '</div></div>';
   }
 
   function idleScreen(s) {
     return head(s, null) +
       (s.conn !== "attached" ? paused(s) : '') +
       '<div class="buzz-verdict"><div><div class="vb" aria-hidden="true">↑</div>' +
-      '<p class="meta buzz-after">' + esc(t("buzzer_idle")) + '</p></div></div>' +
-      foot("buzzer_foot");
+      '<p class="meta buzz-after">' + esc(t("buzzer_idle")) + '</p></div></div>';
   }
 
   function releasedScreen(s) {
-    // The ✓ here is about the room's promise, not an answer: glyph only, no
-    // correct-answer colour.
-    return head(s, null) +
-      '<div class="buzz-verdict"><div><div class="vb" aria-hidden="true">' + PQ.checkMark() + '</div>' +
-      '<p class="meta buzz-after">' + esc(t("buzzer_released")) + '</p></div></div>' +
-      foot("buzzer_foot");
+    return head(s, null) + '<div class="buzz-verdict"></div>';
   }
 
   function view(s) {
     if (s.screen === "join") return joinScreen(s);
-    if (!s.frame) return head(s, null) + paused(s) + foot("buzzer_foot");
+    if (!s.frame) return head(s, null) + paused(s);
     switch (s.frame.phase) {
       case "idle": return idleScreen(s);
       case "live": return liveScreen(s);
       case "closed": return closedScreen(s);
       case "split": case "work": case "reveal": return countScreen(s);
       case "released": return releasedScreen(s);
-      default: return head(s, null) + paused(s) + foot("buzzer_foot");
+      default: return head(s, null) + paused(s);
     }
   }
 

@@ -55,7 +55,7 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
 .wall-block { flex: none; min-height: 0; overflow: hidden; }
 .wall-block.reading { height: 190px; }
 .wall-block.trace { height: 203px; display: grid; gap: 14px; }
-.wall-block.trace.work { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wall-block.trace.work { grid-template-columns: minmax(0, 1fr); }
 .wall-block.trace.reveal { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr) minmax(0, 1.05fr); }
 
 /* --- The options (live, closed) ------------------------------------------ */
@@ -110,12 +110,6 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
 .wall .tval { font-size: 13px; padding: 3px 8px; }
 .wall .trace-nav { margin-top: 8px; }
 
-.workbeat { display: flex; flex-direction: column; gap: 10px;
-            border-left: 4px solid var(--accent-primary); padding-left: 14px; font-size: 21px;
-            line-height: 1.45; color: var(--text-secondary); }
-.workbeat b { color: var(--text-primary); font-size: 30px; font-family: var(--font-heading); font-weight: 400; }
-.workbeat .second { font-size: 18px; }
-
 /* --- Reveal ---------------------------------------------------------------- */
 .wall-block.reveal .bars { gap: 5px; }
 .wall-block.reveal .bar-row { font-size: 18px; gap: 8px; }
@@ -144,7 +138,6 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
 .endcard { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .endlink { font-family: var(--font-mono); font-size: 40px; color: var(--accent-hover);
            border: 2px solid var(--accent-primary); border-radius: var(--radius); padding: 10px 22px; }
-.endsub { font-size: 19px; color: var(--text-secondary); }
 .endqr { width: 120px; height: 120px; }
 
 /* --- The join strip ---------------------------------------------------------- */

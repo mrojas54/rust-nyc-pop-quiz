@@ -108,12 +108,6 @@
     }).join("") + "</div>";
   }
 
-  function workBeatHtml(beats) {
-    return '<div class="workbeat"><b>' + esc(beats[0]) + "</b>" +
-      "<span>" + esc(beats[1]) + "</span>" +
-      '<span class="second">' + esc(beats[2]) + "</span></div>";
-  }
-
   function traceNoteHtml(frame) {
     return PQ.traceNoteHtml(traceQuestion(frame), frame.trace.at, { noNav: true });
   }
@@ -174,7 +168,6 @@
       mainClass = "title-card-main";
       main = titleCard('<div class="endcard"><h2>' + esc(rel.title) + "</h2>" +
         '<div class="endlink">' + esc(displayLink(rel.link)) + "</div>" +
-        '<div class="endsub">' + esc(rel.line) + "</div>" +
         PQ.qrSvg(rel.link, { className: "endqr" }) + "</div>");
     } else if (phase === "live" || phase === "closed") {
       main = wellHtml(frame, well) + optionsHtml(frame.options);
@@ -189,7 +182,6 @@
       main = wellHtml(frame, well) +
         '<div class="wall-block trace work">' +
           '<div class="wall-trace">' + (frame.trace ? traceNoteHtml(frame) : "") + "</div>" +
-          workBeatHtml(frame.beats) +
         "</div>";
     } else { /* reveal */
       var r = frame.reveal;

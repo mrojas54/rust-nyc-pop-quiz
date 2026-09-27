@@ -36,8 +36,6 @@ const NEXT = {
   released: 'run-it-again',
 };
 
-const RESUME = 'https://popquiz.example/host/0123abcd#feedface';
-
 function payload(phase, extra = {}) {
   const p = {
     phase,
@@ -47,12 +45,6 @@ function payload(phase, extra = {}) {
     present: 12,
   };
   if (phase !== 'idle') p.answered = 7;
-  if (phase === 'idle') {
-    p.first_screen = {
-      resume: PQ.fill(PQ.COPY.host_first_resume, { 'resume link': RESUME }),
-      not_a_guarantee: [PQ.COPY.not_a_guarantee_options_public, PQ.COPY.not_a_guarantee_host_honest],
-    };
-  }
   if (phase === 'work' || phase === 'reveal') {
     const at = phase === 'work' ? 1 : 5;
     p.step = {
@@ -80,10 +72,13 @@ const buttons = (html) => [...html.matchAll(/<button\b[^>]*>([^<]*)<\/button>/g)
 const primaries = (html) => buttons(html).filter((b) => /data-primary=/.test(b.tag));
 const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 
-test('AC-49: every phase states its label and has exactly one primary action', () => {
+// PQ-34 (HC-0): every host screen is headed Pop Quiz Host; the phase is
+// announced through the live region, not shown.
+test('every phase is headed Pop Quiz Host and has exactly one primary action', () => {
   for (const phase of PQ.PHASES) {
     const html = PQ.host.render(payload(phase));
-    assert.ok(html.includes(`>${PQ.HOST_PHASE_LABEL[phase]}</h1>`), `${phase}: phase label`);
+    assert.ok(html.includes(`>${PQ.COPY.host_title}</h1>`), `${phase}: the title`);
+    assert.ok(!html.includes(`>${PQ.HOST_PHASE_LABEL[phase]}<`), `${phase}: no phase label shown`);
     const p = primaries(html);
     assert.equal(p.length, 1, `${phase}: one primary`);
     assert.ok(p[0].tag.includes(`data-primary="${NEXT[phase]}"`), `${phase}: the next legal action`);
@@ -122,43 +117,21 @@ test('AC-45: ← and → are disabled when the room cannot step that way', () =>
   assert.ok(!/\bdisabled\b/.test(back.tag));
 });
 
-test('the create screen: Create a room, the idle label, §8.1\'s two sentences', () => {
+test('the create screen: Pop Quiz Host and Create a room, nothing else', () => {
   const html = PQ.host.renderCreate({});
   assert.equal(primaries(html).length, 1);
   assert.ok(html.includes('data-primary="create"'));
-  assert.ok(html.includes(`>${PQ.HOST_PHASE_LABEL.idle}</h1>`));
-  assert.ok(unescape(html).includes(PQ.COPY.not_a_guarantee_options_public));
-  assert.ok(unescape(html).includes(PQ.COPY.not_a_guarantee_host_honest));
+  const t = unescape(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+  assert.equal(t, `${PQ.COPY.host_title} ${PQ.COPY.host_action_create}`);
 });
 
-test('the first room screen: the resume line as the room sent it, and §8.1\'s two sentences', () => {
-  const html = unescape(PQ.host.render(payload('idle')));
-  assert.ok(html.includes(PQ.fill(PQ.COPY.host_first_resume, { 'resume link': '' })));
-  assert.ok(html.includes(`<a href="${RESUME}">${RESUME}</a>`));
-  assert.ok(html.includes(PQ.COPY.not_a_guarantee_options_public));
-  assert.ok(html.includes(PQ.COPY.not_a_guarantee_host_honest));
-  // Only idle carries the first screen.
-  assert.ok(!unescape(PQ.host.render(payload('live'))).includes(PQ.COPY.not_a_guarantee_options_public));
-});
-
-test('a resume line that is not an http(s) link is shown as text, never linked', () => {
-  const p = payload('idle');
-  p.first_screen.resume = PQ.fill(PQ.COPY.host_first_resume, { 'resume link': 'javascript:alert(1)' });
-  assert.ok(!PQ.host.render(p).includes('<a '));
-});
-
-test('AC-46: the counts render from the payload, and move when it does', () => {
-  const a = unescape(PQ.host.render(payload('live', { present: 12, answered: 3 })));
-  const b = unescape(PQ.host.render(payload('live', { present: 15, answered: 9 })));
-  assert.ok(a.includes(PQ.fill(PQ.COPY.wall_split_answered, { answered: 3, present: 12 })));
-  assert.ok(b.includes(PQ.fill(PQ.COPY.wall_split_answered, { answered: 9, present: 15 })));
-  // idle has no `answered`: nobody can have answered yet.
-  assert.ok(unescape(PQ.host.render(payload('idle'))).includes(PQ.fill(PQ.COPY.wall_split_answered, { answered: 0, present: 12 })));
-});
-
-test('the fit line renders when the room sent one', () => {
-  const html = unescape(PQ.host.render(payload('live', { fit: PQ.COPY.host_fit_clipped_y })));
-  assert.ok(html.includes(PQ.COPY.host_fit_clipped_y));
+test('no host screen shows counts, a fit line, a resume line or first-screen prose', () => {
+  for (const phase of PQ.PHASES) {
+    const html = unescape(PQ.host.render(payload(phase, { present: 15, answered: 9, fit: PQ.COPY.host_fit_clipped_y })));
+    assert.ok(!html.includes('9 of 15'), `${phase}: counts`);
+    assert.ok(!html.includes(PQ.COPY.host_fit_clipped_y), `${phase}: fit line`);
+    assert.ok(!html.includes('<a '), `${phase}: a link`);
+  }
 });
 
 test('AC-47: no pre-reveal screen carries a ✓, the script, or a provenance marker', () => {
@@ -217,7 +190,7 @@ test('an unknown phase is a loud failure, not a blank screen', () => {
 test('AC-50: the resume link is the room screen\'s own address', () => {
   assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host/0123abcd', search: '', hash: '#feedface' }) },
     { mode: 'room', roomId: '0123abcd', session: 'feedface' });
-  const r = new URL(RESUME);
+  const r = new URL('https://popquiz.example/host/0123abcd#feedface');
   assert.deepEqual({ ...PQ.host.parseLocation(r) }, { mode: 'room', roomId: '0123abcd', session: 'feedface' });
   assert.equal(PQ.host.parseLocation({ pathname: '/host/abc', search: '', hash: '' }).session, null);
 });

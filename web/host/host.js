@@ -21,7 +21,7 @@
    revealed (AC-47, G-3).
 
    Every string on the screen is copy.js's (SPEC §11) or text the room sent
-   (the step's words, the three beats, the fit line, the resume line). Nothing
+   (the step's words, the three beats). Nothing
    is authored here. Errors show the server's `reason` or the HTTP status line.
 
    Classic script on window.PopQuiz, like web/shared (web/README.md). The pure
@@ -97,20 +97,10 @@
       (ui && ui.busy ? " disabled" : "") + ">" + esc(actionLabel(slug)) + "</button>";
   }
 
-  function notAGuaranteeHtml() {
-    return '<div class="no-preview">' +
-      "<p>" + esc(PQ.t("not_a_guarantee_options_public")) + "</p>" +
-      "<p>" + esc(PQ.t("not_a_guarantee_host_honest")) + "</p></div>";
-  }
-
-  /* The resume line as the room sent it (view.rs fills §11's host_first_resume
-     with the room's host_resume_url), with the link made followable. */
-  function resumeHtml(line) {
-    var prefix = PQ.t("host_first_resume").split("‹resume link›")[0];
-    var url = line.indexOf(prefix) === 0 ? line.slice(prefix.length) : "";
-    if (!/^https?:\/\//.test(url)) return '<p class="host-resume">' + esc(line) + "</p>";
-    return '<p class="host-resume">' + esc(prefix) +
-      '<a href="' + PQ.escapeAttr(url) + '">' + esc(url) + "</a></p>";
+  /* Every host screen's heading, whatever the phase. The phase itself is
+     announced through the live region (HOST_PHASE_LABEL), not shown. */
+  function titleHtml(phase) {
+    return '<h1 class="host-h" data-phase="' + phase + '">' + esc(PQ.t("host_title")) + "</h1>";
   }
 
   function codeHtml(code) {
@@ -153,34 +143,22 @@
       "</section>";
   }
 
-  function countsHtml(p) {
-    var answered = typeof p.answered === "number" ? p.answered : 0;
-    return '<div class="ratio host-counts">' +
-      "<div>" + esc(PQ.t("wall_split_answered", { answered: answered, present: p.present })) + "</div>" +
-      (p.fit ? '<div class="host-fit">' + esc(p.fit) + "</div>" : "") + "</div>";
-  }
-
   /* One screen for one host payload (view::HostPayload). `ui`: {status, busy}. */
   function render(p, ui) {
     var phase = PQ.assertPhase(p.phase);
-    var html = '<h1 class="host-h" data-phase="' + phase + '">' + esc(PQ.HOST_PHASE_LABEL[phase]) + "</h1>" +
-      '<div class="stack">';
+    var html = titleHtml(phase) + '<div class="stack">';
     // The code while joining is still possible: every phase but `released`.
     if (phase !== "released") html += codeHtml(p.code);
-    if (phase === "idle" && p.first_screen) {
-      html += resumeHtml(p.first_screen.resume) + notAGuaranteeHtml();
-    }
     if ((phase === "work" || phase === "reveal") && p.step) html += stepHtml(p.step, ui);
     if (phase === "reveal" && p.read_aloud) html += readAloudHtml(p.read_aloud);
-    html += primaryHtml(p.primary.action, ui) + statusHtml(ui) + "</div>" + countsHtml(p);
+    html += primaryHtml(p.primary.action, ui) + statusHtml(ui) + "</div>";
     return html;
   }
 
-  /* The first screen before a room exists: *Create a room*, and §8.1's two
-     sentences. It carries the idle label — the room it makes starts there. */
+  /* The first screen before a room exists: *Create a room*. */
   function renderCreate(ui) {
-    return '<h1 class="host-h" data-phase="idle">' + esc(PQ.HOST_PHASE_LABEL.idle) + "</h1>" +
-      '<div class="stack">' + notAGuaranteeHtml() + primaryHtml("create", ui) + statusHtml(ui) + "</div>";
+    return titleHtml("idle") +
+      '<div class="stack">' + primaryHtml("create", ui) + statusHtml(ui) + "</div>";
   }
 
   /* ------------------------------------------------------------------------

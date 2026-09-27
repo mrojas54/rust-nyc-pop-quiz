@@ -101,7 +101,6 @@ pub struct WallReveal {
 pub struct ReleasedView {
     pub title: &'static str,
     pub link: String,
-    pub line: &'static str,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -126,8 +125,6 @@ pub struct WallPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub split: Option<SplitView>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub beats: Option<[&'static str; 3]>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub trace: Option<TraceView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reveal: Option<WallReveal>,
@@ -139,7 +136,6 @@ pub struct WallPayload {
 pub struct HintView {
     pub text: String,
     pub action: &'static str,
-    pub shown: &'static str,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -170,7 +166,10 @@ pub struct BuzzerPayload {
     pub correct: Option<Letter>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mark: Option<&'static str>,
-    pub foot: &'static str,
+    /// No buzzer screen carries a foot line since PQ-34 (HC-0); kept on the
+    /// wire as an absent key rather than dropped from the payload's shape.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub foot: Option<&'static str>,
     // T-04b: the calling session's own saved answer, on the per-session paths
     // only (the join response, T-04c's re-attach). Never another session's;
     // the public buzzer query never sets it.
@@ -183,13 +182,6 @@ pub struct ActionView {
     /// The route segment: `POST /rooms/{id}/<action>`.
     pub action: &'static str,
     pub label: &'static str,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct FirstScreen {
-    pub resume: String,
-    /// SPEC §8.1's two sentences, verbatim (AC-62, AC-63).
-    pub not_a_guarantee: [&'static str; 2],
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -238,8 +230,6 @@ pub struct HostPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fit: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_screen: Option<FirstScreen>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub step: Option<HostStep>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_aloud: Option<ReadAloud>,
@@ -274,15 +264,6 @@ pub fn host(room: &Room) -> HostPayload {
         Some(opened) => revealed::host(view, &opened),
         None => sealed::host(view),
     };
-    if room.phase() == Phase::Idle {
-        payload.first_screen = Some(FirstScreen {
-            resume: copy::fill(copy::HOST_FIRST_RESUME, &[("resume link", room.host_resume_url())]),
-            not_a_guarantee: [
-                copy::NOT_A_GUARANTEE_OPTIONS_PUBLIC,
-                copy::NOT_A_GUARANTEE_HOST_HONEST,
-            ],
-        });
-    }
     if room.machine().trace_step().is_some() {
         if let Some(step) = payload.step.as_mut() {
             step.can_back = room.machine().can_step(Step::Back);
@@ -405,7 +386,6 @@ fn empty_wall(view: &PublicView<'_>) -> WallPayload {
         options: None,
         strip: None,
         split: None,
-        beats: None,
         trace: None,
         reveal: None,
         released: None,
@@ -434,7 +414,6 @@ fn host_base(view: &PublicView<'_>) -> HostPayload {
             Phase::Idle => None,
             _ => view.fit.map(|f| f.host_line()),
         },
-        first_screen: None,
         step: None,
         read_aloud: None,
     }
@@ -470,11 +449,6 @@ mod sealed {
                 p.source = Some(q.source().to_string());
                 p.colour = Some(false);
                 p.options = Some(options(&view));
-                p.beats = Some([
-                    copy::WALL_WORK_LEAD,
-                    copy::WALL_WORK_NO_ANSWER,
-                    copy::WALL_WORK_NOBODY,
-                ]);
                 // The public walk holds steps 0..=M-2 only; there is no final
                 // step here to show, whatever `trace_step` says (D-10).
                 let at = view.trace_step.unwrap_or(0);
@@ -486,7 +460,6 @@ mod sealed {
                 p.released = Some(ReleasedView {
                     title: copy::WALL_RELEASED_TITLE,
                     link: urls.home.clone(),
-                    line: copy::WALL_RELEASED_LINE,
                 });
             }
             // `reveal` always holds a witness, so it never comes here; if it
@@ -507,7 +480,7 @@ mod sealed {
             counts: None,
             correct: None,
             mark: None,
-            foot: copy::BUZZER_FOOT,
+            foot: None,
             yours: None,
         };
         match view.phase {
@@ -518,7 +491,6 @@ mod sealed {
                 p.hint = Some(HintView {
                     text: view.question.hint().to_string(),
                     action: copy::BUZZER_HINT_ACTION,
-                    shown: copy::BUZZER_HINT_SHOWN,
                 });
             }
             Phase::Closed => {
@@ -526,24 +498,8 @@ mod sealed {
                 p.locked = Some(true);
                 p.lines = vec![copy::BUZZER_CLOSED.into()];
             }
-            Phase::Split => {
-                p.lines = vec![copy::BUZZER_SPLIT_LOOKUP.into(), copy::BUZZER_SPLIT_WHERE.into()];
-                p.counts = counts(&view);
-                p.foot = copy::BUZZER_FOOT_COMPUTED;
-            }
-            Phase::Work => {
-                p.lines = vec![
-                    copy::BUZZER_WORK_LOOKUP.into(),
-                    copy::BUZZER_WORK_WALKING.into(),
-                    copy::BUZZER_WORK_NOTHING.into(),
-                ];
-                p.counts = counts(&view);
-                p.foot = copy::BUZZER_FOOT_COMPUTED;
-            }
-            Phase::Released => {
-                p.mark = Some("✓");
-                p.lines = vec![copy::BUZZER_RELEASED.into()];
-            }
+            Phase::Split | Phase::Work => p.counts = counts(&view),
+            Phase::Released => p.mark = Some("✓"),
             Phase::Reveal => {}
         }
         p
@@ -614,19 +570,14 @@ mod revealed {
         BuzzerPayload {
             phase: view.phase,
             code: view.code.to_string(),
-            lines: vec![
-                copy::BUZZER_REVEAL_LOOKUP.into(),
-                copy::BUZZER_REVEAL_ON_SCREEN.into(),
-                copy::fill(copy::BUZZER_REVEAL_IT_WAS, &[("Y", correct.as_str())]),
-                copy::BUZZER_REVEAL_HOST_READING.into(),
-            ],
+            lines: vec![copy::fill(copy::BUZZER_REVEAL_IT_WAS, &[("Y", correct.as_str())])],
             letters: None,
             locked: None,
             hint: None,
             counts: counts(&view),
             correct: Some(correct),
             mark: None,
-            foot: copy::BUZZER_FOOT_COMPUTED,
+            foot: None,
             yours: None,
         }
     }

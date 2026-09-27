@@ -32,7 +32,6 @@ use axum::http::{header, Method, Request, StatusCode};
 use axum::Router;
 use common::*;
 use canary_scan::*;
-use room::copy;
 use room::phase::{Command, HostAction, Phase};
 use room::rooms::{AppState, Urls};
 use serde_json::{json, Value};
@@ -118,13 +117,8 @@ async fn the_host_screen_names_its_phase_and_one_action() {
         assert_eq!(host["primary"]["label"], phase.next_action().label());
         assert_eq!(host["primary"]["action"], phase.next_action().slug());
         assert_eq!(host["code"].as_str().unwrap().len(), 6);
-        assert_eq!(host.get("first_screen").is_some(), phase == Phase::Idle);
-        if phase == Phase::Idle {
-            let first = host["first_screen"].to_string();
-            assert!(first.contains(copy::NOT_A_GUARANTEE_OPTIONS_PUBLIC));
-            assert!(first.contains(copy::NOT_A_GUARANTEE_HOST_HONEST));
-            assert!(first.contains(&room.session), "the resume link carries the session");
-        }
+        // PQ-34 (HC-0): the host phone carries no first-screen sentences.
+        assert!(host.get("first_screen").is_none());
         if phase == Phase::Released {
             break;
         }

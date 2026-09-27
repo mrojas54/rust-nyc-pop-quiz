@@ -45,7 +45,6 @@
     /* --- Buzzer, join form ---------------------------------------------- */
     buzzer_join_label: "room code",
     buzzer_join_button: "join",
-    buzzer_join_beneath: "or open the link on the screen",
 
     /* --- Wall, closed --------------------------------------------------- */
     wall_closed: "answers are closed",
@@ -53,56 +52,21 @@
     /* --- Wall, split on ------------------------------------------------- */
     wall_split_answered: "‹answered› of ‹present› in the room answered",
 
-    /* --- Wall, work ----------------------------------------------------- */
-    wall_work_lead: "Let's walk it.",
-    wall_work_no_answer: "Still no answer.",
-    wall_work_nobody: "Nobody has to say anything.",
-
     /* --- Wall, reveal --------------------------------------------------- */
     wall_reveal_most_chosen: "‹n› of us said ‹X›",
 
     /* --- Wall, released ------------------------------------------------- */
     wall_released_title: "Let's go to the bar.",
     wall_released_link: "‹link›",
-    wall_released_line: "the question, the walk-through and the why — at your own pace.",
 
     /* --- Buzzer, idle --------------------------------------------------- */
-    buzzer_idle: "You're in. Everything happens on the screen at the front — look up.",
-
-    /* --- Buzzer, foot --------------------------------------------------- */
-    buzzer_foot: "no account · no name · no score",
-
-    /* --- Buzzer, split -------------------------------------------------- */
-    buzzer_split_lookup: "Look up.",
-    buzzer_split_where: "Where the room landed.",
-    buzzer_split_count: "‹n›",
-    buzzer_split_said: "people said ‹X›, including you.",
-    buzzer_split_readings: "Five different readings. Nobody knows what anyone picked.",
-
-    /* --- Buzzer, work --------------------------------------------------- */
-    buzzer_work_lookup: "Look up.",
-    buzzer_work_walking: "We're walking it through.",
-    buzzer_work_nothing: "Nothing to do. Nobody knows the answer yet.",
+    buzzer_idle: "You're in.",
 
     /* --- Buzzer, reveal ------------------------------------------------- */
-    buzzer_reveal_lookup: "Look up.",
-    buzzer_reveal_on_screen: "The answer is on the screen.",
     buzzer_reveal_it_was: "✓ It was ‹Y›.",
-    /* n−1 others. The singular is its own string because "1 other people" is
-       the kind of thing a room notices. */
-    buzzer_reveal_company: "You and ‹n−1› other people read it the same way.",
-    buzzer_reveal_company_one: "You and 1 other person read it the same way.",
-    buzzer_reveal_host_reading: "The host is reading out the why now.",
-    buzzer_reveal_only_one: "You were the only one who read it that way.",
 
-    /* --- Buzzer, split → reveal, no answer given ------------------------ */
-    buzzer_noanswer_lookup: "Look up.",
-    /* k = present − answered */
-    buzzer_noanswer_count: "‹k› people didn't answer, you included.",
+    /* --- Buzzer, reveal, no answer given -------------------------------- */
     buzzer_noanswer_count_one: "You didn't answer.",
-    buzzer_noanswer_split: "Where the room landed.",
-    buzzer_noanswer_work: "We're walking it through.",
-    buzzer_noanswer_reveal: "✓ It was ‹Y›. The host is reading out the why now.",
 
     /* --- Buzzer, join failures (AC-29) — six states, six next steps ------ */
     join_fail_malformed: "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.",
@@ -112,15 +76,8 @@
     join_fail_closed_inactivity: "That room went quiet and closed. If it comes back, the screen at the front will say so.",
     join_fail_full: "That room is full. Watch the screen — you can still play along.",
 
-    /* --- Buzzer, foot (split→reveal) ------------------------------------ */
-    buzzer_foot_computed: "computed on this phone · never sent anywhere",
-
-    /* --- Buzzer, released ----------------------------------------------- */
-    buzzer_released: "Nothing about you was recorded.",
-
     /* --- Buzzer, hint --------------------------------------------------- */
     buzzer_hint_action: "Show me a hint",
-    buzzer_hint_shown: "Only you can see this. Nobody is told you looked.",
 
     /* --- Buzzer, live, submission (AC-35/36) ---------------------------- */
     buzzer_saving: "saving…",
@@ -150,7 +107,9 @@
     live_released: "The room is released.",
     live_hint_shown: "Hint shown, only to you.",
 
-    /* --- Host, phase labels (AC-49), one per screen --------------------- */
+    /* --- Host, phase labels (AC-49) — announced, not shown --------------- */
+    /* The host screen's heading is host_title on every phase; the label is
+       what the host's live region announces on each phase change. */
     host_phase_idle: "before the question",
     host_phase_live: "question live",
     host_phase_closed: "answers closed",
@@ -187,7 +146,7 @@
     host_reveal_beat_why: "Why ‹n› of us said ‹X›",
     host_reveal_beat_remember: "What to remember",
 
-    /* --- Host, fit line (AC-100), shown from `live` on ------------------- */
+    /* --- Host, fit line (AC-100) — in the payload, not shown ----------- */
     /* One per fitVerdict() value. There is deliberately no entry for an
        unmeasured well — see typemodel.js fitVerdict(). */
     host_fit_fits: "fits the room",
@@ -195,12 +154,8 @@
     host_fit_clipped_x: "too wide for this room — clipped at the right",
     host_fit_clipped_xy: "too long and too wide for this room",
 
-    /* --- Host, first screen --------------------------------------------- */
-    host_first_resume: "If you lose this phone, open this on another one: ‹resume link›",
-    /* SPEC §8.1's two sentences, verbatim, on the host phone and in the
-       organizer runbook (AC-62, AC-63). */
-    not_a_guarantee_options_public: "Option text is public — the correct answer is always one of the five visible options.",
-    not_a_guarantee_host_honest: "A host who reads Rust can work out the answer from the source; the host's not being shown it keeps the host honest, it is not a security guarantee.",
+    /* --- Host, title — every host screen's heading and the page title --- */
+    host_title: "Pop Quiz Host",
 
     /* --- Static fallback (AC-102) --------------------------------------- */
     /* SPEC writes the key names in markdown code fencing; the backticks are
@@ -250,29 +205,18 @@
     "Wall, idle": ["wall_idle_title", "wall_idle_join"],
     "Wall, live": ["wall_live_join", "wall_live_well_header"],
     "Wall, trace (work, reveal)": ["wall_trace_step", "wall_trace_pivot"],
-    "Buzzer, join form": ["buzzer_join_label", "buzzer_join_button", "buzzer_join_beneath"],
+    "Buzzer, join form": ["buzzer_join_label", "buzzer_join_button"],
     "Wall, closed": ["wall_closed"],
     "Wall, split on": ["wall_split_answered"],
-    "Wall, work": ["wall_work_lead", "wall_work_no_answer", "wall_work_nobody"],
     "Wall, reveal": ["wall_reveal_most_chosen"],
-    "Wall, released": ["wall_released_title", "wall_released_link", "wall_released_line"],
+    "Wall, released": ["wall_released_title", "wall_released_link"],
     "Buzzer, idle": ["buzzer_idle"],
-    "Buzzer, foot": ["buzzer_foot"],
-    "Buzzer, split": ["buzzer_split_lookup", "buzzer_split_where", "buzzer_split_count",
-                      "buzzer_split_said", "buzzer_split_readings"],
-    "Buzzer, work": ["buzzer_work_lookup", "buzzer_work_walking", "buzzer_work_nothing"],
-    "Buzzer, reveal": ["buzzer_reveal_lookup", "buzzer_reveal_on_screen", "buzzer_reveal_it_was",
-                       "buzzer_reveal_company", "buzzer_reveal_company_one",
-                       "buzzer_reveal_host_reading", "buzzer_reveal_only_one"],
-    "Buzzer, split → reveal, no answer given": ["buzzer_noanswer_lookup", "buzzer_noanswer_count",
-                       "buzzer_noanswer_count_one", "buzzer_noanswer_split",
-                       "buzzer_noanswer_work", "buzzer_noanswer_reveal"],
+    "Buzzer, reveal": ["buzzer_reveal_it_was"],
+    "Buzzer, reveal, no answer given": ["buzzer_noanswer_count_one"],
     "Buzzer, join failures (AC-29)": ["join_fail_malformed", "join_fail_unknown",
                        "join_fail_not_yet_open", "join_fail_already_ended",
                        "join_fail_closed_inactivity", "join_fail_full"],
-    "Buzzer, foot (split→reveal)": ["buzzer_foot_computed"],
-    "Buzzer, released": ["buzzer_released"],
-    "Buzzer, hint": ["buzzer_hint_action", "buzzer_hint_shown"],
+    "Buzzer, hint": ["buzzer_hint_action"],
     "Buzzer, live, submission (AC-35/36)": ["buzzer_saving", "buzzer_saved", "buzzer_save_failed",
                        "buzzer_save_retry", "buzzer_no_answer_yet"],
     "Buzzer, reconnecting (AC-37)": ["buzzer_reconnecting_with_answer", "buzzer_reconnecting"],
@@ -294,8 +238,7 @@
                        "host_reveal_beat_remember"],
     "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
                        "host_fit_clipped_xy"],
-    "Host, first screen": ["host_first_resume", "not_a_guarantee_options_public",
-                       "not_a_guarantee_host_honest"],
+    "Host, title": ["host_title"],
     "Static fallback": ["static_next_phase", "static_step_trace", "static_back_phase"],
     "Uniqueness (organizer-facing, AC-18)": ["uniqueness"],
     "Receipt (§7.5)": ["receipt_heading", "receipt_compiled", "receipt_ran_n_times",

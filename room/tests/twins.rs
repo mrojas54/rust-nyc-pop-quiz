@@ -356,7 +356,9 @@ fn copy_js() -> Vec<(String, String)> {
 #[test]
 fn the_copy_module_mirrors_copy_js_in_both_directions() {
     let js = copy_js();
-    assert!(js.len() >= 100, "parsed {} keys from copy.js", js.len());
+    // A floor against a parser that silently matches nothing; PQ-34 took the
+    // module from 120 keys to 90.
+    assert!(js.len() >= 80, "parsed {} keys from copy.js", js.len());
     let rust: Vec<(String, String)> = copy::ALL
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))

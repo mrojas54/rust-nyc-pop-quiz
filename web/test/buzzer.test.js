@@ -68,17 +68,17 @@ if (process.env.BUZZER_REPLAY === '1') {
 // --- fixtures ---------------------------------------------------------------
 
 const HINT = 'HINT-FIXTURE-TEXT';
-const base = { t: 'state', code: 'ABC234', lines: [], foot: C.buzzer_foot };
+const base = { t: 'state', code: 'ABC234', lines: [] };
 const frames = {
   idle: { ...base, revision: 1, phase: 'idle' },
   live: { ...base, revision: 2, phase: 'live', letters: ['A', 'B', 'C', 'D', 'E'], locked: false,
-          hint: { text: HINT, action: C.buzzer_hint_action, shown: C.buzzer_hint_shown } },
+          hint: { text: HINT, action: C.buzzer_hint_action } },
   closed: { ...base, revision: 3, phase: 'closed', letters: ['A', 'B', 'C', 'D', 'E'], locked: true },
-  split: { ...base, revision: 4, phase: 'split', foot: C.buzzer_foot_computed,
+  split: { ...base, revision: 4, phase: 'split',
            counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 } },
-  work: { ...base, revision: 5, phase: 'work', foot: C.buzzer_foot_computed,
+  work: { ...base, revision: 5, phase: 'work',
           counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 } },
-  reveal: { ...base, revision: 6, phase: 'reveal', foot: C.buzzer_foot_computed, correct: 'E',
+  reveal: { ...base, revision: 6, phase: 'reveal', correct: 'E',
             counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 } },
   released: { ...base, revision: 7, phase: 'released', mark: '✓' },
 };
@@ -120,14 +120,14 @@ function submissionShown(html) {
 
 // --- AC-28: one field, by link or typed ----------------------------------------
 
-test('AC-28: the join screen is one field, one button, and the line beneath', () => {
+test('AC-28: the join screen is one field and one button, and nothing beneath', () => {
   const html = B.view(B.initial());
   assert.equal((html.match(/<input\b/g) || []).length, 1, 'exactly one input');
   assert.equal((html.match(/<button\b/g) || []).length, 1, 'exactly one button');
   assert.equal((html.match(/<(select|textarea)\b/g) || []).length, 0);
   assert.ok(html.includes(`>${C.buzzer_join_label}</label>`));
   assert.ok(html.includes(`>${C.buzzer_join_button}</button>`));
-  assert.ok(html.includes(C.buzzer_join_beneath));
+  assert.equal(text(html), `${C.buzzer_join_label} ${C.buzzer_join_button}`, 'no other line (PQ-34)');
 });
 
 test('AC-28: the link carries the code — ?code= joins once, with no typing', () => {
@@ -182,11 +182,11 @@ test('AC-29, AC-30: each refusal shows its own §11 sentence and keeps the field
 
 // --- the phases ---------------------------------------------------------------
 
-test('idle: the code in the header, You’re in, the no-account foot', () => {
+test('idle: the code in the header, You’re in, and no foot', () => {
   const { html } = drive(inRoom(frames.idle));
   assert.ok(html.includes('ABC234'));
-  assert.ok(text(html).includes(C.buzzer_idle));
-  assert.ok(text(html).includes(C.buzzer_foot));
+  assert.equal(text(html), `${C.buzzer_join_label} ABC234 ↑ ${C.buzzer_idle}`, 'nothing else (PQ-34)');
+  assert.ok(!html.includes('<footer'));
 });
 
 test('live: five letter buttons, the hint behind a tap, tap a letter', () => {
@@ -208,46 +208,31 @@ test('closed: letters locked, the saved answer restated — or none given', () =
   assert.ok(text(html).includes(C.buzzer_closed_you_didnt));
 });
 
-test('split/work/reveal: n people said X, including you — from totals and the saved letter', () => {
-  for (const p of ['split', 'work', 'reveal']) {
-    const { html } = drive(inRoom(frames[p], 'C'));
-    const t = text(html);
-    assert.ok(html.includes('data-count="7"'), `${p}: C has 7 in the totals`);
-    assert.ok(t.includes(PQ.fill(C.buzzer_split_said, { X: 'C' })), p);
-    assert.ok(t.includes(C.buzzer_foot_computed), p);
+// PQ-34 (HC-0): the phone carries no line of its own from the split until
+// the answer exists, and no count at all — counts are the wall's.
+test('split and work: the code and nothing else, answered or not', () => {
+  for (const p of ['split', 'work']) {
+    for (const saved of ['C', null]) {
+      const { html } = drive(inRoom(frames[p], saved));
+      assert.equal(text(html), `${C.buzzer_join_label} ABC234`, `${p}, saved ${saved}`);
+      assert.ok(!html.includes('data-count'), `${p}: no count`);
+    }
   }
-  assert.ok(text(drive(inRoom(frames.split, 'C')).html).includes(C.buzzer_split_readings));
-  assert.ok(text(drive(inRoom(frames.work, 'C')).html).includes(C.buzzer_work_nothing));
-  const reveal = text(drive(inRoom(frames.reveal, 'C')).html);
-  assert.ok(reveal.includes('It was E.'));
-  assert.ok(reveal.includes(PQ.fill(C.buzzer_reveal_company, { 'n−1': 6 })));
-  assert.ok(reveal.includes(C.buzzer_reveal_host_reading));
 });
 
-test('reveal: the singular and the only-one lines', () => {
-  const one = { ...frames.reveal, counts: { totals: [2, 0, 0, 0, 0], answered: 2, present: 2 } };
-  assert.ok(text(drive(inRoom(one, 'A')).html).includes(C.buzzer_reveal_company_one));
-  const alone = { ...frames.reveal, counts: { totals: [0, 1, 0, 0, 0], answered: 1, present: 3 } };
-  assert.ok(text(drive(inRoom(alone, 'B')).html).includes(C.buzzer_reveal_only_one));
+test('reveal: ✓ It was Y. and nothing else — no count, no narration', () => {
+  const t = text(drive(inRoom(frames.reveal, 'C')).html);
+  assert.equal(t, `${C.buzzer_join_label} ABC234 ✓ It was E.`);
 });
 
-test('split → reveal with no answer given: k people didn’t answer, you included', () => {
-  const k = frames.split.counts.present - frames.split.counts.answered;
-  for (const p of ['split', 'work', 'reveal']) {
-    const t = text(drive(inRoom(frames[p], null)).html);
-    assert.ok(t.includes(PQ.fill(C.buzzer_noanswer_count, { k })), p);
-    assert.ok(!t.includes('including you'), p);
-  }
-  assert.ok(text(drive(inRoom(frames.split, null)).html).includes(C.buzzer_noanswer_split));
-  assert.ok(text(drive(inRoom(frames.work, null)).html).includes(C.buzzer_noanswer_work));
-  assert.ok(text(drive(inRoom(frames.reveal, null)).html).includes(C.buzzer_reveal_host_reading));
-  const lone = { ...frames.split, counts: { totals: [1, 0, 0, 0, 0], answered: 1, present: 2 } };
-  assert.ok(text(drive(inRoom(lone, null)).html).includes(C.buzzer_noanswer_count_one));
+test('reveal with no answer given: You didn’t answer, then ✓ It was Y.', () => {
+  const t = text(drive(inRoom(frames.reveal, null)).html);
+  assert.equal(t, `${C.buzzer_join_label} ABC234 ${C.buzzer_noanswer_count_one} ✓ It was E.`);
 });
 
-test('released: the released line', () => {
+test('released: the code and nothing else', () => {
   const { html } = drive(inRoom(frames.released, 'A'));
-  assert.ok(text(html).includes(C.buzzer_released));
+  assert.equal(text(html), `${C.buzzer_join_label} ABC234`);
   assert.ok(!html.includes('data-letter'));
 });
 
@@ -372,7 +357,7 @@ test('AC-37: a drop shows paused and locks the letters until the attach frame', 
   html = B.view(state);
   assert.equal(state.conn, 'attached');
   assert.ok(!text(html).includes(C.buzzer_reconnecting));
-  assert.ok(text(html).includes(PQ.fill(C.buzzer_split_said, { X: 'D' })));
+  assert.equal(state.saved, 'D', 'the saved answer survives the drop');
 });
 
 test('AC-37: paused with no answer yet says only paused', () => {
@@ -409,7 +394,7 @@ test('close codes: 4401 re-joins once, 4404 has ended, 4000 does not reconnect',
 test('AC-48: the hint is read from the frame already held — no request of any kind', () => {
   const { state, html, effects } = drive([...inRoom(frames.live), { type: 'hint' }]);
   assert.ok(html.includes(HINT));
-  assert.ok(text(html).includes(C.buzzer_hint_shown));
+  assert.ok(text(html).endsWith(HINT), 'the hint and nothing after it (PQ-34)');
   assert.deepEqual(effects.filter((e) => e.do !== 'announce' && e.do !== 'store' && e.do !== 'attach' && e.do !== 'join'), []);
   assert.equal(B.reduce(state, { type: 'hint' }).effects.length, 0, 'a second tap does nothing');
 });

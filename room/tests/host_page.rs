@@ -258,11 +258,8 @@ async fn ac50_the_resume_link_attaches_a_second_device_and_both_control_the_room
     let live = Live::start().await;
     let room = live.create().await;
 
-    // The resume link the first screen shows is this page's own address.
-    let (_, v) = live.call(Method::GET, &format!("/rooms/{}/host", room.id), Some(&room.host), None).await;
-    let resume = v["first_screen"]["resume"].as_str().unwrap();
-    let link = format!("{}/host/{}#{}", Urls::default().base, room.id, room.host);
-    assert!(resume.ends_with(&link), "{resume}");
+    // The resume link is this page's own address, /host/<room>#<session>: the
+    // page navigates there on create, so it is what the address bar holds.
     let (_, _, html) = get_text(&live.app, &format!("/host/{}", room.id)).await;
     assert!(html.contains("/host/host.js"));
 
