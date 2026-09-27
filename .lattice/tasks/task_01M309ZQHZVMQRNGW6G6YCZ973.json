@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 9,
+  "comment_count": 11,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
@@ -13,11 +13,21 @@
       "id": "art_01M3GHM4RHP7CBMDWT21X3Y5S4",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3GK1AZJVYT3669HENCAC30X",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3GKJ9BCAPH60N7NX2T0D0SM",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZQHZVMQRNGW6G6YCZ973",
-  "last_event_id": "ev_01M3GJ9HGH8M4FHM3G3YJP0JA9",
-  "last_status_changed_at": "2026-09-27T04:16:37Z",
+  "last_event_id": "ev_01M3GKNG0S7Y7BFYRVF5KVKTZR",
+  "last_status_changed_at": "2026-09-27T04:56:58Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -45,7 +55,7 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-11",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m1",
     "fast-track",
@@ -54,6 +64,6 @@
   ],
   "title": "Deploy to Fly with the host stand-in",
   "type": "task",
-  "updated_at": "2026-09-27T04:34:38Z",
+  "updated_at": "2026-09-27T04:58:39Z",
   "urgency": null
 }
