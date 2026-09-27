@@ -31,6 +31,8 @@ function load() {
 const PQ = load();
 const B = PQ.Buzzer;
 const C = PQ.COPY;
+// The wordmark and Guest head every buzzer screen, the join form included.
+const TITLE = `${C.title_wordmark} ${C.buzzer_title_role}`;
 
 // --- replay mode: room/tests/buzzer_page.rs ----------------------------------
 //
@@ -127,7 +129,7 @@ test('AC-28: the join screen is one field and one button, and nothing beneath', 
   assert.equal((html.match(/<(select|textarea)\b/g) || []).length, 0);
   assert.ok(html.includes(`>${C.buzzer_join_label}</label>`));
   assert.ok(html.includes(`>${C.buzzer_join_button}</button>`));
-  assert.equal(text(html), `${C.buzzer_join_label} ${C.buzzer_join_button}`, 'no other line (PQ-34)');
+  assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ${C.buzzer_join_button}`, 'no other line (PQ-34)');
 });
 
 test('AC-28: the link carries the code — ?code= joins once, with no typing', () => {
@@ -185,7 +187,7 @@ test('AC-29, AC-30: each refusal shows its own §11 sentence and keeps the field
 test('idle: the code in the header, You’re in, and no foot', () => {
   const { html } = drive(inRoom(frames.idle));
   assert.ok(html.includes('ABC234'));
-  assert.equal(text(html), `${C.buzzer_join_label} ABC234 ↑ ${C.buzzer_idle}`, 'nothing else (PQ-34)');
+  assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ABC234 ↑ ${C.buzzer_idle}`, 'nothing else (PQ-34)');
   assert.ok(!html.includes('<footer'));
 });
 
@@ -214,7 +216,7 @@ test('split and work: the code and nothing else, answered or not', () => {
   for (const p of ['split', 'work']) {
     for (const saved of ['C', null]) {
       const { html } = drive(inRoom(frames[p], saved));
-      assert.equal(text(html), `${C.buzzer_join_label} ABC234`, `${p}, saved ${saved}`);
+      assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ABC234`, `${p}, saved ${saved}`);
       assert.ok(!html.includes('data-count'), `${p}: no count`);
     }
   }
@@ -222,17 +224,17 @@ test('split and work: the code and nothing else, answered or not', () => {
 
 test('reveal: ✓ It was Y. and nothing else — no count, no narration', () => {
   const t = text(drive(inRoom(frames.reveal, 'C')).html);
-  assert.equal(t, `${C.buzzer_join_label} ABC234 ✓ It was E.`);
+  assert.equal(t, `${TITLE} ${C.buzzer_join_label} ABC234 ✓ It was E.`);
 });
 
 test('reveal with no answer given: You didn’t answer, then ✓ It was Y.', () => {
   const t = text(drive(inRoom(frames.reveal, null)).html);
-  assert.equal(t, `${C.buzzer_join_label} ABC234 ${C.buzzer_noanswer_count_one} ✓ It was E.`);
+  assert.equal(t, `${TITLE} ${C.buzzer_join_label} ABC234 ${C.buzzer_noanswer_count_one} ✓ It was E.`);
 });
 
 test('released: the code and nothing else', () => {
   const { html } = drive(inRoom(frames.released, 'A'));
-  assert.equal(text(html), `${C.buzzer_join_label} ABC234`);
+  assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ABC234`);
   assert.ok(!html.includes('data-letter'));
 });
 

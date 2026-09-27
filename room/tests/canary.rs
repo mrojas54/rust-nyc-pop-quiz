@@ -158,7 +158,7 @@ async fn every_host_route_exists_and_nothing_moves_without_the_host() {
     // Out of order: refused with a reason, still idle.
     let (status, body) = command(&h.app, &room, Command::Host(HostAction::Reveal)).await;
     assert_eq!(status, StatusCode::CONFLICT);
-    assert_eq!(body["reason"], "Reveal isn't next. Put it on the screen comes next.");
+    assert_eq!(body["reason"], "Reveal isn't next. Start comes next.");
     let (_, wall) = call(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
     assert_eq!(wall["phase"], "idle");
 }

@@ -108,7 +108,7 @@
     live_hint_shown: "Hint shown, only to you.",
 
     /* --- Host, phase labels (AC-49) — announced, not shown --------------- */
-    /* The host screen's heading is host_title on every phase; the label is
+    /* The host screen's heading is the wordmark on every phase; the label is
        what the host's live region announces on each phase change. */
     host_phase_idle: "before the question",
     host_phase_live: "question live",
@@ -128,7 +128,7 @@
 
     /* --- Host, actions -------------------------------------------------- */
     host_action_create: "Create a room",
-    host_action_put_on_screen: "Put it on the screen",
+    host_action_put_on_screen: "Start",
     host_action_close: "Close answers",
     host_action_show_split: "Show the room its split",
     host_action_walk: "Let's walk it",
@@ -154,8 +154,10 @@
     host_fit_clipped_x: "too wide for this room — clipped at the right",
     host_fit_clipped_xy: "too long and too wide for this room",
 
-    /* --- Host, title — every host screen's heading and the page title --- */
-    host_title: "Pop Quiz Host",
+    /* --- Title — the wordmark, the surface's role beneath -------------- */
+    title_wordmark: "Rust NYC Pop Quiz",
+    host_title_role: "Host",
+    buzzer_title_role: "Guest",
 
     /* --- Host + wall, count (AC-46) — Joined, then Answered ------------- */
     count_joined: "Joined: ‹n›",
@@ -242,7 +244,7 @@
                        "host_reveal_beat_remember"],
     "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
                        "host_fit_clipped_xy"],
-    "Host, title": ["host_title"],
+    "Title (host phone, buzzer)": ["title_wordmark", "host_title_role", "buzzer_title_role"],
     "Host + wall, count (AC-46)": ["count_joined", "count_answered"],
     "Static fallback": ["static_next_phase", "static_step_trace", "static_back_phase"],
     "Uniqueness (organizer-facing, AC-18)": ["uniqueness"],

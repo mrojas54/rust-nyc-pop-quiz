@@ -67,7 +67,7 @@ pub const HOME_HEADING_REMEMBER: &str = "What to remember";
 pub const HOME_HEADING_WALK: &str = "Walk it yourself";
 pub const HOME_HEADING_HOW_WE_KNOW: &str = "How we know";
 pub const HOST_ACTION_CREATE: &str = "Create a room";
-pub const HOST_ACTION_PUT_ON_SCREEN: &str = "Put it on the screen";
+pub const HOST_ACTION_PUT_ON_SCREEN: &str = "Start";
 pub const HOST_ACTION_CLOSE: &str = "Close answers";
 pub const HOST_ACTION_SHOW_SPLIT: &str = "Show the room its split";
 pub const HOST_ACTION_WALK: &str = "Let's walk it";
@@ -84,7 +84,9 @@ pub const HOST_FIT_FITS: &str = "fits the room";
 pub const HOST_FIT_CLIPPED_Y: &str = "too long for this room — clipped at the bottom";
 pub const HOST_FIT_CLIPPED_X: &str = "too wide for this room — clipped at the right";
 pub const HOST_FIT_CLIPPED_XY: &str = "too long and too wide for this room";
-pub const HOST_TITLE: &str = "Pop Quiz Host";
+pub const TITLE_WORDMARK: &str = "Rust NYC Pop Quiz";
+pub const HOST_TITLE_ROLE: &str = "Host";
+pub const BUZZER_TITLE_ROLE: &str = "Guest";
 pub const COUNT_JOINED: &str = "Joined: ‹n›";
 pub const COUNT_ANSWERED: &str = "Answered: ‹n›";
 pub const STATIC_NEXT_PHASE: &str = "Space next phase";
@@ -179,7 +181,9 @@ pub const ALL: &[(&str, &str)] = &[
     ("host_fit_clipped_y", HOST_FIT_CLIPPED_Y),
     ("host_fit_clipped_x", HOST_FIT_CLIPPED_X),
     ("host_fit_clipped_xy", HOST_FIT_CLIPPED_XY),
-    ("host_title", HOST_TITLE),
+    ("title_wordmark", TITLE_WORDMARK),
+    ("host_title_role", HOST_TITLE_ROLE),
+    ("buzzer_title_role", BUZZER_TITLE_ROLE),
     ("count_joined", COUNT_JOINED),
     ("count_answered", COUNT_ANSWERED),
     ("static_next_phase", STATIC_NEXT_PHASE),

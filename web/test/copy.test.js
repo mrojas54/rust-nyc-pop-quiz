@@ -84,8 +84,9 @@ test('the client\'s own lines are hers, exactly', () => {
   assert.strictEqual(COPY.wall_released_title, "Let's go to the bar.");
 });
 
-test('the host page is titled Pop Quiz Host', () => {
-  assert.strictEqual(COPY.host_title, 'Pop Quiz Host');
+test('the host page is headed by the wordmark, Host beneath', () => {
+  assert.strictEqual(COPY.title_wordmark, 'Rust NYC Pop Quiz');
+  assert.strictEqual(COPY.host_title_role, 'Host');
 });
 
 // PQ-34, HC-0 (2026-09-27): "remove any text that is absolutely unnecessary.

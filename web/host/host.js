@@ -97,10 +97,12 @@
       (ui && ui.busy ? " disabled" : "") + ">" + esc(actionLabel(slug)) + "</button>";
   }
 
-  /* Every host screen's heading, whatever the phase. The phase itself is
-     announced through the live region (HOST_PHASE_LABEL), not shown. */
+  /* Every host screen's heading, whatever the phase: the design system's
+     wordmark, "Host" beneath. The phase itself is announced through the live
+     region (HOST_PHASE_LABEL), not shown. */
   function titleHtml(phase) {
-    return '<h1 class="host-h" data-phase="' + phase + '">' + esc(PQ.t("host_title")) + "</h1>";
+    return '<h1 class="host-h" data-phase="' + phase + '">' + esc(PQ.t("title_wordmark")) + "</h1>" +
+      '<p class="host-role">' + esc(PQ.t("host_title_role")) + "</p>";
   }
 
   function codeHtml(code) {

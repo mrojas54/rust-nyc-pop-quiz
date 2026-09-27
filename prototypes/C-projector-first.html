@@ -726,9 +726,12 @@ function renderProjector() {
 function renderParticipant() {
   const b = document.getElementById("pBody");
   const p = state.phase;
+  /* The wordmark, Guest beneath, heads every buzzer screen (HC-0, 2026-09-27). */
+  const title = '<div style="text-align:center"><div class="host-h" style="font-size:30px;margin:0">Rust NYC Pop Quiz</div>' +
+    '<div class="host-h" style="font-size:24px;color:var(--text-secondary);margin:0 0 6px">Guest</div></div>';
 
   if (p === "idle" || p === "released") {
-    b.innerHTML =
+    b.innerHTML = title +
       '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
       '<div class="buzz-verdict"><div>' +
       (p === "idle"
@@ -743,7 +746,7 @@ function renderParticipant() {
      reveal, the answer's letter; above it, "You didn't answer." on a phone
      that holds none. Counts are the wall's. */
   if (p === "split" || p === "work" || p === "reveal") {
-    b.innerHTML =
+    b.innerHTML = title +
       '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
       '<div class="buzz-verdict"><div>' +
       (p === "reveal"
@@ -755,7 +758,7 @@ function renderParticipant() {
   }
 
   const locked = (p === "closed" || p === "split" || p === "work");
-  b.innerHTML =
+  b.innerHTML = title +
     '<div class="buzz-head"><div class="lookup">' +
       (locked ? 'Answers closed. You said <b>' + (state.picked || "—") + '</b>.'
               : '<b>Look up</b> — the code is on the screen') +
@@ -782,8 +785,8 @@ function renderParticipant() {
 function renderHost() {
   const b = document.getElementById("hostBody");
   const p = state.phase;
-  /* Every host screen is headed Pop Quiz Host (HC-0, 2026-09-27). */
-  const head = function () { return '<div class="host-h">Pop Quiz Host</div>'; };
+  /* Every host screen is headed by the wordmark, Host beneath (HC-0, 2026-09-27). */
+  const head = function () { return '<div class="host-h" style="font-size:30px;margin:2px 0 0">Rust NYC Pop Quiz</div><div class="host-h" style="font-size:24px;color:var(--text-secondary)">Host</div>'; };
   let html;
 
   if (p === "idle") {
@@ -792,7 +795,7 @@ function renderHost() {
       '<div class="panel" style="text-align:center"><div class="meta">room code</div>' +
       '<div style="font-family:var(--serif);font-size:34px;color:var(--accent)">' + ROOM.code + '</div></div>' +
       '<div class="no-preview">No answer preview. You are playing too.</div>' +
-      '<button class="btn btn-primary" onclick="go(\'live\')">Put it on the screen</button></div>';
+      '<button class="btn btn-primary" onclick="go(\'live\')">Start</button></div>';
   } else if (p === "live") {
     html = head() +
       '<div class="stack">' +

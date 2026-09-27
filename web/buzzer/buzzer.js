@@ -343,9 +343,15 @@
     return { kind: "none", text: t("buzzer_no_answer_yet") };
   }
 
+  /* Every buzzer screen, the join form included: the wordmark, Guest beneath. */
+  function title() {
+    return '<div class="buzz-title"><h1 class="buzz-wordmark">' + esc(t("title_wordmark")) + '</h1>' +
+      '<p class="buzz-role">' + esc(t("buzzer_title_role")) + '</p></div>';
+  }
+
   function head(s, lookup) {
     var code = s.frame && s.frame.code ? s.frame.code : s.code;
-    return '<header class="buzz-head">' +
+    return title() + '<header class="buzz-head">' +
       '<div class="buzz-code"><span class="meta">' + esc(t("buzzer_join_label")) + '</span> ' +
       '<b>' + esc(code) + '</b></div>' +
       (lookup ? '<div class="lookup">' + lookup + '</div>' : '') +
@@ -356,7 +362,7 @@
     var msg = null;
     if (s.refusal === "unknown_error") msg = null;
     else if (s.refusal) msg = refusalMessage(s.refusal);
-    return '<form class="buzz-join" data-act="join" novalidate>' +
+    return title() + '<form class="buzz-join" data-act="join" novalidate>' +
       '<label class="buzz-join-label" for="pq-code">' + esc(t("buzzer_join_label")) + '</label>' +
       '<input id="pq-code" name="code" class="buzz-input" type="text" inputmode="text"' +
       ' autocomplete="off" autocapitalize="characters" spellcheck="false"' +

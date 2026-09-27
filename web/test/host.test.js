@@ -72,12 +72,12 @@ const buttons = (html) => [...html.matchAll(/<button\b[^>]*>([^<]*)<\/button>/g)
 const primaries = (html) => buttons(html).filter((b) => /data-primary=/.test(b.tag));
 const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 
-// PQ-34 (HC-0): every host screen is headed Pop Quiz Host; the phase is
+// PQ-34 (HC-0): every host screen is headed by the wordmark, Host beneath; the phase is
 // announced through the live region, not shown.
-test('every phase is headed Pop Quiz Host and has exactly one primary action', () => {
+test('every phase is headed by the wordmark and Host, and has exactly one primary action', () => {
   for (const phase of PQ.PHASES) {
     const html = PQ.host.render(payload(phase));
-    assert.ok(html.includes(`>${PQ.COPY.host_title}</h1>`), `${phase}: the title`);
+    assert.ok(html.includes(`>${PQ.COPY.title_wordmark}</h1><p class="host-role">${PQ.COPY.host_title_role}</p>`), `${phase}: the title`);
     assert.ok(!html.includes(`>${PQ.HOST_PHASE_LABEL[phase]}<`), `${phase}: no phase label shown`);
     const p = primaries(html);
     assert.equal(p.length, 1, `${phase}: one primary`);
@@ -117,12 +117,12 @@ test('AC-45: ← and → are disabled when the room cannot step that way', () =>
   assert.ok(!/\bdisabled\b/.test(back.tag));
 });
 
-test('the create screen: Pop Quiz Host and Create a room, nothing else', () => {
+test('the create screen: the wordmark, Host, and Create a room, nothing else', () => {
   const html = PQ.host.renderCreate({});
   assert.equal(primaries(html).length, 1);
   assert.ok(html.includes('data-primary="create"'));
   const t = unescape(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
-  assert.equal(t, `${PQ.COPY.host_title} ${PQ.COPY.host_action_create}`);
+  assert.equal(t, `${PQ.COPY.title_wordmark} ${PQ.COPY.host_title_role} ${PQ.COPY.host_action_create}`);
 });
 
 test('AC-46: one count line — Joined: n in idle, Answered: n from live on', () => {

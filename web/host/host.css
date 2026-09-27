@@ -16,7 +16,8 @@ html { -webkit-text-size-adjust: 100%; }
               padding: var(--panel-pad-compact); display: flex; flex-direction: column;
               overflow-wrap: anywhere; }
 
-.host-h { font-family: var(--font-heading); font-size: 24px; margin: 2px 0 10px; }
+.host-h { font-family: var(--font-heading); font-size: 30px; margin: 2px 0 0; }
+.host-role { font-family: var(--font-heading); font-size: 24px; color: var(--text-secondary); margin: 0 0 10px; }
 .stack { display: flex; flex-direction: column; gap: 8px; }
 
 h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
