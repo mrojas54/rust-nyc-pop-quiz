@@ -4,7 +4,7 @@
 //! that it can **close for inactivity**: in `idle` after [`IDLE_QUIET`] with no
 //! host action, in any later phase up to `reveal` after [`LATER_QUIET`]. A
 //! released room is already over; it keeps only its phase shell (no sessions,
-//! no totals, no counts) until its four hours are up, so the wall can say
+//! no per-person anything; only the anonymous totals, which expire with it) until its four hours are up, so the wall can say
 //! *Let's go to the bar.* and the host can *Run it again*.
 //!
 //! **Two halves, one deletion path.** The participant and host entry points

@@ -466,8 +466,11 @@ impl Room {
                     });
                 }
                 // T-11: the machine is still `reveal` here, so `open` holds the
-                // witness. Copy out what outlives the room, then hollow it:
-                // no totals, no answered, no verdict, no counts (AC-56, D-12).
+                // witness. Copy out what outlives the room, then drop what is
+                // per person: the live counts here, the sessions in
+                // `AppState::act` (AC-56). The anonymous totals, `answered`
+                // and the verdict stay on the shell and expire with it at four
+                // hours — AC-56 read literally, the Orchestrator's ruling.
                 Phase::Released => {
                     let meetup_date = crate::used::meetup_date(self.created_at);
                     let take_home = {
@@ -479,7 +482,6 @@ impl Room {
                         meetup_date,
                         fit: self.fit.take(),
                     });
-                    self.frozen = None;
                     self.present = 0;
                     self.answered_live = 0;
                     self.released_at = Some(now);

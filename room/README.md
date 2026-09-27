@@ -129,13 +129,17 @@ never wait (`tests/common` → `Clocked`).
 **Release.** The `released` transition is the one place the room's afterlife
 is written. Inside `Room::act`, while the machine is still `reveal` and so still
 holds the witness, it copies the take-it-home snapshot out of what `open()`
-lends. It then hollows the room: `totals`, `answered`, the §4.5 verdict,
-`present`/`answered_live` and `fit` go. `AppState::act` takes that parting under
-the same lock, drops every session, appends the used record, and replaces the
+lends. It then drops what is per person: `present`/`answered_live` go, `fit`
+moves into the used record, and `AppState::act`, which takes that parting under
+the same lock, drops every session, appends the used record and replaces the
 snapshot. What stays until the four hours are up is the phase shell (id, code,
 organizer, host session, phase), so the wall can say *Let's go to the bar.* and
-the host can *Run it again*. Nothing per person, and no count, survives release
-(AC-56; `tests/lifecycle.rs` checks by inspecting `AppState`).
+the host can *Run it again*. The shell also keeps the anonymous per-option
+`totals`, `answered` and the §4.5 verdict, which expire with it at four hours
+(AC-56, read literally: *only anonymous totals persist, and they expire with
+it*). Nothing per person survives release, and nothing that outlives the room
+(the used record, the snapshot) carries a count (AC-56, D-12;
+`tests/lifecycle.rs` checks by inspecting `AppState`).
 
 **Never twice (G-10).** `create_room` and `run_again` refuse a question the
 ledger holds (*That question has already been run. Pick another.*). A room that
@@ -146,7 +150,7 @@ expires or goes quiet before release records nothing.
 | Seam | For | Shape |
 |---|---|---|
 | `AppState::used().all() -> Vec<UsedEntry>` | T-25's `GET /admin/used`, T-20's `popquiz sync` | `[{question_id, used: {meetup_date, room_id, released_at, fit}}]`. `used` is `bank.py`'s `Used` field for field (`tests/used.rs` parses the class). `meetup_date` is `created_at`'s date in `used::MEETUP_ZONE` (America/New_York). `released_at` is RFC 3339 UTC. `fit` is the wall's last verdict, or `null` if it never reported one. |
-| `AppState::take_home() -> Option<TakeHome>` | T-12's `/last` | `tests/fixtures/take_home.shape.json`. Source, colour, options with the one ✓, the whole trace, *what* and *takeaway*, the receipt. No count, no most-chosen option (D-12). Rebuilt at every release; `None` before the first. Not yet: every incorrect option's `why_tempting` and the verified record's detail rows, which the sealed module does not lend; T-12 adds a witnessed read. |
+| `AppState::take_home() -> Option<TakeHome>` | T-12's `/last` | `tests/fixtures/take_home.shape.json`. Source, colour, options with the one ✓, the whole trace, *what* and *takeaway*, the receipt. No count, no most-chosen option (D-12). Rebuilt at every release; `None` before the first. Not yet: every incorrect option's `why_tempting` and the verified record's detail rows, which the sealed module does not lend. The additive witnessed read in `answers.rs` (after reveal only) is T-12's, PQ-15. |
 | `AppState::with_clock`, `AppState::sweep` | T-10's `test-full` AC-69 row | `tests/lifecycle.rs::test_full_ac69_open_room_runs_to_release_with_auth_down` is `#[ignore]`d with its shape. |
 
 ## The phase machine

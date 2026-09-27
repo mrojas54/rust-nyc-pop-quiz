@@ -308,14 +308,33 @@ fn ac56_nothing_per_person_survives_release() {
             (v.frozen, v.present, v.answered_live)
         })
         .unwrap();
-    assert_eq!(frozen, None, "totals, answered and the verdict are gone");
-    assert_eq!((present, answered_live), (0, 0));
+    // The anonymous per-option totals stay with the shell until it expires
+    // (AC-56: "only anonymous totals persist, and they expire with it").
+    assert_eq!(frozen, Some((3, [1, 2, 0, 0, 0])), "the anonymous totals stay");
+    assert_eq!((present, answered_live), (0, 0), "the live counts were the sessions'");
     for t in &tokens {
         assert_eq!(c.state.resolve(&room.id, t), None, "a token names nothing");
         assert_eq!(c.state.buzzer_for(&room.id, t).err(), Some(RoomError::Denied));
     }
     let host = c.state.with_room(&room.id, view::host).unwrap();
-    assert_eq!((host.present, host.answered), (0, None));
+    assert_eq!((host.present, host.answered), (0, Some(3)), "the host still reads the frozen count");
+}
+
+#[test]
+fn ac56_the_totals_expire_with_the_released_room() {
+    let c = Clocked::new();
+    let created = c.clock.now();
+    let room = c.create("q3");
+    let token = join(&c, &room.code).unwrap();
+    c.walk(&room, &[HostAction::PutOnScreen]);
+    c.state.answer(&room.id, &token, Letter::E).unwrap();
+    c.walk(&room, &TO_REVEAL[1..]);
+    c.walk(&room, &[HostAction::ReleaseRoom]);
+    assert_eq!(c.state.with_room(&room.id, |r| r.public().frozen).unwrap(), Some((1, [0, 0, 0, 0, 1])));
+    assert_eq!(c.state.with_room(&room.id, |r| r.expires_at()).unwrap(), created + ROOM_LIFETIME);
+    c.clock.set(created + ROOM_LIFETIME);
+    assert_eq!(c.state.sweep(c.clock.now()), vec![room.id.clone()]);
+    assert!(c.state.with_room(&room.id, |r| r.public().frozen).is_err(), "gone with the room");
 }
 
 #[test]
