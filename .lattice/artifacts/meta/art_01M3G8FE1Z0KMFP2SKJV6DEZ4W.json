@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T01:43:06Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3G8FE1Z0KMFP2SKJV6DEZ4W",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3G8FE1Z0KMFP2SKJV6DEZ4W.md",
+    "size_bytes": 368
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #23, merge commit 64bf7c7). Delegator's code review and validation attached; Orchestrator merge-resolution note for e390440 (routes.rs + README unio",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

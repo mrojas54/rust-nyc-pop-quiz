@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #23, merge commit 64bf7c7). Delegator's code review and validation attached; Orchestrator merge-resolution note for e390440 (routes.rs + README unions, ignored harness helper retired). CI green on e390440; MERGEABLE/CLEAN re-checked immediately before merge. Six deviations accepted; contract gaps F-24, F-25 routed.

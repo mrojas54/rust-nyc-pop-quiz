@@ -1,17 +1,33 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 7,
+  "comment_count": 9,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-26 (M1).\n\nThe static fallback: `mode: \"static\"` in the wall (no socket, the phase held locally, the question baked in), the `Space`/`\u2190`/`\u2192`/`Esc` driver, and a one-file build with fonts and tokens inlined that makes no network request; the same fixture renders identically in both modes; and the **host sheet** function, a question record to plain text, that T-20 calls beside the build (`SPEC.md` \u00a712, D-21, D-24)\n\nCriteria: AC-102, AC-97, AC-99\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-02, T-05\nBUILDPLAN notes: Not part of HC-0's trigger, but the client opens the file offline at HC-0 and reads the sheet against it. Edits `web/wall/`; consumes `web/shared/`\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M3G7RQA3JB6TGKHB38V2QTYQ",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3G7RQEBSYTFQDDXFV19ZKNB",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3G835Q5NFMRH5G2FC2ARTZ2",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZQNM231RK4CRGZK8CCPV",
-  "last_event_id": "ev_01M3G7F0EEMXMFY255KAZCDR8Y",
-  "last_status_changed_at": "2026-09-27T01:25:23Z",
+  "last_event_id": "ev_01M3G8JQYWR8CY5H1H1CKDFNDJ",
+  "last_status_changed_at": "2026-09-27T01:36:28Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -32,7 +48,7 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-12",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m1",
     "inline-full",
@@ -40,6 +56,6 @@
   ],
   "title": "Static fallback and host sheet",
   "type": "task",
-  "updated_at": "2026-09-27T01:25:23Z",
+  "updated_at": "2026-09-27T01:44:54Z",
   "urgency": null
 }
