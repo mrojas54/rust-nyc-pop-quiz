@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #24, merge commit 445a40f). Code review and validation attached; CI green on dcb1cf3; MERGEABLE/CLEAN against 64bf7c7 re-checked immediately before merge. Seven deviations accepted.
