@@ -10,7 +10,7 @@ From the repository root:
 
     just setup
     just test       # the room's tests, along with the pipeline's and the web's
-    just canary     # just the in-process secrecy seam
+    just canary     # the secrecy suite (--full: over real sockets too)
 
 Or directly:
 
@@ -438,18 +438,16 @@ The proof is in two halves, and neither is "we reviewed it":
 Both halves were mutation-checked when they were written: opening each boundary
 in a scratch copy turned exactly the matching test red.
 
-`tests/canary.rs` is the runtime complement. It drives `router_with()` through
-every phase. Before `reveal`, it asserts that no payload for any viewer carries:
+`tests/canary.rs` is the runtime complement (*Canary*, below). It drives a room
+through every phase. Before `reveal`, it asserts that no payload for any viewer carries:
 - a ✓, a receipt line, the explanation or any `why_tempting`;
 - the resolving step, a `stdout` values entry, or a step beyond `M-2`;
 - the hint (before `live`, and outside the buzzer's `live` payload).
 
 It also asserts that every option object is exactly `{letter, text}` in arrival
 order, and that the buzzer never carries source, trace or option text. At
-`reveal` it asserts that the plants do appear. The plants are T-04a's seam:
-**T-08** replaces them with its canary set and extends the scan to pages and
-socket frames, and **T-25** adds `POPQUIZ_ADMIN_TOKEN`. G-6's machine half is
-proven here; its full canary half is T-08's.
+`reveal` it asserts that the plants do appear. T-08's canary set, pages,
+frames and the real buzzer page are described under *Canary*, below.
 
 ### Choices worth knowing
 
@@ -479,17 +477,97 @@ building this server needs that, and putting a `rust-toolchain.toml` here would
 both invite the confusion and make `just test` reach for the network on any
 machine that did not happen to have the pinned toolchain already.
 
-## The canary seam
+## Canary
 
-`tests/canary.rs` drives the router in-process, with no socket.
-T-04a extended it to drive every phase in order for all three viewers (above).
-T-08 lands its canary set on top: canaries planted in the resolving trace step's
-`note`, the explanation, the receipt and the hint, asserted absent from every
-pre-reveal payload, pages and frames included. T-25 adds the admin token as a
-fifth plant.
+The secrecy suite (T-08): `tests/canary.rs` in `just test`, `tests/canary_full.rs`
+in `just test-full`, both over one scan core in `tests/canary_scan/` (not a test
+target). `just canary` runs the first; `just canary --full` both.
 
-The other half of that hook — scanning the deployed room's real frames and pages
-— runs in `just test-full` once T-09 has something deployed.
+**What is planted.** `common::plants()` draws one set per test process, each
+`CANARY-<NAME>-<16 hex>` from the OS generator, so no line of the room can have
+been written to match one. `canary_question()` (id `canary`) is q3's shape with a
+plant in: option E's text **and** the synthetic verified record's `stdout` (that
+equality is the join G-3 withholds, so it is what is planted); the receipt
+(`runs.count`, rendered `✓ Ran ‹N› times`); `explains.what` and `takeaway`; every
+`why_tempting`; the hint; the source (a trailing comment on line 1); every trace
+step's `note` (the final one is the resolving step's); a non-`stdout` trace
+value; a `stdout` row in a middle step. `canary_question_dnc()` is the same prose
+with one canary error code (receipt `✓ Error ‹code›`). Both records say
+`SYNTHETIC - no compiler ran` and their source is itself a plant: nothing here
+writes down what a program prints. `POPQUIZ_ADMIN_TOKEN` is set to a fifth-kind
+plant in the test process and every child; it is never a literal in the
+repository, which is what T-25's repo-wide scan looks for.
+
+**What is scanned, at every revision** — every host transition, every `→` in
+`work` up to the bound and the one refused past it, every `←` in `reveal` back to
+step 0 — with a wall, a host and three buzzers attached over the loopback
+listener and the real session map:
+
+- the three HTTP projections, and the host denials (`401`, empty);
+- every response a client provokes: the host action's, `POST /join` (a new
+  session each stop; the refusal in `released`), `PUT …/answer`, `PUT …/fit`,
+  an unknown room's `404`, *Run it again*'s;
+- every socket frame each socket received since the last stop, drained until
+  it equals its viewer's projection;
+- every page and every file the router serves (`/wall/{id}`, `/host`,
+  `/host/{id}`, `/join`, `/join?code=`, `/{code}`'s redirect, every asset list
+  in `routes.rs`; fonts once per room and byte-compared at every stop);
+- the wall's frames as the served `wall.js` renders them (`PQ.Wall.html`, under
+  `node`);
+- the **real buzzer page**: the served `buzzer.js` mounted under `node`
+  (`canary_scan/page.js`) with node's own `fetch` and `WebSocket` pointed at the
+  room. It joins by the code, attaches, takes the hint, answers, sees its socket
+  drop in `closed` and re-attaches, and its rendered HTML, the frames it received
+  and every request and message it sent are scanned.
+
+**The rules** (`canary_scan::check`, keyed on the phase each payload names):
+before `reveal`, nothing on any surface carries the resolving note, the
+explanation, a `why_tempting`, the receipt or the error code, the middle `stdout`
+row, a ✓, a receipt line, a key that names the answer, a `stdout` values row or
+a step beyond `M-2`, and the correct option's text appears only as option E on
+the wall (G-3, AC-47, AC-60); every option object is exactly `{letter, text}`;
+the hint is in every buzzer view in `live` and on no surface outside it (AC-48),
+and taking it on the page makes no request, sends no message and moves neither
+the wall nor the host; no participant surface ever carries the source, a trace
+note or value, an option text, the explanation or the receipt (G-8, AC-32); the
+`work` wall is uncoloured (AC-97); no served or rendered wall has an interactive
+control (AC-79 — `wall_page.rs` holds the served page's half too); after the
+page's `closed` frame it sends nothing but `{t:"attach", token}` and the server
+receives nothing bearing its session (AC-58, G-4), and its *n people said X*
+equals the broadcast total for the letter it holds; `released` carries no plant;
+no surface carries the admin token. Positive controls then check the plants did
+reach the surfaces that may show them — the source on the live wall, the hint on
+the live buzzer and the page, the walk's notes in `work`, the resolving step,
+every note and the middle `stdout` row while stepping `reveal`, the explanation
+and the named option's `why_tempting` on the host, the receipt on the wall — so a
+scan that saw nothing cannot pass. `the_rules_catch_a_planted_leak` checks the
+rules themselves against payloads the room must never send.
+
+**The route walk.** `canary_scan::route_table()` reads every `.route(` in
+`src/routes.rs`; a route that is neither driven nor on `UNSCANNED` fails
+`every_route_in_routes_rs_is_scanned_or_listed`. **Unscanned: none.**
+
+**test-full.** `canary_full.rs` runs the same walk with every HTTP request over a
+real TCP connection, over two rooms (the second made by *Run it again*, on the
+does-not-compile twin), and the reconnect path: in `closed` a buzzer's socket
+drops and re-attaches, another's is replaced by a second socket (`4000`), and
+each attach frame carries only that session's own saved letter.
+
+**What it does not prove, yet.**
+
+- *The deployed room.* The scan core takes a base URL and `just canary --url U`
+  is the hook, but it refuses: nothing can create a room on a deployed server
+  before T-09's stand-in token (SPEC §8.2), and nothing can plant the question
+  on one before T-25's admin push (§8.3). T-09 wires it into `smoke`.
+- *The admin token.* The room reads no `POPQUIZ_ADMIN_TOKEN` and has no admin
+  route until T-25, so today that assertion can only fail if a payload echoed
+  the environment. It is a scaffold T-25 turns live. The room writes no log
+  line yet either (its only output is the bind line), so "no log line" is
+  T-25's to check alongside the code that first reads the token.
+- *A browser.* The pages run under `node` with a stub DOM, not a layout engine;
+  what a real browser adds is layout, which the canary does not judge.
+- `exit_code` renders nowhere (the receipt never reads it) and cannot carry a
+  string; it is asserted absent as a key rather than planted as text.
 
 ## The burst spike (T-03)
 
