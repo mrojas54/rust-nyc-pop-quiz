@@ -258,6 +258,7 @@ pub struct Room {
 /// the wall's last verdict, for the used record.
 struct Parting {
     take_home: TakeHome,
+    meetup_date: String,
     fit: Option<Fit>,
 }
 
@@ -468,17 +469,14 @@ impl Room {
                 // witness. Copy out what outlives the room, then hollow it:
                 // no totals, no answered, no verdict, no counts (AC-56, D-12).
                 Phase::Released => {
+                    let meetup_date = crate::used::meetup_date(self.created_at);
                     let take_home = {
                         let opened = self.open().expect("release is entered only from reveal");
-                        crate::used::take_home(
-                            &self.question_id,
-                            crate::used::meetup_date(self.created_at),
-                            &self.public(),
-                            &opened,
-                        )
+                        crate::used::take_home(&self.question_id, meetup_date.clone(), &self.public(), &opened)
                     };
                     self.parting = Some(Parting {
                         take_home,
+                        meetup_date,
                         fit: self.fit.take(),
                     });
                     self.frozen = None;
@@ -827,7 +825,7 @@ impl AppState {
             self.used.append(UsedEntry {
                 question_id: room.question_id.clone(),
                 used: UsedRecord {
-                    meetup_date: crate::used::meetup_date(room.created_at),
+                    meetup_date: parting.meetup_date,
                     room_id: room.id.clone(),
                     released_at: crate::used::rfc3339(now),
                     fit: parting.fit,

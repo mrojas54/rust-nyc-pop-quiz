@@ -7,10 +7,14 @@
 //! no totals, no counts) until its four hours are up, so the wall can say
 //! *Let's go to the bar.* and the host can *Run it again*.
 //!
-//! **Two halves, one deletion path.** Every entry point on
-//! [`crate::rooms::AppState`] asks [`verdict`] and refuses a room that has
-//! ended, so there is never a window in which an expired room admits a join or
-//! a host command. Only [`crate::rooms::AppState::sweep`] deletes, and it hands
+//! **Two halves, one deletion path.** The participant and host entry points
+//! on [`crate::rooms::AppState`] — `join`, `answer`, `buzzer_for`, `act`,
+//! `run_again` — ask [`verdict`] and refuse a room that has ended, so there is
+//! never a window in which an expired room admits a join, an answer or a host
+//! command. The read-only projections and the wall's `fit` writer do not ask:
+//! until the next sweep (at most [`REAP_EVERY`]) they still serve the room as
+//! it last stood, which carries nothing a released room would not. Only
+//! [`crate::rooms::AppState::sweep`] deletes, and it hands
 //! back the ids it deleted so [`spawn_reaper`] can tell the transport, which
 //! closes those rooms' sockets with `4404` (`ws::close::ROOM_GONE`).
 //!
