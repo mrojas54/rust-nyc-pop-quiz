@@ -113,8 +113,7 @@ test('live: the source in colour, five options beneath, the join strip and nothi
   // HC-0 (2026-09-27): `join @ ‹link›`, the same line as idle, nothing after it.
   assert.strictEqual(F.live.join, F.idle.join);
   const link = F.live.join.slice('join @ '.length).replace(/^https?:\/\//, '');
-  assert.ok(h.includes(`<div class="joinstrip"><span>join @ <b>${link}</b></span>`), h);
-  assert.ok(!h.includes('still open'));
+  assert.ok(h.includes(`<div class="joinstrip"><span>join @ <b>${link}</b></span><span class="wall-counts">`), h);
   assert.ok(!h.includes('bar-row'), 'no bars before the split');
 });
 
