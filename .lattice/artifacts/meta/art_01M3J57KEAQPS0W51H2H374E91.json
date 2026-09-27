@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T19:24:52Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3J57KEAQPS0W51H2H374E91",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3J57KEAQPS0W51H2H374E91.md",
+    "size_bytes": 481
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #27 (ai-c11-cc/copy-trim @ b5e22fe on 88e0018) merged to main with a merge commit at 934e6c8 on the client's word 2026-09-27 15:2x EDT, after re-verifying OPEN/MERGEABLE/CLEAN and both CI jobs SUCC",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

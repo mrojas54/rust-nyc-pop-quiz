@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T18:08:41Z",
+  "created_by": "agent:delegator-pq34",
+  "custom_fields": {},
+  "id": "art_01M3J0W32WAGER2BQEG10N8MP3",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3J0W32WAGER2BQEG10N8MP3.md",
+    "size_bytes": 1113
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Design-system vocab check",
+  "token_usage": null,
+  "type": "note"
+}
