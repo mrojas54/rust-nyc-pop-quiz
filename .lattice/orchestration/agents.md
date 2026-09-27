@@ -6,8 +6,8 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Orchestrator | — | surface:8 | pane:1 (workspace:1; after the 15:xx c11 restart `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | Resumed 2026-09-26 15:2x after the client's hold (session e86d681a); wave 7 continuing; all five PRs merged, `main` = `cac818b` | 2026-09-26 15:2x | 2026-09-20 |
-| Delegator agent:delegator-pq10 (Opus, inline-full) | PQ-10 / T-08 canary secrecy suite | surface:29 | pane:1 | ai-c11-cc/canary | …-worktrees/canary | launched 21:4x off main @ 64bf7c7; expect the option-2 prompt | 2026-09-26 21:4x | 2026-09-26 21:4x |
+| Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | Fresh session 2026-09-26 22:4x took over from e86d681a per its cost note; `main` = `445a40f`; only PQ-10 in flight, branch pushed at `2da5004`, PR pending the client's `gh pr create` approval | 2026-09-26 22:4x | 2026-09-20 |
+| Delegator agent:delegator-pq10 (Opus, inline-full) | PQ-10 / T-08 canary secrecy suite | surface:29 | pane:1 | ai-c11-cc/canary | …-worktrees/canary | review + validation attached; four commits over `445a40f`; pushed `2da5004` over ssh:443 (port 22 timed out); at or near the `gh pr create` ask-rule prompt | 2026-09-26 22:4x | 2026-09-26 21:4x |
 
 ### Archived (run history)
 

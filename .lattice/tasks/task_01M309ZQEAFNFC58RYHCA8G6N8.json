@@ -8,9 +8,20 @@
   "custom_fields": {},
   "description": "BUILDPLAN.md T-08 (M1).\n\n`canary`: plant secrets in answer, explanation, receipt, hint-before-live; scan every payload, frame, and page in every phase; post-close traffic carries no answer\n\nCriteria: AC-32, AC-47, AC-48, AC-58, AC-60, AC-79, G-3, G-4, G-8\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-04a\u201307\nBUILDPLAN notes: In-process scan in `test`; the deployed-room scan in `test-full`. Serialized on `justfile`\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M3GBFNDYS63ST77AMF37MAS6",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3GBFNHXVDVTPWPBCZ3GN6N8",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZQEAFNFC58RYHCA8G6N8",
-  "last_event_id": "ev_01M3GA4CQKQSVE77ZZC5WR8FYW",
+  "last_event_id": "ev_01M3GBFNHZRBC4VSTMJK58JM0N",
   "last_status_changed_at": "2026-09-27T02:12:01Z",
   "priority": "high",
   "relationships_out": [
@@ -68,6 +79,6 @@
   ],
   "title": "Canary secrecy suite",
   "type": "task",
-  "updated_at": "2026-09-27T02:12:01Z",
+  "updated_at": "2026-09-27T02:35:39Z",
   "urgency": null
 }
