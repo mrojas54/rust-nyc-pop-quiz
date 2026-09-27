@@ -17,7 +17,7 @@
    under the MIT License, reproduced here as that licence requires:
 
      Copyright (c) Project Nayuki. (MIT License)
-     https://www.nayuki.io/page/qr-code-generator-library
+     www.nayuki.io/page/qr-code-generator-library
 
      Permission is hereby granted, free of charge, to any person obtaining a
      copy of this software and associated documentation files (the "Software"),

@@ -74,6 +74,7 @@ test-full: test sandbox-build test-sandbox test-verify-full test-transport-full
     echo ""
     echo "Run in a browser, not here — no headless browser on this machine or in CI:"
     echo "  wall-layout  the wall's measured layout, AC-100 / AC-33 (just wall-layout)"
+    echo "  fallback     the static fallback stepped offline, AC-102 (room/README.md, Pages)"
     echo ""
     echo "T-21 adds the deployed runs and extends this hook further."
 
