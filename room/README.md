@@ -21,11 +21,14 @@ Or directly:
 locally. Any value will do for the token; it is the host's credential for this
 run only:
 
-    cd room && HOST_DEV_TOKEN=<any value> cargo run --features dev-host-token
+    cd room && HOST_DEV_TOKEN=<any value> cargo run --bin room --features dev-host-token
 
+(`--bin room`: the crate has four binaries, and `cargo run` will not pick one.)
 Then open `http://127.0.0.1:3000/host?question=q3#<that value>` and press
-*Create a room*. The host phone shows the code and the wall's address,
-`/wall/{room_id}`. Phones (or other tabs) join at `/join`, or through the short
+*Create a room*. The host phone moves to `/host/{room_id}` and shows the
+wordmark, the room code, one primary action and the count; it does not show the
+wall's address. Open the wall at `/wall/{room_id}`, the same id as the host
+page's path. Phones (or other tabs) join at `/join`, or through the short
 link `/{code}`. The binary refuses to start in this build if `HOST_DEV_TOKEN` is
 unset or empty.
 
@@ -59,6 +62,8 @@ ones named in `BUILDPLAN.md` section 2:
 | `ws` | One broadcast per room: wall, buzzers, host | T-04c |
 | `config` | What the binary reads from its environment | T-09 |
 | `standin` | SPEC §8.2's `HOST_DEV_TOKEN` stand-in and the HC-0 seed; only with `--features dev-host-token` | T-09 (T-10 deletes it) |
+| `lifecycle` | How long a room lives: the `Clock` seam, the four-hour bound, *closed for inactivity*, the sweep's reaper | T-11 |
+| `used` | What outlives a room: the used-question ledger (written at release only) and the take-it-home snapshot | T-11 |
 
 A default build schedules no question and authorizes nobody (`DenyAll`), so it
 can create no room. A `dev-host-token` build (the one deployed for HC-0)
@@ -90,12 +95,59 @@ session; and *Run it again* takes the same check. The comparison is
 | `GET /rooms/{id}/host` | the host's projection | the room's host session |
 
 A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
-is `401` with no body; an unknown room is `404`.
+is `401` with no body; an unknown room is `404`. A host command on a room that
+has ended but has not been swept yet is `409 {"refusal": "already_ended" |
+"closed_for_inactivity", "reason": …}` (T-11). Once it is swept, it is `404`.
 
 ## Pages
 
 - `GET /host`, `GET /host/{room_id}` — the host phone (T-07, `web/host/`). `/host?question=<id>#<credential>` is *Create a room* (§8.2: the credential rides in the fragment and is sent as the bearer); `/host/{room_id}#<host session>` is one screen per phase, and is the resume link (AC-50).
 - **The buzzer (T-06):** `GET /join` (`web/buzzer/`, embedded; `?code=` from the link, or typed), its assets at `/join/buzzer.{js,css}`, and the short link `GET /{code}` (the `join_url` shape) `303` → `/join?code=`; `tests/buzzer_page.rs`.
+
+## Lifecycle and what outlives a room (T-11)
+
+SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/lifecycle.rs`, `src/used.rs`,
+and the release and sweep paths in `src/rooms.rs`.
+
+**How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
+Before that, a room closes for inactivity after `IDLE_QUIET` (30 min, `idle`) or
+`LATER_QUIET` (20 min, `live`…`reveal`) with no host action. A refused command
+is not activity. Every entry point (`join`, `answer`, `buzzer_for`, `act`,
+`run_again`) asks `Room::ended(now)` and refuses an ended room, so nothing gets
+in between the bound and the sweep. **Only `AppState::sweep(now)` deletes.** It
+removes the room record and its sessions whole, and remembers `{code, why}` for
+`ENDED_MEMORY` (4 h) so a late join hears *already ended* / *closed for
+inactivity* rather than *unknown*, and so no new room reuses the code. The
+reaper (`lifecycle::spawn_reaper`, started by the router inside a tokio runtime)
+sweeps every 30 s and pokes the transport for each room it deleted.
+
+**Time comes from one clock.** `AppState::with_clock(Arc<dyn Clock>)`. The
+routes read `state.now()`, and nothing in the lifecycle calls
+`SystemTime::now()` but `SystemClock`. Tests use `lifecycle::ManualClock` and
+never wait (`tests/common` → `Clocked`).
+
+**Release.** The `released` transition is the one place the room's afterlife
+is written. Inside `Room::act`, while the machine is still `reveal` and so still
+holds the witness, it copies the take-it-home snapshot out of what `open()`
+lends. It then hollows the room: `totals`, `answered`, the §4.5 verdict,
+`present`/`answered_live` and `fit` go. `AppState::act` takes that parting under
+the same lock, drops every session, appends the used record, and replaces the
+snapshot. What stays until the four hours are up is the phase shell (id, code,
+organizer, host session, phase), so the wall can say *Let's go to the bar.* and
+the host can *Run it again*. Nothing per person, and no count, survives release
+(AC-56; `tests/lifecycle.rs` checks by inspecting `AppState`).
+
+**Never twice (G-10).** `create_room` and `run_again` refuse a question the
+ledger holds (*That question has already been run. Pick another.*). A room that
+expires or goes quiet before release records nothing.
+
+### The seams
+
+| Seam | For | Shape |
+|---|---|---|
+| `AppState::used().all() -> Vec<UsedEntry>` | T-25's `GET /admin/used`, T-20's `popquiz sync` | `[{question_id, used: {meetup_date, room_id, released_at, fit}}]`. `used` is `bank.py`'s `Used` field for field (`tests/used.rs` parses the class). `meetup_date` is `created_at`'s date in `used::MEETUP_ZONE` (America/New_York). `released_at` is RFC 3339 UTC. `fit` is the wall's last verdict, or `null` if it never reported one. |
+| `AppState::take_home() -> Option<TakeHome>` | T-12's `/last` | `tests/fixtures/take_home.shape.json`. Source, colour, options with the one ✓, the whole trace, *what* and *takeaway*, the receipt. No count, no most-chosen option (D-12). Rebuilt at every release; `None` before the first. Not yet: every incorrect option's `why_tempting` and the verified record's detail rows, which the sealed module does not lend; T-12 adds a witnessed read. |
+| `AppState::with_clock`, `AppState::sweep` | T-10's `test-full` AC-69 row | `tests/lifecycle.rs::test_full_ac69_open_room_runs_to_release_with_auth_down` is `#[ignore]`d with its shape. |
 
 ## The phase machine
 
@@ -152,10 +204,10 @@ branches on and `reason` is its §11 sentence. It is `404` for `unknown` and
 |---|---|
 | `malformed` | the code is not six alphabet symbols |
 | `unknown` | no room has that code |
-| `already_ended` | the room is `released` |
+| `already_ended` | the room is `released`, or four hours old (T-11) |
 | `full` | the room holds `capacity` sessions (200; `AppState::with_capacity`) |
 | `not_yet_open` | ships with its string; no phase of the seven reaches it |
-| `closed_for_inactivity` | ships with its string; T-11 sets the condition |
+| `closed_for_inactivity` | no host action for 30 min in `idle`, 20 min in `live`…`reveal` (T-11) |
 
 Capacity is checked before a token is drawn, so a refused join creates,
 reserves and moves nothing (AC-30).
@@ -264,10 +316,10 @@ poke that changed nothing sends nothing. It is called:
   only the routes already registered);
 - by the transport after each call into the session map;
 - by `POST /join` itself: its path names no room, so `notify` cannot poke it;
-- by anything else that writes a room outside an HTTP route — T-11's grace
-  and reaper (the future callers of `AppState::leave`), T-05's fit writer if
-  it is not a `/rooms/{id}/…` route. Such a writer calls `changed` itself.
-  Today there is none.
+- by anything else that writes a room outside an HTTP route. Such a writer
+  calls `changed` itself. Today that is T-11's reaper, which pokes each room
+  the sweep deleted, so its sockets close with `4404`. (A grace period before
+  `AppState::leave` drops a gone socket's session is not built yet.)
 
 ### The seam for T-04b
 
@@ -637,13 +689,14 @@ once, and the client keeps that URL (EVALUATION, the M1 host token row):
 Rotating it is the same command again, and the old URL stops working. A deploy
 without the secret does not start: the binary refuses, by design.
 
-**Smoke uses up q3.** `just smoke <url>` runs a whole segment, and release puts
-q3 in the machine's in-memory list of questions already run (G-10). That
+**Smoke uses up q3.** `just smoke <url>` runs a whole segment, and release writes
+q3's `used` record into the machine's in-memory ledger (G-10, T-11). That
 machine then refuses to create a room on q3 until it restarts. After every
 smoke run against the deployed room, run `fly apps restart rustnyc-popquiz`
 before anyone hosts on it. The same restart (or `fly machine restart <id>`)
-resets q3 for another HC-0 drive after a real one. The durable `used` ledger and
-the room lifecycle are T-11's; until then, a restart is all "used" means.
+resets q3 for another HC-0 drive after a real one. The ledger is in memory until
+T-20's `popquiz sync` pulls it (through T-25's `GET /admin/used`), so a restart
+before a sync loses the night's record.
 
 **The trial org stops the machine.** The Fly org has no payment method, so Fly
 stops every machine after about five minutes. Rooms live in memory, so a
