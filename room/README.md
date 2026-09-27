@@ -53,6 +53,10 @@ stand-in behind `HostAuth`; T-25 replaces seeding with
 A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
 is `401` with no body; an unknown room is `404`.
 
+## Pages
+
+- `GET /host`, `GET /host/{room_id}` — the host phone (T-07, `web/host/`). `/host?question=<id>#<credential>` is *Create a room* (§8.2: the credential rides in the fragment and is sent as the bearer); `/host/{room_id}#<host session>` is one screen per phase, and is the resume link (AC-50).
+
 ## The phase machine
 
 `phase::apply(state, command) -> Result<Applied, Refused>` is the only way a
