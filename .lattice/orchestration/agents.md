@@ -6,7 +6,8 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | `main` = `66a962c`; PQ-11 at `review` (PR #26 green, awaiting the merge word), LIVE at rustnyc-popquiz.fly.dev; no delegator running; **M1 complete pending the merge; HC-0 with the client (401 diagnosed: fragment lost, token still live)**; loop not armed | 2026-09-27 10:1x | 2026-09-20 |
+| Delegator (Opus, fast-track) | PQ-34 copy trim | surface:32 | pane:1 | ai-c11-cc/copy-trim | `…-worktrees/copy-trim` | booting (guard line, option-2 prompt expected) | 2026-09-27 11:3x | 2026-09-27 11:3x |
+| Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | `main` = `66a962c`; PQ-11 at `review` (PR #26 green, awaiting the merge word), LIVE at rustnyc-popquiz.fly.dev; no delegator running; **M1 complete pending the merge; HC-0 driving — findings flow into PQ-34 (dispatched 11:3x)**; loop armed | 2026-09-27 11:3x | 2026-09-20 |
 
 ### Archived (run history)
 
