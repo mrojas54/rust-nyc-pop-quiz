@@ -87,6 +87,29 @@ fn the_host_session_never_rotates() {
 }
 
 #[test]
+fn the_wall_shows_joined_then_joined_and_answered_and_neither_after_live() {
+    let mut room = new_room();
+    room.set_live_counts(LiveCounts { present: 4, answered_live: 0 });
+    let idle = view::wall(&room, &Urls::default());
+    assert_eq!(idle.joined.as_deref(), Some("Joined: 4"));
+    assert_eq!(idle.answered, None);
+
+    drive(&mut room, Phase::Live, [0; 5]);
+    room.set_live_counts(LiveCounts { present: 12, answered_live: 9 });
+    let live = view::wall(&room, &Urls::default());
+    assert_eq!(live.joined.as_deref(), Some("Joined: 12"));
+    assert_eq!(live.answered.as_deref(), Some("Answered: 9"));
+    room.set_live_counts(LiveCounts { present: 13, answered_live: 10 });
+    assert_eq!(view::wall(&room, &Urls::default()).answered.as_deref(), Some("Answered: 10"));
+
+    for phase in [Phase::Closed, Phase::Split, Phase::Work, Phase::Reveal, Phase::Released] {
+        drive(&mut room, phase, [1, 2, 3, 2, 2]);
+        let wall = view::wall(&room, &Urls::default());
+        assert_eq!((wall.joined, wall.answered), (None, None), "{phase:?}");
+    }
+}
+
+#[test]
 fn closed_freezes_answered_and_totals_while_present_keeps_counting() {
     let mut room = new_room();
     drive(&mut room, Phase::Live, [0; 5]);

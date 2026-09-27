@@ -145,6 +145,8 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
              border-top: 1px solid var(--border-default); padding-top: 10px; margin-top: 12px;
              min-height: 41px; font-size: 19px; color: var(--text-secondary); }
 .joinstrip b { color: var(--accent-primary); font-family: var(--font-heading); font-size: 30px; font-weight: 400; }
+/* Joined / Answered (§11, Host + wall, count) at the strip's right end. */
+.wall-counts { display: flex; gap: 24px; }
 
 @media (prefers-reduced-motion: reduce) {
   .wall-page *, .wall-page *::before, .wall-page *::after {

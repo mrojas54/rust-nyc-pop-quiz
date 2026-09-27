@@ -111,6 +111,12 @@ pub struct WallPayload {
     pub title: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub join: Option<String>,
+    /// `Joined: ‹n›`, in `idle` and `live` only (§11, Host + wall, count).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joined: Option<String>,
+    /// `Answered: ‹n›`, in `live` only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub answered: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub well_header: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -380,6 +386,8 @@ fn empty_wall(view: &PublicView<'_>) -> WallPayload {
         code: view.code.to_string(),
         title: None,
         join: None,
+        joined: None,
+        answered: None,
         well_header: None,
         source: None,
         colour: None,
@@ -431,6 +439,7 @@ mod sealed {
             Phase::Idle => {
                 p.title = Some(copy::WALL_IDLE_TITLE);
                 p.join = Some(copy::fill(copy::WALL_IDLE_JOIN, &[("link", view.join_url)]));
+                p.joined = Some(copy::fill(copy::COUNT_JOINED, &[("n", &view.present.to_string())]));
             }
             Phase::Live | Phase::Closed | Phase::Split => {
                 p.source = Some(q.source().to_string());
@@ -440,6 +449,11 @@ mod sealed {
                     Phase::Live => {
                         p.well_header = Some(copy::WALL_LIVE_WELL_HEADER);
                         p.join = Some(copy::fill(copy::WALL_LIVE_JOIN, &[("link", view.join_url)]));
+                        p.joined = Some(copy::fill(copy::COUNT_JOINED, &[("n", &view.present.to_string())]));
+                        p.answered = Some(copy::fill(
+                            copy::COUNT_ANSWERED,
+                            &[("n", &view.answered_live.to_string())],
+                        ));
                     }
                     Phase::Closed => p.strip = Some(copy::WALL_CLOSED),
                     _ => p.split = split(&view),

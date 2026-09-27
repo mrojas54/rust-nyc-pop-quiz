@@ -147,8 +147,8 @@
      in the room before the question is live; how many answered after. */
   function countHtml(p) {
     var line = p.phase === "idle"
-      ? PQ.t("host_count_joined", { n: p.present })
-      : PQ.t("host_count_answered", { n: typeof p.answered === "number" ? p.answered : 0 });
+      ? PQ.t("count_joined", { n: p.present })
+      : PQ.t("count_answered", { n: typeof p.answered === "number" ? p.answered : 0 });
     return '<div class="host-count">' + esc(line) + "</div>";
   }
 

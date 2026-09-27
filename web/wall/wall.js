@@ -108,6 +108,14 @@
     }).join("") + "</div>";
   }
 
+  /* `Joined: ‹n›` (idle, live) and `Answered: ‹n›` (live), at the strip's
+     right end, as the room sent them. */
+  function countsHtml(frame) {
+    var parts = [frame.joined, frame.answered].filter(Boolean);
+    return parts.length ? '<span class="wall-counts">' +
+      parts.map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("") + "</span>" : "";
+  }
+
   function traceNoteHtml(frame) {
     return PQ.traceNoteHtml(traceQuestion(frame), frame.trace.at, { noNav: true });
   }
@@ -161,8 +169,8 @@
       main = titleCard("<div><h2>" + esc(frame.title) + "</h2></div>");
       /* The static fallback has no room to join; its idle strip carries the
          §11 key legend instead (fallback/static.js, SPEC §12). */
-      strip = frame.join ? joinHtml(frame.join, "wall_idle_join")
-        : frame.strip ? "<span>" + esc(frame.strip) + "</span>" : "";
+      strip = (frame.join ? joinHtml(frame.join, "wall_idle_join")
+        : frame.strip ? "<span>" + esc(frame.strip) + "</span>" : "") + countsHtml(frame);
     } else if (phase === "released") {
       var rel = frame.released;
       mainClass = "title-card-main";
@@ -172,7 +180,7 @@
     } else if (phase === "live" || phase === "closed") {
       main = wellHtml(frame, well) + optionsHtml(frame.options);
       strip = phase === "live"
-        ? (frame.join ? joinHtml(frame.join, "wall_live_join") : "")
+        ? (frame.join ? joinHtml(frame.join, "wall_live_join") : "") + countsHtml(frame)
         : "<span>" + esc(frame.strip) + "</span>";
     } else if (phase === "split") {
       main = wellHtml(frame, well) +

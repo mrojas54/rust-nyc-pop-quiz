@@ -336,6 +336,19 @@ const TROPES = [/\bnot (just|only|merely|simply)\b/i,
   /\bworth (a|the|stopping|talking|noting|remembering)\b/i, /\bdon'?t worry\b/i,
   /\bthat'?s (fine|okay|ok|totally fine)\b/i, /\bit'?s (fine|okay|ok|normal) to\b/i];
 
+test('AC-46: Joined in idle, Joined and Answered in live, at the join strip\'s end; neither after', () => {
+  const idle = W.html({ ...F.idle, joined: 'Joined: 12' });
+  assert.ok(idle.includes('<span class="wall-counts"><span>Joined: 12</span></span></div>'));
+  const live = W.html({ ...F.live, joined: 'Joined: 12', answered: 'Answered: 7' });
+  assert.ok(live.includes('<span class="wall-counts"><span>Joined: 12</span><span>Answered: 7</span></span></div>'));
+  assert.strictEqual(F.idle.joined, PQ.fill(PQ.COPY.count_joined, { n: 0 }), 'the room fills it');
+  assert.strictEqual(F.live.answered, PQ.fill(PQ.COPY.count_answered, { n: 0 }));
+  for (const p of ['closed', 'split', 'released']) {
+    assert.ok(!('joined' in F[p]) && !('answered' in F[p]), `${p}: no counts`);
+  }
+  for (const f of [...F.work, ...F.reveal]) assert.ok(!('joined' in f) && !('answered' in f), f.phase);
+});
+
 test('every visible string on the wall is payload data or a copy.js string', () => {
   const copyPieces = new Set();
   for (const v of Object.values(PQ.COPY)) {
