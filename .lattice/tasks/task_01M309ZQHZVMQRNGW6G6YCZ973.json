@@ -1,17 +1,23 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 7,
+  "comment_count": 9,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-09 (M1).\n\nDeploy: Fly app, `popquiz.rustnyc.org` (or fallback host), the short link carrying the code, `smoke`; the skeleton is built with the `dev-host-token` feature, `HOST_DEV_TOKEN` is set as a Fly secret, and the host URL is printed once (`SPEC.md` \u00a78.2, D-19)\n\nCriteria: AC-28, AC-64 (stand-in)\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-05\u201307\nBUILDPLAN notes: Human track: DNS. Serialized on `justfile` (`smoke`). Adds the name `HOST_DEV_TOKEN`, never a value, to `.env.example`\n\nOrchestrator notes: DNS may be absent: BUILDPLAN allows the Fly-provided hostname as fallback. Adds the name `HOST_DEV_TOKEN` to `.env.example`, a file the sandbox cannot read: that one-line edit is made by the Orchestrator outside the sandbox (F-5). The host URL is printed once, to the Orchestrator, never into a log or comment.\n\nHELD: needs H-2 DNS (fallback host allowed) and a Fly deploy. Do not dispatch until the client releases it.\n\nWorkflow mode: fast-track. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M3GHM4RHP7CBMDWT21X3Y5S4",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZQHZVMQRNGW6G6YCZ973",
-  "last_event_id": "ev_01M3GH457KEPZ1C36TW0A2F3BZ",
-  "last_status_changed_at": "2026-09-27T04:04:04Z",
+  "last_event_id": "ev_01M3GJ9HGH8M4FHM3G3YJP0JA9",
+  "last_status_changed_at": "2026-09-27T04:16:37Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -36,10 +42,10 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-11",
-  "status": "needs_human",
+  "status": "in_progress",
   "tags": [
     "m1",
     "fast-track",
@@ -48,6 +54,6 @@
   ],
   "title": "Deploy to Fly with the host stand-in",
   "type": "task",
-  "updated_at": "2026-09-27T04:14:13Z",
+  "updated_at": "2026-09-27T04:34:38Z",
   "urgency": null
 }
