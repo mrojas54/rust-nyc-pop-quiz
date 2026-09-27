@@ -391,6 +391,50 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             .route("/host/host.css", get(|| async { asset(HOST_CSS, "text/css; charset=utf-8") }));
     }
     // end T-07 pages --------------------------------------------------------
+    // T-06 pages -----------------------------------------------------------
+    // The buzzer: `GET /join` (typed code, or `?code=` from the link), its
+    // two assets under the page's own path, and the short link `GET /{code}`
+    // — the shape `rooms.rs` writes into `join_url` and the wall prints —
+    // redirected to `/join?code=`. Embedded at compile time; nothing on disk
+    // is read at runtime. The page loads `/shared/*`, which T-05 serves.
+    {
+        use axum::http::HeaderValue;
+        use axum::response::Redirect;
+
+        fn asset(content_type: &'static str, body: &'static str) -> Response {
+            (
+                [
+                    (header::CONTENT_TYPE, HeaderValue::from_static(content_type)),
+                    (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
+                ],
+                body,
+            )
+                .into_response()
+        }
+        async fn buzzer_page() -> Response {
+            asset("text/html; charset=utf-8", include_str!("../../web/buzzer/index.html"))
+        }
+        async fn buzzer_js() -> Response {
+            asset("text/javascript; charset=utf-8", include_str!("../../web/buzzer/buzzer.js"))
+        }
+        async fn buzzer_css() -> Response {
+            asset("text/css; charset=utf-8", include_str!("../../web/buzzer/buzzer.css"))
+        }
+        // Only a well-formed room code redirects, so this never answers for a
+        // path that is not one (`/host`, `/last`, …); those are 404 here.
+        async fn short_link(Path(code): Path<String>) -> Response {
+            match crate::sessions::parse_code(&code) {
+                Some(code) => Redirect::to(&format!("/join?code={code}")).into_response(),
+                None => StatusCode::NOT_FOUND.into_response(),
+            }
+        }
+        router = router
+            .route("/join", get(buzzer_page))
+            .route("/join/buzzer.js", get(buzzer_js))
+            .route("/join/buzzer.css", get(buzzer_css))
+            .route("/{code}", get(short_link));
+    }
+    // end T-06 pages -------------------------------------------------------
     // T-04c routes ----------------------------------------------------------
     // The three sockets, and the two layers the transport needs. KEEP THIS
     // BLOCK LAST: `layer` wraps only the routes registered above it, and the

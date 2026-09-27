@@ -1,0 +1,109 @@
+/* ===========================================================================
+   The buzzer (T-06). Ported from prototypes/C-projector-first.html's buzzer
+   panel (`.buzz-*`), laid out at its 375 px design width, onto the token
+   names of web/shared/tokens.css.
+
+   Not ported, on purpose: the prototype's red border on the participant's
+   own choice when it was not the answer. AC-94: no participant surface marks
+   its own answer as incorrect — no cross mark, no red, no "wrong". Nothing in
+   this file uses a red or error token.
+
+   Every control is at least 44 px tall (AC-85, `--touch-target`). The buzzer
+   carries no code, and every text wraps, so the page never scrolls sideways.
+   =========================================================================== */
+
+/* The prototype's `.btn`, `.btn-primary`, `.panel` and `.meta`
+   (prototypes/_shared/tokens.css) are not in web/shared, which ported only
+   what every surface needs; the buzzer carries its own, scoped to it. */
+.buzzer .meta { font-size: var(--text-xs); color: var(--text-secondary); }
+.buzzer .btn { font-family: var(--font-mono); font-size: var(--text-sm);
+               min-height: var(--touch-target); padding: 10px 18px;
+               border: var(--border-w) solid var(--border-default); border-radius: var(--radius);
+               background: var(--bg-input); color: var(--text-primary); cursor: pointer; }
+.buzzer .btn:hover { background: var(--bg-tertiary); }
+.buzzer .btn:focus-visible { outline: 3px solid var(--border-focus); outline-offset: 2px; }
+.buzzer .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary);
+                       color: var(--gray-800); font-weight: 600; }
+.buzzer .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
+.buzzer .btn:disabled { opacity: .5; cursor: not-allowed; }
+.buzzer .panel { background: var(--bg-secondary); border: var(--border-w) solid var(--border-default);
+                 border-radius: var(--radius); box-shadow: var(--shadow-card);
+                 padding: var(--panel-pad-compact); }
+
+html, body { background: var(--bg-primary); }
+body { overflow-x: hidden; }
+
+.buzzer {
+  box-sizing: border-box;
+  width: 100%; max-width: 375px; min-height: 100vh; min-height: 100dvh;
+  margin: 0 auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.buzz-head { flex: none; text-align: center; padding-bottom: 6px;
+             border-bottom: var(--border-w) solid var(--border-default); }
+.buzz-code { font-size: var(--text-sm); color: var(--text-secondary); }
+.buzz-code b { font-family: var(--font-heading); font-size: 28px; font-weight: 400;
+               color: var(--accent-hover); letter-spacing: var(--tracking-wide); }
+.buzz-head .lookup { font-size: var(--text-sm); color: var(--text-secondary); margin-top: 2px; }
+.buzz-head .lookup b { color: var(--text-primary); }
+
+/* The five letters: ChoiceButtons, one column, the whole middle of the phone. */
+.buzz-grid { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.buzz {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+  min-height: var(--touch-target);
+  border: 2px solid var(--border-default); border-radius: var(--radius);
+  background: var(--white); color: var(--text-primary);
+  font-family: var(--font-heading); font-size: 46px; line-height: 1; cursor: pointer;
+}
+.buzz:focus-visible { outline: 3px solid var(--border-focus); outline-offset: 2px; }
+/* The saved answer: fill, weight, a thicker border and a ✓ beside the letter —
+   shape and glyph as well as colour (AC-40). The ✓ is "this is yours",
+   never a verdict. */
+.buzz[aria-pressed="true"] { background: var(--accent-primary); border-color: var(--accent-hover);
+                             border-width: 4px; font-weight: 700; }
+.buzz[aria-pressed="true"]::after { content: "\2713"; font-family: var(--font-mono); font-size: 24px; }
+/* A letter on its way: dashed, and the submission line says "saving…". */
+.buzz.is-pending { border-style: dashed; border-color: var(--accent-hover); border-width: 3px; }
+.buzz:disabled { cursor: default; }
+.buzz:disabled:not([aria-pressed="true"]) { color: var(--text-secondary); }
+
+.buzz-submit, .buzz-paused, .buzz-said { margin: 0; text-align: center; font-size: 17px; }
+.buzz-submit { min-height: var(--touch-target); display: flex; flex-wrap: wrap; align-items: center;
+               justify-content: center; gap: 8px; }
+.buzz-submit[data-state="saved"] { font-weight: 700; }
+.buzz-paused { color: var(--text-secondary); font-style: italic; }
+
+.buzz-hint-go { font-size: var(--text-xs); }
+.buzz-hint { border-left: 3px solid var(--info); font-size: var(--text-sm); }
+
+.buzz-verdict { flex: 1; display: grid; place-items: center; text-align: center; }
+.buzz-verdict .vb { font-family: var(--font-heading); font-size: 72px; line-height: 1;
+                    color: var(--accent-hover); }
+.buzz-verdict .buzz-said { font-size: 19px; margin-top: 8px; }
+.buzz-after { max-width: 240px; margin: 14px auto 0; }
+.buzz-itwas { font-size: 19px; margin: 14px 0 0; }
+
+.buzz-foot { flex: none; font-size: var(--text-xs); text-align: center; color: var(--text-secondary); }
+
+/* The join form: one field, one button, one line beneath (AC-28). */
+.buzz-join { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.buzz-join-label { font-size: var(--text-sm); color: var(--text-secondary); text-align: center; }
+.buzz-input {
+  box-sizing: border-box; width: 100%; min-height: var(--touch-target);
+  padding: 8px 12px; text-align: center; text-transform: uppercase;
+  font-family: var(--font-mono); font-size: 28px; letter-spacing: 0.2em;
+  border: 2px solid var(--border-default); border-radius: var(--radius);
+  background: var(--bg-input); color: var(--text-primary);
+}
+.buzz-input:focus-visible { outline: 3px solid var(--border-focus); outline-offset: 2px; }
+.buzz-join-go { width: 100%; }
+.buzz-refusal { margin: 0; padding: 8px 12px; font-size: var(--text-sm);
+                border-left: 3px solid var(--accent-hover); background: var(--accent-subtle); }
+.buzz-join-beneath { text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .buzzer * { transition: none !important; animation: none !important; }
+}

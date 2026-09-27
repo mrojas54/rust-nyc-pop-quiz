@@ -56,6 +56,7 @@ is `401` with no body; an unknown room is `404`.
 ## Pages
 
 - `GET /host`, `GET /host/{room_id}` — the host phone (T-07, `web/host/`). `/host?question=<id>#<credential>` is *Create a room* (§8.2: the credential rides in the fragment and is sent as the bearer); `/host/{room_id}#<host session>` is one screen per phase, and is the resume link (AC-50).
+- **The buzzer (T-06):** `GET /join` (`web/buzzer/`, embedded; `?code=` from the link, or typed), its assets at `/join/buzzer.{js,css}`, and the short link `GET /{code}` (the `join_url` shape) `303` → `/join?code=`; `tests/buzzer_page.rs`.
 
 ## The phase machine
 
