@@ -572,3 +572,76 @@ pub fn canary_question_dnc() -> Value {
     v["options"][3].as_object_mut().unwrap().remove("why_tempting");
     v
 }
+
+// --------------------------------------------------------------------------
+// T-11: a state on a manual clock, and a driver for a room's whole life.
+// --------------------------------------------------------------------------
+
+use std::time::SystemTime;
+
+use room::lifecycle::{Clock, ManualClock};
+use room::phase::{Command, HostAction};
+use room::rooms::Created;
+
+/// 2026-10-15T00:30:00Z — 20:30 on 14 October in New York, a meetup evening.
+pub fn meetup_evening() -> SystemTime {
+    std::time::UNIX_EPOCH + Duration::from_secs(1_792_024_200)
+}
+
+/// The meetup date [`meetup_evening`] falls on in New York.
+pub const MEETUP_DATE: &str = "2026-10-14";
+
+/// q3 under another id, for *Run it again* on a question not yet used.
+pub fn q3_again() -> Scheduled {
+    let mut v = q3_json();
+    v["id"] = "q3-again".into();
+    load(&v)
+}
+
+/// The phases a host walks through from `idle` to `reveal`.
+pub const TO_REVEAL: [HostAction; 5] = [
+    HostAction::PutOnScreen,
+    HostAction::CloseAnswers,
+    HostAction::ShowSplit,
+    HostAction::WalkIt,
+    HostAction::Reveal,
+];
+
+/// An `AppState` on a [`ManualClock`] set to [`meetup_evening`], with q3 and
+/// q3-again scheduled.
+pub struct Clocked {
+    pub state: Arc<AppState>,
+    pub clock: Arc<ManualClock>,
+}
+
+impl Clocked {
+    pub fn new() -> Clocked {
+        let clock = ManualClock::new(meetup_evening());
+        let state = AppState::new(Arc::new(TestAuth), vec![q3(), q3_again()], Urls::default()).with_clock(clock.clone());
+        Clocked {
+            state: Arc::new(state),
+            clock,
+        }
+    }
+
+    pub fn create(&self, question_id: &str) -> Created {
+        self.state
+            .create_room(Some(ORGANIZER), question_id, self.clock.now())
+            .unwrap_or_else(|e| panic!("create {question_id}: {e:?}"))
+    }
+
+    pub fn act(&self, room: &Created, action: HostAction) -> Result<(), room::rooms::RoomError> {
+        self.state
+            .act(&room.id, Some(&room.host_session), Command::Host(action), self.clock.now())
+    }
+
+    pub fn walk(&self, room: &Created, actions: &[HostAction]) {
+        for &a in actions {
+            self.act(room, a).unwrap_or_else(|e| panic!("{a:?}: {e:?}"));
+        }
+    }
+
+    pub fn advance(&self, by: Duration) {
+        self.clock.advance(by);
+    }
+}
