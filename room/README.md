@@ -15,7 +15,30 @@ From the repository root:
 Or directly:
 
     cd room && cargo test
-    cd room && cargo run     # serves on 127.0.0.1:3000
+    cd room && cargo run     # serves on 127.0.0.1:3000; creates no room (DenyAll)
+
+**A room you can drive, at a desk (the §8.2 stand-in).** This is how HC-0 runs
+locally. Any value will do for the token; it is the host's credential for this
+run only:
+
+    cd room && HOST_DEV_TOKEN=<any value> cargo run --features dev-host-token
+
+Then open `http://127.0.0.1:3000/host?question=q3#<that value>` and press
+*Create a room*. The host phone shows the code and the wall's address,
+`/wall/{room_id}`. Phones (or other tabs) join at `/join`, or through the short
+link `/{code}`. The binary refuses to start in this build if `HOST_DEV_TOKEN` is
+unset or empty.
+
+The binary's environment (`src/config.rs`):
+
+| Variable | Unset | Set |
+|---|---|---|
+| `PORT` | bind `127.0.0.1:3000` | bind `0.0.0.0:<PORT>` (Fly) |
+| `POPQUIZ_PUBLIC_URL` | `http://127.0.0.1:<port>` | the base of every join link and resume link, e.g. `https://rustnyc-popquiz.fly.dev` |
+| `HOST_DEV_TOKEN` | a startup error in a `dev-host-token` build; never read otherwise | the §8.2 stand-in's one shared secret |
+
+The released wall's take-it-home link is SPEC §13's `https://popquiz.rustnyc.org/last`
+in every configuration, the same one the static fallback uses.
 
 ## What is here
 
@@ -34,11 +57,27 @@ ones named in `BUILDPLAN.md` section 2:
 | `copy` | SPEC §11's strings, mirrored from `web/shared/copy.js` | T-04a, T-22 (lint) |
 | `auth` | The `HostAuth` seam: may this bearer create a room, may it host this one | T-04a (seam), T-09 (stand-in), T-10 (Discord) |
 | `ws` | One broadcast per room: wall, buzzers, host | T-04c |
+| `config` | What the binary reads from its environment | T-09 |
+| `standin` | SPEC §8.2's `HOST_DEV_TOKEN` stand-in and the HC-0 seed; only with `--features dev-host-token` | T-09 (T-10 deletes it) |
 
-As built, the binary schedules no question and authorizes nobody (`DenyAll`),
-so it can create no room. T-09 wires the HC-0 mock question and the §8.2
-stand-in behind `HostAuth`; T-25 replaces seeding with
+A default build schedules no question and authorizes nobody (`DenyAll`), so it
+can create no room. A `dev-host-token` build (the one deployed for HC-0)
+authorizes *Create a room* and *Run it again* with the `HOST_DEV_TOKEN` bearer
+and nothing else, and starts with q3 scheduled (`lib.rs::serving_state`). T-10
+replaces the stand-in with Discord; T-25 replaces the seeding with
 `PUT /admin/questions/{id}`.
+
+**The stand-in's proof (AC-64, `tests/standin.rs`).** In every build, a scan of
+`src/` (less `src/bin/`, whose client tools sit behind their own features) holds
+`standin.rs` to a whole-file `#![cfg(feature = "dev-host-token")]`. It names the
+variable nowhere else, and it requires that feature gate directly above every
+other line naming the stand-in. In `just test`'s default build, the binary's
+own state, configured with the token *set*, refuses *Create a room* for any
+bearer, the token included (`401`, no body). With the feature (CI's feature
+step), a missing or empty token is a startup error; a wrong or missing bearer is
+`401` with no body; the right one creates a room on q3; the token is not a host
+session; and *Run it again* takes the same check. The comparison is
+`subtle`'s constant-time `ct_eq`, and the type has no `Debug` or `Display`.
 
 ### Routes
 
@@ -265,8 +304,7 @@ own `Extension(Transport::new(state, map))` over `router_with`, and the
 
 `ws::serve(listener, router)` sets it on every accepted socket (the spike's
 finding: without it a 40 ms delayed-ACK mode reads as the server being slow).
-The tests serve through it. `main.rs` still calls `axum::serve`; T-09, which
-owns the bind, switches it.
+The tests and `main.rs` serve through it.
 
 ### For T-21's `burst`
 
@@ -555,10 +593,12 @@ each attach frame carries only that session's own saved letter.
 
 **What it does not prove, yet.**
 
-- *The deployed room.* The scan core takes a base URL and `just canary --url U`
-  is the hook, but it refuses: nothing can create a room on a deployed server
-  before T-09's stand-in token (SPEC §8.2), and nothing can plant the question
-  on one before T-25's admin push (§8.3). T-09 wires it into `smoke`.
+- *The deployed room, with the canary set.* The scan core takes a base URL and
+  `just canary --url U` is the hook, but it still refuses. T-09's stand-in can
+  now create a room on the deployed server, but only on the question it seeds,
+  q3. Nothing can plant the canary question there before T-25's admin push
+  (§8.3). Until then `just smoke <url>` carries the deployed-room scan with q3's
+  own secrets as the plants (*Deploying*, below).
 - *The admin token.* The room reads no `POPQUIZ_ADMIN_TOKEN` and has no admin
   route until T-25, so today that assertion can only fail if a payload echoed
   the environment. It is a scaffold T-25 turns live. The room writes no log
@@ -568,6 +608,81 @@ each attach frame carries only that session's own saved letter.
   what a real browser adds is layout, which the canary does not judge.
 - `exit_code` renders nowhere (the receipt never reads it) and cannot carry a
   string; it is asserted absent as a key rather than planted as text.
+
+## Deploying (T-09)
+
+The room runs on Fly.io as the app **`rustnyc-popquiz`**, at
+`https://rustnyc-popquiz.fly.dev` (BUILDPLAN D-A). The image is the repo root's
+`Dockerfile`: a release build with `--features dev-host-token` on a
+`debian:bookworm-slim` runtime. The config is the root's `fly.toml`, written by
+hand. `.dockerignore` is an allowlist: the crate, `web/`, and
+`bank/questions/q3.json`.
+
+**One machine, never two.** The room is one state in memory (SPEC §9). A second
+machine would be a second room that phones could land in. `fly deploy` adds a
+second machine "for high availability" whatever `fly.toml` says, so every
+deploy takes `--ha=false`. Never run `fly launch`: it rewrites `fly.toml` and
+strips its comments.
+
+    fly apps create rustnyc-popquiz                      # once
+    fly deploy --ha=false --remote-only                  # from the repo root
+
+**The stand-in's secret.** `HOST_DEV_TOKEN` is a Fly secret. It is never in the
+repository, in `fly.toml`, or on a command line anyone keeps. It is generated
+straight into `fly secrets set` in the same command that prints the host URL
+once, and the client keeps that URL (EVALUATION, the M1 host token row):
+
+    https://rustnyc-popquiz.fly.dev/host?question=q3#<HOST_DEV_TOKEN>
+
+Rotating it is the same command again, and the old URL stops working. A deploy
+without the secret does not start: the binary refuses, by design.
+
+**Smoke uses up q3.** `just smoke <url>` runs a whole segment, and release puts
+q3 in the machine's in-memory list of questions already run (G-10). That
+machine then refuses to create a room on q3 until it restarts. After every
+smoke run against the deployed room, run `fly apps restart rustnyc-popquiz`
+before anyone hosts on it. The same restart (or `fly machine restart <id>`)
+resets q3 for another HC-0 drive after a real one. The durable `used` ledger and
+the room lifecycle are T-11's; until then, a restart is all "used" means.
+
+**The trial org stops the machine.** The Fly org has no payment method, so Fly
+stops every machine after about five minutes. Rooms live in memory, so a
+stopped machine has lost every room it held. `auto_start_machines` starts a
+fresh one (with no rooms and q3 unused) on the next request. HC-0 therefore
+runs inside one such window: open the host URL, create the room, and walk it
+through within five minutes. Otherwise, add a card at https://fly.io/trial. No
+code works around this.
+
+**DNS, later (H-2).** When `popquiz.rustnyc.org` points at the app, run
+`fly certs add popquiz.rustnyc.org -a rustnyc-popquiz` and set
+`POPQUIZ_PUBLIC_URL = "https://popquiz.rustnyc.org"` in `fly.toml`, then deploy.
+Nothing else changes.
+
+**Smoke.** `just smoke <url> [--participants N]` (`src/bin/smoke.rs`, behind the
+`smoke` feature) reads `HOST_DEV_TOKEN` from the environment. It checks that
+*Create a room* is `401` with no body for no bearer and for a wrong one, then
+creates the room with the token. It checks that the join link is
+`<url>/<code>` and that `GET /<code>` is `303 → /join?code=` (AC-28). Half the
+participants join with the code as the link carries it, and half with it typed
+lower-case with spaces. Then it drives all seven phases through the host routes
+with a wall, a host and N buzzer sockets attached, awaiting every phase on
+every socket. Along the way it checks these things:
+
+- the answer writes, with changed minds and a deadline burst of every final
+  answer inside 2 s, each timed on an already-open connection;
+- a write after close is refused with the saved answer restated;
+- the split's totals equal the final answers exactly on every buzzer;
+- `work` stops at M-2;
+- the reveal's arrival on every buzzer is timed;
+- a join after release is `already_ended`.
+
+Every frame and JSON response from `idle` to `work` is scanned for q3's secrets:
+both `explains` beats, every `why_tempting`, the resolving note, a ✓, and a key
+named `correct`. At `reveal`, a positive control checks that they do arrive. The
+image holds the room binary and nothing else, so a green smoke run also shows a
+room created and run to release with no pipeline present (AC-1's runtime half).
+Its timings are smoke's, not `burst`'s AC-41/53/54 figures: `burst.rs` speaks
+the spike's protocol, not the room's routes, and T-21 points it at the room.
 
 ## The burst spike (T-03)
 
@@ -686,8 +801,8 @@ visible in the report rather than asserted here:
 
 `fly.spike.toml` and `spike/Dockerfile` describe a **throwaway** app,
 `rustnyc-popquiz-spike` in `ewr` on the smallest shared-cpu machine. This is not
-the room's deploy — T-09 owns that, along with `room/fly.toml`,
-`popquiz.rustnyc.org` and `smoke`.
+the room's deploy; that is *Deploying*, above (`fly.toml` and `Dockerfile` at
+the repository root).
 
 The single most important line in `fly.spike.toml` is
 `http_service.concurrency.hard_limit`. Fly's default is **25 connections**; at

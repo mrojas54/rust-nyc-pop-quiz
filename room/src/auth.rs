@@ -6,10 +6,11 @@
 //! role-ID check (T-10) implement it. The second, by default, is the room's own
 //! host session, which never rotates (AC-50) and is compared in constant time.
 //!
-//! This crate ships no implementation that accepts anything: [`DenyAll`] is
-//! what `router()` uses, so the binary as built here can create no room. The
-//! test implementation lives in `tests/common`. There is no `HOST_DEV_TOKEN`
-//! here and no `dev-host-token` feature; those are T-09's, behind this trait.
+//! A default build ships no implementation that accepts anything: [`DenyAll`]
+//! is what `router()` and the binary use, so it can create no room. The one
+//! that accepts a credential before T-10 is SPEC §8.2's stand-in,
+//! `crate::standin`, which exists only with the `dev-host-token` feature
+//! (T-09). The test implementation lives in `tests/common`.
 
 use crate::rooms::Room;
 

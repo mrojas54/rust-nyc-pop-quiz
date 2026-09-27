@@ -17,6 +17,9 @@
 //! - [`copy`] — SPEC §11's strings, mirrored from `web/shared/copy.js`.
 //! - [`ws`] — the transport: one broadcast per room to the wall, the buzzers
 //!   and the host, and reconnect with the same session token (T-04c).
+//! - [`config`] — what the binary reads from its environment (T-09).
+//! - `standin` — SPEC §8.2's `HOST_DEV_TOKEN` stand-in and the HC-0 seed, only
+//!   with the `dev-host-token` feature (T-09; T-10 deletes it).
 //!
 //! `unsafe` is forbidden crate-wide: the seal is a safe-Rust guarantee, and a
 //! zero-sized witness could otherwise be conjured from nothing.
@@ -29,22 +32,36 @@ use axum::Router;
 
 pub mod answers;
 pub mod auth;
+pub mod config;
 pub mod copy;
 pub mod phase;
 pub mod question;
 pub mod rooms;
 mod routes;
 pub mod sessions;
+#[cfg(feature = "dev-host-token")]
+pub mod standin;
 pub mod view;
 pub mod ws;
 
 pub use routes::host_routes;
 
-/// The room's HTTP surface as the binary serves it today, with the sockets
-/// wired to the real session map: nothing scheduled
-/// and nothing authorized ([`auth::DenyAll`]), so no room can be created until
-/// T-09 wires the stand-in (§8.2) or T-10 wires Discord, and T-25 or T-09
-/// supplies a question.
+/// The state the binary serves (T-09). Without `dev-host-token`: nothing
+/// scheduled and nothing authorized ([`auth::DenyAll`]), so the room creates
+/// nothing until T-10 and T-25. With it: SPEC §8.2's stand-in and the HC-0
+/// question, through the same `AppState::new` seam the tests seed with.
+pub fn serving_state(config: config::Config) -> rooms::AppState {
+    #[cfg(feature = "dev-host-token")]
+    return rooms::AppState::new(Arc::new(config.host_token), vec![standin::hc0_question()], config.urls);
+    #[cfg(not(feature = "dev-host-token"))]
+    rooms::AppState::new(Arc::new(auth::DenyAll), Vec::new(), config.urls)
+}
+
+/// The room's HTTP surface over a default build's state, with the sockets
+/// wired to the real session map: nothing scheduled and nothing authorized
+/// ([`auth::DenyAll`]), so no room can be created. The binary serves
+/// [`serving_state`] instead, which is this same state unless the
+/// `dev-host-token` feature is on.
 pub fn router() -> Router {
     router_with(Arc::new(rooms::AppState::new(
         Arc::new(auth::DenyAll),
