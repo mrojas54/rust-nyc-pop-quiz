@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-27T03:02:59Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3GD1PQYVACTWG30NG8TXSCC",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3GD1PQYVACTWG30NG8TXSCC.md",
+    "size_bytes": 263
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged: PR #25 head 2da5004 \u2192 main 66a962c with a merge commit on the client's word (\"merge 25\"), after re-verifying OPEN/MERGEABLE/CLEAN and both CI jobs SUCCESS on the exact head. Code review PASS-W",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

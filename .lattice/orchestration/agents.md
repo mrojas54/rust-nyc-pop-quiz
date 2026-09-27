@@ -6,7 +6,8 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | Fresh session 2026-09-26 22:4x; `main` = `445a40f`; PQ-10 at `review` (PR #25); no delegator running; M1 lacks only PQ-11 (held), which HC-0's live half needs | 2026-09-26 22:4x | 2026-09-20 |
+| Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | Fresh session 2026-09-26; `main` = `66a962c` (PQ-10 merged, #25); PQ-11 deploy dispatched at surface:31 (fast-track); HC-0 hands over when it reaches review | 2026-09-26 22:4x | 2026-09-20 |
+| Delegator agent:delegator-pq11 (Opus, fast-track) | PQ-11 / T-09 deploy with the host stand-in | surface:31 | pane:1 | ai-c11-cc/deploy | …-worktrees/deploy | launched 23:0x off main @ 66a962c; expect the option-2 prompt; every `fly` call is the client's approval | 2026-09-26 23:0x | 2026-09-26 23:0x |
 
 ### Archived (run history)
 

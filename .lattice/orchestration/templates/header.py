@@ -57,6 +57,7 @@ Then post your launch receipt (the Orchestrator verifies these fields):
 - The `PreToolUse` hook error `dyld: Library not loaded …libintl.8.dylib` is the client's environment, non-blocking; ignore it.
 - **The Orchestrator's comments on the ticket are instructions.** Read `(cd "$LATTICE_ROOT" && lattice comments {pq})` at every phase change.
 - **Network is blocked inside the sandbox** for `git fetch`, `git push` and `gh`; those run with the bypass, one command at a time, each behind its own prompt.
+- **Never call `bc`.** In the client's shell it is aliased to `brew cleanup` (a delegator learned this by pruning Homebrew caches). Arithmetic is `python3 -c` or `$(( ))`.
 
 ## 2. The ticket
 

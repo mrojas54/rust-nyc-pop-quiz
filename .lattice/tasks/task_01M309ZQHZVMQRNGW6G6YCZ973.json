@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:37Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZQHZVMQRNGW6G6YCZ973",
-  "last_event_id": "ev_01M309ZWM246K28FF0CTZQM3S0",
+  "last_event_id": "ev_01M3GD7KSKYQ5TFVDYM2EEZW0Z",
   "last_status_changed_at": "2026-09-20T21:01:37Z",
   "priority": "high",
   "relationships_out": [
@@ -44,11 +44,10 @@
     "m1",
     "fast-track",
     "justfile",
-    "env-example",
-    "held"
+    "env-example"
   ],
   "title": "Deploy to Fly with the host stand-in",
   "type": "task",
-  "updated_at": "2026-09-20T21:01:42Z",
+  "updated_at": "2026-09-27T03:06:12Z",
   "urgency": null
 }

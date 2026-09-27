@@ -1,0 +1,1 @@
+Merged: PR #25 head 2da5004 → main 66a962c with a merge commit on the client's word ("merge 25"), after re-verifying OPEN/MERGEABLE/CLEAN and both CI jobs SUCCESS on the exact head. Code review PASS-WITH-NITS and Validation attached; nine injected leaks caught.
