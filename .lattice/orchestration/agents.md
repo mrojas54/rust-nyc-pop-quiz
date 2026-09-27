@@ -6,7 +6,7 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Delegator (Opus, fast-track) | PQ-34 copy trim | surface:32 | pane:1 | ai-c11-cc/copy-trim | `…-worktrees/copy-trim` | booting (guard line, option-2 prompt expected) | 2026-09-27 11:3x | 2026-09-27 11:3x |
+| Delegator (Opus, fast-track) | PQ-34 copy trim | surface:32 | pane:1 | ai-c11-cc/copy-trim | `…-worktrees/copy-trim` | PR #27 open (green at `835081c`); back at `in_progress` adding wall counts on the client's in-tab ruling; vocab check waits on `/design-login` | 2026-09-27 13:5x | 2026-09-27 11:3x |
 | Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | `main` = `88e0018` (#26 merged, **M1 complete on main**), LIVE at rustnyc-popquiz.fly.dev; PQ-34 live at surface:32; **HC-0 driving — findings flow into PQ-34**; loop armed | 2026-09-27 11:3x | 2026-09-20 |
 
 ### Archived (run history)
