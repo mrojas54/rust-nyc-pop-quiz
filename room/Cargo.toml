@@ -42,6 +42,17 @@ name = "burst"
 path = "src/bin/burst.rs"
 required-features = ["spike"]
 
+# --- T-09: the deployed room's end-to-end check. ------------------------------
+#
+# `just smoke <url>` runs it against a room over https/wss (the Fly edge) or
+# plain http/ws (loopback). Gated like the spike bins, for the same reason: the
+# TLS client is compiled by nothing in `just test`.
+
+[[bin]]
+name = "smoke"
+path = "src/bin/smoke.rs"
+required-features = ["smoke"]
+
 [features]
 # The WebSocket pieces (`axum/ws`, `tokio/sync`, `tokio/time`, `futures-util`)
 # were spike-only until T-04c made the socket part of the room; they are
@@ -49,6 +60,23 @@ required-features = ["spike"]
 spike = [
     "dep:tokio-tungstenite",
     "dep:rustls",
+]
+
+# SPEC §8.2's stand-in (T-09): *Create a room* authorized by one shared secret,
+# `HOST_DEV_TOKEN`, and the HC-0 question seeded at startup. The deployed
+# skeleton is built with it on; a build without it has no path that reads or
+# compares the token (`tests/standin.rs`). T-10 deletes the feature, the
+# `standin` module and the `#[cfg]` lines that name it.
+dev-host-token = []
+
+# The smoke client (T-09). Its TLS is the spike's (tokio-tungstenite over
+# rustls with ring) plus tokio-rustls for the plain HTTP requests; every one of
+# these crates was already in the lock.
+smoke = [
+    "dep:tokio-tungstenite",
+    "dep:rustls",
+    "dep:tokio-rustls",
+    "dep:webpki-roots",
 ]
 
 [dependencies]
@@ -82,6 +110,15 @@ rustls = { version = "0.23", optional = true, default-features = false, features
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 # serde and serde_json are no longer spike-only: the room itself uses them (T-04a),
 # so they are ordinary dependencies above and the spike bins use those.
+
+# --- smoke-only, all optional (T-09) ------------------------------------------
+# The TLS stream the smoke client's HTTP requests ride on; 0.26 is the version
+# tokio-tungstenite's rustls feature already locks. Default features off so it
+# brings no second crypto provider: ring comes from `rustls` above.
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["ring"] }
+# Mozilla's roots, for https://<app>.fly.dev. Already in the lock via
+# tokio-tungstenite's `rustls-tls-webpki-roots`.
+webpki-roots = { version = "1", optional = true }
 
 [dev-dependencies]
 # `tower::ServiceExt::oneshot` is how the canary seam drives the router with no
