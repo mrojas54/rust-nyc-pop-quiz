@@ -1,0 +1,63 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 21,
+  "complexity": "low",
+  "created_at": "2026-09-27T15:14:25Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "HC-0 finding, 2026-09-27, the client's ruling during the first deployed drive: \"remove any text that is absolutely unnecessary. no need to narrate the demo. intuitive workflow rather than guided.\" Named instance: the buzzer's reveal line *The host is reading out the why now.* (copy.js buzzer_reveal_host_reading and buzzer_noanswer_reveal; SPEC \u00a711 buzzer-reveal rows; \u00a75 phase table; prototype line 776). Scope: (1) remove that sentence everywhere it appears; (2) sweep every buzzer, wall and host string in web/shared/copy.js for narration of what someone else is doing or what will happen next, and propose the list of removals in the plan for the client's yes before touching them; keep every line that carries state the reader needs (the count, \u2713 It was Y, You didn't answer, the room code, the join address); (3) amend SPEC \u00a711 and the \u00a75 phase table and the prototype in the same PR under the client's ruling, so the copy contract and the build stay one thing; (4) update the string tests. Colour is never the only signal; never let a removed line take a state signal with it. PR against main, fast-track, one Sonnet code review. Dispatch waits until the client's HC-0 drive ends so further findings can join this ticket.",
+  "done_at": "2026-09-27T19:24:52Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M3HW1YZ7SSEPJ5ZYHMQB7005",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3HW5Z507W25ZPQ9HAYKRZJ2",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3HY5SDFE4WRV6AVP29W3AH3",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3J0W32WAGER2BQEG10N8MP3",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3J57KEAQPS0W51H2H374E92",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3J57KEAQPS0W51H2H374E91",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01M3HPX0WWVA0AZQ8GRA304BHP",
+  "last_event_id": "ev_01M3J57KEAQPS0W51H2H374E94",
+  "last_status_changed_at": "2026-09-27T19:24:52Z",
+  "priority": "high",
+  "relationships_out": [],
+  "reopened_count": 4,
+  "schema_version": 1,
+  "short_id": "PQ-34",
+  "status": "done",
+  "tags": [
+    "m1",
+    "fast-track",
+    "hc-0",
+    "web-shared",
+    "copy"
+  ],
+  "title": "HC-0 copy trim: strip narration from the buzzer and wall",
+  "type": "task",
+  "updated_at": "2026-09-27T19:24:52Z",
+  "urgency": null
+}

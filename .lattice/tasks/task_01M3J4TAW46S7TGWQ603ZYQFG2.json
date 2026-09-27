@@ -1,0 +1,38 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 1,
+  "complexity": "low",
+  "created_at": "2026-09-27T19:17:37Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "Client request 2026-09-27 15:2x: make the root README.md sound like the client, and add a demo. Voice: the client's saved writing-style profile (the my-writing-style skill under ~/.claude/skills or the anthropic-skills plugin) is the reference; rewrite the prose of README.md in that voice without changing any fact, command or path \u2014 facts and commands stay exactly as the code has them (run each before quoting it; never write down what a program prints). Demo: a Demo section near the top with (1) the live room's public entry points only (join at /join, the short link /{code}, the wall at /wall/{room_id}; never the host URL or the token), (2) screenshots of the wall, the buzzer and the host phone at idle and reveal, captured from a real local run of the stand-in (cargo run --features dev-host-token) after the copy trim (PQ-34) so they show the shipped copy, stored under docs/demo/ with sizes kept small, (3) a five-line try-it walkthrough. Out of scope: room/README.md, pipeline/README.md, web/README.md (they are technical and stay), any code change, the mvp/ deck. Depends on PQ-34 (screenshots must show the trimmed copy). Fast-track; one Sonnet review for voice and accuracy. The client reads the PR.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M3J4TAW46S7TGWQ603ZYQFG2",
+  "last_event_id": "ev_01M3J5MX5XYYTCZQQZQE9FMR8A",
+  "last_status_changed_at": "2026-09-27T19:32:08Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-27T19:17:58Z",
+      "created_by": "agent:orchestrator",
+      "note": null,
+      "target_task_id": "task_01M3HPX0WWVA0AZQ8GRA304BHP",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-35",
+  "status": "in_progress",
+  "tags": [
+    "docs",
+    "fast-track",
+    "readme"
+  ],
+  "title": "README in the client's voice, with a demo",
+  "type": "task",
+  "updated_at": "2026-09-27T19:32:08Z",
+  "urgency": null
+}
