@@ -330,7 +330,7 @@
   // --------------------------------------------------------------------------
 
   /* Exactly one of these while the question is live (AC-35):
-     tap a letter / saving… / saved — X / couldn't save. */
+     Vote / saving… / saved — X / couldn't save. */
   function submission(s) {
     if (s.submit === "saving") return { kind: "saving", text: t("buzzer_saving") };
     if (s.submit === "failed") {

@@ -84,7 +84,7 @@
     buzzer_saved: "saved — ‹X›",
     buzzer_save_failed: "couldn't save. Your last answer, ‹X›, is safe.",
     buzzer_save_retry: "Try again",
-    buzzer_no_answer_yet: "tap a letter",
+    buzzer_no_answer_yet: "Vote",
 
     /* --- Buzzer, reconnecting (AC-37) ----------------------------------- */
     buzzer_reconnecting_with_answer: "paused — reconnecting… your answer ‹X› is safe",

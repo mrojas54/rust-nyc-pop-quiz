@@ -191,7 +191,7 @@ test('idle: the code in the header, You’re in, and no foot', () => {
   assert.ok(!html.includes('<footer'));
 });
 
-test('live: five letter buttons, the hint behind a tap, tap a letter', () => {
+test('live: five letter buttons, the hint behind a tap, Vote', () => {
   const { html } = drive(inRoom(frames.live));
   const letters = html.match(/<button class="buzz[^"]*" type="button" data-letter="([A-E])"/g);
   assert.equal(letters.length, 5);
@@ -199,6 +199,8 @@ test('live: five letter buttons, the hint behind a tap, tap a letter', () => {
   assert.ok(text(html).includes(C.buzzer_hint_action));
   assert.ok(!html.includes(HINT), 'the hint is hidden until tapped');
   assert.deepEqual(submissionShown(html), ['none']);
+  // HC-0 (2026-09-27): the client's word for the line under the letters.
+  assert.equal(C.buzzer_no_answer_yet, 'Vote');
 });
 
 test('closed: letters locked, the saved answer restated — or none given', () => {
