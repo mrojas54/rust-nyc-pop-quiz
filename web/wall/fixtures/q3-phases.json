@@ -33,13 +33,16 @@
     "idle": {
       "code": "WALLQ3",
       "join": "join @ http://127.0.0.1:3000/WALLQ3",
+      "joined": "Joined: 0",
       "phase": "idle",
       "title": "Time for a pop quiz."
     },
     "live": {
+      "answered": "Answered: 0",
       "code": "WALLQ3",
       "colour": true,
       "join": "join @ http://127.0.0.1:3000/WALLQ3 · still open",
+      "joined": "Joined: 0",
       "options": [
         {
           "letter": "A",
@@ -70,7 +73,6 @@
       "code": "WALLQ3",
       "phase": "released",
       "released": {
-        "line": "the question, the walk-through and the why — at your own pace.",
         "link": "http://127.0.0.1:3000/home",
         "title": "Let's go to the bar."
       }
@@ -734,11 +736,6 @@
     },
     "work": [
       {
-        "beats": [
-          "Let's walk it.",
-          "Still no answer.",
-          "Nobody has to say anything."
-        ],
         "code": "WALLQ3",
         "colour": false,
         "options": [
@@ -790,11 +787,6 @@
         }
       },
       {
-        "beats": [
-          "Let's walk it.",
-          "Still no answer.",
-          "Nobody has to say anything."
-        ],
         "code": "WALLQ3",
         "colour": false,
         "options": [
@@ -840,11 +832,6 @@
         }
       },
       {
-        "beats": [
-          "Let's walk it.",
-          "Still no answer.",
-          "Nobody has to say anything."
-        ],
         "code": "WALLQ3",
         "colour": false,
         "options": [
@@ -896,11 +883,6 @@
         }
       },
       {
-        "beats": [
-          "Let's walk it.",
-          "Still no answer.",
-          "Nobody has to say anything."
-        ],
         "code": "WALLQ3",
         "colour": false,
         "options": [
@@ -952,11 +934,6 @@
         }
       },
       {
-        "beats": [
-          "Let's walk it.",
-          "Still no answer.",
-          "Nobody has to say anything."
-        ],
         "code": "WALLQ3",
         "colour": false,
         "options": [
@@ -1046,13 +1023,16 @@
       "idle": {
         "code": "WALLQ3",
         "join": "join @ http://127.0.0.1:3000/WALLQ3",
+        "joined": "Joined: 0",
         "phase": "idle",
         "title": "Time for a pop quiz."
       },
       "live": {
+        "answered": "Answered: 0",
         "code": "WALLQ3",
         "colour": true,
         "join": "join @ http://127.0.0.1:3000/WALLQ3 · still open",
+        "joined": "Joined: 0",
         "options": [
           {
             "letter": "A",
@@ -1083,7 +1063,6 @@
         "code": "WALLQ3",
         "phase": "released",
         "released": {
-          "line": "the question, the walk-through and the why — at your own pace.",
           "link": "http://127.0.0.1:3000/home",
           "title": "Let's go to the bar."
         }
@@ -1735,11 +1714,6 @@
       },
       "work": [
         {
-          "beats": [
-            "Let's walk it.",
-            "Still no answer.",
-            "Nobody has to say anything."
-          ],
           "code": "WALLQ3",
           "colour": false,
           "options": [
@@ -1791,11 +1765,6 @@
           }
         },
         {
-          "beats": [
-            "Let's walk it.",
-            "Still no answer.",
-            "Nobody has to say anything."
-          ],
           "code": "WALLQ3",
           "colour": false,
           "options": [
@@ -1841,11 +1810,6 @@
           }
         },
         {
-          "beats": [
-            "Let's walk it.",
-            "Still no answer.",
-            "Nobody has to say anything."
-          ],
           "code": "WALLQ3",
           "colour": false,
           "options": [
@@ -1897,11 +1861,6 @@
           }
         },
         {
-          "beats": [
-            "Let's walk it.",
-            "Still no answer.",
-            "Nobody has to say anything."
-          ],
           "code": "WALLQ3",
           "colour": false,
           "options": [
@@ -1953,11 +1912,6 @@
           }
         },
         {
-          "beats": [
-            "Let's walk it.",
-            "Still no answer.",
-            "Nobody has to say anything."
-          ],
           "code": "WALLQ3",
           "colour": false,
           "options": [

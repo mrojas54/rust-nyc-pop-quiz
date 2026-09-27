@@ -277,12 +277,11 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     assert!(at(dropped)["html"].as_str().unwrap().contains("paused — reconnecting… your answer C is safe"));
 
     // Back in `split`: attached, the saved answer from the server's map, and
-    // the count the page computed is the server's own total for C (AC-58).
+    // no count on the phone — counts are the wall's since PQ-34 (HC-0).
     let split = find("frame", "split");
     assert_eq!(at(split)["conn"], "attached");
     assert_eq!(at(split)["saved"], "C");
-    let c_total = back["counts"]["totals"][2].as_u64().unwrap();
-    assert_eq!(at(split)["count"], c_total);
+    assert_eq!(at(split)["count"], Value::Null);
 
     // Reveal: the server's correct letter, marked, and never a mark against C.
     let rv = find("frame", "reveal");

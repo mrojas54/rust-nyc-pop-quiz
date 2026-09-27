@@ -643,7 +643,6 @@ function renderProjector() {
        there because a link on a wall is useless without a way into a phone. */
     main.innerHTML = '<div class="endcard"><h2>Let\'s go to the bar.</h2>' +
       '<div class="endlink">popquiz.rustnyc.org/last</div>' +
-      '<div class="endsub">Tonight\'s question, and the walk-through, for as long as you want it.</div>' +
       '<svg class="endqr" viewBox="0 0 33 33" shape-rendering="crispEdges" role="img" ' +
         'aria-label="QR code to popquiz.rustnyc.org/last"></svg>' +
       '</div>';
@@ -702,11 +701,7 @@ function renderProjector() {
           '<span class="n" style="font-size:38px">' + ROOM.votes.A + '</span>' +
           '<span>of us read it the same way. No answer yet.</span></div>'
         : p === "work"
-        ? '<div class="workbeat">' +
-          '<b>Let\'s walk it.</b>' +
-          '<span>Still no answer.</span>' +
-          '<span class="second">Nobody has to say anything.</span>' +
-          '</div>'
+        ? ''
         : '<div class="opt correct" style="margin-top:12px"><span class="letter">E</span>' +
           '<span class="otext">' + escapeHtml(TONIGHT.options[4].text) + '</span></div>' +
           '<div class="receipt" style="margin-top:10px;font-size:15px">' +
@@ -731,58 +726,39 @@ function renderProjector() {
 function renderParticipant() {
   const b = document.getElementById("pBody");
   const p = state.phase;
+  /* The wordmark, Guest beneath, heads every buzzer screen (HC-0, 2026-09-27). */
+  const title = '<div style="text-align:center"><div class="host-h" style="font-size:30px;margin:0">Rust NYC Pop Quiz</div>' +
+    '<div class="host-h" style="font-size:24px;color:var(--text-secondary);margin:0 0 6px">Guest</div></div>';
 
   if (p === "idle" || p === "released") {
-    b.innerHTML =
+    b.innerHTML = title +
       '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
       '<div class="buzz-verdict"><div>' +
       (p === "idle"
-        ? '<div class="vb">↑</div><p class="meta" style="max-width:220px">You\'re in. Everything happens on the screen at the front — look up.</p>'
-        : '<div class="vb">✓</div><p class="meta" style="max-width:220px">Nothing about you was recorded.</p>') +
-      '</div></div>' +
-      '<div class="buzz-foot">no account · no name · no score</div>';
+        ? '<div class="vb">↑</div><p class="meta" style="max-width:220px">You\'re in.</p>'
+        : '') +
+      '</div></div>';
     return;
   }
 
-  /* The split beat, on the phone. You learn you are not alone BEFORE you learn
-     you were wrong — and in this direction you learn it while looking up. */
+  /* split, work, reveal: the phone carries nothing of its own until the answer
+     exists (HC-0, 2026-09-27: "intuitive workflow rather than guided"). At
+     reveal, the answer's letter; above it, "You didn't answer." on a phone
+     that holds none. Counts are the wall's. */
   if (p === "split" || p === "work" || p === "reveal") {
-    const mine = state.picked || "A";
-    const n = ROOM.votes[mine];
-    const others = n - 1;
-    b.innerHTML =
-      /* During 'work' the beat points at the room, not the wall — "Look up"
-         would be telling them to do the opposite of what the phase asks. */
-      '<div class="buzz-head"><div class="lookup"><b>Look up.</b> ' +
-        (p === "split" ? "Where the room landed."
-          : p === "work" ? "We're walking it through."
-          : "The answer is on the screen.") +
-      '</div></div>' +
+    b.innerHTML = title +
+      '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
       '<div class="buzz-verdict"><div>' +
-      /* No ✓ and no ✗. The number is the message: you are one of n, not one of
-         the wrong ones. The verdict lives on the projector, about the ANSWER. */
-      '<div class="vb" style="color:var(--accent-hover)">' + n + '</div>' +
-      '<p style="font-size:19px;margin:8px 0 0">people said <b>' + mine + '</b>,</p>' +
-      '<p style="font-size:19px;margin:0">including you.</p>' +
       (p === "reveal"
-        ? '<p style="font-size:17px;margin:14px 0 0;color:var(--text-secondary)">It was <b>E</b>.</p>'
+        ? (state.picked ? '' : '<p style="font-size:19px;margin:0">You didn\'t answer.</p>') +
+          '<p style="font-size:19px;margin:14px 0 0">✓ It was <b>E</b>.</p>'
         : '') +
-      '<p class="meta" style="max-width:230px;margin:14px auto 0">' +
-        (p === "split"
-          ? 'Five different readings of four lines. Nobody knows what anyone picked.'
-          : p === "work"
-          ? 'Nothing to do. Nobody knows the answer yet.'
-          : (others > 0
-              ? 'You and ' + others + ' other people read it the same way. The host is reading out the why now.'
-              : 'You were the only one who read it that way.')) +
-      '</p>' +
-      '</div></div>' +
-      '<div class="buzz-foot">computed on this phone · never sent anywhere</div>';
+      '</div></div>';
     return;
   }
 
   const locked = (p === "closed" || p === "split" || p === "work");
-  b.innerHTML =
+  b.innerHTML = title +
     '<div class="buzz-head"><div class="lookup">' +
       (locked ? 'Answers closed. You said <b>' + (state.picked || "—") + '</b>.'
               : '<b>Look up</b> — the code is on the screen') +
@@ -809,24 +785,24 @@ function renderParticipant() {
 function renderHost() {
   const b = document.getElementById("hostBody");
   const p = state.phase;
-  const head = function (s, t) { return '<div class="host-step">' + s + '</div><div class="host-h">' + t + '</div>'; };
+  /* Every host screen is headed by the wordmark, Host beneath (HC-0, 2026-09-27). */
+  const head = function () { return '<div class="host-h" style="font-size:30px;margin:2px 0 0">Rust NYC Pop Quiz</div><div class="host-h" style="font-size:24px;color:var(--text-secondary)">Host</div>'; };
   let html;
 
   if (p === "idle") {
-    html = head("step 1 of 4", "Start the segment") +
+    html = head() +
       '<div class="stack">' +
       '<div class="panel" style="text-align:center"><div class="meta">room code</div>' +
       '<div style="font-family:var(--serif);font-size:34px;color:var(--accent)">' + ROOM.code + '</div></div>' +
       '<div class="no-preview">No answer preview. You are playing too.</div>' +
-      '<button class="btn btn-primary" onclick="go(\'live\')">Put it on the screen</button></div>';
+      '<button class="btn btn-primary" onclick="go(\'live\')">Start</button></div>';
   } else if (p === "live") {
-    html = head("step 2 of 4", "The room is reading") +
+    html = head() +
       '<div class="stack">' +
-      '<p class="meta"><b>' + ROOM.answered + '</b> answered · <b>' + ROOM.present + '</b> in the room. No timer.</p>' +
       '<div class="no-preview"><b>No hint button here any more.</b> It sits on every phone, pullable at any time, and nobody is told who took it — AC-48 rewritten at T-13. In this direction that is the phone\'s <em>only</em> text, which makes it the one thing the buzzer is for besides five letters.</div>' +
       '<button class="btn btn-primary" onclick="go(\'closed\')">Close answers</button></div>';
   } else if (p === "closed" || p === "split" || p === "work") {
-    html = head("step 3 of 4", "Let it sit") +
+    html = head() +
       '<div class="stack">' +
       (p === "closed"
         ? '<button class="btn btn-primary" onclick="go(\'split\')">Show the room its split</button>'
@@ -834,7 +810,7 @@ function renderHost() {
           '<button class="btn btn-primary" onclick="go(\'reveal\')">Reveal</button>') +
       '</div>';
   } else if (p === "reveal") {
-    html = head("step 4 of 4", "Read it aloud") +
+    html = head() +
       '<div class="stack">' +
       '<div class="panel" style="font-size:var(--text-sm)">' +
       '<h3>Step the trace · the room is watching this</h3>' +
@@ -846,14 +822,12 @@ function renderHost() {
       '<p class="meta">Nobody else has this text. In this direction the explanation is spoken, so if it does not read aloud well the room simply never gets it — AC-42 stops being a nice-to-have. <b>The middle beat is the one to not skip.</b></p>' +
       '<button class="btn btn-primary" onclick="go(\'released\')">Release the room</button></div>';
   } else {
-    html = head("done", "Segment complete") +
+    html = head() +
       '<div class="stack"><p class="meta">Five minutes. One question. Nothing stored.</p>' +
       '<button class="btn" onclick="go(\'idle\')">Run it again</button></div>';
   }
 
-  b.innerHTML = html +
-    '<div class="ratio">In the room: <b>' + ROOM.present + '</b> · answering: <b>' + ROOM.answered + '</b> · participation <b>' +
-    pct(ROOM.answered, ROOM.present) + '%</b><br>Never measured before. This is the number October is for.</div>';
+  b.innerHTML = html;
 }
 
 /* ---- transitions ------------------------------------------------------ */

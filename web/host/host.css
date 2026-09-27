@@ -1,7 +1,7 @@
 /* ===========================================================================
    The host phone (T-07). Visual detail is the prototype's —
-   prototypes/C-projector-first.html (.host-step, .host-h, .stack, .no-preview,
-   .ratio, the room-code panel) and prototypes/_shared/tokens.css §5–§6 (.panel,
+   prototypes/C-projector-first.html (.host-step, .host-h, .stack,
+   the room-code panel) and prototypes/_shared/tokens.css §5–§6 (.panel,
    .btn, .beat). web/shared/tokens.css and components.css carry the tokens,
    the base type, the trace and the provenance markers; this file carries only
    what those do not.
@@ -16,7 +16,8 @@ html { -webkit-text-size-adjust: 100%; }
               padding: var(--panel-pad-compact); display: flex; flex-direction: column;
               overflow-wrap: anywhere; }
 
-.host-h { font-family: var(--font-heading); font-size: 24px; margin: 2px 0 10px; }
+.host-h { font-family: var(--font-heading); font-size: 30px; margin: 2px 0 0; }
+.host-role { font-family: var(--font-heading); font-size: 24px; color: var(--text-secondary); margin: 0 0 10px; }
 .stack { display: flex; flex-direction: column; gap: 8px; }
 
 h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
@@ -46,15 +47,6 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
 .host-code { font-family: var(--font-heading); font-size: 34px; color: var(--accent-hover);
              letter-spacing: var(--tracking-wide); }
 
-/* §8.1's two sentences sit in the prototype's no-preview callout. */
-.no-preview { border-left: 3px solid var(--info); background: var(--info-subtle);
-              padding: 8px 10px; font-size: var(--text-xs); border-radius: var(--radius); }
-.no-preview p { margin: 0; }
-.no-preview p + p { margin-top: 6px; }
-
-.host-resume { margin: 0; font-size: var(--text-xs); color: var(--text-secondary); }
-.host-resume a { color: var(--text-primary); word-break: break-all; }
-
 .host-step-btn { font-size: 20px; padding: 6px 14px; }
 .host-trace .trace-nav .trace-dots { margin-left: auto; }
 
@@ -75,10 +67,9 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
 .host-status { margin: 0; min-height: 1em; }
 .host-status:empty { display: none; }
 
-/* The counts footer: the prototype's .ratio. */
-.ratio { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
-         color: var(--text-secondary); border-top: 1px solid var(--border-default); }
-.host-fit { margin-top: 4px; color: var(--text-primary); }
+/* The count: the prototype's .ratio footer, one line. */
+.host-count { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
+              color: var(--text-secondary); border-top: 1px solid var(--border-default); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important;

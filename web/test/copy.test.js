@@ -84,8 +84,48 @@ test('the client\'s own lines are hers, exactly', () => {
   assert.strictEqual(COPY.wall_released_title, "Let's go to the bar.");
 });
 
-test('the released buzzer says nothing about you was recorded', () => {
-  assert.strictEqual(COPY.buzzer_released, 'Nothing about you was recorded.');
+test('the host page is headed by the wordmark, Host beneath', () => {
+  assert.strictEqual(COPY.title_wordmark, 'Rust NYC Pop Quiz');
+  assert.strictEqual(COPY.host_title_role, 'Host');
+});
+
+// PQ-34, HC-0 (2026-09-27): "remove any text that is absolutely unnecessary.
+// no need to narrate the demo." These keys are gone and their strings with
+// them; a line that comes back has to come back through SPEC §11.
+const REMOVED = {
+  buzzer_join_beneath: 'or open the link on the screen',
+  buzzer_foot: 'no account · no name · no score',
+  buzzer_split_lookup: 'Look up.',
+  buzzer_split_where: 'Where the room landed.',
+  buzzer_split_said: 'people said ‹X›, including you.',
+  buzzer_split_readings: 'Five different readings. Nobody knows what anyone picked.',
+  buzzer_work_walking: "We're walking it through.",
+  buzzer_work_nothing: 'Nothing to do. Nobody knows the answer yet.',
+  buzzer_reveal_on_screen: 'The answer is on the screen.',
+  buzzer_reveal_company: 'You and ‹n−1› other people read it the same way.',
+  buzzer_reveal_company_one: 'You and 1 other person read it the same way.',
+  buzzer_reveal_host_reading: 'The host is reading out the why now.',
+  buzzer_reveal_only_one: 'You were the only one who read it that way.',
+  buzzer_noanswer_count: "‹k› people didn't answer, you included.",
+  buzzer_noanswer_reveal: '✓ It was ‹Y›. The host is reading out the why now.',
+  buzzer_foot_computed: 'computed on this phone · never sent anywhere',
+  buzzer_released: 'Nothing about you was recorded.',
+  buzzer_hint_shown: 'Only you can see this. Nobody is told you looked.',
+  wall_work_lead: "Let's walk it.",
+  wall_work_no_answer: 'Still no answer.',
+  wall_work_nobody: 'Nobody has to say anything.',
+  wall_released_line: 'the question, the walk-through and the why — at your own pace.',
+  host_first_resume: 'If you lose this phone, open this on another one: ‹resume link›',
+  not_a_guarantee_options_public: 'Option text is public — the correct answer is always one of the five visible options.',
+  not_a_guarantee_host_honest: "A host who reads Rust can work out the answer from the source; the host's not being shown it keeps the host honest, it is not a security guarantee.",
+};
+
+test('PQ-34: the removed keys and their strings are gone', () => {
+  for (const [key, str] of Object.entries(REMOVED)) {
+    assert.ok(!Object.prototype.hasOwnProperty.call(COPY, key), `${key} is back`);
+    assert.ok(!Object.values(COPY).includes(str), `"${str}" is back under another key`);
+  }
+  assert.strictEqual(COPY.buzzer_idle, "You're in.");
 });
 
 test('the receipt heading and its two lists are §7.5\'s', () => {

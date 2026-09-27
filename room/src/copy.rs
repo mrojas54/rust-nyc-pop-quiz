@@ -18,49 +18,21 @@ pub const WALL_TRACE_STEP: &str = "Step ‹N› of ‹M›";
 pub const WALL_TRACE_PIVOT: &str = "Pause here.";
 pub const BUZZER_JOIN_LABEL: &str = "room code";
 pub const BUZZER_JOIN_BUTTON: &str = "join";
-pub const BUZZER_JOIN_BENEATH: &str = "or open the link on the screen";
 pub const WALL_CLOSED: &str = "answers are closed";
 pub const WALL_SPLIT_ANSWERED: &str = "‹answered› of ‹present› in the room answered";
-pub const WALL_WORK_LEAD: &str = "Let's walk it.";
-pub const WALL_WORK_NO_ANSWER: &str = "Still no answer.";
-pub const WALL_WORK_NOBODY: &str = "Nobody has to say anything.";
 pub const WALL_REVEAL_MOST_CHOSEN: &str = "‹n› of us said ‹X›";
 pub const WALL_RELEASED_TITLE: &str = "Let's go to the bar.";
 pub const WALL_RELEASED_LINK: &str = "‹link›";
-pub const WALL_RELEASED_LINE: &str = "the question, the walk-through and the why — at your own pace.";
-pub const BUZZER_IDLE: &str = "You're in. Everything happens on the screen at the front — look up.";
-pub const BUZZER_FOOT: &str = "no account · no name · no score";
-pub const BUZZER_SPLIT_LOOKUP: &str = "Look up.";
-pub const BUZZER_SPLIT_WHERE: &str = "Where the room landed.";
-pub const BUZZER_SPLIT_COUNT: &str = "‹n›";
-pub const BUZZER_SPLIT_SAID: &str = "people said ‹X›, including you.";
-pub const BUZZER_SPLIT_READINGS: &str = "Five different readings. Nobody knows what anyone picked.";
-pub const BUZZER_WORK_LOOKUP: &str = "Look up.";
-pub const BUZZER_WORK_WALKING: &str = "We're walking it through.";
-pub const BUZZER_WORK_NOTHING: &str = "Nothing to do. Nobody knows the answer yet.";
-pub const BUZZER_REVEAL_LOOKUP: &str = "Look up.";
-pub const BUZZER_REVEAL_ON_SCREEN: &str = "The answer is on the screen.";
+pub const BUZZER_IDLE: &str = "You're in.";
 pub const BUZZER_REVEAL_IT_WAS: &str = "✓ It was ‹Y›.";
-pub const BUZZER_REVEAL_COMPANY: &str = "You and ‹n−1› other people read it the same way.";
-pub const BUZZER_REVEAL_COMPANY_ONE: &str = "You and 1 other person read it the same way.";
-pub const BUZZER_REVEAL_HOST_READING: &str = "The host is reading out the why now.";
-pub const BUZZER_REVEAL_ONLY_ONE: &str = "You were the only one who read it that way.";
-pub const BUZZER_NOANSWER_LOOKUP: &str = "Look up.";
-pub const BUZZER_NOANSWER_COUNT: &str = "‹k› people didn't answer, you included.";
 pub const BUZZER_NOANSWER_COUNT_ONE: &str = "You didn't answer.";
-pub const BUZZER_NOANSWER_SPLIT: &str = "Where the room landed.";
-pub const BUZZER_NOANSWER_WORK: &str = "We're walking it through.";
-pub const BUZZER_NOANSWER_REVEAL: &str = "✓ It was ‹Y›. The host is reading out the why now.";
 pub const JOIN_FAIL_MALFORMED: &str = "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.";
 pub const JOIN_FAIL_UNKNOWN: &str = "No room with that code. Check the screen at the front.";
 pub const JOIN_FAIL_NOT_YET_OPEN: &str = "That room isn't open yet. Hold on — the host will put it on the screen.";
 pub const JOIN_FAIL_ALREADY_ENDED: &str = "That room has ended. Look for the link on the screen.";
 pub const JOIN_FAIL_CLOSED_INACTIVITY: &str = "That room went quiet and closed. If it comes back, the screen at the front will say so.";
 pub const JOIN_FAIL_FULL: &str = "That room is full. Watch the screen — you can still play along.";
-pub const BUZZER_FOOT_COMPUTED: &str = "computed on this phone · never sent anywhere";
-pub const BUZZER_RELEASED: &str = "Nothing about you was recorded.";
 pub const BUZZER_HINT_ACTION: &str = "Show me a hint";
-pub const BUZZER_HINT_SHOWN: &str = "Only you can see this. Nobody is told you looked.";
 pub const BUZZER_SAVING: &str = "saving…";
 pub const BUZZER_SAVED: &str = "saved — ‹X›";
 pub const BUZZER_SAVE_FAILED: &str = "couldn't save. Your last answer, ‹X›, is safe.";
@@ -95,7 +67,7 @@ pub const HOME_HEADING_REMEMBER: &str = "What to remember";
 pub const HOME_HEADING_WALK: &str = "Walk it yourself";
 pub const HOME_HEADING_HOW_WE_KNOW: &str = "How we know";
 pub const HOST_ACTION_CREATE: &str = "Create a room";
-pub const HOST_ACTION_PUT_ON_SCREEN: &str = "Put it on the screen";
+pub const HOST_ACTION_PUT_ON_SCREEN: &str = "Start";
 pub const HOST_ACTION_CLOSE: &str = "Close answers";
 pub const HOST_ACTION_SHOW_SPLIT: &str = "Show the room its split";
 pub const HOST_ACTION_WALK: &str = "Let's walk it";
@@ -112,9 +84,11 @@ pub const HOST_FIT_FITS: &str = "fits the room";
 pub const HOST_FIT_CLIPPED_Y: &str = "too long for this room — clipped at the bottom";
 pub const HOST_FIT_CLIPPED_X: &str = "too wide for this room — clipped at the right";
 pub const HOST_FIT_CLIPPED_XY: &str = "too long and too wide for this room";
-pub const HOST_FIRST_RESUME: &str = "If you lose this phone, open this on another one: ‹resume link›";
-pub const NOT_A_GUARANTEE_OPTIONS_PUBLIC: &str = "Option text is public — the correct answer is always one of the five visible options.";
-pub const NOT_A_GUARANTEE_HOST_HONEST: &str = "A host who reads Rust can work out the answer from the source; the host's not being shown it keeps the host honest, it is not a security guarantee.";
+pub const TITLE_WORDMARK: &str = "Rust NYC Pop Quiz";
+pub const HOST_TITLE_ROLE: &str = "Host";
+pub const BUZZER_TITLE_ROLE: &str = "Guest";
+pub const COUNT_JOINED: &str = "Joined: ‹n›";
+pub const COUNT_ANSWERED: &str = "Answered: ‹n›";
 pub const STATIC_NEXT_PHASE: &str = "Space next phase";
 pub const STATIC_STEP_TRACE: &str = "← → step the trace";
 pub const STATIC_BACK_PHASE: &str = "Esc back a phase";
@@ -141,49 +115,21 @@ pub const ALL: &[(&str, &str)] = &[
     ("wall_trace_pivot", WALL_TRACE_PIVOT),
     ("buzzer_join_label", BUZZER_JOIN_LABEL),
     ("buzzer_join_button", BUZZER_JOIN_BUTTON),
-    ("buzzer_join_beneath", BUZZER_JOIN_BENEATH),
     ("wall_closed", WALL_CLOSED),
     ("wall_split_answered", WALL_SPLIT_ANSWERED),
-    ("wall_work_lead", WALL_WORK_LEAD),
-    ("wall_work_no_answer", WALL_WORK_NO_ANSWER),
-    ("wall_work_nobody", WALL_WORK_NOBODY),
     ("wall_reveal_most_chosen", WALL_REVEAL_MOST_CHOSEN),
     ("wall_released_title", WALL_RELEASED_TITLE),
     ("wall_released_link", WALL_RELEASED_LINK),
-    ("wall_released_line", WALL_RELEASED_LINE),
     ("buzzer_idle", BUZZER_IDLE),
-    ("buzzer_foot", BUZZER_FOOT),
-    ("buzzer_split_lookup", BUZZER_SPLIT_LOOKUP),
-    ("buzzer_split_where", BUZZER_SPLIT_WHERE),
-    ("buzzer_split_count", BUZZER_SPLIT_COUNT),
-    ("buzzer_split_said", BUZZER_SPLIT_SAID),
-    ("buzzer_split_readings", BUZZER_SPLIT_READINGS),
-    ("buzzer_work_lookup", BUZZER_WORK_LOOKUP),
-    ("buzzer_work_walking", BUZZER_WORK_WALKING),
-    ("buzzer_work_nothing", BUZZER_WORK_NOTHING),
-    ("buzzer_reveal_lookup", BUZZER_REVEAL_LOOKUP),
-    ("buzzer_reveal_on_screen", BUZZER_REVEAL_ON_SCREEN),
     ("buzzer_reveal_it_was", BUZZER_REVEAL_IT_WAS),
-    ("buzzer_reveal_company", BUZZER_REVEAL_COMPANY),
-    ("buzzer_reveal_company_one", BUZZER_REVEAL_COMPANY_ONE),
-    ("buzzer_reveal_host_reading", BUZZER_REVEAL_HOST_READING),
-    ("buzzer_reveal_only_one", BUZZER_REVEAL_ONLY_ONE),
-    ("buzzer_noanswer_lookup", BUZZER_NOANSWER_LOOKUP),
-    ("buzzer_noanswer_count", BUZZER_NOANSWER_COUNT),
     ("buzzer_noanswer_count_one", BUZZER_NOANSWER_COUNT_ONE),
-    ("buzzer_noanswer_split", BUZZER_NOANSWER_SPLIT),
-    ("buzzer_noanswer_work", BUZZER_NOANSWER_WORK),
-    ("buzzer_noanswer_reveal", BUZZER_NOANSWER_REVEAL),
     ("join_fail_malformed", JOIN_FAIL_MALFORMED),
     ("join_fail_unknown", JOIN_FAIL_UNKNOWN),
     ("join_fail_not_yet_open", JOIN_FAIL_NOT_YET_OPEN),
     ("join_fail_already_ended", JOIN_FAIL_ALREADY_ENDED),
     ("join_fail_closed_inactivity", JOIN_FAIL_CLOSED_INACTIVITY),
     ("join_fail_full", JOIN_FAIL_FULL),
-    ("buzzer_foot_computed", BUZZER_FOOT_COMPUTED),
-    ("buzzer_released", BUZZER_RELEASED),
     ("buzzer_hint_action", BUZZER_HINT_ACTION),
-    ("buzzer_hint_shown", BUZZER_HINT_SHOWN),
     ("buzzer_saving", BUZZER_SAVING),
     ("buzzer_saved", BUZZER_SAVED),
     ("buzzer_save_failed", BUZZER_SAVE_FAILED),
@@ -235,9 +181,11 @@ pub const ALL: &[(&str, &str)] = &[
     ("host_fit_clipped_y", HOST_FIT_CLIPPED_Y),
     ("host_fit_clipped_x", HOST_FIT_CLIPPED_X),
     ("host_fit_clipped_xy", HOST_FIT_CLIPPED_XY),
-    ("host_first_resume", HOST_FIRST_RESUME),
-    ("not_a_guarantee_options_public", NOT_A_GUARANTEE_OPTIONS_PUBLIC),
-    ("not_a_guarantee_host_honest", NOT_A_GUARANTEE_HOST_HONEST),
+    ("title_wordmark", TITLE_WORDMARK),
+    ("host_title_role", HOST_TITLE_ROLE),
+    ("buzzer_title_role", BUZZER_TITLE_ROLE),
+    ("count_joined", COUNT_JOINED),
+    ("count_answered", COUNT_ANSWERED),
     ("static_next_phase", STATIC_NEXT_PHASE),
     ("static_step_trace", STATIC_STEP_TRACE),
     ("static_back_phase", STATIC_BACK_PHASE),

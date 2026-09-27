@@ -41,6 +41,10 @@ body { overflow-x: hidden; }
   overflow-wrap: anywhere;
 }
 
+/* The wordmark, Guest beneath (§11, Title) — Instrument Serif only at 24px+. */
+.buzz-title { flex: none; text-align: center; }
+.buzz-wordmark { font-family: var(--font-heading); font-size: 30px; font-weight: 400; line-height: 1.2; margin: 0; }
+.buzz-role { font-family: var(--font-heading); font-size: 24px; line-height: 1.2; color: var(--text-secondary); margin: 0 0 6px; }
 .buzz-head { flex: none; text-align: center; padding-bottom: 6px;
              border-bottom: var(--border-w) solid var(--border-default); }
 .buzz-code { font-size: var(--text-sm); color: var(--text-secondary); }
@@ -86,7 +90,6 @@ body { overflow-x: hidden; }
 .buzz-after { max-width: 240px; margin: 14px auto 0; }
 .buzz-itwas { font-size: 19px; margin: 14px 0 0; }
 
-.buzz-foot { flex: none; font-size: var(--text-xs); text-align: center; color: var(--text-secondary); }
 
 /* The join form: one field, one button, one line beneath (AC-28). */
 .buzz-join { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
@@ -102,7 +105,6 @@ body { overflow-x: hidden; }
 .buzz-join-go { width: 100%; }
 .buzz-refusal { margin: 0; padding: 8px 12px; font-size: var(--text-sm);
                 border-left: 3px solid var(--accent-hover); background: var(--accent-subtle); }
-.buzz-join-beneath { text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .buzzer * { transition: none !important; animation: none !important; }

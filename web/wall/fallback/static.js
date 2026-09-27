@@ -133,7 +133,6 @@
       f.source = bake.source;
       f.colour = false;
       f.options = options(bake);
-      f.beats = [PQ.t("wall_work_lead"), PQ.t("wall_work_no_answer"), PQ.t("wall_work_nobody")];
       var steps = walk(bake);
       var at = clamp(state.at, 0, steps.length - 1);
       f.trace = traceView(at, m, steps[at]);
@@ -154,8 +153,7 @@
     } else { /* released */
       f.released = {
         title: PQ.t("wall_released_title"),
-        link: bake.home_link,
-        line: PQ.t("wall_released_line")
+        link: bake.home_link
       };
     }
     return f;

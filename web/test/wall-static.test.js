@@ -183,10 +183,12 @@ function parity(fix, frames, label) {
     const room = plain(roomFrame(frames, s));
     const mine = plain(S.frame(BAKE, s, counts(fix, frames)));
     // The frame: the room's, minus what only a room has (its code, its join
-    // strip, its own take-it-home host) and plus the idle key legend.
+    // strip and its Joined/Answered counts, its own take-it-home host) and
+    // plus the idle key legend.
     const expect = { ...room };
-    delete expect.code; delete expect.join;
+    delete expect.code; delete expect.join; delete expect.joined; delete expect.answered;
     const got = { ...mine };
+    assert.ok(!('joined' in got) && !('answered' in got), `${label} ${s.phase}: no counts in the fallback`);
     if (s.phase === 'idle') { assert.strictEqual(got.strip, S.legend()); delete got.strip; }
     if (s.phase === 'released') {
       assert.strictEqual(got.released.link, BAKE.home_link);
