@@ -58,12 +58,12 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test sandbox-build test-sandbox test-verify-full test-transport-full
+test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only")
     #!/usr/bin/env bash
     set -euo pipefail
     echo ""
     echo "=== test-full ==="
-    echo "Ran: test (room, pipeline, web), the in-process canary seam, the AC-12"
+    echo "Ran: test (room, pipeline, web), the canary over real sockets, the AC-12"
     echo "     containment suite, the verifier's cases on the sandbox image, and"
     echo "     the transport at 200 buzzers."
     echo ""
@@ -160,13 +160,42 @@ wall-layout PORT="8765":
     @echo "open http://127.0.0.1:{{ PORT }}/web/wall/measure.html?run=1"
     python3 -m http.server {{ PORT }} --bind 127.0.0.1
 
-# The secrecy suite, in-process: the router driven without a socket.
-# EVALUATION.md splits this hook — the in-process scan runs inside `test`, the
-# scan of the deployed room's real frames and pages runs inside `test-full`.
-canary:
-    cd room && cargo test --offline --locked --test canary
-    @echo "canary: in-process scan only. T-08 plants the phase-scoped secrets;"
-    @echo "the deployed-room scan joins test-full once T-09 has something to deploy."
+# The secrecy suite (T-08). Plants a canary in every secret field, walks a room
+# through every phase and scans every payload, frame, page and served file, the
+# rendered wall and the real buzzer page (room/README.md, Canary). The scan runs
+# inside `test` too (cargo runs every tests/*.rs); this recipe is the hook.
+#
+#   just canary            the scan: HTTP in-process, sockets over loopback
+#   just canary --full     also the test-full half: every request over TCP, two
+#                          rooms, the reconnect path
+#   just canary --full-only  that half alone (test-full: `test` already ran the first)
+#   just canary --url U    the deployed room at U: not yet — it needs T-09's
+#                          stand-in token and T-25's admin push; fails saying so
+#
+# The secrecy suite: every phase, every surface (--full: over TCP; --url: T-09).
+canary *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    full=0; url=""
+    set -- {{ ARGS }}
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --full) full=1 ;;
+            --full-only) full=2 ;;
+            --url) url="${2:?--url needs a URL}"; shift ;;
+            *) echo "just canary: unknown argument $1 (--full | --full-only | --url U)" >&2; exit 2 ;;
+        esac
+        shift
+    done
+    cd room
+    if [ -n "$url" ]; then
+        CANARY_URL="$url" cargo test --offline --locked --test canary_full -- --ignored
+        exit 0
+    fi
+    [ "$full" = 2 ] || cargo test --offline --locked --test canary
+    if [ "$full" != 0 ]; then
+        cargo test --offline --locked --test canary_full -- --ignored
+    fi
 
 # --- Reserved names whose suites do not exist yet ------------------------------
 # Each fails loudly rather than passing quietly. `test` and `test-full` do not
