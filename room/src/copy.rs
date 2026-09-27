@@ -12,7 +12,7 @@
 
 pub const WALL_IDLE_TITLE: &str = "Time for a pop quiz.";
 pub const WALL_IDLE_JOIN: &str = "join @ ‹link›";
-pub const WALL_LIVE_JOIN: &str = "join @ ‹link› · still open";
+pub const WALL_LIVE_JOIN: &str = "join @ ‹link›";
 pub const WALL_LIVE_WELL_HEADER: &str = "What does this program print?";
 pub const WALL_TRACE_STEP: &str = "Step ‹N› of ‹M›";
 pub const WALL_TRACE_PIVOT: &str = "Pause here.";

@@ -171,7 +171,7 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
 | **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` · `Joined: ‹n›` | Room code; ↑ *You're in.* | *Start*; the code; *Joined: ‹n›* (AC-46) |
-| **live** | *Start* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open` · `Joined: ‹n›` · `Answered: ‹n›`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
+| **live** | *Start* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link›` · `Joined: ‹n›` · `Answered: ‹n›`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
 | **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Let's walk it* |
 | **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code only | `←` `→`; the step's words; *Reveal* |
@@ -608,7 +608,7 @@ same homes.
 | Where | String |
 |---|---|
 | Wall, idle | **Time for a pop quiz.** · `join @ ‹link›` |
-| Wall, live | `join @ ‹link› · still open` · well header: **What does this program print?** |
+| Wall, live | `join @ ‹link›` · well header: **What does this program print?** |
 | Wall, trace (work, reveal) | **Step ‹N› of ‹M›** with dots · *Pause here.* on a `pivot` step |
 | Buzzer, join form | label **room code** · button **join** |
 | Wall, closed | **answers are closed** |

@@ -716,7 +716,7 @@ function renderProjector() {
   main.className = mainCls;
   main.innerHTML = code + side;
   strip.innerHTML = p === "live"
-    ? joinLine("still open — ")
+    ? joinLine("")
     : p === "closed"
     ? '<span>answers are closed</span>'
     : '<span>' + ROOM.answered + ' of ' + ROOM.present + ' in the room answered</span>';

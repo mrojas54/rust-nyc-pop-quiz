@@ -101,7 +101,7 @@ test('idle: the title card and the join strip, no source', () => {
   assert.ok(h.includes(`<span>join @ <b>${link.replace(/^https?:\/\//, '')}</b></span>`), h);
 });
 
-test('live: the source in colour, five options beneath, the join strip still open', () => {
+test('live: the source in colour, five options beneath, the join strip and nothing after the link', () => {
   const h = W.html(F.live, { fontPx: 22.1 });
   assert.ok(h.includes('<pre style="font-size:22.1px">'), 'the well takes the type model\'s size');
   assert.ok(h.includes(PQ.COPY.wall_live_well_header));
@@ -110,7 +110,11 @@ test('live: the source in colour, five options beneath, the join strip still ope
     assert.ok(h.includes(`<span class="letter">${o.letter}</span><span class="otext">${PQ.escapeHtml(o.text)}</span>`), o.letter);
   }
   assert.match(h, /class="wall-block reading wall-options"/);
-  assert.ok(h.includes(' · still open</span>'));
+  // HC-0 (2026-09-27): `join @ ‹link›`, the same line as idle, nothing after it.
+  assert.strictEqual(F.live.join, F.idle.join);
+  const link = F.live.join.slice('join @ '.length).replace(/^https?:\/\//, '');
+  assert.ok(h.includes(`<div class="joinstrip"><span>join @ <b>${link}</b></span>`), h);
+  assert.ok(!h.includes('still open'));
   assert.ok(!h.includes('bar-row'), 'no bars before the split');
 });
 

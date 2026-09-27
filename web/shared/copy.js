@@ -35,7 +35,7 @@
     wall_idle_join: "join @ ‹link›",
 
     /* --- Wall, live ----------------------------------------------------- */
-    wall_live_join: "join @ ‹link› · still open",
+    wall_live_join: "join @ ‹link›",
     wall_live_well_header: "What does this program print?",
 
     /* --- Wall, trace (work, reveal) ------------------------------------- */

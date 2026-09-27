@@ -41,7 +41,7 @@
       "answered": "Answered: 0",
       "code": "WALLQ3",
       "colour": true,
-      "join": "join @ http://127.0.0.1:3000/WALLQ3 · still open",
+      "join": "join @ http://127.0.0.1:3000/WALLQ3",
       "joined": "Joined: 0",
       "options": [
         {
@@ -1031,7 +1031,7 @@
         "answered": "Answered: 0",
         "code": "WALLQ3",
         "colour": true,
-        "join": "join @ http://127.0.0.1:3000/WALLQ3 · still open",
+        "join": "join @ http://127.0.0.1:3000/WALLQ3",
         "joined": "Joined: 0",
         "options": [
           {
