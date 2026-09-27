@@ -641,7 +641,9 @@ without the secret does not start: the binary refuses, by design.
 q3 in the machine's in-memory list of questions already run (G-10). That
 machine then refuses to create a room on q3 until it restarts. After every
 smoke run against the deployed room, run `fly apps restart rustnyc-popquiz`
-before anyone hosts on it.
+before anyone hosts on it. The same restart (or `fly machine restart <id>`)
+resets q3 for another HC-0 drive after a real one. The durable `used` ledger and
+the room lifecycle are T-11's; until then, a restart is all "used" means.
 
 **The trial org stops the machine.** The Fly org has no payment method, so Fly
 stops every machine after about five minutes. Rooms live in memory, so a
