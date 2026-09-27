@@ -17,8 +17,9 @@
 //! below prove the plants reached the surfaces that may show them, so a
 //! scanner that saw nothing cannot pass.
 //!
-//! Also here, unchanged from T-04a: the host screen per phase, the host
-//! routes and their denials, creation, and *Run it again*.
+//! Also here, from T-04a, their assertions unchanged (the harness lost the
+//! fields only the old scan used): the host screen per phase, the host routes
+//! and their denials, creation, and *Run it again*.
 
 mod common;
 #[path = "canary_scan/mod.rs"]

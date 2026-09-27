@@ -58,7 +58,7 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full")
+test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only")
     #!/usr/bin/env bash
     set -euo pipefail
     echo ""
@@ -168,6 +168,7 @@ wall-layout PORT="8765":
 #   just canary            the scan: HTTP in-process, sockets over loopback
 #   just canary --full     also the test-full half: every request over TCP, two
 #                          rooms, the reconnect path
+#   just canary --full-only  that half alone (test-full: `test` already ran the first)
 #   just canary --url U    the deployed room at U: not yet — it needs T-09's
 #                          stand-in token and T-25's admin push; fails saying so
 #
@@ -180,8 +181,9 @@ canary *ARGS:
     while [ $# -gt 0 ]; do
         case "$1" in
             --full) full=1 ;;
+            --full-only) full=2 ;;
             --url) url="${2:?--url needs a URL}"; shift ;;
-            *) echo "just canary: unknown argument $1 (--full | --url U)" >&2; exit 2 ;;
+            *) echo "just canary: unknown argument $1 (--full | --full-only | --url U)" >&2; exit 2 ;;
         esac
         shift
     done
@@ -190,8 +192,8 @@ canary *ARGS:
         CANARY_URL="$url" cargo test --offline --locked --test canary_full -- --ignored
         exit 0
     fi
-    cargo test --offline --locked --test canary
-    if [ "$full" = 1 ]; then
+    [ "$full" = 2 ] || cargo test --offline --locked --test canary
+    if [ "$full" != 0 ]; then
         cargo test --offline --locked --test canary_full -- --ignored
     fi
 

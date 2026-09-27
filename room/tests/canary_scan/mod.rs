@@ -387,7 +387,9 @@ fn routes_rs() -> String {
 /// `.route(` literal (or `format!` over the three viewers, or the host-action
 /// family `room::host_routes()` returns) with the method handler it names.
 /// A route added to the file joins this list whether or not the canary knows
-/// it, and [`assert_every_route_is_scanned`] then fails.
+/// it, and [`assert_every_route_is_scanned`] then fails. Textual, and scoped to
+/// this one file: a router `merge`d or `nest`ed from elsewhere would escape it,
+/// so a split router must extend this walk.
 pub fn route_table() -> BTreeSet<Route> {
     let src = routes_rs();
     let mut out = BTreeSet::new();
@@ -1411,14 +1413,15 @@ pub fn assert_the_plants_arrived(e: &Evidence) {
     assert!(s.has(Surface::Host, Phase::Reveal, &p.what) && s.has(Surface::Host, Phase::Reveal, &p.takeaway));
     assert_eq!(e.reveal_wall["reveal"]["mark"], "✓");
     assert_eq!(e.reveal_wall["reveal"]["receipt"]["heading"], copy::RECEIPT_HEADING);
-    assert_eq!(e.reveal_wall["trace"]["at"], 5, "reveal enters at M-1");
+    let m = canary_question()["trace"]["steps"].as_array().unwrap().len();
+    assert_eq!(e.reveal_wall["trace"]["at"], m - 1, "reveal enters at M-1");
     // §4.5: the wall and the host name the same option, and the host reads its why.
     let named = e.reveal_wall["reveal"]["middle"]["letter"].as_str().expect("an incorrect option was chosen");
     let i = ["A", "B", "C", "D", "E"].iter().position(|l| *l == named).unwrap();
     assert!(e.reveal_host["read_aloud"]["middle"]["heading"].as_str().unwrap().ends_with(named));
     assert!(s.has(Surface::Host, Phase::Reveal, &p.why[i]), "the host reads the named option's why_tempting");
     // AC-97: work walked 0..=M-2 and one more step was refused.
-    assert_eq!(e.work_walk.len(), 5, "work shows steps 0..=M-2");
+    assert_eq!(e.work_walk.len(), m - 1, "work shows steps 0..=M-2");
     assert_eq!(e.work_refused, 409, "a step past M-2 in work is refused");
     // AC-58: the page counted its own letter; nothing personal after close.
     assert_nothing_personal_after_close(e);
