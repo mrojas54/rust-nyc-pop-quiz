@@ -113,7 +113,7 @@ fn the_host_actions_are_exactly_the_eight_of_ac_45() {
             "Start",
             "Close answers",
             "Show the room its split",
-            "Let's walk it",
+            "Trace",
             "Reveal",
             "Release the room",
             "Run it again",

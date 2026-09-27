@@ -131,7 +131,7 @@
     host_action_put_on_screen: "Start",
     host_action_close: "Close answers",
     host_action_show_split: "Show the room its split",
-    host_action_walk: "Let's walk it",
+    host_action_walk: "Trace",
     host_action_reveal: "Reveal",
     host_action_release: "Release the room",
     host_action_run_again: "Run it again",
