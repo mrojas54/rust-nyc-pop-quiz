@@ -165,7 +165,10 @@
     if (phase === "idle") {
       mainClass = "title-card-main";
       main = titleCard("<div><h2>" + esc(frame.title) + "</h2></div>");
-      strip = frame.join ? joinHtml(frame.join, "wall_idle_join") : "";
+      /* The static fallback has no room to join; its idle strip carries the
+         §11 key legend instead (fallback/static.js, SPEC §12). */
+      strip = frame.join ? joinHtml(frame.join, "wall_idle_join")
+        : frame.strip ? "<span>" + esc(frame.strip) + "</span>" : "";
     } else if (phase === "released") {
       var rel = frame.released;
       mainClass = "title-card-main";
@@ -176,12 +179,12 @@
     } else if (phase === "live" || phase === "closed") {
       main = wellHtml(frame, well) + optionsHtml(frame.options);
       strip = phase === "live"
-        ? joinHtml(frame.join, "wall_live_join")
+        ? (frame.join ? joinHtml(frame.join, "wall_live_join") : "")
         : "<span>" + esc(frame.strip) + "</span>";
     } else if (phase === "split") {
       main = wellHtml(frame, well) +
         '<div class="wall-block reading wall-split">' + barsHtml(frame.split, null) + "</div>";
-      strip = "<span>" + esc(frame.split.line) + "</span>";
+      strip = frame.split.line ? "<span>" + esc(frame.split.line) + "</span>" : "";
     } else if (phase === "work") {
       main = wellHtml(frame, well) +
         '<div class="wall-block trace work">' +
@@ -197,7 +200,7 @@
             '<div class="wall-middle">' + esc(r.middle.line) + "</div></div>" +
           machineHtml(frame) +
         "</div>";
-      strip = frame.split ? "<span>" + esc(frame.split.line) + "</span>" : "";
+      strip = frame.split && frame.split.line ? "<span>" + esc(frame.split.line) + "</span>" : "";
     }
 
     return '<div class="projector wall" data-phase="' + phase + '">' +
@@ -361,7 +364,9 @@
     announcement: announcement
   };
 
-  if (root.document && root.document.getElementById && root.document.getElementById("wallWrap")) {
+  /* The static fallback (fallback/static.js) mounts the same wall itself, with no socket. */
+  var auto = root.document && root.document.getElementById && root.document.getElementById("wallWrap");
+  if (auto && auto.getAttribute("data-mode") !== "static") {
     boot();
   }
 })(typeof window !== "undefined" ? window : globalThis);
