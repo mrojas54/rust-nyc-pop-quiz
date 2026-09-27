@@ -38,11 +38,14 @@
 //! ```
 //!
 //! **What the rule is.** The correct option is derived exactly as
-//! `pipeline/src/popquiz/bank.py`'s `correct_index` derives it: by kind for a
-//! does-not-compile record, and otherwise by the option whose text equals the
-//! verified `stdout` less the one trailing newline `println!` added. The two
-//! are twins and must not drift. The receipt is the twin of `receipt.py`'s
-//! `receipt_lines`, tested against the same `bank/fixtures/receipts/*.json`.
+//! `pipeline/src/popquiz/bank.py`'s `correct_index` derives it, which is the
+//! reference (G-2: if one changes, both change): the first rule that applies
+//! decides — a does-not-compile record by the `does_not_compile` kind, UB under
+//! both borrow models by the `ub` kind, a non-zero exit by the `panic` kind,
+//! and otherwise the option whose text equals the verified `stdout` less the
+//! one trailing newline `println!` added. The receipt is the twin of
+//! `receipt.py`'s `receipt_lines`, tested against the same
+//! `bank/fixtures/receipts/*.json`.
 
 use serde::Deserialize;
 
@@ -107,8 +110,8 @@ struct RecordOption {
     why_tempting: Option<String>,
 }
 
-// Only `DoesNotCompile` is read (the correct-option rule); the rest exist
-// because the schema has them and an unknown kind must be refused.
+// Every kind but `Output` names an answer by kind (the correct-option rule);
+// `Output` exists because the schema has it and an unknown kind must be refused.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -172,7 +175,6 @@ pub struct Verified {
     flags: Option<Flags>,
     runs: Option<Runs>,
     stdout: Option<String>,
-    #[allow(dead_code)]
     exit_code: Option<i64>,
     miri: Option<Miri>,
     compile_error_code: Option<Vec<String>>,
@@ -207,7 +209,6 @@ struct Miri {
     output_matched: bool,
     #[allow(dead_code)]
     version: Option<String>,
-    #[allow(dead_code)]
     configs: Option<Vec<String>>,
     #[allow(dead_code)]
     seeds: Option<Vec<i64>>,
@@ -219,32 +220,48 @@ impl Record {
     }
 
     /// The twin of `bank.correct_index`: which option is correct, derived from
-    /// `verified` (SPEC §3.1, G-2). `Ok(None)` when the record has no verified
-    /// record or nothing matches; an error when two options match, because
-    /// then no single option is the correct one.
+    /// `verified` (SPEC §3.1, G-2). The rules, in order, and the first that
+    /// applies decides — it never falls through to a later one:
+    ///
+    /// 1. a does-not-compile record: the `does_not_compile` option;
+    /// 2. a record that ran, with UB under both borrow models: the `ub` option;
+    /// 3. a record that ran and exited non-zero (a panic): the `panic` option;
+    /// 4. otherwise, a record that ran: the option whose text equals the output.
+    ///
+    /// `Ok(None)` when the record has no verified record or nothing matches;
+    /// an error when two options match, because then no single option is the
+    /// correct one.
     pub fn correct_index(&self) -> Result<Option<usize>, LoadError> {
         let Some(verified) = &self.verified else {
             return Ok(None);
         };
-        let matches: Vec<usize> = match receipt_class(verified) {
-            Some(ReceiptClass::DoesNotCompile) => self
-                .options
+        let of_kind = |kind: OptionKind| -> Vec<usize> {
+            self.options
                 .iter()
                 .enumerate()
-                .filter(|(_, o)| o.kind == OptionKind::DoesNotCompile)
+                .filter(|(_, o)| o.kind == kind)
                 .map(|(i, _)| i)
-                .collect(),
+                .collect()
+        };
+        let matches: Vec<usize> = match receipt_class(verified) {
+            Some(ReceiptClass::DoesNotCompile) => of_kind(OptionKind::DoesNotCompile),
             Some(ReceiptClass::Ran) => {
-                let Some(stdout) = &verified.stdout else {
-                    return Ok(None);
-                };
-                let wanted = normalized_output(stdout);
-                self.options
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, o)| o.text == wanted)
-                    .map(|(i, _)| i)
-                    .collect()
+                if ub_confirmed(verified) {
+                    of_kind(OptionKind::Ub)
+                } else if verified.exit_code.is_some_and(|code| code != 0) {
+                    of_kind(OptionKind::Panic)
+                } else {
+                    let Some(stdout) = &verified.stdout else {
+                        return Ok(None);
+                    };
+                    let wanted = normalized_output(stdout);
+                    self.options
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, o)| o.text == wanted)
+                        .map(|(i, _)| i)
+                        .collect()
+                }
             }
             None => return Ok(None),
         };
@@ -266,6 +283,22 @@ impl Record {
 /// nothing else (the twin of `bank.normalized_output`).
 fn normalized_output(stdout: &str) -> &str {
     stdout.strip_suffix('\n').unwrap_or(stdout)
+}
+
+/// The two Miri borrow models (AC-9), as `bank.BORROW_MODELS` names them.
+const BORROW_MODELS: [&str; 2] = ["stacked_borrows", "tree_borrows"];
+
+/// The twin of `bank.ub_confirmed`: Miri reported UB and its `configs` name
+/// both borrow models. A legacy record has no `configs`, so nothing is
+/// inferred from its unclean pass (D-16).
+fn ub_confirmed(verified: &Verified) -> bool {
+    verified.miri.as_ref().is_some_and(|miri| {
+        !miri.clean
+            && miri
+                .configs
+                .as_ref()
+                .is_some_and(|configs| BORROW_MODELS.iter().all(|m| configs.iter().any(|c| c == m)))
+    })
 }
 
 enum ReceiptClass {

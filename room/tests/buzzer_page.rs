@@ -12,8 +12,7 @@
 //! - G-8, AC-32 (the canary's idea): the page, its assets, and every frame and
 //!   body a phone received carry neither the source nor any trace step.
 //!
-//! `/shared/*` belongs to T-05's route; until that is on this branch, only the
-//! `#[ignore]`d browser harness at the bottom serves it, from a helper here.
+//! `/shared/*` is T-05's route, on `main` since #21.
 
 mod common;
 
@@ -311,27 +310,6 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
 //
 //     cd room && BUZZER_PORT=3106 cargo test --test buzzer_page -- --ignored --nocapture
 //
-// Serves the router with the test auth and a `/shared` helper (T-05 owns the
-// real route), creates one room, prints the join link and the host's bearer,
-// and stays up for `BUZZER_SECS` (default 1200) seconds.
-// --------------------------------------------------------------------------
-
-async fn shared(axum::extract::Path(file): axum::extract::Path<String>) -> axum::response::Response {
-    use axum::response::IntoResponse;
-    if file.split('/').any(|p| p == ".." || p.is_empty()) {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    let Ok(bytes) = std::fs::read(repo().join("web/shared").join(&file)) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    let kind = match file.rsplit('.').next() {
-        Some("css") => "text/css; charset=utf-8",
-        Some("js") => "text/javascript; charset=utf-8",
-        Some("ttf") => "font/ttf",
-        _ => "application/octet-stream",
-    };
-    ([(header::CONTENT_TYPE, kind)], bytes).into_response()
-}
 
 #[tokio::test]
 #[ignore = "a browser harness for validation, not a test"]
@@ -342,7 +320,6 @@ async fn serve_for_browser() {
     let urls = Urls { base: base.clone(), home: format!("{base}/home") };
     let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], urls));
     let app = axum::Router::new()
-        .route("/shared/{*file}", axum::routing::get(shared))
         .merge(room::router_with(state));
     let room = host_room(&app).await;
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.unwrap();
