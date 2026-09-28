@@ -469,6 +469,10 @@ pub const DRIVEN: &[(&str, &str)] = &[
     ("GET", "/join/buzzer.js"),
     ("GET", "/join/buzzer.css"),
     ("GET", "/{code}"),
+    // T-12: take it home (SPEC §13).
+    ("GET", "/last"),
+    ("GET", "/home/home.js"),
+    ("GET", "/home/home.css"),
 ];
 
 /// Routes the scan does not drive, and why. Empty: every route is driven.
@@ -528,6 +532,9 @@ pub enum Surface {
     RenderedBuzzer,
     /// A request the buzzer page made, or a message it sent.
     PageTraffic,
+    /// T-12: `GET /last`, the last **released** question (SPEC §13). Nothing
+    /// of the canary question before its own release; all of it after.
+    TakeHome,
 }
 
 impl Surface {
@@ -583,6 +590,19 @@ pub fn check(seen: &mut Seen, surface: Surface, phase: Phase, text: &str, json: 
 
     // AC-101's canary half: the admin token, nowhere, ever.
     assert!(!text.contains(&p.admin), "{at}: carries POPQUIZ_ADMIN_TOKEN");
+
+    // T-12: /last holds the last *released* question (§13). Before the canary
+    // question's release it is the no-release page or an earlier, different
+    // question, so it carries no plant; from `released` on it is this one, and
+    // carries it — answer, beats, every why_tempting, the receipt — by design.
+    if surface == Surface::TakeHome {
+        if phase != Phase::Released {
+            for (name, plant) in p.all() {
+                assert!(!text.contains(plant), "{at}: /last carries the {name} plant before its release");
+            }
+        }
+        return;
+    }
 
     // Pages are compile-time bytes: nothing of any question, in any phase.
     if surface == Surface::Page {
@@ -1130,6 +1150,8 @@ impl<'s> Walk<'s> {
             "/host/host.css".into(),
             "/join/buzzer.js".into(),
             "/join/buzzer.css".into(),
+            "/home/home.js".into(),
+            "/home/home.css".into(),
         ];
         pages.extend(served_files("shared").into_iter().map(|f| format!("/shared/{f}")));
         for page in &pages {
@@ -1143,6 +1165,10 @@ impl<'s> Walk<'s> {
                 }
             }
         }
+        // T-12: /last is the one page whose bytes change — at a release.
+        let last = self.server.get("/last").await;
+        assert_eq!(last.status, 200, "{}", at("/last"));
+        check(&mut self.seen, Surface::TakeHome, phase, &last.everything(), None, &at("/last"));
         let short = self.server.get(&format!("/{}", self.code)).await;
         assert!((300..400).contains(&short.status), "{}", at("the short link redirects"));
         check(&mut self.seen, Surface::Page, phase, &short.everything(), None, &at("GET /{code}"));
@@ -1492,6 +1518,15 @@ pub fn assert_the_plants_arrived(e: &Evidence) {
         assert!(s.has(Surface::Wall, Phase::Reveal, note), "reveal steps back through the whole trace");
     }
     assert!(s.has(Surface::Host, Phase::Reveal, &p.what) && s.has(Surface::Host, Phase::Reveal, &p.takeaway));
+    // T-12: once released, /last is the canary question — every beat (§13).
+    assert!(s.has(Surface::TakeHome, Phase::Released, &p.what) && s.has(Surface::TakeHome, Phase::Released, &p.takeaway));
+    // Every incorrect option's, in whichever walk this is (its answer is the one it revealed).
+    let correct = e.reveal_wall["reveal"]["correct"].as_str().unwrap();
+    for (letter, why) in ["A", "B", "C", "D", "E"].iter().zip(&p.why) {
+        if *letter != correct {
+            assert!(s.has(Surface::TakeHome, Phase::Released, why), "/last carries {letter}'s why_tempting (§13)");
+        }
+    }
     assert_eq!(e.reveal_wall["reveal"]["mark"], "✓");
     assert_eq!(e.reveal_wall["reveal"]["receipt"]["heading"], copy::RECEIPT_HEADING);
     let m = canary_question()["trace"]["steps"].as_array().unwrap().len();
