@@ -142,7 +142,7 @@ impl Resp {
 impl Server {
     pub async fn start(http: Http) -> Server {
         plants(); // sets POPQUIZ_ADMIN_TOKEN before anything is served
-        // AC-101's plant, live: the admin channel is opened by the planted
+        // T-25 — AC-101's plant, live: the admin channel is opened by the planted
         // token, read from the environment as the binary reads it, and the
         // canary questions arrive through it — nothing is seeded.
         let token = room::admin::AdminToken::from_var(std::env::var(room::admin::VAR).ok()).expect("the plant is set");
@@ -169,30 +169,6 @@ impl Server {
             check_admin(&r.everything(), &format!("PUT /admin/questions/{id}"));
         }
         server
-    }
-
-    /// AC-101 at every stop: the admin prefix refuses a missing or wrong
-    /// token saying nothing, and what the right token reads carries no plant.
-    pub async fn admin_probe(&self, question: &str, at: &str) -> Resp {
-        for bearer in [None, Some("not-the-admin-token"), Some(self.probe_bearer())] {
-            for (method, uri) in [(Method::GET, "/admin/used".to_string()), (Method::PUT, format!("/admin/questions/{question}"))] {
-                let body = (method == Method::PUT).then(canary_question);
-                let r = self.request(method.clone(), &uri, bearer, body).await;
-                assert_eq!((r.status, r.body.len()), (401, 0), "{at}: {method} {uri} refused, saying nothing");
-                assert_eq!(r.header("www-authenticate"), None, "{at}: {method} {uri}");
-                check_admin(&r.everything(), &format!("{at}: {method} {uri}, refused"));
-            }
-        }
-        let r = self.request(Method::GET, "/admin/used", Some(&plants().admin), None).await;
-        assert_eq!(r.status, 200, "{at}: GET /admin/used");
-        check_admin(&r.everything(), &format!("{at}: GET /admin/used"));
-        r
-    }
-
-    /// A bearer the room did issue (the organizer's), which is not the admin
-    /// token: no other credential opens the admin prefix.
-    fn probe_bearer(&self) -> &'static str {
-        ORGANIZER
     }
 
     pub fn base(&self) -> String {
@@ -412,6 +388,40 @@ pub struct Route {
     pub path: String,
 }
 
+// T-25 admin plant ---------------------------------------------------------
+//
+// AC-101's canary half, live: the helpers the walk calls at every stop and
+// after release. The other T-25 lines are marked in place: `Server::start`
+// (the channel opened by the plant, the questions pushed), `route_table`'s
+// `any(`, three `DRIVEN` rows, one call in `stop` and the release check in
+// `walk_room`.
+
+impl Server {
+    /// AC-101 at every stop: the admin prefix refuses a missing or wrong
+    /// token saying nothing, and what the right token reads carries no plant.
+    pub async fn admin_probe(&self, question: &str, at: &str) -> Resp {
+        for bearer in [None, Some("not-the-admin-token"), Some(self.probe_bearer())] {
+            for (method, uri) in [(Method::GET, "/admin/used".to_string()), (Method::PUT, format!("/admin/questions/{question}"))] {
+                let body = (method == Method::PUT).then(canary_question);
+                let r = self.request(method.clone(), &uri, bearer, body).await;
+                assert_eq!((r.status, r.body.len()), (401, 0), "{at}: {method} {uri} refused, saying nothing");
+                assert_eq!(r.header("www-authenticate"), None, "{at}: {method} {uri}");
+                check_admin(&r.everything(), &format!("{at}: {method} {uri}, refused"));
+            }
+        }
+        let r = self.request(Method::GET, "/admin/used", Some(&plants().admin), None).await;
+        assert_eq!(r.status, 200, "{at}: GET /admin/used");
+        check_admin(&r.everything(), &format!("{at}: GET /admin/used"));
+        r
+    }
+
+    /// A bearer the room did issue (the organizer's), which is not the admin
+    /// token: no other credential opens the admin prefix.
+    fn probe_bearer(&self) -> &'static str {
+        ORGANIZER
+    }
+}
+
 /// The rule for the admin channel's own responses: no plant of any kind,
 /// the admin token's included, in any phase.
 pub fn check_admin(text: &str, at: &str) {
@@ -419,6 +429,18 @@ pub fn check_admin(text: &str, at: &str) {
         assert!(!text.contains(plant), "{at}: an admin response carries the {name} plant");
     }
 }
+
+/// The canary record with the given id (the two canary questions share a
+/// body shape; the admin push needs the path and the record to agree).
+pub fn canary_question_named(id: &str) -> Value {
+    if id == canary_question_dnc()["id"] {
+        canary_question_dnc()
+    } else {
+        canary_question()
+    }
+}
+
+// end T-25 admin plant -----------------------------------------------------
 
 fn routes_rs() -> String {
     std::fs::read_to_string(repo().join("room/src/routes.rs")).expect("room/src/routes.rs")
@@ -440,6 +462,7 @@ pub fn route_table() -> BTreeSet<Route> {
         let call_end = rest.find(".route(").unwrap_or(rest.len());
         let call = &rest[..call_end];
         let trimmed = call.trim_start();
+        // T-25: `any(` is the admin prefix's one entry point.
         let method = ["get(", "post(", "put(", "axum::routing::put(", "axum::routing::get(", "axum::routing::any("]
             .iter()
             .filter_map(|m| call.find(m).map(|i| (i, *m)))
@@ -619,16 +642,6 @@ pub fn phase_of(name: &str) -> Phase {
 
 fn count(hay: &str, needle: &str) -> usize {
     hay.matches(needle).count()
-}
-
-/// The canary record with the given id (the two canary questions share a
-/// body shape; the admin push needs the path and the record to agree).
-pub fn canary_question_named(id: &str) -> Value {
-    if id == canary_question_dnc()["id"] {
-        canary_question_dnc()
-    } else {
-        canary_question()
-    }
 }
 
 /// The rules for one received thing. `json` is the parsed payload where there
@@ -1155,6 +1168,7 @@ impl<'s> Walk<'s> {
         }
         let r = self.server.get("/rooms/no-such-room/wall").await;
         check(&mut self.seen, Surface::Page, phase, &r.everything(), None, &at("unknown room"));
+        // T-25: the admin prefix at every stop.
         let question = self.server.state.with_room(&self.id, |r| r.question_id().to_string()).unwrap();
         self.server.admin_probe(&question, &at("the admin prefix")).await;
 
