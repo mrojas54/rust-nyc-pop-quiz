@@ -6,9 +6,10 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 | Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
 |---|---|---|---|---|---|---|---|---|
-| Delegator (Opus, fast-track) | PQ-35 README voice + demo | surface:9 | pane:1 | ai-c11-cc/readme-voice | `…-worktrees/readme-voice` | implementing the README (screenshots captured) | 2026-09-27 18:2x | 2026-09-27 15:3x |
-| Delegator (Opus, fast-track) | PQ-36 copy round two | surface:16 | pane:1 | ai-c11-cc/copy-round-two | `…-worktrees/copy-round-two` | booting | 2026-09-27 18:5x | 2026-09-27 18:5x |
-| Delegator (Opus, inline-full) | PQ-14 room lifecycle | surface:17 | pane:1 | ai-c11-cc/room-lifecycle | `…-worktrees/room-lifecycle` | booting | 2026-09-27 18:5x | 2026-09-27 18:5x |
+| Delegator (Opus, fast-track) | PQ-35 README voice + demo | surface:9 | pane:1 | ai-c11-cc/readme-voice | `…-worktrees/readme-voice` | at `review`, PR #28 green; at the client's `gh pr merge` prompt (their in-tab word) | 2026-09-27 21:3x | 2026-09-27 15:3x |
+| Delegator (Opus, fast-track) | PQ-36 copy round two | (closed) | pane:1 | ai-c11-cc/copy-round-two | `…-worktrees/copy-round-two` | at `review`, PR #29 green, awaiting the merge word | 2026-09-27 21:3x | 2026-09-27 18:5x |
+| Delegator (Opus, inline-full) | PQ-14 room lifecycle | surface:17 | pane:1 | ai-c11-cc/room-lifecycle | `…-worktrees/room-lifecycle` | pushed; at the client's `gh pr create` prompt | 2026-09-27 21:3x | 2026-09-27 18:5x |
+| Delegator (Opus, inline-full) | PQ-37 guest split | surface:22 | pane:1 | ai-c11-cc/guest-split (stacked on PR #29) | `…-worktrees/guest-split` | implementing | 2026-09-27 21:3x | 2026-09-27 21:1x |
 | Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | `main` = `934e6c8` (#27 copy trim merged; M1 complete), LIVE at rustnyc-popquiz.fly.dev on the pre-trim image; PQ-35 README dispatching; HC-0 verdict pending for M2; loop armed | 2026-09-27 15:2x | 2026-09-20 |
 
 ### Archived (run history)
