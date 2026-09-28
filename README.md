@@ -1,160 +1,132 @@
 # Rust NYC Pop Quiz
 
-Get your Rust friends together for a live pop quiz. You host, they play from
-their phones, and every Rust program is generated fresh and compiler-verified.
+I want fifty people at Rust NYC to look at nine lines of Rust, find out they
+don't agree about what it prints, and work through it together until they do.
+The quiz is the excuse. The understanding is the product.
 
-## Status
+One question, the last five minutes of the night. Nobody in the room has seen
+it, and the answer comes from running the program, never from someone writing
+it down.
 
-The build has started. The scaffold is in — the `room` crate, the `pipeline`
-project, the `web` surfaces, an empty `bank`, and the harness that tests them —
-but no product behaviour yet: the room has no routes, the pipeline's modules are
-empty, and the surfaces are empty directories. Each names the ticket that fills
-it in its own README.
+## What the room sees
 
-`BUILDPLAN.md` is the order of work and `SPEC.md` the contract. Where this file
-still describes Val Town and Modal it is out of date; `sequence/research/00-synthesis.md`
-superseded that, and the room is Rust on Fly.io.
+The live room is at https://rustnyc-popquiz.fly.dev. Three ways in:
 
-## Building and testing
+- `/join` is the buzzer. Type the six-character room code.
+- `/{code}` is the short link on the wall. It lands on `/join` with the code
+  already filled in.
+- `/wall/{room_id}` is the wall, for the projector. The room id comes from the
+  host when the room is created.
 
-    just setup     # fetch dependencies — the one recipe that uses the network
-    just test      # the inner loop: room, pipeline and web, in parallel
-    just test-full # everything above, plus what is still pending
+A real local run from 2026-09-27: q3 on the wall, three phones in, idle and
+then the reveal.
 
-`just test` is the one to run while working. It is hermetic — no network, no
-Docker, no pinned toolchain, no Miri — and `EVALUATION.md` budgets it at 60
-seconds, so if it ever stops feeling instant something has gone wrong.
+<p>
+  <img src="docs/demo/wall-idle.png" width="640" alt="The wall before the question: 'Time for a pop quiz.' in the middle, the join link and room code at the bottom left, and 'Joined: 3' at the bottom right.">
+</p>
+<p>
+  <img src="docs/demo/wall-reveal.png" width="640" alt="The wall at the reveal: the five-line program with the println line highlighted, the last trace step and its stdout, the room's votes per letter with E marked correct, and the How we know receipt: compiled, ran 5 times, output never varied, Miri ran clean.">
+</p>
+<p>
+  <img src="docs/demo/buzzer-idle.png" width="180" alt="A guest's phone before the question: the Rust NYC Pop Quiz wordmark, 'Guest', the room code, an arrow pointing up at the screen, and 'You're in.'">
+  <img src="docs/demo/buzzer-reveal.png" width="180" alt="A guest's phone at the reveal: the wordmark, the room code, and '✓ It was E.'">
+  <img src="docs/demo/host-idle.png" width="180" alt="The host's phone before the question: the wordmark, 'Host', the room code, one Start button, and 'Joined: 3' at the bottom.">
+  <img src="docs/demo/host-reveal.png" width="180" alt="The host's phone at the reveal: the last trace step with back and forward buttons, then the Read it aloud script: what happens, and why 2 of us said B.">
+</p>
 
-Needs `just`, `cargo`, `uv` and `node` on the machine. `uv` supplies Python
-3.12 itself; `cargo` is whatever this machine already has, which is deliberate —
-the pinned compiler that verifies questions is a separate thing entirely, and it
-lives with the sandbox image.
+Try it:
 
-The other recipes are the rest of the harness `EVALUATION.md` names: `canary`,
-`verify`, `bank-audit`, `burst`, `a11y` and `smoke`. Most have no suite behind
-them yet, and running one tells you which ticket is going to build it rather
-than quietly passing.
+1. The host creates a room on their phone and puts `/wall/{room_id}` on the projector.
+2. Everyone else opens the short link on the wall, or `/join` and types the code.
+3. The host presses Start. The program goes up on the wall and five letters show up on every phone.
+4. Tap a letter. Change your mind as often as you like until the host closes answers.
+5. The host shows the room its split, walks the trace, and reveals. Then everyone goes to the bar.
 
-## What's here
+The live room already runs the copy in these screenshots. It changes when
+`main` is next deployed ([Deploying](room/README.md#deploying-t-09)).
 
-- **[`PRD.md`](PRD.md)** — the full design, and the place to start: product
-  summary, Discord-based organizer authorization, the Val Town / Modal trust
-  boundary, public interfaces, the brand and accessibility contract, acceptance
-  tests, and delivery requirements.
-- **[`.env.example`](.env.example)** — every environment variable the PRD
-  requires, as names only. No value is ever assigned anywhere in this
-  repository; Val Town and Modal each store secrets server-side and reference
-  them by name.
+## Run it on your laptop
 
-## How it is meant to work
+    just setup     # the one recipe that touches the network
+    just test      # room, pipeline and web, in parallel, offline
 
-Rust NYC Pop Quiz is a host-led meetup quiz that generates original Rust
-program-output questions for every session. Participants join anonymously from
-their phones. Hosts sign in through Discord and must hold the `nyc-organizers`
-role in the Rust East Coast server.
+You need `just`, `cargo`, `uv` and `node`. `uv` brings Python 3.12 with it.
+`cargo` is whatever you already have. The pinned compiler that verifies
+questions lives with the sandbox image, and building the server never needs it.
 
-Every accepted question is checked by a pinned Rust compiler and Miri
-configuration before the room opens, and the correct choice, explanation, and
-verification outcome are withheld from every pre-reveal client payload.
+`EVALUATION.md` gives `just test` 60 seconds. It runs in about 12 here, warm. If
+it ever stops feeling instant, something broke.
 
-A Val Town application is the participant-facing host and durable system of
-record. A separate Modal application performs candidate generation and isolated
-Rust verification.
+`just canary` is the secrecy suite. It drives a room through every phase with
+planted secrets and fails if any of them reaches a phone or the wall before the
+reveal.
 
-## Data flow
+A room you can drive at your desk:
 
-### An organizer creates a room
+    cd room && HOST_DEV_TOKEN=<any value> cargo run --bin room --features dev-host-token
 
-Questions are generated and compiler-verified up front. A partially generated
-room never opens, so the room code goes out only once every slot has passed
-verification.
+It serves on `127.0.0.1:3000`. Open the wall and a couple of buzzer tabs and
+walk it through. The host link and the rest of the stand-in are in
+[`room/README.md`](room/README.md#running-it).
 
-```mermaid
-sequenceDiagram
-  actor O as Organizer
-  participant VT as Val Town
-  participant D as Discord
-  participant M as Modal
-  participant R as Rust sandbox
+A recipe whose suite isn't built yet fails and names the ticket that builds it.
+`just burst` says T-21. Nothing looks green by not being there.
 
-  O->>VT: Sign in with Discord
-  VT->>D: OAuth, then nyc-organizers role check
-  D-->>VT: Discord user ID and current role
-  O->>VT: Configure topics, difficulty, and slot count
-  VT->>VT: Create room in generating, owned by that Discord user ID
+## How it works
 
-  loop Every question slot
-    VT->>M: Signed job request: config and private targets
-    M->>M: Generate candidate, judge quality and overlap
-    M->>R: Candidate source and pinned manifest only
-    R-->>M: Authoritative verdict and receipt
-    M-->>VT: Signed callback: verified candidate
-    VT->>VT: Public fields to public tables, answer to secrets
-  end
+Two halves, and they never talk during a meetup.
 
-  Note over O,R: All slots verified before the room code exists
-  VT-->>O: Answer-free progress, then ready
-  O->>VT: open
-  VT-->>O: Room code — the room is now joinable
-```
+**The question pipeline** runs offline, with no deadline. Generate candidates,
+run each one through a pinned `rustc` and Miri, drop duplicates, put the
+survivors in front of an organizer, and keep a growing private bank. Freshness
+is a supply problem, so it gets solved long before the night. Verify, dedupe and
+the bank audit are built. Generate, review and schedule are still stubs.
 
-Modal holds no database, Discord, or session access — it receives a job and
-returns a verified candidate, and the sandbox's verdict overrules whatever the
-model claimed the program prints.
+**The live room** is Rust, `axum` and `tokio` on one small Fly.io machine. Seven
+phases, `idle → live → closed → split → work → reveal → released`. The host
+moves it one step at a time from their phone. There's no timer and nothing
+advances on its own.
 
-### A participant joins and answers
+A few rules the code holds itself to:
 
-```mermaid
-sequenceDiagram
-  actor P as Participant
-  participant VT as Val Town
-  actor O as Organizer
+- **The answer is sealed until the reveal.** It sits in a vault only the reveal
+  phase can open, the compiler refuses code that tries to read it early, and
+  `just canary` checks every payload at every phase.
+- **Phones are anonymous.** A session is a token and an answer. No name, no
+  account, no score.
+- **Verification says exactly what ran.** "Miri ran clean" means no undefined
+  behavior on the paths that executed, and nothing more.
 
-  P->>VT: Enter six-character room code
-  VT->>VT: Transactional capacity check, 200 active sessions
-  VT-->>P: Signed anonymous session, no name or identity stored
-  O->>VT: start
-  VT-->>P: Source and five choices — no correct answer in the payload
-  P->>VT: Submit choice, matching its per-response version
-  VT-->>P: Confirmed choice and new version
-  Note over P,VT: Answers stay replaceable until the question closes
-  O->>VT: close
-  VT-->>P: Answer locked, waiting for the host to reveal
-  O->>VT: reveal
-  VT->>VT: One transaction: read secret, aggregate responses,<br/>copy an allowlist into public state
-  VT-->>P: Answer, explanation, receipt, and aggregate totals
-```
+Hosts sign in with a stand-in credential today. Discord replaces it at T-10.
 
-No browser has an edge to the secret store. The correct choice, explanation, and
-verification evidence reach a client only after the reveal transaction copies an
-explicit allowlist of fields into public state — the deadline is
-server-authoritative, so closing is not something a client can talk its way out
-of.
+## Where things live
 
-[`PRD.md`](PRD.md#data-flow-and-trust-boundaries) carries the normative version
-of this diagram, with the telemetry and uniqueness-query edges this one omits.
+| | |
+|---|---|
+| [`room/`](room/README.md) | The live room: phases, sessions, sockets, the pages, deploying |
+| [`web/`](web/README.md) | The wall, the buzzer and the host phone. Plain HTML, CSS and JS, no build step |
+| [`pipeline/`](pipeline/README.md) | Generate, verify, dedupe, review, the bank |
+| [`bank/`](bank/README.md) | The question records |
+| [`mvp/`](mvp/README.md) | The hand-run projector deck. One HTML file, no server, already running real questions |
+| [`PHILOSOPHY.md`](PHILOSOPHY.md) | The one thing, and the principles. Read it before changing anything people see |
+| [`SPEC.md`](SPEC.md) | What to build, and the guardrails |
+| [`DESIGN.md`](DESIGN.md) | The design the build reproduces one-to-one |
+| [`EVALUATION.md`](EVALUATION.md) | How every criterion gets proven |
+| [`BUILDPLAN.md`](BUILDPLAN.md) | The stack and the order of work |
+
+[`PRD.md`](PRD.md) came first and is prior art now. Where it describes Val Town
+and Modal, [`sequence/research/00-synthesis.md`](sequence/research/00-synthesis.md)
+superseded it.
 
 ## Prior art
 
 [`dtolnay/rust-quiz`](https://github.com/dtolnay/rust-quiz)
-([play it](https://dtolnay.github.io/rust-quiz/)) is the original Rust quiz and
-the format this project borrows: a short, legal Rust program, and the question
-is what it prints. Its questions turn on the language's genuinely subtle
-corners — trait resolution, `Drop` order, autoref, macro hygiene.
+([play it](https://dtolnay.github.io/rust-quiz/)) is the original Rust quiz, and
+this borrows its format: a short, legal Rust program, and the question is what
+it prints. Its questions turn on the language's genuinely subtle corners: trait
+resolution, `Drop` order, autoref, macro hygiene.
 
-The difference is the question bank. Rust Quiz is a fixed, published set, so a
-repeat attendee can recognize a question they have already seen. This project
-generates every question fresh per session and verifies the expected output
-with a pinned toolchain instead of curating answers by hand.
-
-## Reference implementation
-
-[`colelawrence/rust-nyc-talk-submissions`](https://github.com/colelawrence/rust-nyc-talk-submissions)
-is a deployed Val Town application on the same stack — React plus Hono,
-val-scoped SQLite, git-synced to GitHub through an Actions workflow — wearing
-the Rust NYC brand. It is the layout and tooling model to follow when code lands
-here.
-
-Its `BRAND_STYLE_GUIDE.md` is the source of the PRD's brand section, with two
-deliberate overrides where the PRD corrects AA contrast failures. Where the two
-disagree, the PRD is normative.
+It's also why our last quiz died. Rust Quiz is a fixed, published set, and once
+attendees had seen every question, the answer showed up before anyone had to
+work for it. A remembered question gets no conversation at all. So every
+question here is new, and a machine checks it before anyone sees it.
