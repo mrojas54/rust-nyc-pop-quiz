@@ -12,7 +12,8 @@ c11 restarted before this session: one pane (`pane:2`), refs below are current.
 | Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Dispatching wave 15; next gate: READY receipts, then plans |
 | agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home off `origin/main` @ `f8f9caf` (worktree `take-it-home`) | Booted 23:3x, auto mode on, planning |
 | agent:delegator-pq17 (Opus, inline-full) | PQ-17 / T-25 admin channel | `surface:30` in `pane:2` | ai-c11-cc/admin-channel off `origin/main` @ `f8f9caf` (worktree `admin-channel`) | Booted 23:3x, auto mode on, planning |
-| Held | PQ-16 accessibility sweep | — | — | backlog; presses ahead off PQ-15's branch at its `review` |
+| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth off `origin/main` @ `f8f9caf` (worktree `discord-auth`) | Booted 23:4x, auto mode on, planning; the run's last new dispatch (client: pause after discord auth) |
+| Not dispatched | PQ-16 accessibility sweep | — | — | backlog; held by the client's pause; presses ahead off PQ-15 on their next word |
 
 ### Archived (run history)
 
