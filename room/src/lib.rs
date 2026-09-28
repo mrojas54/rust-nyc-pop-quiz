@@ -18,6 +18,10 @@
 //! - [`ws`] — the transport: one broadcast per room to the wall, the buzzers
 //!   and the host, and reconnect with the same session token (T-04c).
 //! - [`config`] — what the binary reads from its environment (T-09).
+//! - [`lifecycle`] — how long a room lives and what ends it: the clock seam,
+//!   §4.6's bounds, the sweep's reaper (T-11).
+//! - [`used`] — what outlives a room: the used-question ledger, written only
+//!   at release (G-10), and the take-it-home snapshot (T-11).
 //! - `standin` — SPEC §8.2's `HOST_DEV_TOKEN` stand-in and the HC-0 seed, only
 //!   with the `dev-host-token` feature (T-09; T-10 deletes it).
 //!
@@ -34,6 +38,7 @@ pub mod answers;
 pub mod auth;
 pub mod config;
 pub mod copy;
+pub mod lifecycle;
 pub mod phase;
 pub mod question;
 pub mod rooms;
@@ -41,6 +46,7 @@ mod routes;
 pub mod sessions;
 #[cfg(feature = "dev-host-token")]
 pub mod standin;
+pub mod used;
 pub mod view;
 pub mod ws;
 

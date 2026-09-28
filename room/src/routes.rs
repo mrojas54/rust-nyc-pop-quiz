@@ -14,7 +14,6 @@
 //! (AC-70); an unknown room is `404`.
 
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, StatusCode};
@@ -59,6 +58,12 @@ fn failure(e: RoomError) -> Response {
             Json(serde_json::json!({ "reason": reason })),
         )
             .into_response(),
+        // T-11: the room ended — four hours up, or quiet too long.
+        RoomError::Ended(why) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({ "refusal": why.refusal().slug(), "reason": why.host_reason() })),
+        )
+            .into_response(),
     }
 }
 
@@ -67,7 +72,7 @@ async fn create(
     headers: HeaderMap,
     Json(body): Json<QuestionBody>,
 ) -> Response {
-    match state.create_room(bearer(&headers), &body.question_id, SystemTime::now()) {
+    match state.create_room(bearer(&headers), &body.question_id, state.now()) {
         Ok(created) => (StatusCode::CREATED, Json(created)).into_response(),
         Err(e) => failure(e),
     }
@@ -79,7 +84,7 @@ async fn run_again(
     headers: HeaderMap,
     Json(body): Json<QuestionBody>,
 ) -> Response {
-    match state.run_again(&id, bearer(&headers), &body.question_id, SystemTime::now()) {
+    match state.run_again(&id, bearer(&headers), &body.question_id, state.now()) {
         Ok(created) => (StatusCode::CREATED, Json(created)).into_response(),
         Err(e) => failure(e),
     }
@@ -88,7 +93,7 @@ async fn run_again(
 async fn act(state: Arc<AppState>, id: String, headers: HeaderMap, command: Command) -> Response {
     let token = bearer(&headers);
     let result = state
-        .act(&id, token, command, SystemTime::now())
+        .act(&id, token, command, state.now())
         .and_then(|()| state.with_hosted_room(&id, token, view::host));
     match result {
         Ok(payload) => Json(payload).into_response(),
@@ -189,6 +194,12 @@ async fn answer(
                 "phase": phase,
                 "saved": saved,
             })),
+        )
+            .into_response(),
+        // T-11: a buzzer on a room that ended hears PQ-8's sentence for it.
+        Err(AnswerError::Ended(why)) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({ "refusal": why.refusal().slug(), "reason": why.refusal().message() })),
         )
             .into_response(),
     }
@@ -455,6 +466,9 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     // map (`impl ws::SessionTokens for AppState`). A test that wants another
     // map layers its own `Extension(Transport)`; `provide` keeps it.
     let default = crate::ws::Transport::new(state.clone(), state.clone());
+    // T-11: the reaper sweeps ended rooms and closes their sockets through the
+    // default transport. Only inside a tokio runtime.
+    crate::lifecycle::spawn_reaper(state.clone(), default.clone());
     let router = router
         .layer(axum::middleware::from_fn(crate::ws::notify))
         .layer(axum::middleware::from_fn_with_state(default, crate::ws::provide));

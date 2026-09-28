@@ -1,0 +1,22 @@
+{
+  "_note": "The shape of AppState::take_home() as JSON: every key, and each value's JSON type. Types only - no value from any program is written here. T-12 renders this at /last (SPEC 13). Lists show one element's shape.",
+  "question_id": "string",
+  "meetup_date": "string",
+  "source": "string",
+  "colour": "boolean",
+  "options": [{ "letter": "string", "text": "string", "correct": "boolean" }],
+  "correct": "string",
+  "mark": "string",
+  "trace": [
+    {
+      "lines": ["number"],
+      "focus": ["number"],
+      "note": "string",
+      "values": [{ "name": "string", "was": "string", "now": "string" }],
+      "pivot": "boolean"
+    }
+  ],
+  "what": "string",
+  "takeaway": "string",
+  "receipt": { "heading": "string", "lines": ["string"] }
+}
