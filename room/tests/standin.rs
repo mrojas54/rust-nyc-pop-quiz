@@ -42,7 +42,15 @@ fn fresh_token() -> String {
 }
 
 fn vars<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
-    move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string())
+    // Every build needs the admin token to configure at all (T-25); these
+    // cases are about the stand-in's, so it is always supplied.
+    move |name| {
+        pairs
+            .iter()
+            .find(|(k, _)| *k == name)
+            .map(|(_, v)| v.to_string())
+            .or_else(|| (name == room::admin::VAR).then(|| "a-test-value".to_string()))
+    }
 }
 
 // --------------------------------------------------------------------------
