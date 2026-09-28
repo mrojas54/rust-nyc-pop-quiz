@@ -440,18 +440,48 @@
     return '<p class="buzz-itwas">' + PQ.correctHtml(line, { srLabel: "" }) + '</p>';
   }
 
-  /* split, work, reveal: the phone carries no line of its own until the
-     answer exists — the room is on the wall. At reveal, ✓ It was ‹Y›, and
-     *You didn't answer.* above it for a phone that holds no answer. */
+  /* The glyph that marks the reader's own row, keyed by the *you said ‹X›*
+     line beneath the bars. A glyph and a label, no colour (AC-40); never ✓,
+     which is the answer's, and never a mark against anyone (AC-94). */
+  var YOURS = "●";
+
+  /* PQ-37 (HC-0): the wall's five bars, scaled to the phone. `split` is the
+     wall's `split.bars` as a bare array, filled by the same server function,
+     so the phone and the wall show one split. The markup is wall.js's
+     barsHtml, class for class; at reveal the correct letter goes through
+     check.js exactly as the wall's does. The reader's own letter is known
+     here and never sent (AC-58). */
+  function barsHtml(bars, correct, yours) {
+    return '<div class="bars">' + bars.map(function (b) {
+      var mine = b.letter === yours;
+      var letter = b.letter === correct
+        ? PQ.correctHtml(b.letter, { className: "letter" })
+        : '<span class="letter">' + esc(b.letter) + "</span>";
+      return '<div class="bar-row' + (mine ? " is-yours" : "") + '" data-bar="' + attr(b.letter) + '">' +
+        '<span class="bar-yours" aria-hidden="true">' + (mine ? YOURS : "") + "</span>" + letter +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + Number(b.percent) + '%"></span></span>' +
+        '<span class="bar-n">' + Number(b.count) + " · " + Number(b.percent) + "%</span></div>";
+    }).join("") + "</div>" +
+      (yours ? '<p class="buzz-said buzz-yours"><span aria-hidden="true">' + YOURS + "</span> " +
+        bold(PQ.COPY.buzzer_closed_you_said, "X", yours) + "</p>" : "");
+  }
+
+  /* split, work, reveal: at reveal, ✓ It was ‹Y›, and *You didn't answer.*
+     above it for a phone that holds no answer; then, from the split on, the
+     room's five bars beneath whatever lines the phase has. */
   function countScreen(s) {
     var body = "";
-    if (s.frame.phase === "reveal") {
+    var reveal = s.frame.phase === "reveal";
+    if (reveal) {
       body = (s.saved ? "" : '<p class="buzz-said">' + esc(t("buzzer_noanswer_count_one")) + '</p>') +
         itWas(s.frame.correct);
     }
+    var bars = Array.isArray(s.frame.split) && s.frame.split.length
+      ? '<div class="buzz-split">' + barsHtml(s.frame.split, reveal ? s.frame.correct : null, s.saved) + '</div>'
+      : '';
     return head(s, null) +
       (s.conn !== "attached" ? paused(s) : '') +
-      '<div class="buzz-verdict"><div>' + body + '</div></div>';
+      '<div class="buzz-verdict"><div>' + body + bars + '</div></div>';
   }
 
   function idleScreen(s) {
