@@ -35,7 +35,7 @@
     wall_idle_join: "join @ ‹link›",
 
     /* --- Wall, live ----------------------------------------------------- */
-    wall_live_join: "join @ ‹link› · still open",
+    wall_live_join: "join @ ‹link›",
     wall_live_well_header: "What does this program print?",
 
     /* --- Wall, trace (work, reveal) ------------------------------------- */
@@ -84,7 +84,7 @@
     buzzer_saved: "saved — ‹X›",
     buzzer_save_failed: "couldn't save. Your last answer, ‹X›, is safe.",
     buzzer_save_retry: "Try again",
-    buzzer_no_answer_yet: "tap a letter",
+    buzzer_no_answer_yet: "Vote",
 
     /* --- Buzzer, reconnecting (AC-37) ----------------------------------- */
     buzzer_reconnecting_with_answer: "paused — reconnecting… your answer ‹X› is safe",
@@ -131,9 +131,9 @@
     host_action_put_on_screen: "Start",
     host_action_close: "Close answers",
     host_action_show_split: "Show the room its split",
-    host_action_walk: "Let's walk it",
+    host_action_walk: "Trace",
     host_action_reveal: "Reveal",
-    host_action_release: "Release the room",
+    host_action_release: "End Pop Quiz",
     host_action_run_again: "Run it again",
 
     /* --- Wall + host, reveal, no incorrect votes ------------------------ */
@@ -154,7 +154,7 @@
     host_fit_clipped_x: "too wide for this room — clipped at the right",
     host_fit_clipped_xy: "too long and too wide for this room",
 
-    /* --- Title — the wordmark, the surface's role beneath -------------- */
+    /* --- Title — the wordmark; on a phone, the surface's role beneath -- */
     title_wordmark: "Rust NYC Pop Quiz",
     host_title_role: "Host",
     buzzer_title_role: "Guest",
@@ -244,7 +244,7 @@
                        "host_reveal_beat_remember"],
     "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
                        "host_fit_clipped_xy"],
-    "Title (host phone, buzzer)": ["title_wordmark", "host_title_role", "buzzer_title_role"],
+    "Title (host phone, buzzer, wall)": ["title_wordmark", "host_title_role", "buzzer_title_role"],
     "Host + wall, count (AC-46)": ["count_joined", "count_answered"],
     "Static fallback": ["static_next_phase", "static_step_trace", "static_back_phase"],
     "Uniqueness (organizer-facing, AC-18)": ["uniqueness"],

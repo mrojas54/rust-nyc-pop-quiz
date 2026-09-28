@@ -170,13 +170,13 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
-| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` · `Joined: ‹n›` | Room code; ↑ *You're in.* | *Start*; the code; *Joined: ‹n›* (AC-46) |
-| **live** | *Start* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open` · `Joined: ‹n›` · `Answered: ‹n›`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
+| **idle** | *Create a room* | Title card: the wordmark top-left (§11, Title); **Time for a pop quiz.**; join strip `join @ ‹link›` · `Joined: ‹n›` | Room code; ↑ *You're in.* | *Start*; the code; *Joined: ‹n›* (AC-46) |
+| **live** | *Start* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link›` · `Joined: ‹n›` · `Answered: ‹n›`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
-| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Let's walk it* |
-| **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code only | `←` `→`; the step's words; *Reveal* |
-| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | **✓ It was X.**, with *You didn't answer.* above it on a phone that holds no answer. No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
-| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px and a QR. Nothing else (touchpoint T-20, item 13) | Room code only | *Run it again* → a new room (never the same question, G-10) |
+| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code only | *Trace* |
+| **work** | *Trace* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code only | `←` `→`; the step's words; *Reveal* |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | **✓ It was X.**, with *You didn't answer.* above it on a phone that holds no answer. No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *End Pop Quiz* |
+| **released** | *End Pop Quiz* | **Let's go to the bar.** The take-it-home link at 40 px and a QR. Nothing else (touchpoint T-20, item 13) | Room code only | *Run it again* → a new room (never the same question, G-10) |
 
 ### 4.1 Joining (AC-28…AC-31)
 
@@ -245,7 +245,7 @@ room and the schedule refuses a used question (G-10).
 
 The wall lays out at a **1120 × 630 design canvas** and scales as a unit
 (`transform: scale`) to the projector's actual pixels — never `width: 100%`
-on the box. Brand line top-left, `PROTOTYPE` badge removed in the build,
+on the box. The wordmark top-left (§11, *Title*), `PROTOTYPE` badge removed in the build,
 the join strip at the bottom.
 
 ### 5.2 Layout and the type model (AC-100, AC-78)
@@ -608,7 +608,7 @@ same homes.
 | Where | String |
 |---|---|
 | Wall, idle | **Time for a pop quiz.** · `join @ ‹link›` |
-| Wall, live | `join @ ‹link› · still open` · well header: **What does this program print?** |
+| Wall, live | `join @ ‹link›` · well header: **What does this program print?** |
 | Wall, trace (work, reveal) | **Step ‹N› of ‹M›** with dots · *Pause here.* on a `pivot` step |
 | Buzzer, join form | label **room code** · button **join** |
 | Wall, closed | **answers are closed** |
@@ -620,17 +620,17 @@ same homes.
 | Buzzer, reveal, **no answer given** | You didn't answer. |
 | Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
 | Buzzer, hint | Show me a hint |
-| Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **tap a letter** |
+| Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **Vote** |
 | Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe / *(no answer yet)* **paused — reconnecting…** |
 | Buzzer, closed | **answers are closed** · you said **‹X›** / you didn't answer |
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
 | Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
-| Host, actions | Create a room · Start · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
+| Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · End Pop Quiz · Run it again |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
-| Title — every host and buzzer screen's heading: the wordmark with the surface's role beneath; page titles `Rust NYC Pop Quiz · Host` / `Rust NYC Pop Quiz · Guest` | **Rust NYC Pop Quiz** · **Host** (host phone) · **Guest** (buzzer, join form included) |
+| Title — every host and buzzer screen's heading: the wordmark with the surface's role beneath; the wall's, top-left in every phase and in the static fallback: the wordmark alone; page titles `Rust NYC Pop Quiz · Host` / `Rust NYC Pop Quiz · Guest` / `Rust NYC Pop Quiz` (wall) | **Rust NYC Pop Quiz** · **Host** (host phone) · **Guest** (buzzer, join form included) · the wordmark alone (wall) |
 | Host + wall, count (AC-46) | Host, one line per screen: `Joined: ‹n›` before `live` (present) · `Answered: ‹n›` from `live` on. Wall join strip: `Joined: ‹n›` in `idle`; `Joined: ‹n›` · `Answered: ‹n›` in `live`; neither after, nor in the static fallback |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |

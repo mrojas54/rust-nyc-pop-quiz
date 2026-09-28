@@ -238,7 +238,7 @@
         <div class="projector" id="proj">
         <div class="proj-body">
           <div class="proj-top">
-            <span class="proj-brand">Rust NYC · Pop Quiz</span>
+            <span class="host-h" style="font-size:30px;margin:0;line-height:1">Rust NYC Pop Quiz</span>
             <span class="proj-brand" id="projPhase">—</span>
           </div>
           <div class="proj-main" id="projMain"></div>
@@ -716,7 +716,7 @@ function renderProjector() {
   main.className = mainCls;
   main.innerHTML = code + side;
   strip.innerHTML = p === "live"
-    ? joinLine("still open — ")
+    ? joinLine("")
     : p === "closed"
     ? '<span>answers are closed</span>'
     : '<span>' + ROOM.answered + ' of ' + ROOM.present + ' in the room answered</span>';
@@ -820,7 +820,7 @@ function renderHost() {
       '<span class="provenance human">✎ your script · in this order · this is the only place it exists</span>' +
       '<div style="margin-top:8px">' + explainHtml(TONIGHT, ROOM) + '</div></div>' +
       '<p class="meta">Nobody else has this text. In this direction the explanation is spoken, so if it does not read aloud well the room simply never gets it — AC-42 stops being a nice-to-have. <b>The middle beat is the one to not skip.</b></p>' +
-      '<button class="btn btn-primary" onclick="go(\'released\')">Release the room</button></div>';
+      '<button class="btn btn-primary" onclick="go(\'released\')">End Pop Quiz</button></div>';
   } else {
     html = head() +
       '<div class="stack"><p class="meta">Five minutes. One question. Nothing stored.</p>' +

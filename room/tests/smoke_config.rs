@@ -129,7 +129,7 @@ async fn ac28_the_join_link_carries_the_public_host_and_the_code() {
     let (status, _) = http(&app, Method::POST, &format!("/rooms/{id}/put-on-screen"), Some(host), None).await;
     assert_eq!(status, StatusCode::OK);
     let (_, wall) = http(&app, Method::GET, &format!("/rooms/{id}/wall"), None, None).await;
-    assert_eq!(wall["join"], format!("join @ {PUBLIC}/{code} · still open"));
+    assert_eq!(wall["join"], format!("join @ {PUBLIC}/{code}"));
 }
 
 #[tokio::test]

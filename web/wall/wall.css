@@ -35,9 +35,13 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
 
 .proj-body { flex: 1; display: flex; flex-direction: column; padding: 24px 32px; min-height: 0; }
 .proj-top { display: flex; justify-content: space-between; align-items: baseline;
-            flex: none; margin-bottom: 12px; }
-.proj-brand { font-size: 13px; letter-spacing: var(--tracking-caps);
-              text-transform: uppercase; color: var(--text-secondary); }
+            flex: none; margin-bottom: 3px; }
+/* The wordmark (§11, Title), in the wordmark's face at the join link's size:
+   the wall's other line read from the back row. The header keeps the height
+   the 13px caps line had (the margin above gave up what the wordmark took),
+   so the source well is as large as before (§5.2). */
+.proj-brand { font-family: var(--font-heading); font-size: 30px; font-weight: 400;
+              line-height: 1; color: var(--text-primary); margin: 0; }
 
 /* Full-width in every phase (touchpoint T-20 item 15): the source takes the
    whole wall and the block beneath it is a FIXED reserve (§5.2). */

@@ -29,16 +29,11 @@
 
    Every participant-facing string is either payload data (built from
    room/src/copy.rs, the mirror of web/shared/copy.js) or read from copy.js
-   here. The one exception is the brand line, which SPEC §4/§5.1 require and
-   §11 does not list — flagged to the Orchestrator rather than invented into
-   copy.js, which this ticket may not edit.
+   here, the wordmark top-left included (§11, Title).
    =========================================================================== */
 (function (root) {
   "use strict";
   var PQ = (root.PopQuiz = root.PopQuiz || {});
-
-  /* SPEC §4 and §5.1: "brand line top-left". Not a §11 string — see above. */
-  var BRAND = "Rust NYC · Pop Quiz";
 
   function esc(s) { return PQ.escapeHtml(s); }
 
@@ -205,7 +200,7 @@
 
     return '<div class="projector wall" data-phase="' + phase + '">' +
       '<div class="proj-body">' +
-        '<div class="proj-top"><span class="proj-brand">' + esc(BRAND) + "</span></div>" +
+        '<div class="proj-top"><h1 class="proj-brand">' + esc(PQ.t("title_wordmark")) + "</h1></div>" +
         '<div class="' + mainClass + '">' + main + "</div>" +
         (phase === "released" ? "" : '<div class="joinstrip">' + strip + "</div>") +
       "</div></div>";
@@ -356,7 +351,6 @@
   }
 
   PQ.Wall = {
-    BRAND: BRAND,
     html: html,
     mount: mount,
     connect: connect,
