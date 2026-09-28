@@ -168,6 +168,12 @@ pub struct BuzzerPayload {
     /// and its own answer, which it never sends (AC-58).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub counts: Option<Counts>,
+    // PQ-37 (HC-0): the wall's five bars — its `split.bars`, entry for entry,
+    // as a bare array — in `split`, `work` and `reveal`. Built by the one
+    // function the wall's bars come from, so the two cannot disagree. Letters,
+    // counts and percents only; the phone marks its own letter itself (AC-58).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub split: Option<Vec<Bar>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub correct: Option<Letter>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -344,6 +350,13 @@ fn counts(view: &PublicView<'_>) -> Option<Counts> {
     })
 }
 
+// PQ-37: the phone's bars are the wall's bars. `split` reads only the frozen
+// totals, so in `work` — where the wall shows the trace instead — the phone
+// still carries exactly what the wall showed at `split` and shows at `reveal`.
+fn phone_split(view: &PublicView<'_>) -> Option<Vec<Bar>> {
+    split(view).map(|s| s.bars)
+}
+
 fn step_label(at: u16, m: u16) -> String {
     copy::fill(
         copy::WALL_TRACE_STEP,
@@ -492,6 +505,7 @@ mod sealed {
             locked: None,
             hint: None,
             counts: None,
+            split: None,
             correct: None,
             mark: None,
             foot: None,
@@ -512,7 +526,10 @@ mod sealed {
                 p.locked = Some(true);
                 p.lines = vec![copy::BUZZER_CLOSED.into()];
             }
-            Phase::Split | Phase::Work => p.counts = counts(&view),
+            Phase::Split | Phase::Work => {
+                p.counts = counts(&view);
+                p.split = phone_split(&view);
+            }
             Phase::Released => p.mark = Some("✓"),
             Phase::Reveal => {}
         }
@@ -589,6 +606,7 @@ mod revealed {
             locked: None,
             hint: None,
             counts: counts(&view),
+            split: phone_split(&view),
             correct: Some(correct),
             mark: None,
             foot: None,
