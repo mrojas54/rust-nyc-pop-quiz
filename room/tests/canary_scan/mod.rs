@@ -142,24 +142,57 @@ impl Resp {
 impl Server {
     pub async fn start(http: Http) -> Server {
         plants(); // sets POPQUIZ_ADMIN_TOKEN before anything is served
-        let state = Arc::new(AppState::new(
-            Arc::new(TestAuth),
-            vec![load(&canary_question()), load(&canary_question_dnc())],
-            Urls::default(),
-        ));
+        // AC-101's plant, live: the admin channel is opened by the planted
+        // token, read from the environment as the binary reads it, and the
+        // canary questions arrive through it — nothing is seeded.
+        let token = room::admin::AdminToken::from_var(std::env::var(room::admin::VAR).ok()).expect("the plant is set");
+        let state = Arc::new(AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default()));
         let log: Log = Arc::default();
-        let app = room::router_with(state.clone())
+        let app = room::router_with_admin(state.clone(), token)
             .layer(axum::middleware::from_fn_with_state(log.clone(), record));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(room::ws::serve(listener, app.clone()));
-        Server {
+        let server = Server {
             app,
             addr,
             state,
             log,
             http,
+        };
+        for q in [canary_question(), canary_question_dnc()] {
+            let id = q["id"].as_str().unwrap().to_string();
+            let r = server
+                .request(Method::PUT, &format!("/admin/questions/{id}"), Some(&plants().admin), Some(q))
+                .await;
+            assert_eq!(r.status, 201, "PUT /admin/questions/{id}: {}", r.text());
+            check_admin(&r.everything(), &format!("PUT /admin/questions/{id}"));
         }
+        server
+    }
+
+    /// AC-101 at every stop: the admin prefix refuses a missing or wrong
+    /// token saying nothing, and what the right token reads carries no plant.
+    pub async fn admin_probe(&self, question: &str, at: &str) -> Resp {
+        for bearer in [None, Some("not-the-admin-token"), Some(self.probe_bearer())] {
+            for (method, uri) in [(Method::GET, "/admin/used".to_string()), (Method::PUT, format!("/admin/questions/{question}"))] {
+                let body = (method == Method::PUT).then(canary_question);
+                let r = self.request(method.clone(), &uri, bearer, body).await;
+                assert_eq!((r.status, r.body.len()), (401, 0), "{at}: {method} {uri} refused, saying nothing");
+                assert_eq!(r.header("www-authenticate"), None, "{at}: {method} {uri}");
+                check_admin(&r.everything(), &format!("{at}: {method} {uri}, refused"));
+            }
+        }
+        let r = self.request(Method::GET, "/admin/used", Some(&plants().admin), None).await;
+        assert_eq!(r.status, 200, "{at}: GET /admin/used");
+        check_admin(&r.everything(), &format!("{at}: GET /admin/used"));
+        r
+    }
+
+    /// A bearer the room did issue (the organizer's), which is not the admin
+    /// token: no other credential opens the admin prefix.
+    fn probe_bearer(&self) -> &'static str {
+        ORGANIZER
     }
 
     pub fn base(&self) -> String {
@@ -379,6 +412,14 @@ pub struct Route {
     pub path: String,
 }
 
+/// The rule for the admin channel's own responses: no plant of any kind,
+/// the admin token's included, in any phase.
+pub fn check_admin(text: &str, at: &str) {
+    for (name, plant) in plants().all() {
+        assert!(!text.contains(plant), "{at}: an admin response carries the {name} plant");
+    }
+}
+
 fn routes_rs() -> String {
     std::fs::read_to_string(repo().join("room/src/routes.rs")).expect("room/src/routes.rs")
 }
@@ -399,11 +440,21 @@ pub fn route_table() -> BTreeSet<Route> {
         let call_end = rest.find(".route(").unwrap_or(rest.len());
         let call = &rest[..call_end];
         let trimmed = call.trim_start();
-        let method = ["get(", "post(", "put(", "axum::routing::put(", "axum::routing::get("]
+        let method = ["get(", "post(", "put(", "axum::routing::put(", "axum::routing::get(", "axum::routing::any("]
             .iter()
             .filter_map(|m| call.find(m).map(|i| (i, *m)))
             .min()
-            .map(|(_, m)| if m.contains("put") { "PUT" } else if m.contains("post") { "POST" } else { "GET" })
+            .map(|(_, m)| {
+                if m.contains("any") {
+                    "ANY"
+                } else if m.contains("put") {
+                    "PUT"
+                } else if m.contains("post") {
+                    "POST"
+                } else {
+                    "GET"
+                }
+            })
             .unwrap_or("?");
         let paths: Vec<String> = if let Some(lit) = trimmed.strip_prefix('"') {
             vec![lit[..lit.find('"').unwrap()].to_string()]
@@ -469,6 +520,10 @@ pub const DRIVEN: &[(&str, &str)] = &[
     ("GET", "/join/buzzer.js"),
     ("GET", "/join/buzzer.css"),
     ("GET", "/{code}"),
+    // T-25: the admin channel, every method, at every stop (`admin_probe`).
+    ("ANY", "/admin"),
+    ("ANY", "/admin/"),
+    ("ANY", "/admin/{*rest}"),
 ];
 
 /// Routes the scan does not drive, and why. Empty: every route is driven.
@@ -564,6 +619,16 @@ pub fn phase_of(name: &str) -> Phase {
 
 fn count(hay: &str, needle: &str) -> usize {
     hay.matches(needle).count()
+}
+
+/// The canary record with the given id (the two canary questions share a
+/// body shape; the admin push needs the path and the record to agree).
+pub fn canary_question_named(id: &str) -> Value {
+    if id == canary_question_dnc()["id"] {
+        canary_question_dnc()
+    } else {
+        canary_question()
+    }
 }
 
 /// The rules for one received thing. `json` is the parsed payload where there
@@ -1090,6 +1155,8 @@ impl<'s> Walk<'s> {
         }
         let r = self.server.get("/rooms/no-such-room/wall").await;
         check(&mut self.seen, Surface::Page, phase, &r.everything(), None, &at("unknown room"));
+        let question = self.server.state.with_room(&self.id, |r| r.question_id().to_string()).unwrap();
+        self.server.admin_probe(&question, &at("the admin prefix")).await;
 
         // Every frame every socket received since the last stop.
         for w in &mut self.watchers {
@@ -1328,6 +1395,19 @@ pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> E
 
     // released
     w.transition(HostAction::ReleaseRoom.slug()).await;
+    // T-25: the ledger the pipeline syncs names this room, and the question
+    // it ran is refused if pushed again (G-10).
+    let question = server.state.with_room(&w.id, |r| r.question_id().to_string()).unwrap();
+    let used = server.admin_probe(&question, "released: the admin prefix").await.json();
+    assert!(
+        used.as_array().unwrap().iter().any(|e| e["question_id"] == question.as_str() && e["used"]["room_id"] == w.id.as_str()),
+        "GET /admin/used names the released room: {used}"
+    );
+    let again = server
+        .request(Method::PUT, &format!("/admin/questions/{question}"), Some(&plants().admin), Some(canary_question_named(&question)))
+        .await;
+    assert_eq!(again.status, 409, "a used question is refused: {}", again.text());
+    check_admin(&again.everything(), "released: PUT a used question");
     page_do(&mut page, json!({"cmd": "wait", "phase": "released"}));
     page_do(&mut page, json!({"cmd": "snap"}));
     drop(page);
