@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Take it home · measured layout</title>
+<style>
+  body { font: 13px/1.5 monospace; margin: 16px; }
+  .frames { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  iframe { border: 1px solid #999; height: 640px; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<!-- Take it home's measured layout (AC-33, T-12) — a developer page, never
+     served by the room. AC-33 on this page: code that exceeds the viewport
+     scrolls inside its own container; the page never scrolls sideways.
+
+       just wall-layout            (serves the repo on 127.0.0.1:8765)
+       open http://127.0.0.1:8765/web/home/measure.html?run=1
+
+     It renders the page with the real home.js and stylesheets, for every
+     snapshot in web/home/fixtures/take-home.json and for the complete snapshot
+     carrying each bank question's source in turn (q7 is the widest, 69
+     characters), at the first and the last trace step, in 360 px and 375 px
+     frames. For each it reports the document's scrollWidth against its
+     clientWidth, and which code containers scroll inside themselves. The run
+     passes when no document is wider than its frame. There is no headless
+     browser on the build machine or in CI, so this is run by hand and its
+     report is attached to the ticket. -->
+<p id="status">running…</p>
+<pre id="out"></pre>
+<div class="frames" id="frames"></div>
+<script src="/web/shared/dom.js"></script>
+<script src="/web/shared/phase.js"></script>
+<script src="/web/shared/check.js"></script>
+<script src="/web/shared/well.js"></script>
+<script src="/web/shared/trace.js"></script>
+<script src="/web/shared/copy.js"></script>
+<script src="/web/home/home.js"></script>
+<script>
+(function () {
+  "use strict";
+  var PQ = window.PopQuiz;
+  var WIDTHS = [360, 375];
+  var HEAD = '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<link rel="stylesheet" href="/web/shared/tokens.css">' +
+    '<link rel="stylesheet" href="/web/shared/components.css">' +
+    '<link rel="stylesheet" href="/web/home/home.css">';
+
+  function getJson(url) { return fetch(url).then(function (r) { return r.json(); }); }
+
+  function frame(width, html) {
+    return new Promise(function (resolve) {
+      var f = document.createElement("iframe");
+      f.width = width;
+      f.srcdoc = "<!DOCTYPE html><html><head>" + HEAD + '</head><body class="home-page"><main class="home-app">' +
+        html + "</main></body></html>";
+      f.onload = function () {
+        var doc = f.contentDocument;
+        (doc.fonts ? doc.fonts.ready : Promise.resolve()).then(function () { resolve(f); });
+      };
+      document.getElementById("frames").appendChild(f);
+    });
+  }
+
+  function measure(f) {
+    var d = f.contentDocument.documentElement;
+    var inner = Array.prototype.map.call(f.contentDocument.querySelectorAll(".rn-src-scroll, .vv"), function (el) {
+      return { cls: el.className, scrolls: el.scrollWidth > el.clientWidth };
+    });
+    return { scrollWidth: d.scrollWidth, clientWidth: d.clientWidth, pageScrolls: d.scrollWidth > d.clientWidth,
+             codeScrollsInside: inner.filter(function (x) { return x.scrolls; }).length };
+  }
+
+  function run() {
+    return Promise.all([
+      getJson("/web/home/fixtures/take-home.json"),
+      Promise.all(["q3", "q4", "q7", "q8"].map(function (q) { return getJson("/bank/questions/" + q + ".json"); }))
+    ]).then(function (got) {
+      var fix = got[0], bank = got[1];
+      var cases = [];
+      ["q3", "complete", "dnc"].forEach(function (name) { cases.push({ name: name, snap: fix[name] }); });
+      bank.forEach(function (q) {
+        var s = JSON.parse(JSON.stringify(fix.complete));
+        s.source = q.source;
+        cases.push({ name: "complete + " + q.id + "'s source", snap: s });
+      });
+      var report = { browser: navigator.userAgent, rows: [] };
+      var chain = Promise.resolve();
+      cases.forEach(function (c) {
+        [0, c.snap.trace.length - 1].forEach(function (step) {
+          WIDTHS.forEach(function (w) {
+            chain = chain.then(function () {
+              return frame(w, PQ.Home.html(c.snap, { step: step })).then(function (f) {
+                var m = measure(f);
+                m.case = c.name; m.step = step; m.width = w;
+                report.rows.push(m);
+              });
+            });
+          });
+        });
+      });
+      return chain.then(function () {
+        report.pass = report.rows.every(function (r) { return !r.pageScrolls; });
+        return report;
+      });
+    });
+  }
+
+  if (/[?&]run=1/.test(location.search)) {
+    run().then(function (report) {
+      document.getElementById("status").textContent = report.pass
+        ? "PASS — no document is wider than its frame (" + report.rows.length + " renders)"
+        : "FAIL — a document scrolls sideways";
+      document.getElementById("out").textContent = JSON.stringify(report);
+    }, function (e) { document.getElementById("status").textContent = "error: " + e; });
+  } else {
+    document.getElementById("status").textContent = "add ?run=1 to measure";
+  }
+})();
+</script>
+</body>
+</html>
