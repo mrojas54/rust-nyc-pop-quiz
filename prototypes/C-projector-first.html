@@ -741,18 +741,31 @@ function renderParticipant() {
     return;
   }
 
-  /* split, work, reveal: the phone carries nothing of its own until the answer
-     exists (HC-0, 2026-09-27: "intuitive workflow rather than guided"). At
-     reveal, the answer's letter; above it, "You didn't answer." on a phone
-     that holds none. Counts are the wall's. */
+  /* split, work, reveal: at reveal, the answer's letter; above it, "You didn't
+     answer." on a phone that holds none. From the split on, beneath whatever
+     lines the phase has, the wall's five bars scaled to the phone (HC-0,
+     2026-09-27: "guest view should have stats for answers"); the phone's own
+     letter marked ● with "you said X", never by colour alone; the ✓ on the
+     answer's bar at reveal, as on the wall. */
   if (p === "split" || p === "work" || p === "reveal") {
+    const bars = TONIGHT.options.map(function (o) {
+      const n = ROOM.votes[o.letter];
+      const mine = state.picked === o.letter;
+      return '<div class="bar-row' + (p === "reveal" && o.correct ? " is-correct" : "") + '" style="font-size:18px;gap:8px">' +
+        '<span style="flex:none;width:14px;font-size:14px;text-align:center">' + (mine ? "●" : "") + '</span>' +
+        '<span class="letter"' + (mine ? ' style="outline:2px solid var(--text);outline-offset:1px;text-align:center"' : '') + '>' + o.letter + '</span>' +
+        '<span class="bar-track" style="height:24px"><span class="bar-fill" style="width:' + pct(n, ROOM.answered) + '%"></span></span>' +
+        '<span class="bar-n" style="width:76px;font-size:16px">' + n + ' · ' + pct(n, ROOM.answered) + '%</span></div>';
+    }).join("");
     b.innerHTML = title +
       '<div class="buzz-head"><div class="lookup">room <b>' + ROOM.code + '</b></div></div>' +
-      '<div class="buzz-verdict"><div>' +
+      '<div class="buzz-verdict"><div style="width:100%">' +
       (p === "reveal"
         ? (state.picked ? '' : '<p style="font-size:19px;margin:0">You didn\'t answer.</p>') +
           '<p style="font-size:19px;margin:14px 0 0">✓ It was <b>E</b>.</p>'
         : '') +
+      '<div class="bars" style="gap:5px;margin-top:14px;text-align:left">' + bars + '</div>' +
+      (state.picked ? '<p style="font-size:17px;margin:10px 0 0">● you said <b>' + state.picked + '</b></p>' : '') +
       '</div></div>';
     return;
   }
