@@ -3,6 +3,31 @@
 Opened 2026-09-20. Phase 0 approved by the client the same day. Phase 0 record:
 `phase0-trail.md` in the orchestrator's scratchpad (copied below where it matters).
 
+## Current checkpoint — 2026-09-27 23:3x EDT
+
+**Run resumed on the client's word ("resume the run"); dispatch loop armed.**
+Fresh Orchestrator session; c11 had restarted (one pane, `pane:2`; Orchestrator
+`surface:28`; no client terminal, no browser tabs). Phase 0 collapsed to
+surface-and-confirm.
+
+- `main` = `origin/main` = `f8f9caf` (PR #30 PQ-14 at `f548a20`, PR #31 PQ-37 at
+  `f8f9caf`, both re-read as MERGED from GitHub). **No PR open.** Remote branches:
+  `main` only. Board: 24 done, 12 backlog, 1 cancelled, matching the receipts.
+- **Wave 15 dispatched off `origin/main` @ `f8f9caf`** (no longer stacked — the
+  parent merged before launch): **PQ-15 take-it-home** (fast-track) at
+  `surface:29`, worktree `take-it-home`, branch `ai-c11-cc/take-it-home`, actor
+  `agent:delegator-pq15`; **PQ-17 admin channel** (inline-full) at `surface:30`,
+  worktree `admin-channel`, branch `ai-c11-cc/admin-channel`, actor
+  `agent:delegator-pq17`. Both worktrees fast-forwarded `c61bd15 → f8f9caf`
+  before launch; both tabs in auto mode after the option-2 prompt. Two live (N=4).
+- **PQ-16 accessibility sweep held until PQ-15 reaches `review`** (board-dispatchable
+  now — PQ-7/8/9 done — but it sweeps every surface and PQ-15 adds `/last`; it
+  presses ahead off PQ-15's branch so the sweep covers the new page once).
+- Still held: PQ-13 (H-3), PQ-21 (H-4); PQ-23 gated on F-15; PQ-30 on F-20.
+- **The live room runs the pre-round-two image** (deployed at `934e6c8`); a
+  `fly deploy` from `main` is the client's call or bundled with a later merge.
+- Upstream findings F-2, F-8, F-15…F-32 stand as recorded; none resolved this tick.
+
 ## Configuration
 
 | Key | Value |
@@ -37,9 +62,9 @@ Criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the 
 
 | Role | Ref |
 |---|---|
-| main_view_area | `pane:1` (Orchestrator `surface:8`; Phase 0 doc `surface:22`) |
-| control_surface | `surface:23` (Lattice Board browser tab in `pane:1`) |
-| delegate_view_area_1..3 | The window cannot split (`pane_too_small`); delegators open as tabs of `pane:1`, soft cap 15. `pane:5` is the client's own terminal and is never used for spawns |
+| main_view_area | `pane:2` since the 2026-09-27 23:1x c11 restart (Orchestrator `surface:28`); earlier `pane:1` / `surface:8`. Refs change on every c11 restart: `c11 tree` first |
+| control_surface | none after the restart (the Lattice Board browser tab was not recreated) |
+| delegate_view_area_1..3 | The window cannot split (`pane_too_small`); delegators open as tabs of the Orchestrator's pane, soft cap 15. The client's own terminal, when present, is never used for spawns |
 | lattice_dashboard_port | 48731 (log: `$TMPDIR/lattice-dashboard-48731.log`) |
 
 ## Install facts pinned after init
@@ -357,3 +382,7 @@ prompt on the guard line (footgun below) and answer it with `send-key enter`.
 - 2026-09-27 22:1x [client: "merge 29"] **#29 merged → `caf79d9`** (PQ-36 done) after the guard first refused on `mergeable: UNKNOWN` (GitHub recomputing after #28 landed) and then two API timeouts on the mutation; landed head-pinned on the retry, re-verified OPEN/MERGEABLE/CLEAN and both jobs SUCCESS on `cd6004e` immediately before. Receipt appended. `main` = `origin/main` = `caf79d9` holds M1, the copy trim, both HC-0 copy rounds and the README. GitHub auto-deleted `ai-c11-cc/copy-round-two`; **PQ-37 (stacked on it, no PR yet) told to unset upstream, merge `origin/main`, and open against `main`**; PQ-14 told main moved (no overlap). **The live room runs the pre-round-two image**: a `fly deploy` from `main` is the client's call (or bundled with the next merge).
 - 2026-09-27 22:2x [autonomy: Moderate] Tick. **PQ-14 at `review`: PR #30** (`ai-c11-cc/room-lifecycle` @ `c61bd15` on `main`), DONE verified, both CI jobs SUCCESS, mergeability recomputing after `main` moved; Sonnet PASS-WITH-NITS then PASS; seven deviations accepted (the released room keeps its phase shell and anonymous totals to expiry per the AC-56 ruling — **F-31 routed upstream**: SPEC §4.6 and EVALUATION AC-56 say "deleted at release"; `used.fit` null; the README add-on landed; `AppState::take_home()` accessor, no route before T-12; `meetup_date` in America/New_York). Receipt appended; surface:17 closed. **PQ-37 at `review`: PR #31** (`ai-c11-cc/guest-split` @ `5af260b`, opened against `main`), both CI jobs SUCCESS, MERGEABLE/CLEAN; seven deviations accepted (`BuzzerPayload.split` as the wall's bars; own letter by glyph + outline + the existing *you said ‹X›* string; bar CSS in `buzzer.css`; F-29 stands). Its worktree is one commit past the PR head (the `origin/main` merge asked for after #29); a DONE (amended) with the pushed head is awaited before any merge. Receipt appended. **Usage: 5-hour window at 98%, resets 23:10** — PQ-15 and PQ-17 (both off PQ-14's branch, stacked on #30) are prepared this tick and launched after the reset. PQ-16 (a11y sweep, every surface) waits for #31 to merge.
 - 2026-09-27 22:3x [autonomy: Moderate] PR #30 now MERGEABLE/CLEAN (recomputed). PQ-37 at its `git push` prompt for the `origin/main` merge commit (the client's); its PR #31 head moves after it. Worktrees `take-it-home` and `admin-channel` created off `origin/ai-c11-cc/room-lifecycle` @ `c61bd15`; `templates/gen-wave15.py` written: **PQ-15 take-it-home** (fast-track; the additive witnessed read in `answers.rs` for every `why_tempting` and the verified detail rows; `GET /last` reproducing `prototypes/take-it-home.html`; **no counts — SPEC §13/D-12 wins over the BUILDPLAN T-12 row's "count from release", F-32 routed upstream**) and **PQ-17 admin channel** (inline-full; `admin.rs`, the constant-time bearer, `PUT /admin/questions/{id}` through `answers::load`, `GET /admin/used`, the route-table proof, the live canary plant with log-line scan, the repo-wide scan in `test`; H-11 deployed check is the client's). File split recorded in both briefs. **Launch after the 23:10 usage reset.**
+
+- 2026-09-28T02:43:34Z [client: "lattice orchestrator read run rate merge PRs and update state, no looping or starting new work"] One-shot merge pass completed: #30 → `f548a20`, #31 → `f8f9caf`, both via head-pinned merge commits after exact-head CI and fresh merge-review checks; separate GETs confirm merged=true. PQ-14/PQ-37 completed; receipts appended; open PRs empty. Prior PQ-15/PQ-17 launch-after-reset instruction is superseded by the client hold. No loop, wake, new work, or deployment started. Existing working-tree changes preserved.
+- 2026-09-27 23:2x [client: "resume the run"] Fresh Orchestrator session resumed the run. Preflight green: lattice 0.2.0, `origin` verified, c11 up but restarted (one pane, `pane:2`; Orchestrator `surface:28`; no other tab). Phase 0 collapsed to surface-and-confirm. Verified from GitHub: #30 MERGED at `f548a20`, #31 MERGED at `f8f9caf`, open PR list empty, remote branches `main` only; `main` = `origin/main` = `f8f9caf`. Board matches the receipts (24 done). `gh` and `git fetch` still need the bypass from this seat (TLS through the sandbox proxy fails); so do writes under `…-worktrees/` (outside the project root).
+- 2026-09-27 23:3x [autonomy: Moderate] **Wave 15 dispatched off `origin/main` @ `f8f9caf`.** The 22:3x prep had stacked both on PQ-14's branch; PR #30 merged first (GitHub deleted the branch), so `gen-wave15.py` was rewritten for `main` (base note, PR against `main`, no "Based on" line) and both worktrees fast-forwarded `c61bd15 → f8f9caf` (no local commits, so no rebase). PQ-15 take-it-home (fast-track) at `surface:29`, PQ-17 admin channel (inline-full) at `surface:30`, both in `pane:2`, both answered the guard-line prompt with option 2 and show `auto mode on`. Dispatch comments on both tickets. **PQ-16 held until PQ-15 is at `review`** (routine, logged): it sweeps every surface and PQ-15 adds `/last`; it presses ahead off PQ-15's branch then. Loop cadence 600 s while two delegators plan.

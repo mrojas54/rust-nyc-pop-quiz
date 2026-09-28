@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-28T02:01:10Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3JVX7VVR6ADKT0NQDY9H82R",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3JVX7VVR6ADKT0NQDY9H82R.md",
+    "size_bytes": 396
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #28 (ai-c11-cc/readme-voice @ acf3044 on 934e6c8) merged to main with a merge commit at 341559a on 2026-09-27 21:58 EDT by the delegator on the client's in-tab word ('merge'), head-pinned with --ma",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

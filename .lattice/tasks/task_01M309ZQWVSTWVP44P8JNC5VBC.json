@@ -1,17 +1,53 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 7,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-11 (M2).\n\nLifecycle: 4 h expiry, room deleted at release, totals with expiry, **`used` written at release**, take-it-home rebuild at release, *Run it again* refuses a used question\n\nCriteria: AC-56, AC-57, AC-69, AC-92, G-4, G-10\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-04b\nBUILDPLAN notes: **The only writer of the used-question ledger.**\n\nOrchestrator notes: The only writer of the used-question ledger (G-10). Touches `room/src/phase.rs` (F-10): serialized.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-09-28T02:41:25Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M3JKJJYSDESMN8Z2FA8WNS98",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JKJK393JKYR1NDF6J0VR3N",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JMCMART5JRV7PW3NS67DDE",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JVJ2VV2RE0G38RKG0HM9RS",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JY59Y8X4B3VS5S00KPDDV0",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3JY6YE4RQGA3CRS8DC1SZ75",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3JY6YE4RQGA3CRS8DC1SZ74",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZQWVSTWVP44P8JNC5VBC",
-  "last_event_id": "ev_01M309ZXD0ENKQH0EZCE3997HE",
-  "last_status_changed_at": "2026-09-20T21:01:38Z",
+  "last_event_id": "ev_01M3JY6YE4RQGA3CRS8DC1SZ77",
+  "last_status_changed_at": "2026-09-28T02:41:25Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,7 +61,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-14",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "m2",
     "inline-full",
@@ -33,6 +69,6 @@
   ],
   "title": "Room lifecycle and the used ledger",
   "type": "task",
-  "updated_at": "2026-09-20T21:01:43Z",
+  "updated_at": "2026-09-28T02:41:25Z",
   "urgency": null
 }

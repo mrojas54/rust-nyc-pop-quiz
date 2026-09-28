@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-28T02:40:31Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3JY59Y8X4B3VS5S00KPDDV0",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3JY59Y8X4B3VS5S00KPDDV0.md",
+    "size_bytes": 414
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Merge review: exact head c61bd15",
+  "token_usage": null,
+  "type": "note"
+}

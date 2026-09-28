@@ -1,0 +1,58 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 7,
+  "complexity": "low",
+  "created_at": "2026-09-27T22:31:39Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "HC-0 finding, 2026-09-27 18:3x, from the client's deployed drive (screenshot of the buzzer in live with the five letters): the line under the letters reads \"tap a letter\"; the client ruled: \"Vote\". Change buzzer_no_answer_yet in web/shared/copy.js, its mirror BUZZER_NO_ANSWER_YET in room/src/copy.rs, the SPEC \u00a711 row 'Buzzer, live, submission' (the no-answer-yet cell) and the prototype if it renders the string, plus every test that pins it, in one commit. Same ruled exception as PQ-34 (SPEC \u00a711 row and prototype string, this change only). Further HC-0 findings from this drive join this ticket as comments; dispatch waits for the drive to end. Fast-track, one Sonnet review. Depends on nothing open (PQ-34 merged at 934e6c8).",
+  "done_at": "2026-09-28T02:20:04Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M3JHKQ7YCBSN8JQVA50C2EZW",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JHKR8XSS3PS32ZGFCPYGYP",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JRRPCEP56WT0HEF7H7VZNA",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3JWZVYFD2CQDDJ3TKRFP7PM",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3JWZVYFD2CQDDJ3TKRFP7PK",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01M3JFXM3TGKEWJHEX5WR425PD",
+  "last_event_id": "ev_01M3JWZVYFD2CQDDJ3TKRFP7PP",
+  "last_status_changed_at": "2026-09-28T02:20:04Z",
+  "priority": "high",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-36",
+  "status": "done",
+  "tags": [
+    "m1",
+    "fast-track",
+    "hc-0",
+    "web-shared",
+    "copy"
+  ],
+  "title": "HC-0 copy, round two: the buzzer's live line",
+  "type": "task",
+  "updated_at": "2026-09-28T02:20:04Z",
+  "urgency": null
+}

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-28T02:20:04Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3JWZVYFD2CQDDJ3TKRFP7PK",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3JWZVYFD2CQDDJ3TKRFP7PK.md",
+    "size_bytes": 389
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #29 (ai-c11-cc/copy-round-two @ cd6004e on 934e6c8) merged to main with a merge commit at caf79d9 on the client's word ('merge 29') 2026-09-27 22:18 EDT, head-pinned, after re-verifying OPEN/MERGEA",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

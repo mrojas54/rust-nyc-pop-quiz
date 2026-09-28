@@ -1,0 +1,1 @@
+Merged PR #30 with merge commit f548a207115dfa187c3edfac3a1980d5648f2df1 on the client instruction to merge PRs. GitHub GET confirms merged=true and reviewed head c61bd1547e398edcc77422c33890397575fc73b0. Both just test and just test-full succeeded on that head; fresh merge-review artifact attached. Existing F-30/F-31 deviations remain recorded. No dependent work dispatched.

@@ -1,11 +1,11 @@
-"""Wave 15 boot prompts: PQ-15 take-it-home page (fast-track) and PQ-17 admin channel (inline-full),
-both press-ahead off PQ-14's in-review branch `ai-c11-cc/room-lifecycle` (PR #30).
+"""Wave 15 boot prompts: PQ-15 take-it-home page (fast-track) and PQ-17 admin channel (inline-full).
 
-    python3 gen-wave15.py PQ-15 <origin/ai-c11-cc/room-lifecycle sha> 30
-    python3 gen-wave15.py PQ-17 <origin/ai-c11-cc/room-lifecycle sha> 30
+Written 2026-09-27 22:3x as press-ahead tickets stacked on PQ-14's in-review branch; PR #30 merged
+before either launched (2026-09-28T02:43Z), so both now base on `origin/main`, which holds PQ-14's
+seams (`AppState::take_home()`, `AppState::used().all()`) and PQ-37.
 
-Stacked because both consume seams PQ-14 built (`AppState::take_home()`, `AppState::used().all()`).
-The Orchestrator retargets each PR to `main` before #30 merges (the #17/#18 hazard).
+    python3 gen-wave15.py PQ-15 <origin/main sha> 30
+    python3 gen-wave15.py PQ-17 <origin/main sha> 30
 """
 import pathlib
 import sys
@@ -15,7 +15,7 @@ from header import HEADER  # noqa: E402
 
 WT = "/Users/michellerojas/rust-nyc-pop-quiz-worktrees"
 ROOT = "/Users/michellerojas/rust-nyc-pop-quiz"
-PARENT = "ai-c11-cc/room-lifecycle"
+PARENT = "main"  # PQ-14 (PR #30) merged before launch; no stacking
 
 PLAN_REVIEW = "Then get fresh eyes: spawn a review subagent with the **Agent tool** (`subagent_type: general-purpose`, `model: sonnet`) whose prompt contains only the plan file path, the contract section paths from §2, and the instruction to find contradictions with the contract and missing pieces, returning Critical/Major/Minor findings with file references — not your conclusions. Triage every finding into a block appended to the plan: `## Plan-review resolutions (AUTHORITATIVE — overrides earlier text on conflict)`, one entry per finding with concern / resolution. `lattice status {pq} planned`."
 FAST_TRACK_PLAN = "Fast-track: no plan-review subagent. Re-read the plan once against the contract sections in §2 and the code on your branch, fix what contradicts, then `lattice status {pq} planned`."
@@ -84,13 +84,14 @@ def main():
         wt=wt, root=ROOT, tab=d["tab"], oneliner=d["oneliner"], actor=d["actor"],
         body=d["body"], planner_extra="", branch=branch,
     )
-    branch_note = f"**Press-ahead ticket.** Your branch starts from PQ-14's in-review branch `{PARENT}` @ `{parent_sha}` (PR #{parent_pr}), not from `main`, because you consume the seams it adds. Rebase onto `origin/{PARENT}` while PR #{parent_pr} is open and never after your first push; if PR #{parent_pr} merges first, `git branch --unset-upstream && git merge origin/main` (a plain merge, no rebase) and open or retarget your PR against `main`. The Orchestrator retargets your PR to `main` before PR #{parent_pr} merges."
+    branch_note = f"**Base.** Your branch starts from `origin/main` @ `{parent_sha}`, which already holds PQ-14 (room lifecycle, PR #{parent_pr}, merged) and PQ-37 (guest split, PR #31, merged) — the seams you consume are on `main`. Rebase onto `origin/main` before your first push and never after it (an in-review branch is never rewritten). Your worktree was cut earlier at PQ-14's PR head and fast-forwarded to this sha by the Orchestrator; `git log --oneline -1` should show `{parent_sha[:7]}`."
     reps = [
         (f"**Press-ahead ticket.** Your branch starts from the in-review scaffold branch `{PARENT}` @ `{parent_sha}` (PR #8), not from `main`, because you need the harness it adds. Rebase onto `origin/{PARENT}` while #8 is open; the Orchestrator retargets your PR to `main` once #8 merges.", branch_note),
         (f"Open the PR **against `{PARENT}`** (stacked on #8): `gh pr create --base {PARENT} --head {branch}`",
-         f"Open the PR **against `{PARENT}`** (stacked on PR #{parent_pr}): `gh pr create --base {PARENT} --head {branch}`"),
+         f"Open the PR **against `main`**: `gh pr create --base main --head {branch}`"),
         ("the line `Based on #8 — merge that first; this PR retargets to main afterwards.`, and the line",
-         f"the line `Based on #{parent_pr} — merge that first; this PR retargets to main afterwards.`, and the line"),
+         "and the line"),
+        ("Both of you sit on PQ-14's branch:", "PQ-14's code is on `main` under you both:"),
     ]
     if d["mode"] == "fast-track":
         reps.append((PLAN_REVIEW.replace("{pq}", pq), FAST_TRACK_PLAN.replace("{pq}", pq)))

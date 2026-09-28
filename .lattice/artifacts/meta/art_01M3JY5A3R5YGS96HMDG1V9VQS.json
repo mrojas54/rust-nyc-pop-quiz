@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-28T02:40:31Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3JY5A3R5YGS96HMDG1V9VQS",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3JY5A3R5YGS96HMDG1V9VQS.md",
+    "size_bytes": 554
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Merge review: main integration 53f280c",
+  "token_usage": null,
+  "type": "note"
+}

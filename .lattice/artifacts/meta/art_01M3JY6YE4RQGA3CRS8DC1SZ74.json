@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-28T02:41:25Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3JY6YE4RQGA3CRS8DC1SZ74",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3JY6YE4RQGA3CRS8DC1SZ74.md",
+    "size_bytes": 377
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged PR #30 with merge commit f548a207115dfa187c3edfac3a1980d5648f2df1 on the client instruction to merge PRs. GitHub GET confirms merged=true and reviewed head c61bd1547e398edcc77422c33890397575fc7",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

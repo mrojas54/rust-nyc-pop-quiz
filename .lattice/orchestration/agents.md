@@ -4,16 +4,22 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-| Role | Ticket | Surface ref | Pane ref | Branch | Worktree | Phase | Last seen | Spawned at |
-|---|---|---|---|---|---|---|---|---|
-| Delegator (Opus, inline-full) | PQ-14 room lifecycle | surface:17 | pane:1 | ai-c11-cc/room-lifecycle | `…-worktrees/room-lifecycle` | pushed; at the client's `gh pr create` prompt | 2026-09-27 21:3x | 2026-09-27 18:5x |
-| Delegator (Opus, inline-full) | PQ-37 guest split | surface:22 | pane:1 | ai-c11-cc/guest-split (stacked on PR #29) | `…-worktrees/guest-split` | implementing | 2026-09-27 21:3x | 2026-09-27 21:1x |
-| Orchestrator | — | surface:8 | pane:1 (workspace:1; `pane:2` / `surface:11` is the client's terminal) | ai-c11-cc/lattice-build | (root checkout) | `main` = `caf79d9` (#28 README, #29 copy round two merged); LIVE at rustnyc-popquiz.fly.dev on the pre-round-two image; PQ-14 at its PR prompt, PQ-37 implementing; M2 open; loop armed | 2026-09-27 22:1x | 2026-09-20 |
+Snapshot: 2026-09-27 23:3x EDT. Run resumed; dispatch loop armed at 600 s.
+c11 restarted before this session: one pane (`pane:2`), refs below are current.
+
+| Role | Ticket | Surface ref | Branch | Phase |
+|---|---|---|---|---|
+| Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Dispatching wave 15; next gate: READY receipts, then plans |
+| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home off `origin/main` @ `f8f9caf` (worktree `take-it-home`) | Booted 23:3x, auto mode on, planning |
+| agent:delegator-pq17 (Opus, inline-full) | PQ-17 / T-25 admin channel | `surface:30` in `pane:2` | ai-c11-cc/admin-channel off `origin/main` @ `f8f9caf` (worktree `admin-channel`) | Booted 23:3x, auto mode on, planning |
+| Held | PQ-16 accessibility sweep | — | — | backlog; presses ahead off PQ-15's branch at its `review` |
 
 ### Archived (run history)
 
 | Actor | Ticket | Outcome | Notes |
 |---|---|---|---|
+| agent:delegator-pq14 | PQ-14 / T-11 room lifecycle and used ledger | `done`, PR #30 merged at `f548a20`, head `c61bd15` | Exact-head CI green; Sonnet cycle-2 PASS revalidated; F-30/F-31 remain recorded. |
+| agent:delegator-pq37 | PQ-37 / guest answer split | `done`, PR #31 merged at `f8f9caf`, head `53f280c` | Exact-head CI green; Sonnet PASS on `5af260b` plus inspected README-only merge from main; client accepted screenshots; F-29 remains recorded. |
 | agent:delegator-pq1 (Opus, inline-full, surface:24) | PQ-1 / T-01 Repo scaffold | `review`, PR #8 open, head `2ab95e3` on `7abfce0` | 5 commits. `just test` warm 0.28 s / cold 12.21 s. Plan review: 3 Major, 2 Minor, 1 NIT, all resolved. Code review round 1: one Major (shell-out guard overclaimed), fixed with a negative control. Deviations: `setup` recipe; no `rust-toolchain.toml`; `--role validation` rejected by the install; README corrected. Anomaly: push/PR approval path unverifiable under auto mode → `ask` rules added to project settings. CI unproven until the PR runs. |
 | agent:delegator-pq2 (Opus, inline-full, surface:29) | PQ-2 / T-02 Shared web layer | `review`, PR #9 open, head `223a201` on `0742d35` | 5 signed commits, 25 files, 103 tests, browser validation 34/34. Plan review 0C/3M/6m. Code review PASS-WITH-NITS after 3 rounds. Deviations: Google Fonts @import dropped (F-17); components.css and phase.js added; no rounding in the refit loop (T-19 mirrors); screen_height_ft configured; prototype split-column layout not ported. Anomalies: Learning-style handoff stall; 1Password signing outage cleared by client with ssh-keygen recipe. |
 | agent:delegator-pq18 (Opus, inline-full, surface:31) | PQ-18 / T-14 Bank format | `review`, PR #10 open, head `b4d946c` on `0742d35` | 5 signed commits, CI green, `just test` warm 0.66 s. Code review PASS-WITH-NITS. Deviations: shared receipt fixtures under bank/fixtures/receipts/; `why_tempting` on Option not under `explains` (F-18); `correct` derived not stored; re-authoring note in review.reason; receipt_detail returns facts not copy; schema enforced by drift test, no validator (flagged for T-19); synthetic receipt fixtures labelled. Anomalies: F-15 contract defect found; 1Password signing outage cleared by client. |

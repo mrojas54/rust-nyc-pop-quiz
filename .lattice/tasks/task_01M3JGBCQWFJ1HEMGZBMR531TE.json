@@ -1,0 +1,71 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 5,
+  "complexity": "medium",
+  "created_at": "2026-09-27T22:39:11Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "HC-0 finding, 2026-09-27 18:4x, the client's ruling on the deployed drive: \"guest view should have stats for answers\". Today SPEC \u00a75 gives the buzzer 'Room code only' at split and work, and the counts live only on the wall (five bars, n \u00b7 p%, 'N of M in the room answered'). Build: from split on (split, work, reveal), the buzzer shows the same per-letter counts the wall shows, in the wall's order and shape (letter, count, percent; the reader's own letter marked as theirs, no \u2717 ever, AC-94; colour never the only signal, AC-40; at reveal the \u2713 letter marked as on the wall). The counts ride the buzzer payload as a new optional field filled server-side from the same totals the wall uses (sealed::buzzer or view.rs \u2014 whichever the wall's projection uses, so wall and phone can never disagree; a test asserts they agree, as \u00a74.5 does for the most-chosen option); absent before split. Nothing per-participant leaves the server (AC-58 stays: the reader's own letter is known client-side). Canary: extend the payload-shape assertions so the new field is allowed only from split on and carries letters, counts and percents only; pre-reveal option objects stay {letter, text}; all plants still absent. Copy: whatever labels the wall's bars use, reused (no new sentence unless the client gives one). SPEC \u00a75 split/work/reveal buzzer cells and the prototype's buzzer at those phases are amended in the same PR under the PQ-34 ruled exception; DESIGN.md is not edited \u2014 F-29 routed upstream. Prototype visual for the bars on a phone: the wall's bars scaled to the phone column; the client reviews a screenshot in the tab before the PR. Inline-full: plan review and code review subagents. Dispatch after the HC-0 drive ends; PQ-36 (copy round two) and this ticket both touch web/buzzer and copy.js, so PQ-36 lands first and this one branches from it or merges it.",
+  "done_at": "2026-09-28T02:43:33Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M3JVQ9YNZX6P3CGKDQC8Z37Y",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JVQA2P2TWDY9MBXGT357C2",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JVT9NEFQ66V1CRP27FDX8M",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3JY5A3R5YGS96HMDG1V9VQS",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3JYAV8WAM6Q9CKDHXVQ2Q7K",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3JYAV8WAM6Q9CKDHXVQ2Q7J",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01M3JGBCQWFJ1HEMGZBMR531TE",
+  "last_event_id": "ev_01M3JYAV8WAM6Q9CKDHXVQ2Q7N",
+  "last_status_changed_at": "2026-09-28T02:43:33Z",
+  "priority": "high",
+  "relationships_out": [
+    {
+      "created_at": "2026-09-27T22:39:11Z",
+      "created_by": "agent:orchestrator",
+      "note": null,
+      "target_task_id": "task_01M3JFXM3TGKEWJHEX5WR425PD",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-37",
+  "status": "done",
+  "tags": [
+    "m1",
+    "inline-full",
+    "hc-0",
+    "web-buzzer",
+    "phase-rs"
+  ],
+  "title": "Guest view shows the answer split",
+  "type": "task",
+  "updated_at": "2026-09-28T02:43:33Z",
+  "urgency": null
+}
