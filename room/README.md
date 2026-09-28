@@ -64,13 +64,16 @@ ones named in `BUILDPLAN.md` section 2:
 | `standin` | SPEC §8.2's `HOST_DEV_TOKEN` stand-in and the HC-0 seed; only with `--features dev-host-token` | T-09 (T-10 deletes it) |
 | `lifecycle` | How long a room lives: the `Clock` seam, the four-hour bound, *closed for inactivity*, the sweep's reaper | T-11 |
 | `used` | What outlives a room: the used-question ledger (written at release only) and the take-it-home snapshot | T-11 |
+| `admin` | SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`, `GET /admin/used`, one constant-time bearer check | T-25 |
 
 A default build schedules no question and authorizes nobody (`DenyAll`), so it
 can create no room. A `dev-host-token` build (the one deployed for HC-0)
 authorizes *Create a room* and *Run it again* with the `HOST_DEV_TOKEN` bearer
-and nothing else, and starts with q3 scheduled (`lib.rs::serving_state`). T-10
-replaces the stand-in with Discord; T-25 replaces the seeding with
-`PUT /admin/questions/{id}`.
+and nothing else, and starts with q3 scheduled (`lib.rs::serving_state`). That
+seed is the stand-in's only: T-10 deletes it with the stand-in. In production,
+questions arrive over the pipeline channel's `PUT /admin/questions/{id}`
+(T-25, *Pipeline channel* below). Handing questions to `AppState::new` is the
+tests' fixtures and the HC-0 seed, nothing else.
 
 **The stand-in's proof (AC-64, `tests/standin.rs`).** In every build, a scan of
 `src/` (less `src/bin/`, whose client tools sit behind their own features) holds
@@ -98,6 +101,75 @@ A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
 is `401` with no body; an unknown room is `404`. A host command on a room that
 has ended but has not been swept yet is `409 {"refusal": "already_ended" |
 "closed_for_inactivity", "reason": …}` (T-11). Once it is swept, it is `404`.
+
+## Pipeline channel (T-25)
+
+How the organizer's laptop reaches the room: SPEC §8.3, D-20, AC-101. Two
+routes, one credential. T-20 builds the laptop side (`popquiz schedule` and
+`popquiz sync`).
+
+| Route | What | Answers |
+|---|---|---|
+| `PUT /admin/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes. It goes through `answers::load` into the sealed module and nowhere else (AC-61). | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load or its `id` is not `{id}`. `409 {reason}` if the question has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
+| `GET /admin/used` | The used-question ledger, `[{question_id, used: {meetup_date, room_id, released_at, fit}}]`: `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). | `200` |
+
+**The credential.** `Authorization: Bearer <token>`. The token is the value of
+`POPQUIZ_ADMIN_TOKEN`: a Fly secret that the pipeline's local configuration
+also holds, and that is never in the repository, `fly.toml` or a command line
+anyone keeps. `.env.example` carries the name only. The room reads it once at
+startup (`config.rs` → `admin.rs`), and **every build refuses to start without
+it**, as the stand-in's token does.
+
+**The check.** `admin::AdminToken::check` is one `subtle` `ct_eq` over the
+presented bearer. A missing header, a scheme other than `Bearer` and a wrong
+token take the same path, and each is `401` with an empty body and no
+`WWW-Authenticate`. Every path under `/admin`, with any method, goes to one
+handler (`admin::serve`) whose first act is that check. Before it passes,
+nothing about the request is read, so a prober cannot tell a scheduled id from
+an unknown one, or a real route from a made-up one. Past the check, an unknown
+path is `404` and a wrong method is `405`. The admin routes are their own
+router, with their own state. Participant, wall and host handlers hold
+`AppState`, which has no path to the token. The token's type has no `Debug`,
+`Display` or `Clone`, and nothing in `admin.rs` logs.
+
+**Replacing a question.** A re-push replaces a scheduled question only while no
+room record holds it. A room keeps the question it was created with until
+release or expiry deletes it (§4.6), and the used ledger is keyed by id. So a
+replacement under a running room would let the night's `used` record name
+content that did not run. A released question is refused as *used*.
+
+**H-11, the client's (the deployed check).** Generate the token straight into
+the secret and into the pipeline's local configuration, and print it nowhere
+else:
+
+    fly secrets set POPQUIZ_ADMIN_TOKEN="$(openssl rand -hex 32)" -a rustnyc-popquiz
+
+Set the secret **before** the first deploy of a build that has this channel. A
+machine without it does not start. The pipeline keeps the same value locally
+(an ignored `.env`, T-20). Rotation is the same `fly secrets set` with a new
+value, plus one local edit. The live half of AC-101 is one push from the
+client's laptop to the deployed room before the first real batch is scheduled.
+
+**The proof.**
+
+- `tests/admin.rs`:
+  - refusals on every method × path × wrong credential;
+  - the accept and replace rules;
+  - the route table: the prefix served to `admin::serve` alone, the token named
+    only in `admin.rs` and `config.rs`, and no participant, wall, host or auth
+    route accepting it;
+  - one `ct_eq`;
+  - AC-61;
+  - the startup requirement;
+  - the **repository scan**: `just secret-scan`, also inside `just test`. It
+    reads every tracked file and every untracked one not ignored, and fails on
+    the name given an 8-or-more-character literal value, on a planted
+    admin-token canary, and on the value this process holds for the variable.
+- `tests/canary.rs`: the canary questions are *pushed*, with the planted token
+  as the bearer. Every stop probes the prefix with no token, a wrong one and the
+  organizer's, and every admin response is scanned for every plant. The real
+  `room` binary is run with the planted token, pushed to and refused, and its
+  whole stdout and stderr scanned. That is the room's only log.
 
 ## Pages
 
@@ -692,6 +764,9 @@ once, and the client keeps that URL (EVALUATION, the M1 host token row):
 
 Rotating it is the same command again, and the old URL stops working. A deploy
 without the secret does not start: the binary refuses, by design.
+
+**The pipeline's secret.** `POPQUIZ_ADMIN_TOKEN` is the other Fly secret, and
+every build needs it (*Pipeline channel*, H-11). Set it before deploying.
 
 **Smoke uses up q3.** `just smoke <url>` runs a whole segment, and release writes
 q3's `used` record into the machine's in-memory ledger (G-10, T-11). That

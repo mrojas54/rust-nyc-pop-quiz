@@ -9,6 +9,7 @@
 #   just test           the inner loop: hermetic, parallel, offline, <= 60 s
 #   just test-full      everything that exists, plus what is still pending
 #   just sandbox-build  build the verification image from pin.toml (T-15a)
+#   just secret-scan    AC-101's static half: no admin token in the repository (T-25)
 #
 # Why `setup` exists: `test` has to be hermetic, and a fresh .venv has to come
 # from somewhere. Splitting the network step out is what lets `test` be run
@@ -196,6 +197,14 @@ canary *ARGS:
     if [ "$full" != 0 ]; then
         cargo test --offline --locked --test canary_full -- --ignored
     fi
+
+# AC-101, static (T-25): no secret-shaped value for POPQUIZ_ADMIN_TOKEN and no
+# planted admin-token canary anywhere in the repository — tracked files and
+# untracked ones not ignored, so a file about to be added is caught too. The
+# *name* is fine; a value is not. The scan runs inside `test` as well (it is a
+# test in room/tests/admin.rs); this recipe is the hook.
+secret-scan:
+    cd room && cargo test --offline --locked --test admin repository
 
 # The deployed room end to end (T-09): all seven phases over real sockets with
 # mock participants, the join link and the stand-in's refusals checked, q3's
