@@ -90,6 +90,31 @@ body { overflow-x: hidden; }
 .buzz-after { max-width: 240px; margin: 14px auto 0; }
 .buzz-itwas { font-size: 19px; margin: 14px 0 0; }
 
+/* PQ-37 (HC-0): the room's split, from `split` on — web/wall/wall.css's bar
+   rules, class for class, at the wall's reveal sizes (row 18px, track 24px,
+   count 76px), which fit the 351px phone column. Ported rather than shared
+   because the wall's sheet carries the projector's page globals. */
+.buzz-verdict > div { width: 100%; }
+.buzz-split { margin-top: 14px; text-align: left; }
+.buzzer .bars { display: flex; flex-direction: column; gap: 5px; }
+.buzzer .bar-row { display: flex; align-items: center; gap: 8px; font-size: 18px; line-height: 1.2; }
+.buzzer .bar-row .letter { flex: none; width: 30px; font-weight: 700; }
+.buzzer .bar-track { flex: 1; min-width: 0; height: 24px; background: var(--bg-tertiary);
+                     border: 1px solid var(--border-default); border-radius: var(--radius); overflow: hidden; }
+.buzzer .bar-fill { display: block; height: 100%; background: var(--text-secondary); }
+.buzzer .bar-n { flex: none; width: 76px; text-align: right; font-size: 16px; }
+/* AC-40: the green keys off check.js's element, which only arrives with its ✓. */
+.buzzer .bar-row:has(.rn-correct) .bar-fill { background: var(--success); }
+.buzzer .bar-row:has(.rn-correct) .bar-track { border: 2px solid var(--success); }
+.buzzer .bar-row .letter.rn-correct { width: auto; min-width: 30px; }
+/* The reader's own row: the ● glyph beside it and a heavier outline on the
+   letter — shape and glyph, no colour (AC-40); the *you said ‹X›* line
+   beneath keys the glyph. */
+.buzzer .bar-yours { flex: none; width: 14px; font-size: 14px; text-align: center; }
+.buzzer .bar-row.is-yours .letter { outline: 2px solid var(--text-primary); outline-offset: 1px;
+                                    border-radius: var(--radius); text-align: center; }
+.buzz-yours { margin-top: 10px; font-size: 17px; }
+
 
 /* The join form: one field, one button, one line beneath (AC-28). */
 .buzz-join { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }

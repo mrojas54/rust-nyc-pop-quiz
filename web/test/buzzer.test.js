@@ -71,17 +71,24 @@ if (process.env.BUZZER_REPLAY === '1') {
 
 const HINT = 'HINT-FIXTURE-TEXT';
 const base = { t: 'state', code: 'ABC234', lines: [] };
+// PQ-37: the wall's `split.bars`, as the room sends them to the phone from the
+// split on. Made-up counts of made-up votes; percents rounded as view.rs does.
+const BARS = [
+  { letter: 'A', count: 3, percent: 23 }, { letter: 'B', count: 1, percent: 8 },
+  { letter: 'C', count: 7, percent: 54 }, { letter: 'D', count: 0, percent: 0 },
+  { letter: 'E', count: 2, percent: 15 },
+];
 const frames = {
   idle: { ...base, revision: 1, phase: 'idle' },
   live: { ...base, revision: 2, phase: 'live', letters: ['A', 'B', 'C', 'D', 'E'], locked: false,
           hint: { text: HINT, action: C.buzzer_hint_action } },
   closed: { ...base, revision: 3, phase: 'closed', letters: ['A', 'B', 'C', 'D', 'E'], locked: true },
   split: { ...base, revision: 4, phase: 'split',
-           counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 } },
+           counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 }, split: BARS },
   work: { ...base, revision: 5, phase: 'work',
-          counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 } },
+          counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 }, split: BARS },
   reveal: { ...base, revision: 6, phase: 'reveal', correct: 'E',
-            counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 } },
+            counts: { totals: [3, 1, 7, 0, 2], answered: 13, present: 16 }, split: BARS },
   released: { ...base, revision: 7, phase: 'released', mark: '✓' },
 };
 const attach = (f, saved) => ({ ...f, session: { saved: saved === undefined ? null : saved } });
@@ -212,26 +219,70 @@ test('closed: letters locked, the saved answer restated — or none given', () =
   assert.ok(text(html).includes(C.buzzer_closed_you_didnt));
 });
 
-// PQ-34 (HC-0): the phone carries no line of its own from the split until
-// the answer exists, and no count at all — counts are the wall's.
-test('split and work: the code and nothing else, answered or not', () => {
+// PQ-37 (HC-0, "guest view should have stats for answers"): from the split
+// on, the phone shows the room's five bars under its lines — the wall's bars,
+// the wall's `n · p%`, in the wall's order. Still no data-count: the phone
+// computes nothing about the room; it draws what the room sent.
+const barsText = (yours, correct) => BARS.map((b) =>
+  `${b.letter === yours ? '● ' : ''}${b.letter === correct ? '✓ Correct ' : ''}${b.letter} ${b.count} · ${b.percent}%`).join(' ');
+const BARS_TEXT = barsText(null, null);
+const YOURS_LINE = (x) => `● ${PQ.fill(C.buzzer_closed_you_said, { X: x })}`;
+const rows = (html) => [...html.matchAll(/<div class="bar-row([^"]*)" data-bar="([A-E])">/g)]
+  .map((m) => ({ letter: m[2], yours: m[1].includes('is-yours') }));
+
+test('split and work: the room\'s five bars, the reader\'s own letter marked, nothing else', () => {
   for (const p of ['split', 'work']) {
-    for (const saved of ['C', null]) {
-      const { html } = drive(inRoom(frames[p], saved));
-      assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ABC234`, `${p}, saved ${saved}`);
-      assert.ok(!html.includes('data-count'), `${p}: no count`);
+    let { html } = drive(inRoom(frames[p], 'C'));
+    assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ABC234 ${barsText('C', null)} ${YOURS_LINE('C')}`, p);
+    assert.deepEqual(rows(html), BARS.map((b) => ({ letter: b.letter, yours: b.letter === 'C' })), `${p}: wall order, C is yours`);
+    for (const b of BARS) {
+      assert.ok(html.includes(`<span class="bar-fill" style="width:${b.percent}%"></span>`), `${p}: ${b.letter}'s bar is ${b.percent}% wide`);
     }
+    assert.ok(!html.includes('✓') && !html.includes('rn-correct'), `${p}: no ✓ before reveal`);
+    assert.ok(!html.includes('data-count'), `${p}: the phone counts nothing itself`);
+    ({ html } = drive(inRoom(frames[p], null)));
+    assert.equal(text(html), `${TITLE} ${C.buzzer_join_label} ABC234 ${BARS_TEXT}`, `${p}, no answer: no legend`);
+    assert.ok(rows(html).every((r) => !r.yours), `${p}, no answer: no row is marked`);
   }
 });
 
-test('reveal: ✓ It was Y. and nothing else — no count, no narration', () => {
-  const t = text(drive(inRoom(frames.reveal, 'C')).html);
-  assert.equal(t, `${TITLE} ${C.buzzer_join_label} ABC234 ✓ It was E.`);
+test('AC-40: the reader\'s row is marked by a glyph and a label, never by colour alone', () => {
+  const html = drive(inRoom(frames.split, 'B')).html;
+  assert.deepEqual(rows(html).filter((r) => r.yours).map((r) => r.letter), ['B'], 'B is the marked row');
+  assert.ok(html.includes('<div class="bar-row is-yours" data-bar="B"><span class="bar-yours" aria-hidden="true">●</span>'), 'the glyph is on the row');
+  assert.ok(text(html).endsWith(YOURS_LINE('B')), 'the glyph is keyed by *you said B*');
+  const css = read('buzzer/buzzer.css');
+  const rule = css.slice(css.indexOf('.buzzer .bar-row.is-yours'), css.indexOf('}', css.indexOf('.buzzer .bar-row.is-yours')));
+  assert.ok(!/color|background|--accent|--success/.test(rule), 'the mark sets no colour');
 });
 
-test('reveal with no answer given: You didn’t answer, then ✓ It was Y.', () => {
+test('reveal: ✓ It was Y., then the bars with the ✓ letter marked as the wall marks it', () => {
+  const html = drive(inRoom(frames.reveal, 'C')).html;
+  const t = text(html);
+  assert.equal(t, `${TITLE} ${C.buzzer_join_label} ABC234 ✓ It was E. ${barsText('C', 'E')} ${YOURS_LINE('C')}`);
+  // The wall's own markup for the correct bar: check.js's element, glyph inside.
+  assert.ok(html.includes(`<div class="bar-row" data-bar="E"><span class="bar-yours" aria-hidden="true"></span>${PQ.correctHtml('E', { className: 'letter' })}`));
+  assert.deepEqual(rows(html).filter((r) => r.yours).map((r) => r.letter), ['C'], 'C stays the reader\'s, unmarked otherwise');
+  assert.equal((html.match(/rn-correct/g) || []).length, 2, 'the ✓ line and the E bar, nothing else');
+});
+
+test('reveal with no answer given: You didn’t answer, then ✓ It was Y., then the bars', () => {
   const t = text(drive(inRoom(frames.reveal, null)).html);
-  assert.equal(t, `${TITLE} ${C.buzzer_join_label} ABC234 ${C.buzzer_noanswer_count_one} ✓ It was E.`);
+  assert.equal(t, `${TITLE} ${C.buzzer_join_label} ABC234 ${C.buzzer_noanswer_count_one} ✓ It was E. ${barsText(null, 'E')}`);
+});
+
+test('a frame without `split` draws no bars — the screen is what it was', () => {
+  for (const p of ['split', 'work']) {
+    const { split, ...bare } = frames[p];
+    assert.equal(text(drive(inRoom(bare, 'C')).html), `${TITLE} ${C.buzzer_join_label} ABC234`);
+  }
+  const { split, ...bare } = frames.reveal;
+  assert.equal(text(drive(inRoom(bare, 'C')).html), `${TITLE} ${C.buzzer_join_label} ABC234 ✓ It was E.`);
+});
+
+test('the bars read only letter, count and percent; nothing else in an entry reaches the page', () => {
+  const planted = { ...frames.split, split: BARS.map((b) => ({ ...b, text: 'PLANTED-TEXT', note: 'PLANTED-NOTE' })) };
+  assert.ok(!/PLANTED/.test(drive(inRoom(planted, 'A')).html));
 });
 
 test('released: the code and nothing else', () => {

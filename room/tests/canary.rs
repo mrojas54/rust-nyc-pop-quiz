@@ -234,6 +234,9 @@ fn the_rules_catch_a_planted_leak() {
     // The scanner itself, checked: a rule that never fires would let every
     // scan below pass. Each case is a payload the room must never send.
     let p = plants();
+    let four = Value::from(bars([1, 0, 0, 0, 0]).as_array().unwrap()[..4].to_vec());
+    let mut reversed = bars([1, 0, 0, 0, 0]);
+    reversed.as_array_mut().unwrap().reverse();
     let cases: Vec<(Surface, Phase, Value)> = vec![
         (Surface::Buzzer, Phase::Live, json!({"phase": "live", "hint": {"text": p.hint}, "source": p.source})),
         (Surface::Host, Phase::Live, json!({"phase": "live", "note": p.resolving})),
@@ -247,6 +250,21 @@ fn the_rules_catch_a_planted_leak() {
         (Surface::Page, Phase::Idle, json!({"x": p.what})),
         (Surface::Wall, Phase::Released, json!({"phase": "released", "x": p.source})),
         (Surface::Wall, Phase::Closed, json!({"phase": "closed", "values": [{"name": "stdout", "now": "-"}]})),
+        // PQ-37, the mutation check: the phone's split planted in `live` (the
+        // room's votes while answers are open), in `closed`, and after release…
+        (Surface::Buzzer, Phase::Live, json!({"phase": "live", "split": bars([1, 0, 0, 0, 0])})),
+        (Surface::Buzzer, Phase::Closed, json!({"phase": "closed", "split": bars([1, 0, 0, 0, 0])})),
+        (Surface::Buzzer, Phase::Released, json!({"phase": "released", "split": bars([1, 0, 0, 0, 0])})),
+        // …inside a join response in `live`…
+        (Surface::Buzzer, Phase::Live, json!({"token": "t", "buzzer": {"phase": "live", "split": bars([1, 0, 0, 0, 0])}})),
+        // …and, from the split on, an entry carrying more than letter, count
+        // and percent, four bars, or bars out of order.
+        (Surface::Buzzer, Phase::Split, json!({"phase": "split", "split": [
+            {"letter": "A", "count": 1, "percent": 100, "text": "x"},
+            {"letter": "B", "count": 0, "percent": 0}, {"letter": "C", "count": 0, "percent": 0},
+            {"letter": "D", "count": 0, "percent": 0}, {"letter": "E", "count": 0, "percent": 0}]})),
+        (Surface::Buzzer, Phase::Work, json!({"phase": "work", "split": four})),
+        (Surface::Buzzer, Phase::Reveal, json!({"phase": "reveal", "split": reversed})),
     ];
     for (surface, phase, v) in cases {
         let caught = std::panic::catch_unwind(|| {
@@ -257,6 +275,79 @@ fn the_rules_catch_a_planted_leak() {
     // …and a clean live buzzer passes.
     let clean = json!({"phase": "live", "hint": {"text": p.hint}, "letters": ["A", "B", "C", "D", "E"]});
     check(&mut Seen::default(), Surface::Buzzer, Phase::Live, &clean.to_string(), Some(&clean), "self-test");
+    // …and a clean split, in each phase that may carry one.
+    for (phase, name) in [(Phase::Split, "split"), (Phase::Work, "work"), (Phase::Reveal, "reveal")] {
+        let clean = json!({"phase": name, "split": bars([2, 1, 0, 0, 1])});
+        check(&mut Seen::default(), Surface::Buzzer, phase, &clean.to_string(), Some(&clean), "self-test");
+    }
+}
+
+/// Five bars as the room sends them, from made-up vote counts.
+fn bars(totals: [u32; 5]) -> Value {
+    let answered: u32 = totals.iter().sum();
+    let bars: Vec<Value> = ["A", "B", "C", "D", "E"]
+        .iter()
+        .zip(totals)
+        .map(|(l, n)| json!({"letter": l, "count": n, "percent": if answered == 0 { 0 } else { (n * 100 + answered / 2) / answered }}))
+        .collect();
+    Value::from(bars)
+}
+
+/// PQ-37, the §4.5 pattern: for every room the harness can make — nobody
+/// answered, an even spread, one letter only, a spread that rounds — walked
+/// through every phase, the phone and the wall never show different splits.
+/// At `split` and `reveal` the buzzer's `split` is the wall's `split.bars`; in
+/// `work` it is what the wall showed at `split`; before `split` and after
+/// release the buzzer carries none. The totals are counts of votes the test
+/// casts, not program output.
+#[tokio::test]
+async fn the_phone_and_the_wall_show_one_split() {
+    for totals in [[0, 0, 0, 0, 0], [5, 4, 3, 2, 1], [0, 0, 7, 0, 0], [1, 1, 1, 0, 0]] {
+        let sessions = FakeSessions::default();
+        *sessions.totals.lock().unwrap() = totals;
+        let answered: u32 = totals.iter().sum();
+        let state = Arc::new(
+            AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default())
+                .with_sessions({
+                    let s = sessions.clone();
+                    move || Box::new(s.clone())
+                }),
+        );
+        let app = room::router_with(state.clone());
+        let room = create(&app, "q3").await;
+        let mut at_split: Option<Value> = None;
+        for phase in Phase::ALL {
+            if phase == Phase::Live {
+                state
+                    .set_live_counts(&room.id, room::rooms::LiveCounts { present: answered + 2, answered_live: answered })
+                    .unwrap();
+            }
+            let (_, wall) = call(&app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
+            let (_, buzzer) = call(&app, Method::GET, &format!("/rooms/{}/buzzer", room.id), None, None).await;
+            assert_eq!(buzzer["phase"], wall["phase"]);
+            let at = format!("{totals:?} in {}", phase_name(phase));
+            match phase {
+                Phase::Split | Phase::Reveal => {
+                    assert_eq!(buzzer["split"], wall["split"]["bars"], "{at}: the phone's split is not the wall's");
+                    assert_eq!(buzzer["split"], bars(totals), "{at}: the bars are the votes cast");
+                    if let Some(s) = &at_split {
+                        assert_eq!(&buzzer["split"], s, "{at}: the split moved after it froze");
+                    }
+                    at_split = Some(buzzer["split"].clone());
+                }
+                Phase::Work => {
+                    assert_eq!(wall.get("split"), None, "the wall shows the trace in work, not the bars");
+                    assert_eq!(Some(&buzzer["split"]), at_split.as_ref(), "{at}: the phone's split is not the one the wall showed");
+                }
+                _ => assert_eq!(buzzer.get("split"), None, "{at}: the phone carries a split"),
+            }
+            if phase == Phase::Released {
+                break;
+            }
+            let (status, body) = command(&app, &room, Command::Host(phase.next_action())).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+        }
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

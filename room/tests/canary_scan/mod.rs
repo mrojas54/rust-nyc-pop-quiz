@@ -728,6 +728,22 @@ pub fn check(seen: &mut Seen, surface: Surface, phase: Phase, text: &str, json: 
         }
     }
 
+    // PQ-37: the phone's split — the wall's five bars — only from `split` on
+    // (split, work, reveal), and nothing in it but a letter, a count and a
+    // percent per option, A–E in order. Before the split it would publish the
+    // room's votes while answers are open; after release nothing of the room
+    // is left (G-3, G-4, AC-58).
+    if let (Some(v), Surface::Buzzer | Surface::BuzzerOther) = (json, surface) {
+        let splits = keys_named(v, "split");
+        if matches!(phase, Phase::Split | Phase::Work | Phase::Reveal) {
+            for split in splits {
+                assert_phone_split(split, &at);
+            }
+        } else {
+            assert!(splits.is_empty(), "{at}: a buzzer payload carries the split outside split, work and reveal (PQ-37)");
+        }
+    }
+
     // AC-81: a payload names one phase, the room's.
     if let (Some(v), Surface::Wall | Surface::Host | Surface::Buzzer) = (json, surface) {
         let phases = keys_named(v, "phase");
@@ -736,6 +752,39 @@ pub fn check(seen: &mut Seen, surface: Surface, phase: Phase, text: &str, json: 
             assert_eq!(phases[0], &json!(phase_name(phase)), "{at}: the payload names another phase");
         }
     }
+}
+
+/// PQ-37: the phone's `split` is exactly five `{letter, count, percent}`
+/// entries, A–E in order, whole numbers, a percent no more than 100.
+pub fn assert_phone_split(split: &Value, at: &str) {
+    let bars = split.as_array().unwrap_or_else(|| panic!("{at}: the buzzer's split is not an array (PQ-37)"));
+    assert_eq!(bars.len(), 5, "{at}: the buzzer's split has {} entries (PQ-37)", bars.len());
+    for (i, b) in bars.iter().enumerate() {
+        let mut keys: Vec<&String> = b.as_object().unwrap_or_else(|| panic!("{at}: split entry {i}")).keys().collect();
+        keys.sort();
+        assert_eq!(keys, ["count", "letter", "percent"], "{at}: split entry {i} carries more than letter, count and percent (PQ-37)");
+        assert_eq!(b["letter"], ["A", "B", "C", "D", "E"][i], "{at}: split order (PQ-37)");
+        assert!(b["count"].is_u64(), "{at}: split entry {i}'s count is not a whole number");
+        assert!(b["percent"].as_u64().is_some_and(|p| p <= 100), "{at}: split entry {i}'s percent");
+    }
+}
+
+/// PQ-37: the real buzzer page's bars — five rows, A–E, the page's own letter
+/// the one marked row; the ✓ on the correct letter's row at reveal and on no
+/// row before it; no data-count (the phone draws the room's counts, it
+/// computes none).
+pub fn assert_page_bars(html: &str, yours: &str, correct: Option<&str>, at: &str) {
+    let rows: Vec<&str> = html.split("<div class=\"bar-row").skip(1).collect();
+    assert_eq!(rows.len(), 5, "{at}: the page draws five bars: {html}");
+    for (i, row) in rows.iter().enumerate() {
+        let letter = ["A", "B", "C", "D", "E"][i];
+        assert!(row.contains(&format!("data-bar=\"{letter}\"")), "{at}: bar {i} is {letter}");
+        assert_eq!(row.starts_with(" is-yours"), letter == yours, "{at}: only {yours}'s bar is marked as the page's own");
+        let row = &row[..row.find("</span></div>").unwrap_or(row.len())];
+        assert_eq!(row.contains("rn-correct"), Some(letter) == correct, "{at}: the ✓ on bar {letter}");
+    }
+    assert!(!html.contains("data-count"), "{at}: the page counts nothing itself");
+    assert!(!html.contains('✗'), "{at}: no mark against anyone (AC-94)");
 }
 
 /// AC-79: nothing on the wall takes input.
@@ -888,6 +937,10 @@ pub struct Walk<'s> {
     pub wall_frames: Vec<Value>,
     pub fonts: Vec<(String, Vec<u8>)>,
     pub stops: usize,
+    /// PQ-37: the bars the wall showed at `split`, which the phone must still
+    /// carry in `work` (where the wall shows the trace) and the wall shows
+    /// again at `reveal`.
+    pub split_bars: Option<Value>,
 }
 
 fn js(v: &Value) -> String {
@@ -923,6 +976,7 @@ impl<'s> Walk<'s> {
             wall_frames: Vec::new(),
             fonts: Vec::new(),
             stops: 0,
+            split_bars: None,
         };
         walk.probe = walk.join("the probe session").await;
         let mut tokens: Vec<String> = Vec::new();
@@ -1026,6 +1080,7 @@ impl<'s> Walk<'s> {
         check(&mut self.seen, Surface::Buzzer, phase, &js(&buzzer), Some(&buzzer), &at("GET buzzer"));
         check(&mut self.seen, Surface::Host, phase, &js(&host), Some(&host), &at("GET host"));
         assert_eq!(buzzer.get("yours"), None, "{}", at("the public buzzer carries a session's answer"));
+        self.assert_one_split(phase, &wall, &buzzer, &at("the phone and the wall"));
         for bearer in [None, Some("not-the-session"), Some(self.probe.as_str())] {
             let r = self
                 .server
@@ -1096,6 +1151,30 @@ impl<'s> Walk<'s> {
             assert!(r.body == *bytes, "{}", at(&format!("font {font} changed between stops")));
         }
         [wall, buzzer, host]
+    }
+
+    /// PQ-37, the §4.5 pattern: the phone and the wall can never show
+    /// different splits. At `split` and `reveal` the phone's `split` is the
+    /// wall's `split.bars`, in the same revision; in `work` it is the bars the
+    /// wall showed at `split` (the totals froze at `closed`, §4.4). In every
+    /// other phase the phone carries none.
+    pub fn assert_one_split(&mut self, phase: Phase, wall: &Value, buzzer: &Value, at: &str) {
+        match phase {
+            Phase::Split | Phase::Reveal => {
+                let bars = &wall["split"]["bars"];
+                assert!(bars.is_array(), "{at}: the wall shows no bars in {}", phase_name(phase));
+                assert_eq!(&buzzer["split"], bars, "{at}: the phone's split is not the wall's (PQ-37)");
+                if let Some(seen) = &self.split_bars {
+                    assert_eq!(bars, seen, "{at}: the wall's bars moved after the split");
+                }
+                self.split_bars = Some(bars.clone());
+            }
+            Phase::Work => {
+                let seen = self.split_bars.as_ref().expect("the walk passed the split before work");
+                assert_eq!(&buzzer["split"], seen, "{at}: the phone's split in work is not the wall's (PQ-37)");
+            }
+            _ => assert_eq!(buzzer.get("split"), None, "{at}: the phone carries a split in {} (PQ-37)", phase_name(phase)),
+        }
     }
 
     /// A phase transition, then a stop.
@@ -1216,13 +1295,11 @@ pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> E
     // split
     w.transition(HostAction::ShowSplit.slug()).await;
     let split = page_do(&mut page, json!({"cmd": "wait", "phase": "split"}));
-    // PQ-34 (HC-0): counts are the wall's; the phone renders none. What AC-58
-    // guards — nothing carrying the answer leaves the phone after close — is
-    // the request-log scan below, and it is unchanged.
-    assert!(
-        !split["html"].as_str().unwrap().contains("data-count"),
-        "PQ-34: the page renders no count"
-    );
+    // PQ-37 (HC-0): the real page draws the room's five bars and marks its own
+    // letter, B, which it knows and never sends. What AC-58 guards — nothing
+    // carrying the answer leaves the phone after close — is the request-log
+    // scan below, and it is unchanged. The phone still computes no count.
+    assert_page_bars(split["html"].as_str().unwrap(), "B", None, "split");
 
     // work: every step to the bound, and one more is refused.
     let mut work_walk = Vec::new();
@@ -1240,7 +1317,9 @@ pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> E
 
     // reveal: enters at the final step; step back through all of it.
     let [reveal_wall, reveal_buzzer, reveal_host] = w.transition(HostAction::Reveal.slug()).await;
-    page_do(&mut page, json!({"cmd": "wait", "phase": "reveal"}));
+    let revealed = page_do(&mut page, json!({"cmd": "wait", "phase": "reveal"}));
+    let correct = reveal_wall["reveal"]["correct"].as_str().unwrap().to_string();
+    assert_page_bars(revealed["html"].as_str().unwrap(), "B", Some(&correct), "reveal");
     let mut reveal_walk = Vec::new();
     while w.act(Step::Back.slug()).await.status == 200 {
         let [wall, ..] = w.stop("reveal, a step back").await;
