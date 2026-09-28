@@ -166,6 +166,26 @@ fn assert_no_source_or_trace(what: &str, text: &str) {
     }
 }
 
+/// PQ-37: the page draws exactly the bars its frame carried — five rows,
+/// A–E, each `n · p%` as sent — with only its own letter marked, and the ✓
+/// only on the correct letter's row, only at reveal.
+fn assert_bars(html: &str, split: &Value, yours: &str, correct: Option<&str>, at: &str) {
+    let bars = split.as_array().unwrap_or_else(|| panic!("{at}: the frame carries no split"));
+    assert_eq!(bars.len(), 5, "{at}");
+    let rows: Vec<&str> = html.split("<div class=\"bar-row").skip(1).collect();
+    assert_eq!(rows.len(), 5, "{at}: five bars drawn");
+    for (row, bar) in rows.iter().zip(bars) {
+        let letter = bar["letter"].as_str().unwrap();
+        let row = &row[..row.find("</span></div>").unwrap()];
+        assert!(row.contains(&format!("data-bar=\"{letter}\"")), "{at}: wall order");
+        assert!(row.contains(&format!("{} · {}%", bar["count"], bar["percent"])), "{at}: {letter}'s count as sent");
+        assert!(row.contains(&format!("width:{}%", bar["percent"])), "{at}: {letter}'s bar width");
+        assert_eq!(row.starts_with(" is-yours"), letter == yours, "{at}: {letter} marked as the phone's own");
+        assert_eq!(row.contains("rn-correct"), Some(letter) == correct, "{at}: the ✓ on {letter}");
+    }
+    assert!(html.contains(&format!("you said <b>{yours}</b>")), "{at}: the glyph's label");
+}
+
 #[tokio::test]
 async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     let w = Wired::start().await;
@@ -276,12 +296,16 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     assert_eq!(at(dropped)["conn"], "paused");
     assert!(at(dropped)["html"].as_str().unwrap().contains("paused — reconnecting… your answer C is safe"));
 
-    // Back in `split`: attached, the saved answer from the server's map, and
-    // no count on the phone — counts are the wall's since PQ-34 (HC-0).
+    // Back in `split`: attached, the saved answer from the server's map. The
+    // phone computes no count (`count` stays null); since PQ-37 (HC-0) it
+    // draws the room's five bars the frame carried, C marked as its own.
     let split = find("frame", "split");
     assert_eq!(at(split)["conn"], "attached");
     assert_eq!(at(split)["saved"], "C");
     assert_eq!(at(split)["count"], Value::Null);
+    assert_bars(at(split)["html"].as_str().unwrap(), &back["split"], "C", None, "split");
+    let work = find("frame", "work");
+    assert_bars(at(work)["html"].as_str().unwrap(), &phases[0]["split"], "C", None, "work");
 
     // Reveal: the server's correct letter, marked, and never a mark against C.
     let rv = find("frame", "reveal");
@@ -289,7 +313,11 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     let html = at(rv)["html"].as_str().unwrap();
     assert!(html.contains(&format!("It was {correct}.")), "{html}");
     assert!(!html.contains('✗') && !html.to_lowercase().contains("wrong"));
-    assert_eq!(at(find("frame", "released"))["phase"], "released");
+    assert_bars(html, &reveal["split"], "C", Some(correct), "reveal");
+    let released = at(find("frame", "released"));
+    assert_eq!(released["phase"], "released");
+    assert!(!released["html"].as_str().unwrap().contains("bar-row"), "released: no bars");
+    assert_eq!(phases[2].get("split"), None, "released: the frame carries no split");
 
     // G-8, AC-32: nothing a phone received, and nothing it renders, carries
     // the source or the trace.
