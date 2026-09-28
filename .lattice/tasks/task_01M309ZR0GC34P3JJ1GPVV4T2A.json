@@ -28,10 +28,15 @@
       "id": "art_01M3KGPE5NX8SPS4K5FVJED94Y",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3KH1WAFMF559X21HTYZZDRP",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZR0GC34P3JJ1GPVV4T2A",
-  "last_event_id": "ev_01M3KGPE5QHTNET874HXX41AP8",
+  "last_event_id": "ev_01M3KH1WAJMKPEBB6VBYY39QY5",
   "last_status_changed_at": "2026-09-28T07:59:15Z",
   "priority": "medium",
   "relationships_out": [
@@ -60,6 +65,6 @@
   ],
   "title": "Take it home page",
   "type": "task",
-  "updated_at": "2026-09-28T08:04:27Z",
+  "updated_at": "2026-09-28T08:10:42Z",
   "urgency": null
 }
