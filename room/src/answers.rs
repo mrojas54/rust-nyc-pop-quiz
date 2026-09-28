@@ -163,15 +163,10 @@ struct RecordValue {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Verified {
-    #[allow(dead_code)]
     rustc: String,
-    #[allow(dead_code)]
     edition: String,
-    #[allow(dead_code)]
     legacy: Option<bool>,
-    #[allow(dead_code)]
     target_triple: Option<String>,
-    #[allow(dead_code)]
     flags: Option<Flags>,
     runs: Option<Runs>,
     stdout: Option<String>,
@@ -187,11 +182,8 @@ pub struct Verified {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Flags {
-    #[allow(dead_code)]
     opt_level: String,
-    #[allow(dead_code)]
     overflow_checks: bool,
-    #[allow(dead_code)]
     debug_assertions: bool,
 }
 
@@ -207,10 +199,8 @@ struct Runs {
 struct Miri {
     clean: bool,
     output_matched: bool,
-    #[allow(dead_code)]
     version: Option<String>,
     configs: Option<Vec<String>>,
-    #[allow(dead_code)]
     seeds: Option<Vec<i64>>,
 }
 
@@ -399,6 +389,68 @@ pub struct Revealed<'v> {
     pub receipt: &'v [String],
     /// The whole trace, `0..=M-1`, resolving step included.
     pub trace: &'v [TraceStep],
+    /// T-12: every option's `why_tempting` (`None` for the correct one), for
+    /// take-it-home's middle beat, which §13 repeats for **every** incorrect
+    /// option. The wall and the host name only the room's most-chosen one,
+    /// through [`Verdict`]; they never read this.
+    pub why_tempting: &'v [Option<String>; 5],
+    /// T-12: the verified record's detail rows for take-it-home's *How we
+    /// know* (§13, AC-87).
+    pub how_we_know: &'v HowWeKnow,
+}
+
+/// What the verified record says about the machine that ran the question —
+/// the rows the wall leaves out and take-it-home shows under *How we know*
+/// (SPEC §13, AC-87). Copied from `verified` verbatim; a field the record does
+/// not hold is `None` and is never back-filled (G-2, D-16).
+#[derive(Debug)]
+pub struct HowWeKnow {
+    /// A record migrated from the MVP (D-16): `rustc` is the `--version`
+    /// string, and there is no target, no flags and no Miri configuration.
+    pub legacy: bool,
+    /// `rustc -Vv` in full, or `rustc --version` on a legacy record.
+    pub rustc: String,
+    pub edition: String,
+    pub target_triple: Option<String>,
+    pub flags: Option<FlagsDetail>,
+    /// Present when Miri ran. On a legacy record it holds no configuration:
+    /// the pass was run outside the verifier.
+    pub miri: Option<MiriDetail>,
+}
+
+#[derive(Debug)]
+pub struct FlagsDetail {
+    pub opt_level: String,
+    pub overflow_checks: bool,
+    pub debug_assertions: bool,
+}
+
+#[derive(Debug)]
+pub struct MiriDetail {
+    pub version: Option<String>,
+    pub configs: Option<Vec<String>>,
+    pub seeds: Option<Vec<i64>>,
+}
+
+impl HowWeKnow {
+    fn of(verified: &Verified) -> HowWeKnow {
+        HowWeKnow {
+            legacy: verified.legacy.unwrap_or(false),
+            rustc: verified.rustc.clone(),
+            edition: verified.edition.clone(),
+            target_triple: verified.target_triple.clone(),
+            flags: verified.flags.as_ref().map(|f| FlagsDetail {
+                opt_level: f.opt_level.clone(),
+                overflow_checks: f.overflow_checks,
+                debug_assertions: f.debug_assertions,
+            }),
+            miri: verified.miri.as_ref().map(|m| MiriDetail {
+                version: m.version.clone(),
+                configs: m.configs.clone(),
+                seeds: m.seeds.clone(),
+            }),
+        }
+    }
 }
 
 mod vault {
@@ -406,7 +458,7 @@ mod vault {
     //! holds the list of functions allowed here and checks that every read
     //! takes a `RevealWitness`.
 
-    use super::{Explains, Middle, Revealed};
+    use super::{Explains, HowWeKnow, Middle, Revealed};
     use crate::phase::RevealWitness;
     use crate::question::{Letter, TraceStep};
     use crate::rooms::Totals;
@@ -417,6 +469,7 @@ mod vault {
         explains: Explains,
         receipt: Vec<String>,
         trace: Vec<TraceStep>,
+        how_we_know: HowWeKnow,
     }
 
     impl Vault {
@@ -426,6 +479,7 @@ mod vault {
             explains: Explains,
             receipt: Vec<String>,
             trace: Vec<TraceStep>,
+            how_we_know: HowWeKnow,
         ) -> Vault {
             Vault {
                 correct,
@@ -433,6 +487,7 @@ mod vault {
                 explains,
                 receipt,
                 trace,
+                how_we_know,
             }
         }
 
@@ -471,6 +526,8 @@ mod vault {
                 explains: &self.explains,
                 receipt: &self.receipt,
                 trace: &self.trace,
+                why_tempting: &self.why_tempting,
+                how_we_know: &self.how_we_know,
             }
         }
     }
@@ -620,6 +677,7 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
             },
             receipt,
             trace,
+            HowWeKnow::of(verified),
         ),
     })
 }
