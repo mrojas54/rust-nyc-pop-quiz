@@ -4,7 +4,7 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-28 22:5x EDT. All three branches pushed; each delegator at its `gh pr create` prompt. Dispatch loop at 1800 s.
+Snapshot: 2026-09-28 23:2x EDT (unchanged since 22:5x). All three branches pushed; each delegator at its `gh pr create` prompt. Dispatch loop at 1800 s.
 Layout unchanged since the 2026-09-27 restart: delegators are tabs of `pane:2`; PQ-15's browser tab `surface:32` sits in `pane:6`.
 
 | Role | Ticket | Surface ref | Branch | Phase |
