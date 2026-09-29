@@ -474,7 +474,12 @@ pub const DRIVEN: &[(&str, &str)] = &[
 /// Routes the scan does not drive, and why. Empty: every route is driven.
 /// The host actions (`POST /rooms/{id}/<action>`) are driven by the walk
 /// itself and checked against `room::host_routes()` separately.
-pub const UNSCANNED: &[(&str, &str, &str)] = &[];
+pub const UNSCANNED: &[(&str, &str, &str)] = &[
+    // T-10 ------------------------------------------------------------------
+    ("GET", "/auth/discord", "T-10 sign-in start: a redirect to Discord; served only with the Discord backend, which the canary's TestAuth state has not; tests/auth.rs secrecy_* scans it with Discord canaries"),
+    ("GET", "/auth/discord/callback", "T-10 sign-in callback: served only with the Discord backend, which the canary's TestAuth state has not; tests/auth.rs secrecy_* scans it with Discord canaries"),
+    // end T-10 --------------------------------------------------------------
+];
 
 pub fn assert_every_route_is_scanned() {
     let table = route_table();

@@ -3,8 +3,8 @@
 //! The environment decides the bind and the public address (`room::config`):
 //! on Fly, `PORT` and `POPQUIZ_PUBLIC_URL`; locally, neither, and the room is
 //! at `http://127.0.0.1:3000`. `ws::serve` sets `TCP_NODELAY` on every socket
-//! (the spike's finding, PQ-6). A `dev-host-token` build also needs
-//! `HOST_DEV_TOKEN`, and refuses to start without it (SPEC §8.2).
+//! (the spike's finding, PQ-6). The four `DISCORD_*` variables are required
+//! too, and the room refuses to start without them (SPEC §8, T-10).
 
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -28,8 +28,7 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let dev_host = if cfg!(feature = "dev-host-token") { "on" } else { "off" };
-    eprintln!("room listening on {bind}; public at {base}; dev-host-token {dev_host}");
+    eprintln!("room listening on {bind}; public at {base}");
     match room::ws::serve(listener, room::router_with(Arc::new(state))).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {

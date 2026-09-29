@@ -27,6 +27,8 @@ fn config(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
     let token_var = ["HOST", "DEV", "TOKEN"].join("_");
     let mut all: Vec<(String, String)> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
     all.push((token_var, "a-test-value".into()));
+    // T-10: every build needs the four Discord variables too (ids are digits).
+    all.extend(room::config::DISCORD_VARS.iter().map(|v| (v.to_string(), if v.ends_with("SECRET") { "a-test-value".into() } else { "1234".into() })));
     Config::from_vars(move |name| all.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
 }
 

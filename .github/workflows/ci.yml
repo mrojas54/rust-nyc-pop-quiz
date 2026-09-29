@@ -58,12 +58,10 @@ jobs:
 
       - run: just test
 
-      # T-09. `just test` builds the room with no features: that is where
-      # AC-64's no-feature case and the structural scan run. This builds the
-      # deployed configuration — the §8.2 stand-in on — and the smoke client,
-      # which nothing else compiles, and runs their own tests.
-      - name: The stand-in build and the smoke client
-        run: cd room && cargo test --offline --locked --features dev-host-token,smoke --test standin --test smoke_config --bin smoke
+      # T-09. The smoke client, which nothing else compiles, and its own tests
+      # (T-10 removed the stand-in build this step used to make too).
+      - name: The smoke client
+        run: cd room && cargo test --offline --locked --features smoke --test smoke_config --bin smoke
 
   # Everything that exists, plus a named list of what does not. Docker is used by
   # this hook only: it builds T-15a's sandbox image and runs the AC-12 containment

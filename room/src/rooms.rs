@@ -73,7 +73,7 @@ use serde::Serialize;
 use subtle::ConstantTimeEq;
 
 use crate::answers::{Middle, Revealed, Scheduled, Verdict};
-use crate::auth::{Denied, HostAuth, OrganizerId};
+use crate::auth::{CreateRefusal, Denied, HostAuth, OrganizerId};
 use crate::copy;
 use crate::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
 use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
@@ -562,11 +562,31 @@ pub enum RoomError {
     Refused(String),
     /// T-11: the room has ended — four hours up, or quiet too long.
     Ended(Ended),
+    /// T-10: Discord says the organizer is not in the configured guild. Also
+    /// what a non-member hears, so membership never leaks (AC-70).
+    WrongServer,
+    /// T-10: a member of the guild without the configured role ID (AC-65).
+    WrongRole,
+    /// T-10: Discord gave no verdict within the retry budget. A server error,
+    /// never a denial.
+    Unavailable,
 }
 
 impl From<Denied> for RoomError {
     fn from(_: Denied) -> RoomError {
         RoomError::Denied
+    }
+}
+
+// T-10: the create check's refusals, as room errors.
+impl From<CreateRefusal> for RoomError {
+    fn from(r: CreateRefusal) -> RoomError {
+        match r {
+            CreateRefusal::Denied => RoomError::Denied,
+            CreateRefusal::WrongServer => RoomError::WrongServer,
+            CreateRefusal::WrongRole => RoomError::WrongRole,
+            CreateRefusal::Unavailable => RoomError::Unavailable,
+        }
     }
 }
 
@@ -598,6 +618,9 @@ pub struct AppState {
     urls: Urls,
     // T-04b: sessions per room (§4.1, §9).
     capacity: usize,
+    // T-10: the Discord backend's sign-in half, for the OAuth routes. The same
+    // object is `auth`; it holds the organizer records (§3.5) beside the rooms.
+    discord: Option<Arc<crate::discord::Discord>>,
 }
 
 // T-04b: what the participant routes hand back.
@@ -656,7 +679,20 @@ impl AppState {
             sessions: Box::new(|| Box::new(crate::sessions::SessionMap::new())),
             urls,
             capacity: crate::sessions::DEFAULT_CAPACITY,
+            discord: None,
         }
+    }
+
+    /// T-10: serve Discord sign-in (`/auth/discord`) through this backend.
+    /// The binary passes the same backend as `auth` ([`crate::serving_state`]).
+    pub fn with_discord(mut self, discord: Arc<crate::discord::Discord>) -> AppState {
+        self.discord = Some(discord);
+        self
+    }
+
+    /// T-10: the Discord backend, if this state signs organizers in.
+    pub fn discord(&self) -> Option<&Arc<crate::discord::Discord>> {
+        self.discord.as_ref()
     }
 
     /// T-04b: sessions per room; 200 unless configured (§4.1, §9).
@@ -743,15 +779,31 @@ impl AppState {
         gone.into_iter().map(|(id, _)| id).collect()
     }
 
-    /// *Create a room*: authorized by the one create check (G-9, §8).
+    /// *Create a room*: authorized by the one create check (G-9, §8). The
+    /// routes' door: the check may ask Discord, so it is awaited.
+    pub async fn create_room_checked(
+        &self,
+        bearer: Option<&str>,
+        question_id: &str,
+        now: SystemTime,
+    ) -> Result<Created, RoomError> {
+        let organizer = self.auth.authorize_create(bearer).await?;
+        self.create_for(organizer, question_id, now)
+    }
+
+    /// [`AppState::create_room_checked`] for a backend that decides without
+    /// I/O (the tests' `TestAuth`, [`crate::auth::DenyAll`]). A check that
+    /// would have to wait — Discord's — is [`RoomError::Unavailable`] here.
     pub fn create_room(
         &self,
         bearer: Option<&str>,
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        let organizer = self.auth.authorize_create(bearer)?;
-        self.create_for(organizer, question_id, now)
+        use futures_util::FutureExt;
+        self.create_room_checked(bearer, question_id, now)
+            .now_or_never()
+            .unwrap_or(Err(RoomError::Unavailable))
     }
 
     fn create_for(
@@ -839,7 +891,21 @@ impl AppState {
     }
 
     /// *Run it again*: a **new** room, for the organizer who created this one,
-    /// on a question that has not been run. This room stays `released`.
+    /// on a question that has not been run. This room stays `released`. The
+    /// routes' door, like [`AppState::create_room_checked`].
+    pub async fn run_again_checked(
+        &self,
+        room_id: &str,
+        bearer: Option<&str>,
+        question_id: &str,
+        now: SystemTime,
+    ) -> Result<Created, RoomError> {
+        let organizer = self.auth.authorize_create(bearer).await?;
+        self.run_again_for(organizer, room_id, question_id, now)
+    }
+
+    /// [`AppState::run_again_checked`] for a backend that decides without I/O,
+    /// as [`AppState::create_room`] is.
     pub fn run_again(
         &self,
         room_id: &str,
@@ -847,7 +913,19 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        let organizer = self.auth.authorize_create(bearer)?;
+        use futures_util::FutureExt;
+        self.run_again_checked(room_id, bearer, question_id, now)
+            .now_or_never()
+            .unwrap_or(Err(RoomError::Unavailable))
+    }
+
+    fn run_again_for(
+        &self,
+        organizer: OrganizerId,
+        room_id: &str,
+        question_id: &str,
+        now: SystemTime,
+    ) -> Result<Created, RoomError> {
         {
             let mut rooms = lock(&self.rooms);
             let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
