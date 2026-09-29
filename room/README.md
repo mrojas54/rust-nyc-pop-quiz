@@ -138,17 +138,33 @@ release or expiry deletes it (§4.6), and the used ledger is keyed by id. So a
 replacement under a running room would let the night's `used` record name
 content that did not run. A released question is refused as *used*.
 
-**H-11, the client's (the deployed check).** Generate the token straight into
-the secret and into the pipeline's local configuration, and print it nowhere
-else:
+**H-11, the client's (the deployed check).** Generate the token once, into a
+shell variable. Put it in the Fly secret and in your own keeping (1Password,
+and the ignored `.env` T-20's pipeline will read), and print it nowhere else.
+Generating it inside the `fly secrets set` command would leave no copy for the
+laptop, and the pipeline could never authenticate.
 
-    fly secrets set POPQUIZ_ADMIN_TOKEN="$(openssl rand -hex 32)" -a rustnyc-popquiz
+    T=$(openssl rand -hex 32)
+    fly secrets set POPQUIZ_ADMIN_TOKEN="$T" -a rustnyc-popquiz
+    # save "$T" in 1Password now, then:
+    unset T
 
 Set the secret **before** the first deploy of a build that has this channel. A
-machine without it does not start. The pipeline keeps the same value locally
-(an ignored `.env`, T-20). Rotation is the same `fly secrets set` with a new
-value, plus one local edit. The live half of AC-101 is one push from the
-client's laptop to the deployed room before the first real batch is scheduled.
+machine without it does not start. Rotation is the same three lines with a new
+value, plus one local edit where the pipeline reads it.
+
+**The live half of AC-101** is one push from the client's laptop to the
+deployed room before the first real batch is scheduled. Until T-20's
+`popquiz schedule` exists, `curl` stands in for it. It reads the token from
+1Password, so the token never lands in shell history:
+
+    curl -i -X PUT \
+      -H "Authorization: Bearer $(op read 'op://<vault>/<item>/<field>')" \
+      --data-binary @bank/questions/q3.json \
+      https://rustnyc-popquiz.fly.dev/admin/questions/q3
+
+`201` (or `200` if q3 was already scheduled) passes. `401` means the value sent
+is not the Fly secret.
 
 **The proof.**
 
