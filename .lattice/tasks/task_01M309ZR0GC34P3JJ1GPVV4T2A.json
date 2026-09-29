@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 10,
+  "comment_count": 11,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -41,8 +41,8 @@
     }
   ],
   "id": "task_01M309ZR0GC34P3JJ1GPVV4T2A",
-  "last_event_id": "ev_01M3NMVSN50AT9NTRJD4VJENYX",
-  "last_status_changed_at": "2026-09-29T03:55:33Z",
+  "last_event_id": "ev_01M3NNN2KW6CECB5GC8SWTWADY",
+  "last_status_changed_at": "2026-09-29T04:09:34Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -60,16 +60,16 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 1,
+  "reopened_count": 2,
   "schema_version": 1,
   "short_id": "PQ-15",
-  "status": "review",
+  "status": "in_progress",
   "tags": [
     "m2",
     "fast-track"
   ],
   "title": "Take it home page",
   "type": "task",
-  "updated_at": "2026-09-29T03:55:46Z",
+  "updated_at": "2026-09-29T04:09:34Z",
   "urgency": null
 }

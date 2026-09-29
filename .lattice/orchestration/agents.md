@@ -4,15 +4,15 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-28 23:5x EDT. PRs #32/#33/#34 open; all three tickets at `review` (unverified); CI running. Dispatch loop at 600 s until the heads are verified.
+Snapshot: 2026-09-29 00:1x EDT. PQ-17 #33 verified pre-merge; PQ-13 #32 green, live check pending with the client; PQ-15 #34 sent back for a `canary_full` CI failure. Dispatch loop at 900 s.
 Layout unchanged since the 2026-09-27 restart: delegators are tabs of `pane:2`; PQ-15's browser tab `surface:32` sits in `pane:6`.
 
 | Role | Ticket | Surface ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Waiting on the client's three `gh pr create` approvals; next gate: PRs open, then exact-head verification at `review` (merge order PQ-17 before PQ-13) |
-| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home, pushed @ `623e1eb` on `f8f9caf` (worktree `take-it-home`) | `in_progress`; three signed commits, Sonnet review PASS attached 04:10, validation note + screenshots attached 04:04; pushed 22:4x; **at its `gh pr create` prompt** |
-| agent:delegator-pq17 (Opus, inline-full) | PQ-17 / T-25 admin channel | `surface:30` in `pane:2` | ai-c11-cc/admin-channel, pushed @ `8528c93` on `f8f9caf` (worktree `admin-channel`) | `in_progress`; review Major cleared (`.env.example` line), review verdict attached; pushed 22:4x; **at its `gh pr create` prompt** |
-| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth, pushed @ `1dbec1d` on `f8f9caf` (worktree `discord-auth`) | `in_progress`; client approved the three host strings 20:51; two signed commits; review + validation notes attached 20:53; pushed 22:4x; **at its `gh pr create` prompt**; the run's last new dispatch |
+| Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Holding PQ-17 for the client's merge word (fresh exact-head merge-review first); watching PQ-15's fix and PQ-13's live check; merge order PQ-17 before PQ-13 |
+| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home, PR #34 @ `623e1eb` on `f8f9caf` (worktree `take-it-home`) | `review` → told to return to `in_progress` at 00:1x: `just test-full` FAILED on the head (`canary_full` real-sockets test, `canary_scan/mod.rs:601`); fix, push, both CI jobs green, re-post DONE |
+| agent:delegator-pq17 (Opus, inline-full) | PQ-17 / T-25 admin channel | `surface:30` in `pane:2` | ai-c11-cc/admin-channel, PR #33 @ `8528c93` on `f8f9caf` (worktree `admin-channel`) | `review`, **verified pre-merge** (both CI jobs SUCCESS on the exact head, CLEAN, Sonnet PASS, DONE 23:55); idle; merges on the client's word |
+| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth, PR #32 @ `1dbec1d` on `f8f9caf` (worktree `discord-auth`) | `review`; both CI jobs SUCCESS, CLEAN, review + validation attached; **waiting on the client's live Discord check** (recipe in its tab); DONE follows the result; merges after PQ-17; the run's last new dispatch |
 | Not dispatched | PQ-16 accessibility sweep | — | — | backlog; held by the client's pause; presses ahead off PQ-15 on their next word |
 
 ### Archived (run history)
