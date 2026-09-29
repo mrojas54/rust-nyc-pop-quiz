@@ -102,13 +102,53 @@ pub struct TakeHomeReceipt {
     pub lines: Vec<String>,
 }
 
+/// One incorrect option's middle beat: **Why you might have read it as ‹X›**
+/// over its authored `why_tempting` (§11, §13). Every incorrect option has
+/// one, whichever the room chose (AC-95, D-9), and none carries a count.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct TakeHomeWhy {
+    pub letter: Letter,
+    pub text: String,
+    pub why_tempting: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct TakeHomeFlags {
+    pub opt_level: String,
+    pub overflow_checks: bool,
+    pub debug_assertions: bool,
+}
+
+/// The Miri configuration. Every field is `null` on a legacy record, whose
+/// pass ran outside the verifier (D-16); `/last` says so rather than guess.
+/// Seeds are strings: nothing that outlives a room carries a number (AC-56's
+/// check reads every value), and a seed is an identifier, not a quantity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct TakeHomeMiri {
+    pub version: Option<String>,
+    pub configs: Option<Vec<String>>,
+    pub seeds: Option<Vec<String>>,
+}
+
+/// **How we know**, beneath the wall's list: the machine the answer was
+/// established on (§13, AC-87). Copied from the verified record verbatim; what
+/// it does not hold is `null` and is never back-filled (G-2, D-16).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct TakeHomeMachine {
+    pub legacy: bool,
+    /// `rustc -Vv` in full, or `rustc --version` on a legacy record.
+    pub compiler: String,
+    pub edition: String,
+    /// `null` on a legacy record: `/last` reads *not recorded*.
+    pub target: Option<String>,
+    pub flags: Option<TakeHomeFlags>,
+    /// `null` when Miri never ran (a does-not-compile record).
+    pub miri: Option<TakeHomeMiri>,
+}
+
 /// The last released question, as `/last` shows it. Built at release from the
 /// witnessed reads, never before; it holds the question and nothing about the
 /// room that ran it.
-///
-/// Not here yet, because the sealed module does not lend them: the
-/// `why_tempting` text of *every* incorrect option and the verified record's
-/// detail rows for *How we know* (§13). T-12 adds them through a witnessed read.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct TakeHome {
     pub question_id: String,
@@ -124,10 +164,15 @@ pub struct TakeHome {
     pub trace: Vec<TraceStep>,
     /// **What happens**.
     pub what: String,
+    /// **Why you might have read it as ‹X›**, once per incorrect option, in
+    /// letter order (§13).
+    pub why: Vec<TakeHomeWhy>,
     /// **What to remember**.
     pub takeaway: String,
     /// **How we know** — the wall's list (§7.5).
     pub receipt: TakeHomeReceipt,
+    /// **How we know**, beneath the list — the machine (§13, AC-87).
+    pub machine: TakeHomeMachine,
 }
 
 const _: fn(TakeHome) = |TakeHome {
@@ -140,14 +185,18 @@ const _: fn(TakeHome) = |TakeHome {
                              mark: _,
                              trace: _,
                              what: _,
+                             why: _,
                              takeaway: _,
                              receipt: _,
+                             machine: _,
                          }| {};
 
 /// Copy the snapshot out of what `reveal` lends. Called by the release
 /// transition while the room still holds its reveal witness.
 pub(crate) fn take_home(question_id: &str, meetup_date: String, view: &PublicView<'_>, opened: &Opened<'_>) -> TakeHome {
-    let correct = opened.revealed.correct;
+    let revealed = &opened.revealed;
+    let correct = revealed.correct;
+    let known = revealed.how_we_know;
     TakeHome {
         question_id: question_id.to_string(),
         meetup_date,
@@ -164,12 +213,40 @@ pub(crate) fn take_home(question_id: &str, meetup_date: String, view: &PublicVie
             .collect(),
         correct,
         mark: "✓",
-        trace: opened.revealed.trace.to_vec(),
-        what: opened.revealed.explains.what.clone(),
-        takeaway: opened.revealed.explains.takeaway.clone(),
+        trace: revealed.trace.to_vec(),
+        what: revealed.explains.what.clone(),
+        why: Letter::ALL
+            .iter()
+            .zip(view.question.options())
+            .zip(revealed.why_tempting)
+            .filter(|((&letter, _), _)| letter != correct)
+            .map(|((&letter, text), why)| TakeHomeWhy {
+                letter,
+                text: text.clone(),
+                // `load` refuses a record with an incorrect option lacking one.
+                why_tempting: why.clone().unwrap_or_default(),
+            })
+            .collect(),
+        takeaway: revealed.explains.takeaway.clone(),
         receipt: TakeHomeReceipt {
             heading: crate::copy::RECEIPT_HEADING,
-            lines: opened.revealed.receipt.to_vec(),
+            lines: revealed.receipt.to_vec(),
+        },
+        machine: TakeHomeMachine {
+            legacy: known.legacy,
+            compiler: known.rustc.clone(),
+            edition: known.edition.clone(),
+            target: known.target_triple.clone(),
+            flags: known.flags.as_ref().map(|f| TakeHomeFlags {
+                opt_level: f.opt_level.clone(),
+                overflow_checks: f.overflow_checks,
+                debug_assertions: f.debug_assertions,
+            }),
+            miri: known.miri.as_ref().map(|m| TakeHomeMiri {
+                version: m.version.clone(),
+                configs: m.configs.clone(),
+                seeds: m.seeds.as_ref().map(|s| s.iter().map(i64::to_string).collect()),
+            }),
         },
     }
 }

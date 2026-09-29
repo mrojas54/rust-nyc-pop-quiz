@@ -131,13 +131,17 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
     }
     assert!(vault.contains("pub(super) fn seal("), "seal stays private to answers");
     // The vault's fields are declared private — no `pub` field anywhere in it.
-    for s in ["pub correct", "pub why_tempting", "pub explains", "pub receipt", "pub trace", "pub middle", "pub(crate)", "pub(super) correct"] {
+    for s in ["pub correct", "pub why_tempting", "pub explains", "pub receipt", "pub trace", "pub how_we_know", "pub middle", "pub(crate)", "pub(super) correct"] {
         assert!(!vault.contains(s), "vault exposes {s:?}");
     }
     // Declared once, privately.
     let decls: usize = all_sources().iter().map(|(_, t)| code(t).matches("mod vault").count()).sum();
     assert_eq!(decls, 1);
     assert!(!answers.contains("pub mod vault"));
+    // T-12: take-it-home's reads (every why_tempting, the machine) leave the
+    // vault only through `open`, beside the rest of what it lends.
+    let open = block(vault, "pub fn open<'v>(&'v self, _proof: &RevealWitness<'_>)");
+    assert!(open.contains("why_tempting: &self.why_tempting") && open.contains("how_we_know: &self.how_we_know"));
 }
 
 #[test]

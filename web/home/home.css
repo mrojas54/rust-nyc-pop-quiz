@@ -1,0 +1,85 @@
+/* ===========================================================================
+   Take it home — ported from prototypes/take-it-home.html's <style> block.
+   ---------------------------------------------------------------------------
+   The prototype's aliases (--page, --border, --white, --input, --green, --text,
+   --accent, --serif, --mono) are prototypes/_shared/tokens.css §2; each is
+   spelled here as the §1 token it points at, which web/shared/tokens.css
+   carries. The prototype's --input is --bg-tertiary, not --bg-input.
+
+   AC-33: the page never scrolls sideways; code scrolls inside its own
+   container. Every flex or grid child that can hold program text gets
+   `min-width: 0` so it can shrink below its content, program text that is not
+   in a code well wraps, and the code wells (`.rn-src-scroll`, the `-Vv` block)
+   scroll. Nothing sets `overflow-x: hidden` on the page: that would hide an
+   overflow, not remove it, and web/test/home.test.js refuses it.
+   =========================================================================== */
+
+.home-page { background: var(--bg-primary); }
+.home-app { padding: 26px 16px 34px; }
+.sheet { max-width: 760px; margin: 0 auto; min-width: 0; }
+
+.masthead { border-bottom: 1px solid var(--border-default); padding-bottom: 14px; margin-bottom: 20px; }
+.masthead .kicker { font-size: var(--text-xs); letter-spacing: .12em; text-transform: uppercase;
+                    color: var(--text-secondary); }
+.masthead h1 { font-family: var(--font-heading); font-size: 30px; margin: 6px 0 8px; }
+
+.sec { margin-top: 26px; min-width: 0; }
+.sec-h { font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: .1em;
+         text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px;
+         line-height: var(--leading-body); }
+
+/* --- the program and the options: the answer is marked, nobody's choice is */
+.program .rn-src { min-width: 0; }
+.opts { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.opt { display: flex; align-items: center; gap: 10px; padding: 9px 12px; min-width: 0;
+       border: 1px solid var(--border-default); border-radius: var(--radius);
+       background: var(--white); font-family: var(--font-mono); font-size: var(--text-sm); }
+.opt .l { font-weight: 700; width: 1.4em; flex: none; color: var(--text-secondary); }
+.opt .otext { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+/* The green follows the ✓: it keys off check.js's element, so the colour can
+   never appear without the glyph (AC-40). */
+.opt:has(.tick) { border-color: var(--success); border-width: 2px; background: var(--success-subtle); }
+.opt:has(.tick) .l { color: var(--text-primary); }
+.opt .tick { margin-left: auto; flex: none; }
+
+/* --- the three beats (prototype _shared/tokens.css §6) -------------------- */
+.beats { padding: 14px 16px; border-radius: var(--radius); }
+.beats .provenance { margin-bottom: 8px; }
+.beat + .beat { margin-top: var(--space-3); padding-top: var(--space-3);
+                border-top: var(--border-w) solid var(--border-default); }
+.beat h3 { margin-bottom: 5px; overflow-wrap: anywhere; }
+.beat h3 code { font-size: .7em; }
+.beat p { margin: 0; line-height: var(--leading-body); overflow-wrap: anywhere; }
+.beat-company { border-left: 3px solid var(--accent-primary); padding-left: var(--space-3);
+                margin-left: -3px; }
+.beat-company h3 { color: var(--accent-hover); }
+
+/* --- the trace, and it is yours ------------------------------------------ */
+.walk-body { min-width: 0; }
+.walk .trace-note, .walk .tval { overflow-wrap: anywhere; min-width: 0; }
+.walk .tval { flex-wrap: wrap; }
+.walk .trace-nav { flex-wrap: wrap; }
+.keyhint { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 8px; }
+kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--border-default);
+      border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px; background: var(--white);
+      color: var(--text-primary); }
+
+/* --- how we know ---------------------------------------------------------- */
+.receipt { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7;
+           border: 1px solid var(--border-default); border-radius: var(--radius);
+           padding: 12px 14px; min-width: 0; }
+/* AC-74: machine-established — keep components.css's machine edge over the box's border. */
+.receipt.by-machine { border-left: 3px solid var(--success); }
+.receipt .steps { display: flex; flex-direction: column; margin-bottom: 9px; }
+.receipt .row { display: flex; gap: 10px; min-width: 0; }
+.receipt .row .k { color: var(--text-secondary); min-width: 8.5em; flex: none; }
+.receipt .row .v { min-width: 0; overflow-wrap: anywhere; }
+.receipt .vv { margin: 0; font: inherit; white-space: pre; overflow-x: auto; max-width: 100%; }
+.receipt .caveat { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border-default);
+                   color: var(--text-secondary); line-height: 1.6; }
+
+@media (max-width: 480px) {
+  .receipt .row { flex-direction: column; gap: 0; }
+  .receipt .row + .row { margin-top: 6px; }
+  .receipt .row .k { min-width: 0; }
+}

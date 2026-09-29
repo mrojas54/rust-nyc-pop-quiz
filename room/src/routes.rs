@@ -578,6 +578,64 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             .route("/{code}", get(short_link));
     }
     // end T-06 pages -------------------------------------------------------
+    // T-12 pages -----------------------------------------------------------
+    // Take it home (SPEC §13): `GET /last` is the last released question, and
+    // its two assets live under `/home/`. The page is embedded at compile time
+    // like the others; what changes per request is the snapshot, written into
+    // the page as JSON from `AppState::take_home()` on every request, so a
+    // release is on the page the moment it happens (§13: rebuilt at every
+    // release). `null` before the first release, and the page says so.
+    //
+    // The snapshot is the question after its room was released: it carries the
+    // answer, and it may (§13). Before any release there is nothing to carry,
+    // and a room that is still running never reaches it — the snapshot is
+    // written by the `released` transition only (`used.rs`).
+    {
+        const HOME_HTML: &str = include_str!("../../web/home/index.html");
+        const SNAPSHOT_SLOT: &str = "<script type=\"application/json\" id=\"take-home\">null</script>";
+
+        /// JSON inside a `<script>` element: nothing in it may close the
+        /// element or open a comment, whatever the question's prose says.
+        fn script_json(v: &impl serde::Serialize) -> String {
+            serde_json::to_string(v)
+                .expect("the snapshot serializes")
+                .replace('<', "\\u003c")
+                .replace('>', "\\u003e")
+                .replace('&', "\\u0026")
+                .replace('\u{2028}', "\\u2028")
+                .replace('\u{2029}', "\\u2029")
+        }
+        fn asset(content_type: &'static str, body: &'static str) -> Response {
+            (
+                [
+                    (header::CONTENT_TYPE, content_type),
+                    (header::CACHE_CONTROL, "no-cache"),
+                ],
+                body,
+            )
+                .into_response()
+        }
+        async fn last(State(state): State<Arc<AppState>>) -> Response {
+            let slot = format!(
+                "<script type=\"application/json\" id=\"take-home\">{}</script>",
+                script_json(&state.take_home())
+            );
+            (
+                [
+                    (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                    (header::CACHE_CONTROL, "no-cache"),
+                ],
+                HOME_HTML.replacen(SNAPSHOT_SLOT, &slot, 1),
+            )
+                .into_response()
+        }
+        assert!(HOME_HTML.contains(SNAPSHOT_SLOT), "web/home/index.html lost its snapshot slot");
+        router = router
+            .route("/last", get(last))
+            .route("/home/home.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../web/home/home.js")) }))
+            .route("/home/home.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/home/home.css")) }));
+    }
+    // end T-12 pages -------------------------------------------------------
     router = discord_routes(router); // T-10 routes
     // T-04c routes ----------------------------------------------------------
     // The three sockets, and the two layers the transport needs. KEEP THIS
