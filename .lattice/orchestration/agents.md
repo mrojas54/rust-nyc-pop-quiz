@@ -4,15 +4,15 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-28 22:2x EDT. Run resumed in a fresh Orchestrator session; dispatch loop armed at 1800 s.
+Snapshot: 2026-09-28 22:5x EDT. All three branches pushed; each delegator at its `gh pr create` prompt. Dispatch loop at 1800 s.
 Layout unchanged since the 2026-09-27 restart: delegators are tabs of `pane:2`; PQ-15's browser tab `surface:32` sits in `pane:6`.
 
 | Role | Ticket | Surface ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Waiting on the client's three push approvals; next gate: PRs, then exact-head verification at `review` (merge order PQ-17 before PQ-13) |
-| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home off `origin/main` @ `f8f9caf` (worktree `take-it-home`) | `in_progress`; three signed commits, Sonnet review PASS attached 04:10, validation note + screenshots attached 04:04; **at its `git push` prompt since 04:1x** |
-| agent:delegator-pq17 (Opus, inline-full) | PQ-17 / T-25 admin channel | `surface:30` in `pane:2` | ai-c11-cc/admin-channel off `origin/main` @ `f8f9caf` (worktree `admin-channel`) | `in_progress`; review Major cleared (`.env.example` line), review verdict attached; **at its `git push` prompt since 04:0x** |
-| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth off `origin/main` @ `f8f9caf` (worktree `discord-auth`) | `in_progress`; client approved the three host strings 20:51; two signed commits; review + validation notes attached 20:53; **at its `git push` prompt since 20:5x**; the run's last new dispatch |
+| Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Waiting on the client's three `gh pr create` approvals; next gate: PRs open, then exact-head verification at `review` (merge order PQ-17 before PQ-13) |
+| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home, pushed @ `623e1eb` on `f8f9caf` (worktree `take-it-home`) | `in_progress`; three signed commits, Sonnet review PASS attached 04:10, validation note + screenshots attached 04:04; pushed 22:4x; **at its `gh pr create` prompt** |
+| agent:delegator-pq17 (Opus, inline-full) | PQ-17 / T-25 admin channel | `surface:30` in `pane:2` | ai-c11-cc/admin-channel, pushed @ `8528c93` on `f8f9caf` (worktree `admin-channel`) | `in_progress`; review Major cleared (`.env.example` line), review verdict attached; pushed 22:4x; **at its `gh pr create` prompt** |
+| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth, pushed @ `1dbec1d` on `f8f9caf` (worktree `discord-auth`) | `in_progress`; client approved the three host strings 20:51; two signed commits; review + validation notes attached 20:53; pushed 22:4x; **at its `gh pr create` prompt**; the run's last new dispatch |
 | Not dispatched | PQ-16 accessibility sweep | — | — | backlog; held by the client's pause; presses ahead off PQ-15 on their next word |
 
 ### Archived (run history)
