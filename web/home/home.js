@@ -45,7 +45,7 @@
      trope patterns by web/test/home.test.js. */
   var PROPOSED = {
     /* The page before the first release. */
-    nothing_yet: "No question has been released yet.",
+    nothing_yet: "Welcome to the POP QUIZ",
     /* §13: "the Miri row saying the check was run separately". */
     miri_separately: "run separately",
     /* How we know, the machine's rows — the prototype's own labels. */
