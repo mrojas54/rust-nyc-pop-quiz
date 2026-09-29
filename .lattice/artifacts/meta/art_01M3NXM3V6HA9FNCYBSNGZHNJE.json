@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-29T06:28:51Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3NXM3V6HA9FNCYBSNGZHNJE",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3NXM3V6HA9FNCYBSNGZHNJE.md",
+    "size_bytes": 395
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged as PR #34 \u2192 main 7c8b296 (merge commit, head-pinned to a2766c9 on base 255d4e1) on the client's word 02:2x. Exact-head just test + just test-full SUCCESS; Sonnet merge-review PASS-WITH-NITS on ",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 17,
+  "comment_count": 21,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -43,11 +43,26 @@
       "id": "ev_01M3NTA7PNS1RF45QHG082PVYP",
       "role": "review",
       "source_type": "comment"
+    },
+    {
+      "id": "ev_01M3NX47YX626SH121A253HGN1",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01M3NXM3V6HA9FNCYBSNGZHNJF",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3NXM3V6HA9FNCYBSNGZHNJE",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZR0GC34P3JJ1GPVV4T2A",
-  "last_event_id": "ev_01M3NVBZWMMMCBYYDEJBTK5ZX2",
-  "last_status_changed_at": "2026-09-29T05:16:12Z",
+  "last_event_id": "ev_01M3NXM79J80SRAS5S3KX6AXHT",
+  "last_status_changed_at": "2026-09-29T06:28:55Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -65,7 +80,7 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 4,
+  "reopened_count": 5,
   "schema_version": 1,
   "short_id": "PQ-15",
   "status": "review",
@@ -75,6 +90,6 @@
   ],
   "title": "Take it home page",
   "type": "task",
-  "updated_at": "2026-09-29T05:49:28Z",
+  "updated_at": "2026-09-29T06:28:55Z",
   "urgency": null
 }
