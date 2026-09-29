@@ -439,25 +439,54 @@ fn ac57_nothing_crosses_rooms_but_the_question() {
 }
 
 // --------------------------------------------------------------------------
-// `test-full`'s AC-69 row, shaped for T-10: with the auth provider down an
-// open room runs to release; a new room cannot be created; a room dies at 4 h.
+// `test-full`'s AC-69 row (T-10): with Discord down an open room runs to
+// release; a new room cannot be created; a room dies at 4 h. On the Discord
+// backend over `common::discord_mock`, on the rig's ManualClock.
 // --------------------------------------------------------------------------
 
-#[test]
-#[ignore = "test-full, T-10: needs the Discord mock"]
-fn test_full_ac69_open_room_runs_to_release_with_auth_down() {
-    // T-10: build the state on the Discord-backed HostAuth over a mock that
-    // answers until `down()`, on a ManualClock.
-    let c = Clocked::new();
-    let room = c.create("q3");
-    // T-10: mock.down();
-    c.walk(&room, &TO_REVEAL);
-    c.walk(&room, &[HostAction::ReleaseRoom]);
-    assert_eq!(c.state.with_room(&room.id, |r| r.phase()).unwrap(), Phase::Released);
-    // T-10: assert creation is refused while the mock is down.
-    let created = c.state.create_room(Some(ORGANIZER), "q3-again", c.clock.now());
-    assert!(created.is_err(), "T-10: a new room needs a live check");
-    c.advance(ROOM_LIFETIME);
-    c.state.sweep(c.clock.now());
-    assert_eq!(c.state.room_count(), 0);
+#[tokio::test]
+#[ignore = "test-full: AC-69 against the Discord mock"]
+async fn test_full_ac69_open_room_runs_to_release_with_auth_down() {
+    use axum::http::{Method, StatusCode};
+    use common::discord_mock::Rig;
+    use serde_json::json;
+
+    let mut rig = Rig::start().await;
+    let (organizer, _) = rig.sign_in(rig.host()).await;
+    let (status, created) = rig.create(Some(&organizer), "q3").await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let (id, host) = (created["id"].as_str().unwrap().to_string(), created["host_session"].as_str().unwrap().to_string());
+    // A second room, left open, to watch the 4 h bound with Discord still down.
+    let (_, other) = rig.create(Some(&organizer), "q3-again").await;
+    let other = other["id"].as_str().unwrap().to_string();
+
+    rig.mock.down().await;
+    let hits = rig.mock.total_hits();
+
+    // The open room runs to release: every host action, the host's view, a join.
+    let code = created["code"].as_str().unwrap();
+    let (status, _) = rig.call(Method::POST, "/join", None, Some(json!({ "code": code }))).await;
+    assert_eq!(status, StatusCode::CREATED);
+    for slug in ["put-on-screen", "close-answers", "show-split", "walk-it", "reveal", "release"] {
+        rig.clock.advance(std::time::Duration::from_secs(5 * 60));
+        let (status, body) = rig.call(Method::POST, &format!("/rooms/{id}/{slug}"), Some(&host), None).await;
+        assert_eq!(status, StatusCode::OK, "{slug} with Discord down: {body}");
+    }
+    assert_eq!(rig.state.with_room(&id, |r| r.phase()).unwrap(), Phase::Released);
+
+    // A new room cannot be created: Discord's check cannot run, and that is a
+    // server error, never a denial.
+    let (status, body) = rig.create(Some(&organizer), "q3-again").await;
+    assert_eq!((status, body), (StatusCode::SERVICE_UNAVAILABLE, serde_json::Value::Null));
+    let (status, _) = rig
+        .call(Method::POST, &format!("/rooms/{id}/run-it-again"), Some(&organizer), Some(json!({ "question_id": "q3-again" })))
+        .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(rig.mock.total_hits(), hits, "the mock is down; nothing reached it");
+
+    // A room dies at 4 h, Discord or no Discord.
+    rig.clock.advance(ROOM_LIFETIME);
+    rig.state.sweep(rig.clock.now());
+    assert_eq!(rig.state.room_count(), 0);
+    assert!(rig.state.ended_room(&other).is_some() || rig.state.with_room(&other, |_| ()).is_err());
 }

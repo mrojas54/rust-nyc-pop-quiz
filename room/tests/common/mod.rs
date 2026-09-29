@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use room::answers::{self, Scheduled};
-use room::auth::{Denied, HostAuth, OrganizerId};
+use room::auth::{decided, CreateCheck, CreateRefusal, HostAuth, OrganizerId};
 use room::rooms::{CloseSnapshot, Sessions, Totals};
 use serde_json::Value;
 
@@ -20,18 +20,23 @@ pub const ORGANIZER: &str = "test-organizer-credential";
 pub const OTHER_ORGANIZER: &str = "another-organizer-credential";
 
 /// The test implementation of the auth seam. It exists only here: the crate
-/// ships `DenyAll` and nothing that accepts a credential (G-9, §8.2).
+/// ships `DenyAll` and Discord's check, and nothing else that accepts a
+/// credential (G-9). It decides without I/O, so the synchronous doors
+/// (`AppState::create_room`, `run_again`) serve it.
 pub struct TestAuth;
 
 impl HostAuth for TestAuth {
-    fn authorize_create(&self, bearer: Option<&str>) -> Result<OrganizerId, Denied> {
-        match bearer {
+    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>) -> CreateCheck<'a> {
+        decided(match bearer {
             Some(ORGANIZER) => Ok(OrganizerId("organizer-1".into())),
             Some(OTHER_ORGANIZER) => Ok(OrganizerId("organizer-2".into())),
-            _ => Err(Denied),
-        }
+            _ => Err(CreateRefusal::Denied),
+        })
     }
 }
+
+// T-10: the Discord mock.
+pub mod discord_mock;
 
 /// Sessions whose close snapshot is whatever the test set.
 #[derive(Clone, Default)]

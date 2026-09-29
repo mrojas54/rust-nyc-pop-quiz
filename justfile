@@ -62,6 +62,7 @@ test-web:
 test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only")
     #!/usr/bin/env bash
     set -euo pipefail
+    (cd room && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
     echo ""
     echo "=== test-full ==="
     echo "Ran: test (room, pipeline, web), the canary over real sockets, the AC-12"

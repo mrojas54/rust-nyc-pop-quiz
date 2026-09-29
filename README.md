@@ -63,11 +63,15 @@ reveal.
 
 A room you can drive at your desk:
 
-    cd room && HOST_DEV_TOKEN=<any value> cargo run --bin room --features dev-host-token
+    cd room && DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=… \
+        POPQUIZ_PUBLIC_URL=http://localhost:3000 cargo run --bin room
 
-It serves on `127.0.0.1:3000`. Open the wall and a couple of buzzer tabs and
-walk it through. The host link and the rest of the stand-in are in
-[`room/README.md`](room/README.md#running-it).
+Hosting is by Discord role, so the room needs the Discord application's four
+values, from your shell and never from a file. The application must list
+`http://localhost:3000/auth/discord/callback` as a redirect. Open
+`http://localhost:3000/host?question=<id>`, sign in with Discord, create the
+room, then open the wall and a couple of buzzer tabs and walk it through. The
+rest is in [`room/README.md`](room/README.md#running-it).
 
 A recipe whose suite isn't built yet fails and names the ticket that builds it.
 `just burst` says T-21. Nothing looks green by not being there.

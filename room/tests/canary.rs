@@ -437,6 +437,8 @@ async fn the_binary_logs_no_admin_token() {
         .env_clear()
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .env("PORT", port.to_string())
+        // T-10: the four Discord variables, which every build needs.
+        .envs(room::config::DISCORD_VARS.iter().map(|v| (*v, if v.ends_with("SECRET") { "a-test-value" } else { "1234" })))
         .env(room::admin::VAR, &p.admin)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

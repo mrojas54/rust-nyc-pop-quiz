@@ -3,9 +3,18 @@
 
    One page serves two addresses:
 
-     /host?question=<id>#<credential>   the first screen, before a room exists.
-                                        *Create a room* presents the credential
-                                        in the fragment as a bearer (§8.2).
+     /host?question=<id>                the first screen, signed out: *Sign in
+                                        with Discord*, a link to
+                                        /auth/discord?question=<id> (T-10).
+     /host?question=<id>#<organizer     the first screen, signed in: Discord's
+      session>                          callback lands here. *Create a room*
+                                        presents the organizer session as a
+                                        bearer; the room asks Discord whether
+                                        its owner holds the host role (§8). A
+                                        401 means the session is gone: the page
+                                        forgets it and offers sign-in again.
+                                        403 shows the room's reason (wrong
+                                        server, wrong role, AC-70).
      /host/<room_id>#<host session>     one screen per phase. This address IS
                                         the resume link (rooms.rs builds
                                         host_resume_url this way): a refresh
@@ -172,6 +181,20 @@
       '<div class="stack">' + primaryHtml("create", ui) + statusHtml(ui) + "</div>";
   }
 
+  /* The first screen signed out (T-10): one way on, to Discord's consent
+     screen through the room's /auth/discord, carrying the question. A link,
+     not a button: it is a navigation, and it works with no script after this. */
+  function signInHref(question) {
+    return "/auth/discord?question=" + encodeURIComponent(question || "");
+  }
+
+  function renderSignIn(ui, question) {
+    return titleHtml("idle") +
+      '<div class="stack"><a class="btn btn-primary host-primary" data-sign-in href="' +
+      PQ.escapeAttr(signInHref(question)) + '">' + esc(PQ.t("host_action_sign_in")) + "</a>" +
+      statusHtml(ui) + "</div>";
+  }
+
   /* ------------------------------------------------------------------------
      The browser half.
      ------------------------------------------------------------------------ */
@@ -215,7 +238,9 @@
     }
 
     if (where.mode === "create") {
-      var paintCreate = function () { el.innerHTML = renderCreate(ui); };
+      var paintCreate = function () {
+        el.innerHTML = where.token ? renderCreate(ui) : renderSignIn(ui, where.question);
+      };
       el.addEventListener("click", function (ev) {
         var b = ev.target.closest && ev.target.closest("[data-primary]");
         if (!b || ui.busy) return;
@@ -224,6 +249,13 @@
           if (r.res.status === 201 && r.body) {
             storeSet(win, { token: where.token, question: where.question });
             win.location.replace(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
+            return;
+          }
+          if (r.res.status === 401) {
+            // The organizer session is unknown or expired (T-10): sign in again.
+            where.token = null;
+            win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || ""));
+            ui.busy = false; ui.status = null; paintCreate();
             return;
           }
           ui.busy = false; ui.status = statusLine(r.res, r.body); paintCreate();
@@ -270,6 +302,8 @@
               win.location.assign(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
               return;
             }
+            // T-10: the organizer session lapsed; sign in again, then create.
+            if (r.res.status === 401) { win.location.assign(signInHref(stored.question)); return; }
             done(statusLine(r.res, r.body));
           }, function (e) { done(String(e && e.message || e)); });
         return;
@@ -339,6 +373,8 @@
     isTerminalClose: isTerminalClose,
     render: render,
     renderCreate: renderCreate,
+    renderSignIn: renderSignIn,
+    signInHref: signInHref,
     boot: boot
   };
 })(typeof window !== "undefined" ? window : globalThis);
