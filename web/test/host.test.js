@@ -208,9 +208,9 @@ test('AC-50: the resume link is the room screen\'s own address', () => {
   assert.equal(PQ.host.parseLocation({ pathname: '/host/abc', search: '', hash: '' }).session, null);
 });
 
-test('§8.2: the create screen reads the credential from the fragment and the question from the query', () => {
-  assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host', search: '?question=q3', hash: '#dev-token' }) },
-    { mode: 'create', token: 'dev-token', question: 'q3' });
+test('T-10: the create screen reads the organizer session from the fragment and the question from the query', () => {
+  assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host', search: '?question=q3', hash: '#0a1b2c' }) },
+    { mode: 'create', token: '0a1b2c', question: 'q3' });
   assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host/', search: '', hash: '' }) },
     { mode: 'create', token: null, question: null });
 });
@@ -234,4 +234,21 @@ test('the page loads the shared modules and the host script by absolute URL', ()
                      '/shared/tokens.css', '/shared/fonts.css', '/shared/components.css', '/host/host.css']) {
     assert.ok(html.includes(`"${src}"`), src);
   }
+});
+
+test('T-10: signed out, the first screen offers Sign in with Discord, a link carrying the question, and nothing else', () => {
+  const html = PQ.host.renderSignIn({}, 'q3-again');
+  assert.equal(buttons(html).length, 0, 'no button: sign-in is a navigation');
+  const links = html.match(/<a [^>]*>/g) || [];
+  assert.equal(links.length, 1);
+  assert.ok(links[0].includes('href="/auth/discord?question=q3-again"'), links[0]);
+  assert.ok(/class="btn btn-primary host-primary"/.test(links[0]), 'styled as the one primary action');
+  const t = unescape(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+  assert.equal(t, `${PQ.COPY.title_wordmark} ${PQ.COPY.host_title_role} ${PQ.COPY.host_action_sign_in}`);
+});
+
+test('T-10: the sign-in link escapes and encodes the question', () => {
+  assert.equal(PQ.host.signInHref('a b&c"'), '/auth/discord?question=a%20b%26c%22');
+  assert.equal(PQ.host.signInHref(null), '/auth/discord?question=');
+  assert.ok(!PQ.host.renderSignIn({}, '"><script>').includes('<script>'));
 });

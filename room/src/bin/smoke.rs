@@ -2,17 +2,23 @@
 //!
 //! EVALUATION.md's harness row: *the deployed room driven end to end through
 //! all seven phases with mock participants — the pre-checkpoint sanity run.*
-//! `just smoke <url> [--participants N]`. The host credential comes from
-//! `HOST_DEV_TOKEN` in the environment and never from the command line, so it
-//! stays out of shell history and process listings (SPEC §8.2).
+//! `just smoke <url> [--participants N]`. The organizer's credential comes from
+//! `POPQUIZ_ORGANIZER_SESSION` in the environment and never from the command
+//! line, so it stays out of shell history and process listings. It is the
+//! organizer session a signed-in host page holds after Discord sign-in (T-10):
+//! sign in at `<url>/host?question=q3`, and it is everything after the `#` in
+//! the address the page lands on. It is one person's, it lasts 12 hours, and
+//! every room it creates passes Discord's live role check (SPEC §8) — smoke
+//! holds no shared secret that creates rooms. q3 must be scheduled first, over
+//! the pipeline channel (SPEC §8.3).
 //!
 //! Against `<url>` (https/wss through the Fly edge, or plain http/ws on
 //! loopback), in order:
 //!
 //! 1. the pages answer: `GET /join`, `GET /host`;
 //! 2. *Create a room* with no bearer and with a wrong one is `401` with no body
-//!    (AC-64, the stand-in half, on the deployed build); with the token it
-//!    creates a room on q3;
+//!    (AC-64, on the deployed build); with the organizer session it creates a
+//!    room on q3;
 //! 3. the join link is `<url>/<code>` and `GET /<code>` is `303 → /join?code=`
 //!    (AC-28); half the participants join with the code as given, half with
 //!    it typed lower-case with spaces;
@@ -41,7 +47,8 @@
 //! are T-21's harness against the deployed room.
 //!
 //! Exit: `0` every check passed; `1` a check failed; `2` it could not run
-//! (arguments, no token, the room unreachable, q3 already run on this machine).
+//! (arguments, no session, the room unreachable, q3 not scheduled or already
+//! run, the organizer refused by Discord).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -75,7 +82,7 @@ struct Args {
     participants: usize,
 }
 
-const USAGE: &str = "usage: smoke --url <http(s)://host[:port]> [--participants N]   (HOST_DEV_TOKEN in the environment)";
+const USAGE: &str = "usage: smoke --url <http(s)://host[:port]> [--participants N]   (POPQUIZ_ORGANIZER_SESSION in the environment)";
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
     let mut url = None;
@@ -643,7 +650,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     println!("· the pages");
     pages_answer(&ctx).await?;
 
-    println!("· Create a room: refused without the token, made with it (AC-64)");
+    println!("· Create a room: refused without a session, made with the organizer's (AC-64)");
     let mut host_http = ctx.http();
     let create = json!({ "question_id": "q3" });
     for (label, bearer) in [("no bearer", None), ("a wrong bearer", Some("not-the-host-token"))] {
@@ -655,10 +662,11 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     let created = r.json();
     match r.status {
         201 => {}
-        401 => return Err("create with HOST_DEV_TOKEN: 401 — the token is not the one the room was deployed with".into()),
+        401 => return Err("create with POPQUIZ_ORGANIZER_SESSION: 401 — the session is unknown or expired; sign in again at /host".into()),
+        403 => return Err(format!("create: 403 {} — Discord says this organizer may not host", created["reason"])),
         409 => {
             return Err(format!(
-                "create: 409 {} — q3 has already been run on this machine; restart it (fly apps restart) and run smoke again",
+                "create: 409 {} — schedule q3 over the pipeline channel first; if it has already been run on this machine, restart it (fly apps restart) and schedule it again",
                 created["reason"]
             ))
         }
@@ -885,8 +893,8 @@ async fn main() -> std::process::ExitCode {
             return std::process::ExitCode::from(2);
         }
     };
-    let Some(token) = std::env::var("HOST_DEV_TOKEN").ok().filter(|t| !t.is_empty()) else {
-        eprintln!("smoke: HOST_DEV_TOKEN must be set in the environment (never on the command line)");
+    let Some(token) = std::env::var("POPQUIZ_ORGANIZER_SESSION").ok().filter(|t| !t.is_empty()) else {
+        eprintln!("smoke: POPQUIZ_ORGANIZER_SESSION must be set in the environment (never on the command line): sign in at <url>/host?question=q3 and copy what follows the # in the address");
         return std::process::ExitCode::from(2);
     };
     match run(args, token).await {

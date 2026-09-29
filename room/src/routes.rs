@@ -2,7 +2,7 @@
 //!
 //! | Route | What |
 //! |---|---|
-//! | `POST /rooms` `{question_id}` | *Create a room*; `HostAuth::authorize_create` |
+//! | `POST /rooms` `{question_id}` | *Create a room*; `HostAuth::authorize_create` (Discord, T-10) |
 //! | `POST /rooms/{id}/<action>` | one per host action and `←`/`→`; the host session |
 //! | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; `authorize_create`, same organizer |
 //! | `GET /rooms/{id}/wall`, `/buzzer` | the public state query |
@@ -12,11 +12,14 @@
 //! Every phase change goes through `Room::act`, which goes through
 //! `phase::apply` (AC-45). A refusal is `409 {reason}`; a missing or wrong
 //! credential is `401` with no body, so it says nothing about what exists
-//! (AC-70); an unknown room is `404`.
+//! (AC-70); an unknown room is `404`. T-10: Discord's two denials are
+//! `403 {refusal, reason}` — `wrong_server` or `wrong_role`, nothing else
+//! (AC-70) — and Discord not answering is `503` with no body, a server error
+//! and never a denial.
 
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -65,6 +68,18 @@ fn failure(e: RoomError) -> Response {
             Json(serde_json::json!({ "refusal": why.refusal().slug(), "reason": why.host_reason() })),
         )
             .into_response(),
+        // T-10: Discord answered no, or did not answer.
+        RoomError::WrongServer => (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "refusal": "wrong_server", "reason": crate::copy::HOST_DENIED_WRONG_SERVER })),
+        )
+            .into_response(),
+        RoomError::WrongRole => (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "refusal": "wrong_role", "reason": crate::copy::HOST_DENIED_WRONG_ROLE })),
+        )
+            .into_response(),
+        RoomError::Unavailable => StatusCode::SERVICE_UNAVAILABLE.into_response(),
     }
 }
 
@@ -73,7 +88,7 @@ async fn create(
     headers: HeaderMap,
     Json(body): Json<QuestionBody>,
 ) -> Response {
-    match state.create_room(bearer(&headers), &body.question_id, state.now()) {
+    match state.create_room_checked(bearer(&headers), &body.question_id, state.now()).await {
         Ok(created) => (StatusCode::CREATED, Json(created)).into_response(),
         Err(e) => failure(e),
     }
@@ -85,7 +100,7 @@ async fn run_again(
     headers: HeaderMap,
     Json(body): Json<QuestionBody>,
 ) -> Response {
-    match state.run_again(&id, bearer(&headers), &body.question_id, state.now()) {
+    match state.run_again_checked(&id, bearer(&headers), &body.question_id, state.now()).await {
         Ok(created) => (StatusCode::CREATED, Json(created)).into_response(),
         Err(e) => failure(e),
     }
@@ -339,6 +354,104 @@ fn wall_pages(router: Router<Arc<AppState>>) -> Router<Arc<AppState>> {
 
 // end T-05 pages -----------------------------------------------------------
 
+// T-10 routes --------------------------------------------------------------
+//
+// | `GET /auth/discord?question=<id>` | `303` to Discord's consent screen, scopes `identify guilds.members.read`; sets the `pq_oauth` state cookie |
+// | `GET /auth/discord/callback?code&state` | `303 /host?question=<id>#<organizer session>`; a wrong, replayed or cookieless `state` is `400` with no body |
+//
+// The `state` is bound twice: a one-time record in the Discord backend and a
+// cookie in the browser that started the sign-in (`HttpOnly`, `SameSite=Lax`
+// so it survives the top-level redirect back from discord.com, scoped to
+// `/auth/discord`). Both must agree, and the record is spent either way. The
+// organizer session travels only in the landing URL's fragment, which no
+// request carries; Discord's tokens never leave `discord.rs`. A state without
+// the Discord backend (tests on `TestAuth`, `router()`) serves neither route.
+
+fn state_cookie(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get_all(header::COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .flat_map(|v| v.split(';'))
+        .find_map(|c| c.trim().strip_prefix(crate::discord::STATE_COOKIE)?.strip_prefix('='))
+}
+
+fn cookie_attributes(state: &AppState) -> &'static str {
+    if state.urls().base.starts_with("https://") {
+        "Path=/auth/discord; HttpOnly; SameSite=Lax; Secure"
+    } else {
+        "Path=/auth/discord; HttpOnly; SameSite=Lax"
+    }
+}
+
+fn see_other(location: &str, cookie: Option<String>) -> Response {
+    let mut r = (
+        StatusCode::SEE_OTHER,
+        [
+            (header::LOCATION, location.to_string()),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+            (header::REFERRER_POLICY, "no-referrer".to_string()),
+        ],
+    )
+        .into_response();
+    if let Some(c) = cookie.and_then(|c| axum::http::HeaderValue::from_str(&c).ok()) {
+        r.headers_mut().insert(header::SET_COOKIE, c);
+    }
+    r
+}
+
+async fn sign_in(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let Some(discord) = state.discord() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    match discord.begin(q.get("question").map(String::as_str).unwrap_or("")) {
+        Some((token, url)) => see_other(
+            &url,
+            Some(format!(
+                "{}={token}; Max-Age={}; {}",
+                crate::discord::STATE_COOKIE,
+                crate::discord::SIGN_IN_WINDOW.as_secs(),
+                cookie_attributes(&state)
+            )),
+        ),
+        None => StatusCode::BAD_REQUEST.into_response(),
+    }
+}
+
+async fn signed_in(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use crate::discord::Finish;
+    let Some(discord) = state.discord() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let get = |k: &str| q.get(k).map(String::as_str);
+    let finish = discord
+        .finish(get("state"), state_cookie(&headers), get("code"), get("error").is_some())
+        .await;
+    let spent = Some(format!("{}=; Max-Age=0; {}", crate::discord::STATE_COOKIE, cookie_attributes(&state)));
+    match finish {
+        Finish::Refused => StatusCode::BAD_REQUEST.into_response(),
+        Finish::Unavailable => StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        Finish::Declined { question } => see_other(&format!("/host?question={question}"), spent),
+        Finish::SignedIn { question, session } => see_other(&format!("/host?question={question}#{session}"), spent),
+    }
+}
+
+fn discord_routes(router: Router<Arc<AppState>>) -> Router<Arc<AppState>> {
+    router
+        .route("/auth/discord", get(sign_in))
+        // The literal is `discord::CALLBACK_PATH`; the redirect URI is built from
+        // that constant, and `tests/auth.rs` holds the two equal.
+        .route("/auth/discord/callback", get(signed_in))
+}
+
+// end T-10 routes -----------------------------------------------------------
 // T-25 routes --------------------------------------------------------------
 //
 // SPEC §8.3's pipeline channel. Every path under `/admin`, with any method,
@@ -465,6 +578,7 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             .route("/{code}", get(short_link));
     }
     // end T-06 pages -------------------------------------------------------
+    router = discord_routes(router); // T-10 routes
     // T-04c routes ----------------------------------------------------------
     // The three sockets, and the two layers the transport needs. KEEP THIS
     // BLOCK LAST: `layer` wraps only the routes registered above it, and the

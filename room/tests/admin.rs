@@ -432,7 +432,10 @@ fn with(pairs: Vec<(String, String)>) -> impl Fn(&str) -> Option<String> {
 fn stand_in() -> Vec<(String, String)> {
     // A dev-host-token build needs its own token first; the name is
     // assembled, as in smoke_config.rs.
-    vec![(["HOST", "DEV", "TOKEN"].join("_"), "a-test-value".into())]
+    let mut env = vec![(["HOST", "DEV", "TOKEN"].join("_"), "a-test-value".into())];
+    // T-10: every build needs the four Discord variables too (ids are digits).
+    env.extend(room::config::DISCORD_VARS.iter().map(|v| (v.to_string(), if v.ends_with("SECRET") { "a-test-value".into() } else { "1234".into() })));
+    env
 }
 
 #[test]

@@ -2,29 +2,64 @@
 //!
 //! One trait answers the only two questions the room asks: *may this bearer
 //! create a room?* and *may this bearer act as host of this room?* The first
-//! is the credential path — the M1 stand-in (§8.2, T-09) and then Discord's
-//! role-ID check (T-10) implement it. The second, by default, is the room's own
-//! host session, which never rotates (AC-50) and is compared in constant time.
+//! is the credential path: Discord's role-ID check (T-10, [`crate::discord`])
+//! implements it, and nothing else in the crate does. The second, by default,
+//! is the room's own host session, which never rotates (AC-50) and is compared
+//! in constant time. Discord is asked at creation and never again (AC-69).
 //!
-//! A default build ships no implementation that accepts anything: [`DenyAll`]
-//! is what `router()` and the binary use, so it can create no room. The one
-//! that accepts a credential before T-10 is SPEC §8.2's stand-in,
-//! `crate::standin`, which exists only with the `dev-host-token` feature
-//! (T-09). The test implementation lives in `tests/common`.
+//! The create check is asynchronous because Discord is a network call. A
+//! backend that decides without one (the tests' `TestAuth`, [`DenyAll`])
+//! answers with [`decided`].
+//!
+//! [`DenyAll`] is what [`crate::router`] runs with, so it can create no room.
+//! The binary serves the Discord backend ([`crate::serving_state`]). The test
+//! implementation lives in `tests/common`. SPEC §8.2's M1 stand-in was a third
+//! backend here until T-10 deleted it.
+
+use std::future::Future;
+use std::pin::Pin;
 
 use crate::rooms::Room;
 
-/// Who created a room. Only that organizer controls it (AC-68).
+/// Who created a room. Only that organizer controls it (AC-68). For the
+/// Discord backend, the organizer's Discord user id.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OrganizerId(pub String);
 
-/// A refusal. It carries nothing, so it can say nothing about why (AC-70).
+/// A host-session refusal. It carries nothing, so it can say nothing (AC-70).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Denied;
 
+/// Why *Create a room* was refused. Only the two denials Discord answered
+/// with name a condition, and neither says whether the person is in the guild
+/// (AC-70): a non-member and a member of another guild both get
+/// [`CreateRefusal::WrongServer`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CreateRefusal {
+    /// No organizer session, an unknown or expired one, or one whose Discord
+    /// grant was withdrawn. `401` with no body; the host page offers sign-in.
+    Denied,
+    /// Discord says this account is not a member of the configured guild.
+    WrongServer,
+    /// A member of the guild whose `roles` lacks the configured role ID.
+    WrongRole,
+    /// Discord did not give a verdict within the retry budget. The plain server
+    /// error — an outage is never reported as a denial.
+    Unavailable,
+}
+
+/// The create check's answer, when it comes.
+pub type CreateCheck<'a> = Pin<Box<dyn Future<Output = Result<OrganizerId, CreateRefusal>> + Send + 'a>>;
+
+/// An answer that needs no I/O, as a [`CreateCheck`].
+pub fn decided(answer: Result<OrganizerId, CreateRefusal>) -> CreateCheck<'static> {
+    Box::pin(std::future::ready(answer))
+}
+
 pub trait HostAuth: Send + Sync + 'static {
-    /// *Create a room* (and *Run it again*, which creates one).
-    fn authorize_create(&self, bearer: Option<&str>) -> Result<OrganizerId, Denied>;
+    /// *Create a room* (and *Run it again*, which creates one). The one create
+    /// check (G-9).
+    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>) -> CreateCheck<'a>;
 
     /// Every other host command, and the host's view of the room.
     fn authorize_host(&self, room: &Room, bearer: Option<&str>) -> Result<(), Denied> {
@@ -35,12 +70,11 @@ pub trait HostAuth: Send + Sync + 'static {
     }
 }
 
-/// Authorizes nothing. What the room runs with until T-09 or T-10 plugs in a
-/// real check.
+/// Authorizes nothing. What [`crate::router`] runs with.
 pub struct DenyAll;
 
 impl HostAuth for DenyAll {
-    fn authorize_create(&self, _bearer: Option<&str>) -> Result<OrganizerId, Denied> {
-        Err(Denied)
+    fn authorize_create<'a>(&'a self, _bearer: Option<&'a str>) -> CreateCheck<'a> {
+        decided(Err(CreateRefusal::Denied))
     }
 }

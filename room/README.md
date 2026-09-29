@@ -15,22 +15,27 @@ From the repository root:
 Or directly:
 
     cd room && cargo test
-    cd room && cargo run     # serves on 127.0.0.1:3000; creates no room (DenyAll)
 
-**A room you can drive, at a desk (the §8.2 stand-in).** This is how HC-0 runs
-locally. Any value will do for the token; it is the host's credential for this
-run only:
+**A room you can drive, at a desk (T-10).** Hosting is by Discord role (SPEC
+§8), so the room needs the Discord application's four values. They are the
+client's (H-3) and live only in your shell or in Fly's secrets — never in the
+repository, a file, or a command anyone keeps:
 
-    cd room && HOST_DEV_TOKEN=<any value> cargo run --bin room --features dev-host-token
+    cd room && DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=… \
+        POPQUIZ_PUBLIC_URL=http://localhost:3000 cargo run --bin room
 
 (`--bin room`: the crate has four binaries, and `cargo run` will not pick one.)
-Then open `http://127.0.0.1:3000/host?question=q3#<that value>` and press
-*Create a room*. The host phone moves to `/host/{room_id}` and shows the
-wordmark, the room code, one primary action and the count; it does not show the
-wall's address. Open the wall at `/wall/{room_id}`, the same id as the host
-page's path. Phones (or other tabs) join at `/join`, or through the short
-link `/{code}`. The binary refuses to start in this build if `HOST_DEV_TOKEN` is
-unset or empty.
+The Discord application must list `http://localhost:3000/auth/discord/callback`
+as a redirect (Developer Portal → OAuth2 → Redirects; the port is the room's).
+Schedule a question over the pipeline channel (SPEC §8.3), then open
+`http://localhost:3000/host?question=<id>` and press *Sign in with Discord*.
+Discord asks once for `identify` and `guilds.members.read`, and sends you back
+to the host page signed in; press *Create a room*. The room asks Discord then,
+and only then, whether your account holds the role. The host phone moves to
+`/host/{room_id}` and shows the wordmark, the room code, one primary action and
+the count. Open the wall at `/wall/{room_id}`, the same id as the host page's
+path. Phones (or other tabs) join at `/join`, or through the short link
+`/{code}`. The binary refuses to start if any of the four is unset or empty.
 
 The binary's environment (`src/config.rs`):
 
@@ -38,7 +43,13 @@ The binary's environment (`src/config.rs`):
 |---|---|---|
 | `PORT` | bind `127.0.0.1:3000` | bind `0.0.0.0:<PORT>` (Fly) |
 | `POPQUIZ_PUBLIC_URL` | `http://127.0.0.1:<port>` | the base of every join link and resume link, e.g. `https://rustnyc-popquiz.fly.dev` |
-| `HOST_DEV_TOKEN` | a startup error in a `dev-host-token` build; never read otherwise | the §8.2 stand-in's one shared secret |
+| `DISCORD_CLIENT_ID` | a startup error | the Discord application's id (digits) |
+| `DISCORD_CLIENT_SECRET` | a startup error | the application's OAuth2 secret; never printed, logged or sent anywhere but Discord's token endpoint |
+| `DISCORD_GUILD_ID` | a startup error | the Rust NYC server's id (digits) |
+| `DISCORD_ROLE_ID` | a startup error | the id of the role that may host (digits) — an id, never a name (AC-65) |
+
+The OAuth redirect URI is not a variable: it is `POPQUIZ_PUBLIC_URL` +
+`/auth/discord/callback`, and the Discord application must register exactly it.
 
 The released wall's take-it-home link is SPEC §13's `https://popquiz.rustnyc.org/last`
 in every configuration, the same one the static fallback uses.
@@ -58,47 +69,83 @@ ones named in `BUILDPLAN.md` section 2:
 | `sessions` | Participant sessions and the answer store: join, capacity, the upsert, `leave` | T-04b |
 | `view` | The public state query: wall, buzzer and host payloads | T-04a (data), T-05/06/07 (pages) |
 | `copy` | SPEC §11's strings, mirrored from `web/shared/copy.js` | T-04a, T-22 (lint) |
-| `auth` | The `HostAuth` seam: may this bearer create a room, may it host this one | T-04a (seam), T-09 (stand-in), T-10 (Discord) |
+| `auth` | The `HostAuth` seam: may this bearer create a room (the one create check, G-9), may it host this one | T-04a (seam), T-10 (async, the refusals) |
+| `discord` | Discord sign-in, the organizer records (§3.5), the role-ID check at creation, token rotation, bounded retries | T-10 |
 | `ws` | One broadcast per room: wall, buzzers, host | T-04c |
 | `config` | What the binary reads from its environment | T-09 |
-| `standin` | SPEC §8.2's `HOST_DEV_TOKEN` stand-in and the HC-0 seed; only with `--features dev-host-token` | T-09 (T-10 deletes it) |
 | `lifecycle` | How long a room lives: the `Clock` seam, the four-hour bound, *closed for inactivity*, the sweep's reaper | T-11 |
 | `used` | What outlives a room: the used-question ledger (written at release only) and the take-it-home snapshot | T-11 |
 | `admin` | SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`, `GET /admin/used`, one constant-time bearer check | T-25 |
 
-A default build schedules no question and authorizes nobody (`DenyAll`), so it
-can create no room. A `dev-host-token` build (the one deployed for HC-0)
-authorizes *Create a room* and *Run it again* with the `HOST_DEV_TOKEN` bearer
-and nothing else, and starts with q3 scheduled (`lib.rs::serving_state`). That
-seed is the stand-in's only: T-10 deletes it with the stand-in. In production,
-questions arrive over the pipeline channel's `PUT /admin/questions/{id}`
-(T-25, *Pipeline channel* below). Handing questions to `AppState::new` is the
-tests' fixtures and the HC-0 seed, nothing else.
+`router()` authorizes nobody (`DenyAll`), so it can create no room. The binary
+serves `lib.rs::serving_state`: *Create a room* and *Run it again* authorized by
+Discord, and nothing scheduled — questions arrive over `PUT
+/admin/questions/{id}` (T-25). Handing questions to
+`AppState::new` is the tests' fixtures, nothing else (*Pipeline channel* below).
 
-**The stand-in's proof (AC-64, `tests/standin.rs`).** In every build, a scan of
-`src/` (less `src/bin/`, whose client tools sit behind their own features) holds
-`standin.rs` to a whole-file `#![cfg(feature = "dev-host-token")]`. It names the
-variable nowhere else, and it requires that feature gate directly above every
-other line naming the stand-in. In `just test`'s default build, the binary's
-own state, configured with the token *set*, refuses *Create a room* for any
-bearer, the token included (`401`, no body). With the feature (CI's feature
-step), a missing or empty token is a startup error; a wrong or missing bearer is
-`401` with no body; the right one creates a room on q3; the token is not a host
-session; and *Run it again* takes the same check. The comparison is
-`subtle`'s constant-time `ct_eq`, and the type has no `Debug` or `Display`.
+**Hosting (T-10, SPEC §8).** Sign-in is Discord OAuth2 with the scopes
+`identify guilds.members.read`. The callback stores the organizer record —
+`discord_user_id`, `access_token`, `refresh_token`, `token_expires_at`, nothing
+else (§3.5) — and hands the browser an opaque **organizer session** in the host
+page's URL fragment. Discord's tokens never leave `discord.rs`. On *Create a
+room* (and *Run it again*) the room refreshes the access token if it is due,
+then asks `GET /users/@me/guilds/{guild}/member` with the organizer's bearer.
+The organizer hosts iff `roles` contains `DISCORD_ROLE_ID`, compared as a
+string. The member record is deserialized into `roles` alone, so `permissions`,
+role names and ownership cannot grant anything (AC-65). A `404` is *wrong
+server* — a non-member and a member of another guild hear the same thing — and
+a member without the role is *wrong role* (AC-70): `403 {refusal, reason}`.
+Discord not answering is `503` with no body, a server error and never a denial.
+Nothing asks Discord after creation: host commands use the room's own host
+session, so an open room runs to release with Discord down, bounded at 4 h
+(AC-69).
+
+- **Rotation (AC-66).** Every refresh writes the rotated pair into the record in
+  the same step that drops the spent one. Refreshes are serialized per organizer,
+  and one that finds the record already rotated does not refresh again, so two
+  creates at once never replay a spent token. If Discord refuses the refresh
+  token anyway (`invalid_grant`), the organizer is signed out — the page offers
+  *Sign in* again — and their open rooms carry on. The check runs as its own
+  task, so a request dropped mid-refresh cannot lose a rotated token.
+- **Retries (§8).** Per Discord call: at most 3 tries, each bounded at 3 s, with
+  250 ms doubling backoff or Discord's `Retry-After`; the whole check is bounded
+  at 8 s. Only no answer, `429` and `5xx` are retried — a denial is an answer,
+  and Discord's 10,000-invalid-requests ban is IP-wide. A `Retry-After` longer
+  than the time left ends the check instead of waiting it out.
+- **State.** The sign-in's `state` is bound twice: a one-time record in the
+  backend (10 minutes) and an `HttpOnly; SameSite=Lax` cookie scoped to
+  `/auth/discord`. A wrong, replayed, expired or cookieless state is `400` with
+  no body, and Discord is never asked.
+- **Where the records live.** In memory, in the Discord backend the `AppState`
+  owns beside the rooms (§9). Sessions last 12 hours. A restart forgets every
+  organizer, as it forgets every room.
+- **Logs.** One line per Discord call — which call, its status, the try — and
+  never a token, code, state, header or body.
+
+The proof is `tests/auth.rs`, against an in-process Discord
+(`tests/common/discord_mock.rs`); its module doc maps each test to AC-64…AC-70.
+It includes a structural scan: `src/`, `Cargo.toml`, `Dockerfile` and
+`.github/workflows/` name none of the stand-in's identifiers.
+
+*History:* until T-10, SPEC §8.2's M1 stand-in — one shared secret behind a
+Cargo feature, and q3 seeded with it — authorized *Create a room* for HC-0.
+T-10 deleted it whole.
 
 ### Routes
 
 | Route | What | Credential |
 |---|---|---|
-| `POST /rooms` `{question_id}` | *Create a room* | `HostAuth::authorize_create` |
+| `POST /rooms` `{question_id}` | *Create a room* | the organizer session → `HostAuth::authorize_create` (Discord) |
 | `POST /rooms/{id}/put-on-screen`, `close-answers`, `show-split`, `walk-it`, `reveal`, `release`, `step-back`, `step-forward` | one per host action, plus `←`/`→` | the room's host session |
 | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; this one stays released | `authorize_create`, same organizer |
 | `GET /rooms/{id}/wall`, `/buzzer` | the public state query | none |
 | `GET /rooms/{id}/host` | the host's projection | the room's host session |
+| `GET /auth/discord?question=<id>` | T-10: `303` to Discord's consent screen; sets the state cookie | none |
+| `GET /auth/discord/callback?code&state` | T-10: `303 /host?question=<id>#<organizer session>`; a bad `state` is `400`, no body | the state cookie |
 
 A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
-is `401` with no body; an unknown room is `404`. A host command on a room that
+is `401` with no body; an unknown room is `404`. *Create a room* adds `403
+{"refusal": "wrong_server" | "wrong_role", "reason": …}` and `503` (T-10). A host command on a room that
 has ended but has not been swept yet is `409 {"refusal": "already_ended" |
 "closed_for_inactivity", "reason": …}` (T-11). Once it is swept, it is `404`.
 
@@ -239,7 +286,7 @@ expires or goes quiet before release records nothing.
 |---|---|---|
 | `AppState::used().all() -> Vec<UsedEntry>` | T-25's `GET /admin/used`, T-20's `popquiz sync` | `[{question_id, used: {meetup_date, room_id, released_at, fit}}]`. `used` is `bank.py`'s `Used` field for field (`tests/used.rs` parses the class). `meetup_date` is `created_at`'s date in `used::MEETUP_ZONE` (America/New_York). `released_at` is RFC 3339 UTC. `fit` is the wall's last verdict, or `null` if it never reported one. |
 | `AppState::take_home() -> Option<TakeHome>` | T-12's `/last` | `tests/fixtures/take_home.shape.json`. Source, colour, options with the one ✓, the whole trace, *what* and *takeaway*, the receipt. No count, no most-chosen option (D-12). Rebuilt at every release; `None` before the first. Not yet: every incorrect option's `why_tempting` and the verified record's detail rows, which the sealed module does not lend. The additive witnessed read in `answers.rs` (after reveal only) is T-12's, PQ-15. |
-| `AppState::with_clock`, `AppState::sweep` | T-10's `test-full` AC-69 row | `tests/lifecycle.rs::test_full_ac69_open_room_runs_to_release_with_auth_down` is `#[ignore]`d with its shape. |
+| `AppState::with_clock`, `AppState::sweep` | T-10's `test-full` AC-69 row | `tests/lifecycle.rs::test_full_ac69_open_room_runs_to_release_with_auth_down`, on the Discord mock: `#[ignore]`d, run by `test-full`. |
 
 ## The phase machine
 
@@ -757,10 +804,9 @@ each attach frame carries only that session's own saved letter.
 
 The room runs on Fly.io as the app **`rustnyc-popquiz`**, at
 `https://rustnyc-popquiz.fly.dev` (BUILDPLAN D-A). The image is the repo root's
-`Dockerfile`: a release build with `--features dev-host-token` on a
-`debian:bookworm-slim` runtime. The config is the root's `fly.toml`, written by
-hand. `.dockerignore` is an allowlist: the crate, `web/`, and
-`bank/questions/q3.json`.
+`Dockerfile`: a release build on a `debian:bookworm-slim` runtime. The config
+is the root's `fly.toml`, written by hand. `.dockerignore` is an allowlist: the
+crate and `web/`.
 
 **One machine, never two.** The room is one state in memory (SPEC §9). A second
 machine would be a second room that phones could land in. `fly deploy` adds a
@@ -771,20 +817,26 @@ strips its comments.
     fly apps create rustnyc-popquiz                      # once
     fly deploy --ha=false --remote-only                  # from the repo root
 
-**The stand-in's secret.** `HOST_DEV_TOKEN` is a Fly secret. It is never in the
-repository, in `fly.toml`, or on a command line anyone keeps. It is generated
-straight into `fly secrets set` in the same command that prints the host URL
-once, and the client keeps that URL (EVALUATION, the M1 host token row):
+**Discord (T-10).** The four values are Fly secrets, set by the client (H-3).
+They are never in the repository, in `fly.toml`, or on a command line anyone
+keeps; `fly secrets set` reads them from your shell:
 
-    https://rustnyc-popquiz.fly.dev/host?question=q3#<HOST_DEV_TOKEN>
+    fly secrets set -a rustnyc-popquiz DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=…
 
-Rotating it is the same command again, and the old URL stops working. A deploy
-without the secret does not start: the binary refuses, by design.
+The Discord application must list the deployed redirect, exactly:
+
+    https://rustnyc-popquiz.fly.dev/auth/discord/callback
+
+(and `https://popquiz.rustnyc.org/auth/discord/callback` once DNS points there).
+A deploy without the four does not start: the binary refuses, by design. The
+host URL is `https://rustnyc-popquiz.fly.dev/host?question=<id>`; it holds no
+secret, and every organizer signs in with their own Discord account.
 
 **The pipeline's secret.** `POPQUIZ_ADMIN_TOKEN` is the other Fly secret, and
 every build needs it (*Pipeline channel*, H-11). Set it before deploying.
 
-**Smoke uses up q3.** `just smoke <url>` runs a whole segment, and release writes
+**Smoke uses up q3.** `just smoke <url>` runs a whole segment on q3, which must
+be scheduled first (SPEC §8.3), and release writes
 q3's `used` record into the machine's in-memory ledger (G-10, T-11). That
 machine then refuses to create a room on q3 until it restarts. After every
 smoke run against the deployed room, run `fly apps restart rustnyc-popquiz`
@@ -807,9 +859,13 @@ code works around this.
 Nothing else changes.
 
 **Smoke.** `just smoke <url> [--participants N]` (`src/bin/smoke.rs`, behind the
-`smoke` feature) reads `HOST_DEV_TOKEN` from the environment. It checks that
-*Create a room* is `401` with no body for no bearer and for a wrong one, then
-creates the room with the token. It checks that the join link is
+`smoke` feature) reads `POPQUIZ_ORGANIZER_SESSION` from the environment: the
+organizer session a signed-in host page holds — sign in at
+`<url>/host?question=q3`, and it is what follows the `#` in the address the
+page lands on. It lasts 12 hours and is one person's; every room it creates
+passes Discord's live check. It checks that *Create a room* is `401` with no
+body for no bearer and for a wrong one, then creates the room with the
+session. It checks that the join link is
 `<url>/<code>` and that `GET /<code>` is `303 → /join?code=` (AC-28). Half the
 participants join with the code as the link carries it, and half with it typed
 lower-case with spaces. Then it drives all seven phases through the host routes

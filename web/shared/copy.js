@@ -136,6 +136,14 @@
     host_action_release: "End Pop Quiz",
     host_action_run_again: "Run it again",
 
+    /* --- Host, sign-in and denials (T-10, AC-70) ------------------------ */
+    /* SPEC §11 has no row for these yet (F-33, routed upstream); the wording
+       is the client's. The denials name the condition that failed and never
+       use the Forbidden row's word for it. */
+    host_action_sign_in: "Sign in with Discord",
+    host_denied_wrong_server: "That Discord account isn't in the Rust NYC server.",
+    host_denied_wrong_role: "That Discord account doesn't have the organizer role.",
+
     /* --- Wall + host, reveal, no incorrect votes ------------------------ */
     wall_reveal_nobody_else: "Nobody read it another way.",
     host_reveal_nobody_else: "Why nobody said anything else",
@@ -239,6 +247,8 @@
     "Host, actions": ["host_action_create", "host_action_put_on_screen", "host_action_close",
                        "host_action_show_split", "host_action_walk", "host_action_reveal",
                        "host_action_release", "host_action_run_again"],
+    "Host, sign-in and denials (T-10, F-33)": ["host_action_sign_in", "host_denied_wrong_server",
+                       "host_denied_wrong_role"],
     "Wall + host, reveal, no incorrect votes": ["wall_reveal_nobody_else", "host_reveal_nobody_else"],
     "Host, reveal": ["host_reveal_read_aloud", "host_reveal_beat_what", "host_reveal_beat_why",
                        "host_reveal_beat_remember"],
