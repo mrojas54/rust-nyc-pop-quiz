@@ -60,3 +60,9 @@ Base: origin/main @ f8f9caf (PQ-14 and PQ-37 merged). Branch ai-c11-cc/take-it-h
 7. **`Urls.home`** — `config.rs` sets `https://popquiz.rustnyc.org/last` (§13's host); `/last` on the room is what that host must reach once DNS points at it. `Urls::default()` (tests, local dev) is `http://127.0.0.1:3000/home`, which does not match `/last`; the one-line fix is in `rooms.rs`, which this ticket may not touch — reported, not changed.
 
 ## Reset 2026-09-28 by agent:delegator-pq15
+
+## Reset 2026-09-29 by agent:delegator-pq15
+
+## Reset 2026-09-29 by agent:delegator-pq15
+
+## Reset 2026-09-29 by agent:delegator-pq15
