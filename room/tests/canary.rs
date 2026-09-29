@@ -248,6 +248,8 @@ fn the_rules_catch_a_planted_leak() {
         (Surface::Wall, Phase::Work, json!({"phase": "work", "colour": true})),
         (Surface::Buzzer, Phase::Reveal, json!({"phase": "reveal", "x": p.notes[0]})),
         (Surface::Page, Phase::Idle, json!({"x": p.what})),
+        // T-12: the no-release /last carrying a beat before the release.
+        (Surface::TakeHome, Phase::Work, json!({"x": p.what})),
         (Surface::Wall, Phase::Released, json!({"phase": "released", "x": p.source})),
         (Surface::Wall, Phase::Closed, json!({"phase": "closed", "values": [{"name": "stdout", "now": "-"}]})),
         // PQ-37, the mutation check: the phone's split planted in `live` (the
