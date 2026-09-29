@@ -535,6 +535,12 @@ pub enum Surface {
     /// T-12: `GET /last`, the last **released** question (SPEC §13). Nothing
     /// of the canary question before its own release; all of it after.
     TakeHome,
+    /// T-12: `GET /last` while it still holds an *earlier* room's release —
+    /// the second room of `canary_full`, whose question shares every plant
+    /// with the first. A plant scan cannot tell that page from a leak, so the
+    /// walk holds it to more: byte-identical to what it served before this
+    /// room could release (`Walk::stop`). Only the admin-token rule applies.
+    TakeHomeEarlier,
 }
 
 impl Surface {
@@ -595,6 +601,9 @@ pub fn check(seen: &mut Seen, surface: Surface, phase: Phase, text: &str, json: 
     // question's release it is the no-release page or an earlier, different
     // question, so it carries no plant; from `released` on it is this one, and
     // carries it — answer, beats, every why_tempting, the receipt — by design.
+    if surface == Surface::TakeHomeEarlier {
+        return;
+    }
     if surface == Surface::TakeHome {
         if phase != Phase::Released {
             for (name, plant) in p.all() {
@@ -961,6 +970,18 @@ pub struct Walk<'s> {
     /// carry in `work` (where the wall shows the trace) and the wall shows
     /// again at `reveal`.
     pub split_bars: Option<Value>,
+    /// T-12: `/last` as it was at this walk's first stop, before this room
+    /// could release. Only a release rebuilds it (§13).
+    pub last_before: Option<String>,
+}
+
+/// The `question_id` in `/last`'s snapshot slot; `None` for the no-release page.
+fn last_question(page: &str) -> Option<String> {
+    let open = "<script type=\"application/json\" id=\"take-home\">";
+    let start = page.find(open).expect("/last has its snapshot slot") + open.len();
+    let end = start + page[start..].find("</script>").expect("the slot closes");
+    let v: Value = serde_json::from_str(&page[start..end]).expect("the slot is JSON");
+    v.get("question_id").and_then(Value::as_str).map(str::to_string)
 }
 
 fn js(v: &Value) -> String {
@@ -997,6 +1018,7 @@ impl<'s> Walk<'s> {
             fonts: Vec::new(),
             stops: 0,
             split_bars: None,
+            last_before: None,
         };
         walk.probe = walk.join("the probe session").await;
         let mut tokens: Vec<String> = Vec::new();
@@ -1168,7 +1190,23 @@ impl<'s> Walk<'s> {
         // T-12: /last is the one page whose bytes change — at a release.
         let last = self.server.get("/last").await;
         assert_eq!(last.status, 200, "{}", at("/last"));
-        check(&mut self.seen, Surface::TakeHome, phase, &last.everything(), None, &at("/last"));
+        let body = last.text();
+        let before = self.last_before.get_or_insert_with(|| body.clone()).clone();
+        if phase == Phase::Released {
+            // This room's release rebuilt it, as a question it did not hold before.
+            assert_ne!(last_question(&body), None, "{}", at("/last after release"));
+            assert_ne!(last_question(&body), last_question(&before), "{}", at("/last was not rebuilt at release"));
+        } else {
+            assert_eq!(body, before, "{}", at("/last changed before this room's release"));
+        }
+        // Before release: the no-release page carries no plant (TakeHome);
+        // an earlier room's release is held unchanged by the line above.
+        let surface = if phase != Phase::Released && last_question(&before).is_some() {
+            Surface::TakeHomeEarlier
+        } else {
+            Surface::TakeHome
+        };
+        check(&mut self.seen, surface, phase, &last.everything(), None, &at("/last"));
         let short = self.server.get(&format!("/{}", self.code)).await;
         assert!((300..400).contains(&short.status), "{}", at("the short link redirects"));
         check(&mut self.seen, Surface::Page, phase, &short.everything(), None, &at("GET /{code}"));
