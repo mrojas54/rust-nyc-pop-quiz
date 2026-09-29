@@ -27,6 +27,8 @@ fn config(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
     let token_var = ["HOST", "DEV", "TOKEN"].join("_");
     let mut all: Vec<(String, String)> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
     all.push((token_var, "a-test-value".into()));
+    // Every build needs the admin token too (T-25).
+    all.push((room::admin::VAR.to_string(), "a-test-value".into()));
     Config::from_vars(move |name| all.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
 }
 

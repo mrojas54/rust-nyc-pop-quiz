@@ -576,11 +576,20 @@ impl From<Refused> for RoomError {
     }
 }
 
+/// What [`AppState::schedule`] did (T-25).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scheduling {
+    /// The id was not scheduled before.
+    New,
+    /// It was, and no room held it; the new record replaced it.
+    Replaced,
+}
+
 /// Every room on this machine, the questions scheduled into it, and the seams.
 ///
-/// Before T-25's admin channel exists, questions are handed in at
-/// construction: tests seed fixtures, `main` seeds none (so creation is
-/// refused), and T-09 wires the HC-0 mock question.
+/// Questions arrive over T-25's admin channel ([`AppState::schedule`]). The
+/// other way in, handing them to [`AppState::new`], is the tests' fixtures
+/// and the `dev-host-token` stand-in's HC-0 seed only.
 pub struct AppState {
     rooms: Mutex<HashMap<String, Entry>>,
     questions: Mutex<HashMap<String, Arc<Scheduled>>>,
@@ -741,6 +750,34 @@ impl AppState {
             }
         }
         gone.into_iter().map(|(id, _)| id).collect()
+    }
+
+    /// T-25: schedule a question — `PUT /admin/questions/{id}` (SPEC §8.3).
+    ///
+    /// Refused if the question has been run (G-10, never twice) or if a room
+    /// record holds it: a room keeps the question it was created with until
+    /// release or expiry deletes it (§4.6), and the used ledger is keyed by
+    /// id, so replacing it under a room would let the night's `used` record
+    /// name content that did not run. Otherwise the question is added, or
+    /// replaces the unheld one with its id (the organizer's re-push after an
+    /// edit). Locks `questions` then `rooms`; nothing takes them the other way.
+    pub fn schedule(&self, question: Scheduled) -> Result<Scheduling, RoomError> {
+        let id = question.public().id().to_string();
+        let mut questions = lock(&self.questions);
+        let rooms = lock(&self.rooms);
+        if self.used.contains(&id) {
+            return Err(RoomError::Refused(format!("{id} has already been run; a question is never run twice.")));
+        }
+        if rooms.values().any(|e| e.room.question_id() == id) {
+            return Err(RoomError::Refused(format!(
+                "A room is running {id}; it can be replaced once that room is gone."
+            )));
+        }
+        drop(rooms);
+        Ok(match questions.insert(id, Arc::new(question)) {
+            None => Scheduling::New,
+            Some(_) => Scheduling::Replaced,
+        })
     }
 
     /// *Create a room*: authorized by the one create check (G-9, §8).
