@@ -29,6 +29,8 @@ fn config(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
     all.push((token_var, "a-test-value".into()));
     // T-10: every build needs the four Discord variables too (ids are digits).
     all.extend(room::config::DISCORD_VARS.iter().map(|v| (v.to_string(), if v.ends_with("SECRET") { "a-test-value".into() } else { "1234".into() })));
+    // Every build needs the admin token too (T-25).
+    all.push((room::admin::VAR.to_string(), "a-test-value".into()));
     Config::from_vars(move |name| all.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
 }
 

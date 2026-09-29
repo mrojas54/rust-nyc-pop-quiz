@@ -24,6 +24,8 @@
 //!   §4.6's bounds, the sweep's reaper (T-11).
 //! - [`used`] — what outlives a room: the used-question ledger, written only
 //!   at release (G-10), and the take-it-home snapshot (T-11).
+//! - [`admin`] — SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`
+//!   and `GET /admin/used` behind one constant-time bearer check (T-25).
 //!
 //! SPEC §8.2's M1 stand-in (a shared-secret create check behind a Cargo
 //! feature, and the HC-0 question seeded with it) was deleted by T-10;
@@ -38,6 +40,7 @@ use std::sync::Arc;
 
 use axum::Router;
 
+pub mod admin;
 pub mod answers;
 pub mod auth;
 pub mod config;
@@ -63,6 +66,13 @@ pub fn serving_state(config: config::Config) -> rooms::AppState {
     rooms::AppState::new(discord.clone(), Vec::new(), config.urls).with_discord(discord)
 }
 
+/// What the binary serves: [`serving_state`] behind the room's routes, and
+/// the admin channel opened by the configured token (SPEC §8.3).
+pub fn serving_router(mut config: config::Config) -> Router {
+    let token = std::mem::replace(&mut config.admin_token, admin::AdminToken::unguessable());
+    router_with_admin(Arc::new(serving_state(config)), token)
+}
+
 /// The room's HTTP surface over a default build's state, with the sockets
 /// wired to the real session map: nothing scheduled and nothing authorized
 /// ([`auth::DenyAll`]), so no room can be created. The binary serves
@@ -76,8 +86,14 @@ pub fn router() -> Router {
 }
 
 /// The room's HTTP surface over a given state, its sockets resolving buzzer
-/// tokens against that state's sessions (PQ-32). Tests drive this in-process;
-/// T-25 adds its two admin routes and T-09 whatever deploy needs.
+/// tokens against that state's sessions (PQ-32). Tests drive this in-process.
+/// The admin routes are served, behind a token nobody holds
+/// ([`admin::AdminToken::unguessable`]): same check, opens to no one.
 pub fn router_with(state: Arc<rooms::AppState>) -> Router {
-    routes::routes(state)
+    router_with_admin(state, admin::AdminToken::unguessable())
+}
+
+/// [`router_with`], with the admin channel opened by `token` (T-25).
+pub fn router_with_admin(state: Arc<rooms::AppState>, token: admin::AdminToken) -> Router {
+    routes::routes(state.clone()).merge(routes::admin_routes(state, token))
 }

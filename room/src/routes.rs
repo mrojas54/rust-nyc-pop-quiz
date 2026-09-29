@@ -7,6 +7,7 @@
 //! | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; `authorize_create`, same organizer |
 //! | `GET /rooms/{id}/wall`, `/buzzer` | the public state query |
 //! | `GET /rooms/{id}/host` | the host's projection; the host session |
+//! | `ANY /admin`, `/admin/{*rest}` | SPEC §8.3's pipeline channel: [`admin_routes`], the admin check alone |
 //!
 //! Every phase change goes through `Room::act`, which goes through
 //! `phase::apply` (AC-45). A refusal is `409 {reason}`; a missing or wrong
@@ -451,6 +452,23 @@ fn discord_routes(router: Router<Arc<AppState>>) -> Router<Arc<AppState>> {
 }
 
 // end T-10 routes -----------------------------------------------------------
+// T-25 routes --------------------------------------------------------------
+//
+// SPEC §8.3's pipeline channel. Every path under `/admin`, with any method,
+// goes to one handler, `admin::serve`, whose first act is the token check; it
+// dispatches `PUT /admin/questions/{id}` and `GET /admin/used` only after it.
+// Its own router, with its own state (`admin::Admin`), merged in `lib.rs`
+// after the T-04c layers: the admin routes move no room, so nothing needs
+// telling, and no room handler's `AppState` can reach the token. Nothing
+// else in this file serves a path under `/admin`.
+pub(crate) fn admin_routes(state: Arc<AppState>, token: crate::admin::AdminToken) -> Router {
+    Router::new()
+        .route("/admin", axum::routing::any(crate::admin::serve))
+        .route("/admin/", axum::routing::any(crate::admin::serve))
+        .route("/admin/{*rest}", axum::routing::any(crate::admin::serve))
+        .with_state(Arc::new(crate::admin::Admin::new(token, state)))
+}
+// end T-25 routes ----------------------------------------------------------
 
 pub(crate) fn routes(state: Arc<AppState>) -> Router {
     let mut router = Router::new().route("/rooms", post(create));

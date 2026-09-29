@@ -377,3 +377,113 @@ async fn the_receipt_plant_stays_sealed_until_reveal_does_not_compile() {
     assert_eq!(lines, &json!(["✓ Compiler refused it", format!("✓ Error {}", p.error_code), "✓ Nothing ran"]));
     assert!(e.seen.has(Surface::RenderedWall, Phase::Reveal, &p.error_code));
 }
+
+// --------------------------------------------------------------------------
+// AC-101's canary half, T-25: the admin token in no response and no log line.
+// --------------------------------------------------------------------------
+
+/// The positive control for the admin rule, live: a router that leaks the
+/// token into one response, and the scan that must catch it. Without this a
+/// `check_admin` that never fired would let every admin probe pass.
+#[tokio::test]
+async fn the_admin_rule_catches_a_planted_token() {
+    let p = plants();
+    let state = Arc::new(AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default()));
+    let token = room::admin::AdminToken::from_var(Some(p.admin.clone())).unwrap();
+    let leaky = room::router_with_admin(state, token).layer(axum::middleware::map_response(
+        |mut r: axum::response::Response| async move {
+            r.headers_mut().insert("x-leak", plants().admin.parse().unwrap());
+            r
+        },
+    ));
+    let request = |bearer: Option<&str>| {
+        let mut b = Request::builder().method(Method::GET).uri("/admin/used");
+        if let Some(t) = bearer {
+            b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
+        }
+        b.body(Body::empty()).unwrap()
+    };
+    for bearer in [None, Some(p.admin.as_str())] {
+        let res = leaky.clone().oneshot(request(bearer)).await.unwrap();
+        let seen = format!("{}\n{:?}", res.status(), res.headers());
+        let caught = std::panic::catch_unwind(|| check_admin(&seen, "self-test: a leaky router"));
+        assert!(caught.is_err(), "check_admin let the planted token through: {seen}");
+    }
+    // …and the same request against the real router passes.
+    let honest = room::router_with_admin(
+        Arc::new(AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default())),
+        room::admin::AdminToken::from_var(Some(p.admin.clone())).unwrap(),
+    );
+    let res = honest.oneshot(request(Some(&p.admin))).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    check_admin(&String::from_utf8_lossy(&body), "the real router");
+}
+
+/// Every log line: the room has no logger, so its log is the binary's own
+/// stdout and stderr. The real binary runs with the planted token, is pushed
+/// to, refused and read, and everything it wrote is scanned. It also refuses
+/// to start without the token, naming the variable and nothing else.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_binary_logs_no_admin_token() {
+    use std::io::Read as _;
+    use std::process::{Command as Process, Stdio};
+
+    let p = plants();
+    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let mut child = Process::new(env!("CARGO_BIN_EXE_room"))
+        .env_clear()
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .env("PORT", port.to_string())
+        // T-10: the four Discord variables, which every build needs.
+        .envs(room::config::DISCORD_VARS.iter().map(|v| (*v, if v.ends_with("SECRET") { "a-test-value" } else { "1234" })))
+        .env(room::admin::VAR, &p.admin)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("the room binary starts");
+    let addr: std::net::SocketAddr = ([127, 0, 0, 1], port).into();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while tokio::net::TcpStream::connect(addr).await.is_err() {
+        assert!(std::time::Instant::now() < deadline, "the room binary never listened on {addr}");
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    let record = canary_question();
+    let pushed = tcp_request(addr, "PUT", "/admin/questions/canary", Some(&p.admin), Some(record.clone())).await;
+    assert_eq!(pushed.status, 201, "the right token schedules: {}", pushed.text());
+    for (method, uri, bearer, body) in [
+        ("PUT", "/admin/questions/canary", Some("not-the-admin-token"), Some(record.clone())),
+        ("GET", "/admin/used", None, None),
+        ("GET", "/admin/nothing-here", Some("not-the-admin-token"), None),
+    ] {
+        let r = tcp_request(addr, method, uri, bearer, body).await;
+        assert_eq!((r.status, r.body.len()), (401, 0), "{method} {uri}");
+    }
+    let used = tcp_request(addr, "GET", "/admin/used", Some(&p.admin), None).await;
+    assert_eq!((used.status, used.json()), (200, json!([])));
+    for r in [&pushed, &used] {
+        check_admin(&r.everything(), "the binary's admin responses");
+    }
+
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let mut log = String::new();
+    child.stdout.take().unwrap().read_to_string(&mut log).unwrap();
+    child.stderr.take().unwrap().read_to_string(&mut log).unwrap();
+    assert!(log.contains("room listening"), "the scan read the binary's log: {log:?}");
+    check_admin(&log, "the room binary's stdout and stderr");
+
+    // Without the token: no start, the variable named, no value echoed.
+    let refused = Process::new(env!("CARGO_BIN_EXE_room"))
+        .env_clear()
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .env("PORT", port.to_string())
+        .env(room::admin::VAR, "")
+        .output()
+        .unwrap();
+    assert_eq!(refused.status.code(), Some(2), "the room refuses to start without the token");
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(said.contains(room::admin::VAR), "the refusal names the variable: {said}");
+    check_admin(&said, "the startup refusal");
+}

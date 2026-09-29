@@ -15,6 +15,8 @@
 //!   may host (SPEC §8, T-10). All four required and non-empty; the three ids
 //!   are Discord snowflakes (digits). The OAuth redirect URI is not a
 //!   variable: it is `POPQUIZ_PUBLIC_URL` + [`crate::discord::CALLBACK_PATH`].
+//! - [`crate::admin::VAR`] — the pipeline channel's token (SPEC §8.3, T-25),
+//!   required in **every** build: missing or empty, the room does not start.
 
 use std::fmt;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -28,11 +30,12 @@ pub const TAKE_IT_HOME: &str = "https://popquiz.rustnyc.org/last";
 
 const DEFAULT_PORT: u16 = 3000;
 
-/// The binary's configuration. Holds the Discord client secret, so it is
-/// deliberately not `Debug`.
+/// The binary's configuration. Holds the admin token and the Discord client
+/// secret, so it is deliberately not `Debug`.
 pub struct Config {
     pub bind: SocketAddr,
     pub urls: Urls,
+    pub(crate) admin_token: crate::admin::AdminToken,
     // T-10 ------------------------------------------------------------------
     pub(crate) discord: crate::discord::Settings,
     // end T-10 --------------------------------------------------------------
@@ -46,6 +49,9 @@ pub enum ConfigError {
     Port(String),
     /// `POPQUIZ_PUBLIC_URL` is not `http(s)://host[:port]`.
     PublicUrl(String),
+    /// The admin token is missing or empty (SPEC §8.3). Every build needs it:
+    /// without it the pipeline could schedule nothing.
+    MissingAdminToken,
     // T-10 ------------------------------------------------------------------
     /// A `DISCORD_*` variable is missing or empty. Named, never echoed.
     MissingDiscord(&'static str),
@@ -61,6 +67,11 @@ impl fmt::Display for ConfigError {
             ConfigError::PublicUrl(v) => write!(
                 f,
                 "POPQUIZ_PUBLIC_URL must be http:// or https:// and a host, with no path, query or fragment, not {v:?}"
+            ),
+            ConfigError::MissingAdminToken => write!(
+                f,
+                "{} must be set and non-empty: it is the pipeline's admin token (fly secrets set, SPEC 8.3)",
+                crate::admin::VAR
             ),
             // T-10
             ConfigError::MissingDiscord(var) => write!(f, "{var} must be set and non-empty (the Discord application, SPEC 8)"),
@@ -85,6 +96,7 @@ impl Config {
             None => format!("http://127.0.0.1:{port}"),
             Some(raw) => public_base(&raw).ok_or(ConfigError::PublicUrl(raw))?,
         };
+        let admin_token = crate::admin::AdminToken::from_var(var(crate::admin::VAR))?;
         // T-10
         let discord = discord_settings(&var, &base)?;
         Ok(Config {
@@ -93,6 +105,7 @@ impl Config {
                 base,
                 home: TAKE_IT_HOME.to_string(),
             },
+            admin_token,
             discord,
         })
     }
