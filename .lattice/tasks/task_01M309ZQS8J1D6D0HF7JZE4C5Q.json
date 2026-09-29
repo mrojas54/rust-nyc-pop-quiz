@@ -18,11 +18,16 @@
       "id": "art_01M3NADN3TTR0AXBSQ1CZ8V00N",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3NMV7M9TJSDHM2MXQ675YCF",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZQS8J1D6D0HF7JZE4C5Q",
-  "last_event_id": "ev_01M3NADN3WY53VK8343SS8G91Z",
-  "last_status_changed_at": "2026-09-28T03:57:31Z",
+  "last_event_id": "ev_01M3NMVCG0J3JVFE798ANVYTRP",
+  "last_status_changed_at": "2026-09-29T03:55:32Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -43,7 +48,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-13",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m2",
     "inline-full",
@@ -51,6 +56,6 @@
   ],
   "title": "Discord OAuth and role check",
   "type": "task",
-  "updated_at": "2026-09-29T00:53:17Z",
+  "updated_at": "2026-09-29T03:55:32Z",
   "urgency": null
 }

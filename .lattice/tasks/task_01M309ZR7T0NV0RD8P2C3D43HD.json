@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 11,
+  "comment_count": 12,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -18,11 +18,16 @@
       "id": "art_01M3KGG484CCD0C885WY6KKQNN",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3NMV8DGV9AARHXEXN4DHC6J",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZR7T0NV0RD8P2C3D43HD",
-  "last_event_id": "ev_01M3KGG487G4WW9WK1PQ7SZ33G",
-  "last_status_changed_at": "2026-09-28T07:59:18Z",
+  "last_event_id": "ev_01M3NMVRR1HAJV6N3KA9Z1X4JS",
+  "last_status_changed_at": "2026-09-29T03:55:32Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -50,7 +55,7 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-17",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m2",
     "inline-full",
@@ -60,6 +65,6 @@
   ],
   "title": "Admin channel for the pipeline",
   "type": "task",
-  "updated_at": "2026-09-28T08:01:00Z",
+  "updated_at": "2026-09-29T03:55:45Z",
   "urgency": null
 }
