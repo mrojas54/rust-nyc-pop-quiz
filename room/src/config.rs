@@ -12,6 +12,8 @@
 //!   address the room binds.
 //! - `HOST_DEV_TOKEN` — read **only** in a `dev-host-token` build, by
 //!   [`crate::standin`]. Without the feature this module never names it.
+//! - [`crate::admin::VAR`] — the pipeline channel's token (SPEC §8.3, T-25),
+//!   required in **every** build: missing or empty, the room does not start.
 
 use std::fmt;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -25,11 +27,12 @@ pub const TAKE_IT_HOME: &str = "https://popquiz.rustnyc.org/last";
 
 const DEFAULT_PORT: u16 = 3000;
 
-/// The binary's configuration. Holds the stand-in's credential in a
-/// `dev-host-token` build, so it is deliberately not `Debug`.
+/// The binary's configuration. Holds the admin token, and the stand-in's
+/// credential in a `dev-host-token` build, so it is deliberately not `Debug`.
 pub struct Config {
     pub bind: SocketAddr,
     pub urls: Urls,
+    pub(crate) admin_token: crate::admin::AdminToken,
     #[cfg(feature = "dev-host-token")]
     pub(crate) host_token: crate::standin::DevHostToken,
 }
@@ -47,6 +50,9 @@ pub enum ConfigError {
     /// page, so it is a startup error instead. Only that build has it.
     #[cfg(feature = "dev-host-token")]
     MissingHostToken,
+    /// The admin token is missing or empty (SPEC §8.3). Every build needs it:
+    /// without it the pipeline could schedule nothing.
+    MissingAdminToken,
 }
 
 impl fmt::Display for ConfigError {
@@ -59,6 +65,11 @@ impl fmt::Display for ConfigError {
             ),
             #[cfg(feature = "dev-host-token")]
             ConfigError::MissingHostToken => write!(f, "this build has the dev-host-token feature, so {} must be set and non-empty", crate::standin::VAR),
+            ConfigError::MissingAdminToken => write!(
+                f,
+                "{} must be set and non-empty: it is the pipeline's admin token (fly secrets set, SPEC 8.3)",
+                crate::admin::VAR
+            ),
         }
     }
 }
@@ -81,12 +92,15 @@ impl Config {
         };
         #[cfg(feature = "dev-host-token")]
         let host_token = crate::standin::DevHostToken::from_var(var(crate::standin::VAR))?;
+        // Last, so a stand-in build reports its own missing token first.
+        let admin_token = crate::admin::AdminToken::from_var(var(crate::admin::VAR))?;
         Ok(Config {
             bind,
             urls: Urls {
                 base,
                 home: TAKE_IT_HOME.to_string(),
             },
+            admin_token,
             #[cfg(feature = "dev-host-token")]
             host_token,
         })
