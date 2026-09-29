@@ -4,14 +4,14 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-29 00:5x EDT. PQ-17 merged at `73404d7` and its tab closed; PQ-13 #32 green, rebasing on main, live check pending with the client; PQ-15 #34 fixing `canary_full`, then rebasing. Two live. Dispatch loop at 900 s.
+Snapshot: 2026-09-29 01:1x EDT. PQ-13 #32 verified at `f1a71bf` (live check passed 00:11), merge-review running, merges on the client's word; PQ-15 #34 canary fixed, merge of main at its push prompt (tab 29). Two live. Dispatch loop at 900 s.
 Layout unchanged since the 2026-09-27 restart: delegators are tabs of `pane:2`; PQ-15's browser tab `surface:32` sits in `pane:6`.
 
 | Role | Ticket | Surface ref | Branch | Phase |
 |---|---|---|---|---|
 | Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | PQ-17 merged; watching PQ-13's rebase + live check and PQ-15's fix + rebase; next merge PQ-13 on the client's word after a fresh exact-head review |
-| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home, PR #34 @ `623e1eb` on `f8f9caf` (worktree `take-it-home`) | told at 00:1x to return to `in_progress`: `just test-full` FAILED on the head (`canary_full` real-sockets test, `canary_scan/mod.rs:601`); then merge `origin/main` `73404d7`, canary union, push, both CI jobs green, re-post DONE |
-| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth, PR #32 @ `1dbec1d` on `f8f9caf` (worktree `discord-auth`) | `review`; both CI jobs SUCCESS on `1dbec1d`, review + validation attached; told at 00:5x to merge `origin/main` `73404d7`, canary union, add its `justfile` AC-69 line, push; **waiting on the client's live Discord check** (recipe in its tab); DONE follows; next to merge; the run's last new dispatch |
+| agent:delegator-pq15 (Opus, fast-track) | PQ-15 / T-12 take-it-home page | `surface:29` in `pane:2` | ai-c11-cc/take-it-home, PR #34 @ `81fca6d` (CONFLICTING with `main`; merge commit `fb67d3f` ready locally) (worktree `take-it-home`) | `in_progress`; `canary_full` fixed, both CI jobs SUCCESS on `81fca6d`; **at its `git push` prompt for the merge of `origin/main`**; then CI on the new head and re-post DONE |
+| agent:delegator-pq13 (Opus, inline-full) | PQ-13 / T-10 Discord OAuth and role check | `surface:31` in `pane:2` | ai-c11-cc/discord-auth, PR #32 @ `f1a71bf` on `73404d7` (worktree `discord-auth`) | `review`, **verified pre-merge**: both CI jobs SUCCESS on `f1a71bf`, CLEAN, live H-3 check PASS (client, 00:11), post-merge DONE 01:10; fresh merge-review running; merges on the client's word; the run's last new dispatch |
 | Not dispatched | PQ-16 accessibility sweep | — | — | backlog; held by the client's pause; presses ahead off PQ-15 on their next word |
 
 ### Archived (run history)
