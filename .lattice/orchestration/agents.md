@@ -11,6 +11,7 @@ Snapshot: 2026-09-30 01:3x EDT. PQ-16 at `review` (PR #37); wave 18 dispatched o
 | Orchestrator | — | `surface:8` in `pane:1` | ai-c11-cc/lattice-build | Dispatch loop armed; next: READY receipts for PQ-26/PQ-27, CI on #37, the client's merge word |
 | agent:delegator-pq26 (Opus, inline-full) | PQ-26 / T-21 burst and smoke in CI | `surface:14` in `pane:1` | ai-c11-cc/burst-in-ci off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | launched 01:3x; boot prompt at `…-worktrees/burst-in-ci/.claude/boot-prompt.md` |
 | agent:delegator-pq27 (Opus, inline-full) | PQ-27 / T-22 copy freeze and lints | `surface:15` in `pane:1` | ai-c11-cc/copy-freeze off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | launched 01:3x; boot prompt at `…-worktrees/copy-freeze/.claude/boot-prompt.md` |
+| agent:delegator-pq38 (Opus, fast-track) | PQ-38 / fix-it: machine-verify the re-authored q4/q7/q8 and reconcile the pipeline tests | `surface:16` in `pane:1` | ai-c11-cc/bank-reverify off `origin/main` @ `1d721f4` (the client's PR #36, which turned main red) | launched 01:5x; lands before #37 and the wave-18 PRs; boot prompt at `…-worktrees/bank-reverify/.claude/boot-prompt.md` |
 | Waiting on the client | PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) | — | — | held; PQ-25 → PQ-29 → PQ-28 follow |
 
 ### Archived (run history)
