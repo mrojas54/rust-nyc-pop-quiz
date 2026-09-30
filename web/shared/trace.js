@@ -68,7 +68,7 @@
     var s = traceStepOf(q, i, opts.maxIndex);
     return PQ.sourceWellHtml(q.source, {
       phase: opts.phase,
-      label: opts.label || "What does this program print?",
+      label: opts.label || PQ.t("wall_live_well_header"),
       hl: s.lines,
       focus: s.focus,
       size: opts.size,
@@ -118,11 +118,11 @@
       return '<i class="' + (n === at ? "on" : n < at ? "past" : "") + '"></i>';
     }).join("");
 
-    var progress = "Step " + (at + 1) + " of " + total;
+    var progress = PQ.t("wall_trace_step", { N: at + 1, M: total });
 
     return '<div class="trace">' +
       '<div class="trace-note"' + scale + ">" +
-        '<span class="step-n">' + progress + (s.pivot ? " · Pause here." : "") + "</span>" +
+        '<span class="step-n">' + esc(progress) + (s.pivot ? " · " + esc(PQ.t("wall_trace_pivot")) : "") + "</span>" +
         esc(s.note) +
       "</div>" +
       values +
@@ -131,10 +131,10 @@
           '<span class="pos">' + progress + "</span></div>"
         : '<div class="trace-nav">' +
           '<button class="btn" style="min-height:34px;padding:4px 12px" onclick="' + handler + '(-1)"' +
-            (at === 0 ? " disabled" : "") + ' aria-label="previous step">←</button>' +
+            (at === 0 ? " disabled" : "") + ' aria-label="' + PQ.escapeAttr(PQ.t("proposed_trace_previous_step")) + '">←</button>' +
           '<button class="btn' + (at < hi ? " btn-primary" : "") +
             '" style="min-height:34px;padding:4px 12px" onclick="' + handler + '(1)"' +
-            (at >= hi ? " disabled" : "") + ' aria-label="next step">→</button>' +
+            (at >= hi ? " disabled" : "") + ' aria-label="' + PQ.escapeAttr(PQ.t("proposed_trace_next_step")) + '">→</button>' +
           '<span class="trace-dots" aria-hidden="true">' + dots + "</span>" +
           '<span class="pos">' + progress + "</span>" +
         "</div>") +
@@ -147,8 +147,10 @@
     var steps = q.trace.steps;
     var at = clampStep(i, steps.length, maxIndex);
     var s = steps[at];
-    var v = (s.values || []).map(function (x) { return x.name + " is now " + x.now; }).join(". ");
-    return "Step " + (at + 1) + " of " + steps.length + ". " + s.note + (v ? " " + v + "." : "");
+    var v = (s.values || []).map(function (x) {
+      return PQ.t("proposed_trace_value_now", { name: x.name, now: x.now });
+    }).join(". ");
+    return PQ.t("wall_trace_step", { N: at + 1, M: steps.length }) + ". " + s.note + (v ? " " + v + "." : "");
   }
 
   PQ.workMaxIndex = workMaxIndex;

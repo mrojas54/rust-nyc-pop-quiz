@@ -2,10 +2,11 @@
 //!
 //! One constant per `copy.js` key, named as the key upper-cased, with the same
 //! string. SPEC §11 is where copy is authored; `copy.js` is its port; this file
-//! mirrors the port so the room's payloads carry exactly those strings. T-22's
-//! lint compares the two, and `tests/copy_mirror.rs` already walks them against
-//! each other in both directions, so a string changed in one and not the other
-//! fails `just test`.
+//! mirrors the port so the room's payloads carry exactly those strings.
+//! `tests/twins.rs` walks the two against each other in both directions, so a
+//! string changed in one and not the other fails `just test`; the lints (SPEC
+//! §11's Forbidden row and §11.1) run over `copy.js` in `web/test/copylint.test.js`,
+//! which makes them run over this file too.
 //!
 //! Do not edit a string here. Edit SPEC §11, then `copy.js`, then this file.
 //! Placeholders keep §11's ‹guillemet› form; [`fill`] substitutes them.
@@ -108,6 +109,23 @@ pub const RECEIPT_NOTHING_RAN: &str = "✓ Nothing ran";
 pub const HOME_MACHINE_ONLY: &str = "The machine checked the answer only. An organizer approved the explanation.";
 pub const HOME_NOT_RECORDED: &str = "not recorded";
 
+// PROPOSED-§11: strings the pages already showed that §11 does not author yet,
+// moved into `copy.js` words unchanged by T-22 (F-34, F-38, and three more).
+// Mirrored so the two files stay one list; the room sends none of them.
+pub const PROPOSED_HOME_NOTHING_YET: &str = "Welcome to the POP QUIZ";
+pub const PROPOSED_HOME_MIRI_SEPARATELY: &str = "run separately";
+pub const PROPOSED_HOME_ROW_COMPILER: &str = "compiler";
+pub const PROPOSED_HOME_ROW_EDITION: &str = "edition";
+pub const PROPOSED_HOME_ROW_TARGET: &str = "target";
+pub const PROPOSED_HOME_ROW_FLAGS: &str = "flags";
+pub const PROPOSED_HOME_ROW_MIRI: &str = "miri";
+pub const PROPOSED_HOME_MIRI_SEEDS: &str = "seeds";
+pub const PROPOSED_TRACE_PREVIOUS_STEP: &str = "previous step";
+pub const PROPOSED_TRACE_NEXT_STEP: &str = "next step";
+pub const PROPOSED_TRACE_VALUE_NOW: &str = "‹name› is now ‹now›";
+pub const PROPOSED_CHECK_CORRECT: &str = "Correct";
+pub const PROPOSED_WELL_LABEL: &str = "Source code";
+
 /// Every constant above with its `copy.js` key, in file order.
 pub const ALL: &[(&str, &str)] = &[
     ("wall_idle_title", WALL_IDLE_TITLE),
@@ -207,6 +225,19 @@ pub const ALL: &[(&str, &str)] = &[
     ("receipt_nothing_ran", RECEIPT_NOTHING_RAN),
     ("home_machine_only", HOME_MACHINE_ONLY),
     ("home_not_recorded", HOME_NOT_RECORDED),
+    ("proposed_home_nothing_yet", PROPOSED_HOME_NOTHING_YET),
+    ("proposed_home_miri_separately", PROPOSED_HOME_MIRI_SEPARATELY),
+    ("proposed_home_row_compiler", PROPOSED_HOME_ROW_COMPILER),
+    ("proposed_home_row_edition", PROPOSED_HOME_ROW_EDITION),
+    ("proposed_home_row_target", PROPOSED_HOME_ROW_TARGET),
+    ("proposed_home_row_flags", PROPOSED_HOME_ROW_FLAGS),
+    ("proposed_home_row_miri", PROPOSED_HOME_ROW_MIRI),
+    ("proposed_home_miri_seeds", PROPOSED_HOME_MIRI_SEEDS),
+    ("proposed_trace_previous_step", PROPOSED_TRACE_PREVIOUS_STEP),
+    ("proposed_trace_next_step", PROPOSED_TRACE_NEXT_STEP),
+    ("proposed_trace_value_now", PROPOSED_TRACE_VALUE_NOW),
+    ("proposed_check_correct", PROPOSED_CHECK_CORRECT),
+    ("proposed_well_label", PROPOSED_WELL_LABEL),
 ];
 
 /// Substitute ‹placeholders›. Panics on a placeholder nobody supplied — the
