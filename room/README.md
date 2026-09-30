@@ -500,8 +500,8 @@ The tests and `main.rs` serve through it.
 
 ### For T-21's `burst`
 
-The reveal broadcast is the path AC-41 measures; its p95 is `burst`'s, against
-the deployed room, and is not claimed by these tests. The mapping from the
+The reveal broadcast is the path AC-41 measures; its p95 is `burst`'s (*Burst*,
+below), and is not claimed by these tests. The mapping `burst` made from the
 spike's frames:
 
 | Spike | Room |
@@ -859,8 +859,8 @@ code works around this.
 `POPQUIZ_PUBLIC_URL = "https://popquiz.rustnyc.org"` in `fly.toml`, then deploy.
 Nothing else changes.
 
-**Smoke.** `just smoke <url> [--participants N]` (`src/bin/smoke.rs`, behind the
-`smoke` feature) reads `POPQUIZ_ORGANIZER_SESSION` from the environment: the
+**Smoke.** `just smoke <url> [--participants N] [--question ID] [--out PATH]`
+(`src/bin/smoke.rs`, behind the `smoke` feature) reads `POPQUIZ_ORGANIZER_SESSION` from the environment: the
 organizer session a signed-in host page holds — sign in at
 `<url>/host?question=q3`, and it is what follows the `#` in the address the
 page lands on. It lasts 12 hours and is one person's; every room it creates
@@ -886,8 +886,115 @@ both `explains` beats, every `why_tempting`, the resolving note, a ✓, and a ke
 named `correct`. At `reveal`, a positive control checks that they do arrive. The
 image holds the room binary and nothing else, so a green smoke run also shows a
 room created and run to release with no pipeline present (AC-1's runtime half).
-Its timings are smoke's, not `burst`'s AC-41/53/54 figures: `burst.rs` speaks
-the spike's protocol, not the room's routes, and T-21 points it at the room.
+Its timings are smoke's, not `burst`'s AC-41/53/54 figures (*Burst*, below).
+`--question` names the id q3's record was scheduled under (default `q3`; the
+deployed workflow uses `smoke-q3`, so a run never releases a bank question), and
+`--out` also writes the result as JSON. `just test-full` runs it against an
+in-process room on loopback (`tests/harness_full.rs`).
+
+## Burst (T-21)
+
+`just burst <url> [--participants N] [--question ID] [--out PATH]`
+(`src/bin/burst.rs`, behind the `burst` feature; `--help` lists the rest) puts
+200 participants on the room's own protocol, through the client smoke uses
+(`src/bin/room_client.rs`): joins by code, a buzzer socket each, answers as
+`PUT /rooms/{id}/answer` on kept-alive connections, phases through the host
+routes. One room, walked to release:
+
+| Criterion | Measure | Pass |
+|---|---|---|
+| AC-54 | isolated deadline bursts — every participant writes once inside 2 s, nothing else in flight, one or more per shape (`uniform`; `spike`, the window's last 50 ms); the worst cycle's p95 | p95 < 500 ms |
+| AC-53 | every write while `live`: the isolated bursts, a churn of changed minds, the final deadline burst | p95 < 500 ms |
+| AC-41 | the reveal, from the host's `POST reveal` to each buzzer's first `reveal` frame, on one clock | p95 ≤ 2 s |
+| AC-52 | every write saved as sent; the host's live count one per session; after close, each session's refused write restates **its own** final answer (a swap between two sessions fails this though every total survives it); the split's totals are the finals exactly | exact |
+
+The report is JSON on stdout (and `--out`), every raw sample in it. The rules
+are the spike's (*How it tries not to lie*, below), carried over in
+`src/bin/burst_report.rs`, which `tests/burst_report.rs` checks inside `just
+test` on recorded samples. Write latency starts on an already open connection,
+and the client's own scheduling delay is measured beside it, never added. A pass
+whose interval crosses its threshold is `MARGINAL` in words. Exit `0` pass, `1`
+a criterion missed, `2` invalid or could not run: an invalid report says
+`"quotable": false` and judges nothing. The spike's "more than one Fly machine"
+check is gone — the room exposes no machine id, and `fly.toml` runs one; a
+machine lost mid-run shows as `404`s and is reported as the room gone.
+
+**Where its numbers count.** Every report says `"substrate": "loopback"` or
+`"deployed"`. `just test-full` runs burst at 200 and smoke at 50 against a room
+the job itself starts — the real router on `127.0.0.1`, authorized by the tests'
+`HostAuth` (`tests/harness_full.rs`) — on every PR: the harness, AC-52's exact
+count, AC-54's window and AC-41's fan-out are proven there; the latencies are
+the runner's loopback and are printed as such. **AC-53's "run against the
+deployed substrate" is met only by a deployed run**, one of the two below,
+which a person starts: nothing unattended can create a room on the deployed app.
+
+**Scheduling.** A question runs once per machine, and burst and smoke each run
+one room to release, so each gets q3's record under a harness id — `burst-q3`,
+`smoke-q3` — which no bank question has, so neither run can retire one. Over
+the pipeline channel (*Pipeline channel*, above), the token read from 1Password
+and handed to curl on stdin, never on its command line:
+
+    for id in burst-q3 smoke-q3; do
+      jq --arg id "$id" '.id = $id' bank/questions/q3.json > "/tmp/$id.json"
+      printf 'header = "Authorization: Bearer %s"\n' "$(op read 'op://<vault>/<item>/<field>')" |
+        curl -sS --config - -X PUT --data-binary "@/tmp/$id.json" \
+          https://rustnyc-popquiz.fly.dev/admin/questions/$id
+    done
+
+**From the laptop** (the pre-checkpoint path), right after scheduling, inside
+one trial window (*The trial org stops the machine*, above):
+
+    export POPQUIZ_ORGANIZER_SESSION=…   # what follows the # after signing in at /host
+    just burst https://rustnyc-popquiz.fly.dev --question burst-q3 --out burst.json
+    just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3 --participants 200
+    unset POPQUIZ_ORGANIZER_SESSION
+
+**From CI** (`.github/workflows/deployed-burst.yml`, `workflow_dispatch` only):
+
+    gh secret set POPQUIZ_ORGANIZER_SESSION     # pasted at the prompt, never typed on the line
+    gh secret set POPQUIZ_ADMIN_TOKEN
+    gh workflow run deployed-burst -f url=https://rustnyc-popquiz.fly.dev -f participants=200
+
+It builds both clients first, then schedules the two ids, runs burst (one
+isolated burst per shape, a 10 s churn, to stay inside the trial window) and
+smoke back to back, and uploads both JSON reports as an artifact; the job
+summary lists each criterion. There is no Fly token in CI.
+
+**Afterwards, every time:** `fly apps restart rustnyc-popquiz` — before anyone
+hosts and **before any `popquiz sync`**, because the machine's ledger holds the
+harness ids until it restarts — then `gh secret delete POPQUIZ_ORGANIZER_SESSION`
+and `gh secret delete POPQUIZ_ADMIN_TOKEN`. Record the four criteria on the
+ticket, never a token.
+
+## After a meetup (T-21, AC-55)
+
+AC-55 — failed participant requests under 0.1% across a session on venue wifi
+— is read from the room's own log (`src/requestlog.rs`). Each is one JSON line
+on standard error, which Fly keeps:
+
+- `{"event":"participant_request_failed","room":…,"route":…,"kind":…,…}` — a
+  `5xx` on `join`, `answer` or `buzzer_state` (`kind: "server_error"`,
+  `status`), or a buzzer socket that broke while its room was running
+  (`kind: "socket_dropped"`, `phase`);
+- `{"event":"participant_requests","room":…,"failed":F,"total":T,"ended":…}` —
+  once per room, at release (or when a watched room is swept, `ended: "gone"`).
+
+The night's rate, the morning after (before anything restarts the machine):
+
+    fly logs -a rustnyc-popquiz --no-tail | grep '"event":"participant_requests"'
+    fly logs -a rustnyc-popquiz --no-tail | grep '"event":"participant_request_failed"'
+
+The rate is `failed / total`; AC-55 passes under 0.001. `total` counts
+successful joins, answer writes, state reads and buzzer sockets attached;
+refusals the room gave correctly (`409` closed or ended, `404`, `401`, `400`),
+a phone closing its own socket and a re-attach are counted but never failed.
+
+**It is a floor.** A request venue wifi lost before it reached the room is in
+no log. A burst of `401`s or a machine restart during the meetup (every phone
+stranded at once) does not show as failures here; look at the surrounding
+`fly logs` lines for it. A machine stopped mid-meetup writes no summary at all.
+A buzzer socket's failures are its drops only: its upgrade is `101` or `404`,
+never a `5xx`.
 
 ## The burst spike (T-03)
 
@@ -904,7 +1011,7 @@ Two throwaway binaries, both behind the default-off `spike` feature:
 | Bin | What it is |
 |---|---|
 | `spike-server` | One room, in memory, `idle → live → closed` plus a reveal broadcast. Not the phase machine — T-04a writes that on a blank page. |
-| `burst` | The load client: 200 WebSockets, timing, a JSON report, a non-zero exit on a miss. |
+| `spike-burst` | The load client: 200 WebSockets, timing, a JSON report, a non-zero exit on a miss. T-21 renamed it (it was `burst`) when the room got its own; it speaks only the spike server's protocol. |
 
 ### Running it
 
@@ -912,15 +1019,15 @@ Two throwaway binaries, both behind the default-off `spike` feature:
 # Both bins are feature-gated, so the inner loop never builds them (see below).
 cd room
 cargo test  --features spike          # the hermetic tests: estimator, verdict, reconciliation
-cargo build --release --features spike --bin spike-server --bin burst
+cargo build --release --features spike --bin spike-server --bin spike-burst
 
 # Against a loopback server — proves the harness, never a headline number.
 PORT=8099 ./target/release/spike-server &
-./target/release/burst --url http://127.0.0.1:8099 --clients 12 --cycles 2 \
+./target/release/spike-burst --url http://127.0.0.1:8099 --clients 12 --cycles 2 \
   --churn-secs 3 --reveals 2 --window-ms 500
 
 # Against the deployed machine — this is where the real numbers come from.
-./target/release/burst --url https://rustnyc-popquiz-spike.fly.dev \
+./target/release/spike-burst --url https://rustnyc-popquiz-spike.fly.dev \
   --clients 200 --seed 20260920 --out spike/reports/$(date -u +%F).json
 ```
 
@@ -1028,14 +1135,10 @@ fly machine stop <ID> -a rustnyc-popquiz-spike   # leave it scaled to zero
 None of those belong to this ticket; check `git status` afterwards and delete
 them.
 
-### What is deliberately not here
+### What became of it
 
-`just burst` is still the `_pending` stub. **T-21** wires this client into the
-recipe and into `test-full`; `--url`, JSON on stdout and a non-zero exit on a
-miss are already in place so that is a small change.
-
-The cost of that, stated plainly rather than left to be discovered: because both
-bins sit behind `required-features = ["spike"]` — which is exactly what keeps
-`just test` inside its 60 s budget — **neither `test` nor `test-full`
-type-checks them until T-21 lands.** Until then the gate is by hand, and it is
-the two `--features spike` commands at the top of this section.
+T-21 carried this client's measurement onto the room's own routes (*Burst*,
+above) and kept the spike's two bins, renamed and frozen, so the reports in
+`spike/reports/` stay reproducible. Nothing in `test` builds them (they are
+behind `required-features = ["spike"]`, which is what holds its 60 s budget);
+`just test-full` type-checks and unit-tests them (`harness-full`).
