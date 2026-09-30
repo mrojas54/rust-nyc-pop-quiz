@@ -33,8 +33,9 @@ const MODULES = {
   trace: ['dom.js', 'phase.js', 'copy.js', 'well.js', 'trace.js'],
   typemodel: ['dom.js', 'phase.js', 'copy.js', 'well.js', 'typemodel.js'],
   copy: ['copy.js'],
-  copylint: ['copylint.js'],
-  all: ['dom.js', 'phase.js', 'check.js', 'well.js', 'trace.js', 'typemodel.js', 'copy.js', 'copylint.js'],
+  // Test-only, so it lives beside the tests (web/shared holds what pages load).
+  copylint: ['../test/copylint.js'],
+  all: ['dom.js', 'phase.js', 'check.js', 'well.js', 'trace.js', 'typemodel.js', 'copy.js', '../test/copylint.js'],
 };
 
 // A document stub with just enough surface for what web/shared touches:

@@ -1,5 +1,5 @@
 // The copy lints (T-22): SPEC §11's Forbidden row (G-5, AC-98) and the §11.1
-// trope check (D-23, AC-42), from their one source, web/shared/copylint.js.
+// trope check (D-23, AC-42), from their one source, web/test/copylint.js.
 //
 // Three things are proven here:
 //   1. the patterns are SPEC's, character for character — read out of SPEC.md,

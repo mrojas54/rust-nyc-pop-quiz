@@ -22,7 +22,6 @@ they disagree on *behaviour*, `SPEC.md` wins.
 | `trace.js` | The trace renderer, and the step bound. |
 | `typemodel.js` | The wall's derived type size, the measured refit, and the fit verdict. AC-100. |
 | `copy.js` | Every binding string from `SPEC.md` §11, keyed — and the only place a page's words come from. |
-| `copylint.js` | SPEC §11's Forbidden row and the §11.1 trope check, as one source. |
 | `check.js` | The ✓ helper. AC-40. |
 
 ## How to load it
@@ -145,7 +144,7 @@ upstream (F-34, F-38 and the three T-22 found) and leave the block for their
 row the day §11 adopts them. Nothing new goes in: a new sentence is a §11
 change.
 
-**The two lints.** `copylint.js` holds SPEC's patterns verbatim; its Python
+**The two lints.** `web/test/copylint.js` (test-only, so not here: this directory holds what pages load and the room serves) holds SPEC's patterns verbatim; its Python
 twin `pipeline/src/popquiz/copylint.py` holds the same text. Each suite reads
 `SPEC.md` and fails if its copy differs, and both run the hand-written fixtures
 in `bank/fixtures/copy-lint/`. Python is compiled to JavaScript's behaviour

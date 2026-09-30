@@ -2,7 +2,7 @@
 // two lints that police it.
 //
 // SCOPE. The lints themselves (the Forbidden row, G-5 and AC-98; the §11.1
-// trope check, AC-42) are T-22's one source, web/shared/copylint.js, and run over
+// trope check, AC-42) are T-22's one source, web/test/copylint.js, and run over
 // this module in copylint.test.js. This file is about the module's shape: every
 // §11 row has its keys, every key has a row, placeholders, lookup, and the
 // PROPOSED-§11 block's limits.
@@ -148,7 +148,7 @@ test('no wall receipt line ends in terminal punctuation or claims a result', () 
 // --- the two lints --------------------------------------------------------------
 
 // The Forbidden row and the §11.1 trope check run over this module from their
-// one source, web/shared/copylint.js, in web/test/copylint.test.js: patterns
+// one source, web/test/copylint.js, in web/test/copylint.test.js: patterns
 // pinned to SPEC.md, the shared fixtures, and a failure on any match in any
 // entry here. This file keeps only what is about the module's own shape.
 

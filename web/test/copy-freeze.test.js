@@ -65,7 +65,7 @@ const MARKED_COPY = markerCopySource();
 function env(extra, opts = {}) {
   const l = load('dom', { timers: false });
   const run = (rel, code) => vm.runInContext(code === undefined ? read(rel) : code, l.sandbox, { filename: `web/${rel}` });
-  for (const f of ['phase.js', 'check.js', 'well.js', 'trace.js', 'typemodel.js', 'copylint.js']) run(`shared/${f}`);
+  for (const f of ['phase.js', 'check.js', 'well.js', 'trace.js', 'typemodel.js']) run(`shared/${f}`);
   run('shared/copy.js', MARKED_COPY);
   if (opts.noMount) l.sandbox.__POPQUIZ_NO_MOUNT__ = true;
   for (const f of extra) run(f);

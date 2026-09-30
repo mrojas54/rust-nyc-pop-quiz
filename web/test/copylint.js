@@ -2,6 +2,11 @@
    The two copy lints — SPEC §11's Forbidden row (G-5, AC-98) and the §11.1
    trope check (D-23, AC-42) — as one source.
 
+   Test-only, so it lives here and not in web/shared/, which holds what the
+   pages load and the room serves (room/tests/wall_page.rs). Not named
+   *.test.js, so the `test-web` glob does not run it as a suite; the suites
+   load it through _load.js.
+
    The patterns are held as SPEC's own text, character for character: the
    Forbidden row's nine (the markdown table's `\|` read as `|`) and §11.1's
    sixteen in its five groups. web/test/copylint.test.js reads SPEC.md and

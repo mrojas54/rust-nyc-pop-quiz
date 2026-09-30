@@ -1,7 +1,7 @@
 """The two copy lints over question prose: SPEC 11's Forbidden row (G-5, AC-98) and
 the 11.1 trope check (D-23, AC-42).
 
-The Python twin of `web/shared/copylint.js`. The patterns below are SPEC's own text,
+The Python twin of `web/test/copylint.js`. The patterns below are SPEC's own text,
 character for character; `tests/test_copylint.py` reads SPEC.md and fails if they
 differ, and the JavaScript suite pins its copy the same way, so the two cannot drift
 from SPEC or from each other. Both run the fixtures in `bank/fixtures/copy-lint/`.
