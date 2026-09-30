@@ -237,9 +237,42 @@
         });
     }
 
+    /* AC-82: every paint replaces the screen, and the control that had the
+       focus with it. The focus is remembered by role — the primary action,
+       or a step button — and given back on the new screen. The primary
+       action changes with the phase and is disabled while it is in flight,
+       so the key outlives the paint that could not honour it: pressing
+       *Close answers* from the keyboard lands on *Show the room its split*. */
+    var focusKey = null;
+
+    function keyOf(node) {
+      if (!node || !node.getAttribute) return null;
+      if (node.getAttribute("data-primary") !== null) return "primary";
+      var step = node.getAttribute("data-step");
+      return step ? "step:" + step : null;
+    }
+
+    function focusTarget(key) {
+      if (!key || !el.querySelector) return null;
+      if (key === "primary") return el.querySelector("[data-primary]:not([disabled])");
+      var slug = key.slice(5);
+      var other = slug === "step-back" ? "step-forward" : "step-back";
+      return el.querySelector('[data-step="' + slug + '"]:not([disabled])') ||
+        el.querySelector('[data-step="' + other + '"]:not([disabled])');
+    }
+
+    function repaint(html) {
+      var active = win.document.activeElement;
+      if (active && el.contains && el.contains(active)) focusKey = keyOf(active);
+      else if (active && active !== win.document.body) focusKey = null;
+      el.innerHTML = html;
+      var target = focusTarget(focusKey);
+      if (target && target !== win.document.activeElement && typeof target.focus === "function") target.focus();
+    }
+
     if (where.mode === "create") {
       var paintCreate = function () {
-        el.innerHTML = where.token ? renderCreate(ui) : renderSignIn(ui, where.question);
+        repaint(where.token ? renderCreate(ui) : renderSignIn(ui, where.question));
       };
       el.addEventListener("click", function (ev) {
         var b = ev.target.closest && ev.target.closest("[data-primary]");
@@ -275,8 +308,7 @@
     var socketOpen = false;
 
     function paint() {
-      if (payload) el.innerHTML = render(payload, ui);
-      else el.innerHTML = statusHtml(ui);
+      repaint(payload ? render(payload, ui) : statusHtml(ui));
     }
 
     function take(next, rev) {
@@ -286,7 +318,9 @@
       }
       var before = payload && payload.phase;
       payload = next;
-      if (before && before !== next.phase) PQ.announce(PQ.HOST_PHASE_LABEL[next.phase]);
+      /* The first payload too (T-13): a host who opens or resumes a room hears
+         which phase it is in, or `before the question` is never said at all. */
+      if (before !== next.phase) PQ.announce(PQ.HOST_PHASE_LABEL[next.phase]);
       paint();
     }
 

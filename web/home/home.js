@@ -163,7 +163,10 @@
      run separately. Nothing is back-filled (G-2, D-16). */
   function machineRowsHtml(m) {
     var out = [];
-    out.push(row(PROPOSED.row_compiler, '<pre class="vv">' + esc(m.compiler) + "</pre>"));
+    /* The -Vv block scrolls sideways, so it takes the focus (AC-82): a
+       scroller the keyboard cannot reach is a scroller it cannot scroll. */
+    out.push(row(PROPOSED.row_compiler, '<pre class="vv" tabindex="0" aria-label="' +
+      PQ.escapeAttr(PROPOSED.row_compiler) + '">' + esc(m.compiler) + "</pre>"));
     out.push(row(PROPOSED.row_edition, esc(m.edition)));
     out.push(row(PROPOSED.row_target, m.target === null || m.target === undefined
       ? '<span class="not-recorded">' + esc(PQ.t("home_not_recorded")) + "</span>"
@@ -236,8 +239,20 @@
       var next = PQ.clampStep(at + d, snap.trace.length);
       if (next === at) return at;
       at = next;
-      var walk = el.ownerDocument.getElementById("home-walk");
+      var doc = el.ownerDocument;
+      var walk = doc.getElementById("home-walk");
+      /* AC-82: redrawing the walk takes the step button that was pressed with
+         it. Give the focus to the same direction's button, or the other one
+         once this one is disabled at the end. */
+      var active = doc.activeElement;
+      var pressed = walk && active && walk.contains && walk.contains(active) && active.tagName === "BUTTON";
       if (walk) walk.innerHTML = walkInnerHtml(snap, at);
+      if (pressed && walk.querySelectorAll) {
+        var buttons = walk.querySelectorAll(".trace-nav button");
+        var want = buttons[d < 0 ? 0 : 1];
+        if (!want || want.disabled) want = buttons[d < 0 ? 1 : 0];
+        if (want && !want.disabled) want.focus();
+      }
       if (PQ.announce) PQ.announce(PQ.traceSay(traceQuestion(snap), at));
       return at;
     }

@@ -265,7 +265,7 @@ test('AC-33: code wells scroll in their own containers; nothing hides a page ove
   }
   // The -Vv lines and the source render inside those containers.
   const html = render(FIX.complete);
-  assert.match(section(html, 'how'), /<pre class="vv">/);
+  assert.match(section(html, 'how'), /<pre class="vv"[ >]/);
   assert.match(section(html, 'program'), /class="rn-src-scroll"/);
   assert.match(PAGE, /<meta name="viewport" content="width=device-width, initial-scale=1">/);
 });
