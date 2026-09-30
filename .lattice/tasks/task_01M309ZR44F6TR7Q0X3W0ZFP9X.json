@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 3,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZR44F6TR7Q0X3W0ZFP9X",
-  "last_event_id": "ev_01M3R6DE68Z1ANX7E7H1FZ6HRD",
-  "last_status_changed_at": "2026-09-30T03:40:58Z",
+  "last_event_id": "ev_01M3R72PW13A700Z5A53RFV8WF",
+  "last_status_changed_at": "2026-09-30T03:46:06Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -39,7 +39,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-16",
-  "status": "in_planning",
+  "status": "in_progress",
   "tags": [
     "m2",
     "fast-track",
@@ -47,6 +47,6 @@
   ],
   "title": "Accessibility sweep",
   "type": "task",
-  "updated_at": "2026-09-30T03:40:58Z",
+  "updated_at": "2026-09-30T03:52:35Z",
   "urgency": null
 }
