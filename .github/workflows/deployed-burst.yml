@@ -1,0 +1,181 @@
+name: deployed-burst
+
+# T-21: burst and smoke against the deployed room. The client's to start, by
+# hand, never on a push: nothing unattended can create a room on the deployed
+# app (only a signed-in organizer can, SPEC §8), so this job runs on the
+# organizer's own session, set as a repository secret right before a run and
+# deleted right after (room/README.md, Burst):
+#
+#   POPQUIZ_ORGANIZER_SESSION  the organizer session a signed-in /host page holds
+#                              (12 hours, one person's)
+#   POPQUIZ_ADMIN_TOKEN        the pipeline channel's token, to schedule the two
+#                              harness questions (SPEC §8.3)
+#
+# Neither is ever echoed, put on a command line or written to a file. This is
+# the only run in CI that meets AC-53's "run against the deployed substrate".
+#
+# It schedules q3's record under two harness ids, smoke-q3 and burst-q3, so
+# neither run releases a bank question on the machine: a question runs once
+# per machine until it restarts. There is no Fly token here: restart the app
+# yourself afterwards (the job summary says so).
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: The deployed room's base URL
+        required: true
+        default: https://rustnyc-popquiz.fly.dev
+      participants:
+        description: Participants for each run (1-200)
+        required: true
+        default: '200'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployed-burst
+  cancel-in-progress: false
+
+env:
+  JUST_VERSION: 1.57.0
+  JUST_SHA256: 45b548094283cb9739af8f13273b8cddeee869f5b4ef2bb631b1f311cb566155
+
+jobs:
+  deployed-burst:
+    name: burst and smoke against the deployed room
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ROOM_URL: ${{ inputs.url }}
+      PARTICIPANTS: ${{ inputs.participants }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs and that both secrets are set
+        env:
+          HAS_SESSION: ${{ secrets.POPQUIZ_ORGANIZER_SESSION != '' }}
+          HAS_ADMIN: ${{ secrets.POPQUIZ_ADMIN_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          [[ "$ROOM_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || { echo "url must be https://host[:port], got: $ROOM_URL" >&2; exit 2; }
+          [[ "$PARTICIPANTS" =~ ^[0-9]+$ ]] && [ "$PARTICIPANTS" -ge 1 ] && [ "$PARTICIPANTS" -le 200 ] || { echo "participants must be 1-200" >&2; exit 2; }
+          [ "$HAS_SESSION" = true ] || { echo "set the POPQUIZ_ORGANIZER_SESSION repository secret first (room/README.md, Burst)" >&2; exit 2; }
+          [ "$HAS_ADMIN" = true ] || { echo "set the POPQUIZ_ADMIN_TOKEN repository secret first (room/README.md, Burst)" >&2; exit 2; }
+
+      - name: Install just
+        run: |
+          set -euo pipefail
+          url="https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSLf -o just.tar.gz "$url"
+          echo "${JUST_SHA256}  just.tar.gz" | sha256sum --check --strict
+          tar -xzf just.tar.gz just
+          sudo install -m 0755 just /usr/local/bin/just
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            room/target
+          key: cargo-burst-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
+          restore-keys: cargo-burst-${{ runner.os }}-
+
+      # Built before anything touches the room: the Fly trial org stops the
+      # machine about five minutes after it starts, so scheduling, burst and
+      # smoke run back to back with no build between them.
+      - name: Build both harnesses
+        run: |
+          set -euo pipefail
+          cd room
+          cargo fetch --locked
+          cargo build --release --offline --locked --features burst --bin burst --bin smoke
+
+      - name: Schedule q3's record as smoke-q3 and burst-q3
+        env:
+          POPQUIZ_ADMIN_TOKEN: ${{ secrets.POPQUIZ_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          for id in smoke-q3 burst-q3; do
+            jq --arg id "$id" '.id = $id' bank/questions/q3.json > "$RUNNER_TEMP/$id.json"
+            # The header reaches curl on stdin (printf is a shell builtin), so the
+            # token is never in any process's arguments.
+            status=$(printf 'header = "Authorization: Bearer %s"\n' "$POPQUIZ_ADMIN_TOKEN" |
+              curl -sS --config - -o "$RUNNER_TEMP/$id.out" -w '%{http_code}' -X PUT \
+                -H 'Content-Type: application/json' --data-binary "@$RUNNER_TEMP/$id.json" \
+                "$ROOM_URL/admin/questions/$id")
+            echo "PUT /admin/questions/$id: $status $(cat "$RUNNER_TEMP/$id.out")"
+            case "$status" in
+              200|201) ;;
+              401) echo "401: POPQUIZ_ADMIN_TOKEN is not the app's secret" >&2; exit 2 ;;
+              409) echo "409: $id has run on this machine already; fly apps restart rustnyc-popquiz, then run again" >&2; exit 2 ;;
+              *) exit 2 ;;
+            esac
+          done
+
+      - name: burst
+        id: burst
+        continue-on-error: true
+        env:
+          POPQUIZ_ORGANIZER_SESSION: ${{ secrets.POPQUIZ_ORGANIZER_SESSION }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          ulimit -n 4096 2>/dev/null || true
+          # Short enough to sit inside the trial's window: one isolated burst
+          # per shape, a 10 s churn. Stdout is the report; --out keeps it.
+          room/target/release/burst --url "$ROOM_URL" --participants "$PARTICIPANTS" \
+            --question burst-q3 --cycles 1 --churn-secs 10 --seed "$GITHUB_RUN_ID" \
+            --out reports/burst.json > /dev/null
+
+      - name: smoke
+        id: smoke
+        continue-on-error: true
+        env:
+          POPQUIZ_ORGANIZER_SESSION: ${{ secrets.POPQUIZ_ORGANIZER_SESSION }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          ulimit -n 4096 2>/dev/null || true
+          room/target/release/smoke --url "$ROOM_URL" --participants "$PARTICIPANTS" \
+            --question smoke-q3 --out reports/smoke.json
+
+      - name: Keep both reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-burst-${{ github.run_id }}
+          path: reports/
+          if-no-files-found: warn
+
+      - name: Summary, and what to do now
+        if: always()
+        env:
+          BURST: ${{ steps.burst.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## deployed-burst against $ROOM_URL"
+            echo ""
+            echo "- burst: **$BURST** · smoke: **$SMOKE** (reports in the artifact)"
+            if [ -f reports/burst.json ]; then
+              jq -r '"- substrate: \(.substrate // "-") · quotable: \(.quotable)",
+                     (.criteria // [] | .[] | "- \(.id): \(.value) (pass: \(.pass))"),
+                     (.verdict.notes // [] | .[] | "  - \(.)"),
+                     (if .could_not_run then "- could not run: \(.could_not_run)" else empty end)' reports/burst.json
+            fi
+            echo ""
+            echo "**Now:**"
+            echo "1. \`fly apps restart rustnyc-popquiz\` — before anyone hosts, and before any \`popquiz sync\`: the machine's ledger holds smoke-q3 and burst-q3 until it restarts."
+            echo "2. Delete the two repository secrets (\`gh secret delete POPQUIZ_ORGANIZER_SESSION\`, \`gh secret delete POPQUIZ_ADMIN_TOKEN\`)."
+            echo "3. Paste the AC-41/52/53/54 lines above onto the ticket; never a token."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if either run did
+        if: steps.burst.outcome != 'success' || steps.smoke.outcome != 'success'
+        run: |
+          echo "burst: ${{ steps.burst.outcome }}, smoke: ${{ steps.smoke.outcome }}" >&2
+          exit 1
