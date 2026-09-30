@@ -21,7 +21,8 @@ they disagree on *behaviour*, `SPEC.md` wins.
 | `well.js` | The source well, line numbers, highlight-and-dim, and phase-scoped Rust syntax colour. |
 | `trace.js` | The trace renderer, and the step bound. |
 | `typemodel.js` | The wall's derived type size, the measured refit, and the fit verdict. AC-100. |
-| `copy.js` | Every binding string from `SPEC.md` §11, keyed. |
+| `copy.js` | Every binding string from `SPEC.md` §11, keyed — and the only place a page's words come from. |
+| `copylint.js` | SPEC §11's Forbidden row and the §11.1 trope check, as one source. |
 | `check.js` | The ✓ helper. AC-40. |
 
 ## How to load it
@@ -113,11 +114,48 @@ characters (D-15).
   take-it-home, review) are T-05, T-06, T-12 and the review ticket, and **each
   carries its own AC-40 assertion**. T-02 does not discharge it for them.
 - The §11 copy is complete in both directions and matches neither the Forbidden
-  patterns (AC-98) nor the trope patterns (§11.1). The reusable lints are T-22's.
+  patterns (AC-98) nor the trope patterns (§11.1) — see *Copy*, below.
 
-## Editing the copy
+## Copy
 
-`SPEC.md` §11 is where participant-facing strings are authored, "here and only
-here". To add one: put it in §11 first, then port it into `copy.js` with a
-comment naming its row and add its key to `COPY_ROWS`. The completeness test
-walks that index in both directions, so a string in one and not the other fails.
+**§11 first, then the key, then the mirror.** `SPEC.md` §11 is where
+participant-facing strings are authored, "here and only here". To add one: put
+it in §11 first; port it into `copy.js` with a comment naming its row and its
+key in `COPY_ROWS`; then add the same constant to `room/src/copy.rs` (the key
+upper-cased, same string, same place in `ALL`). `copy.test.js` walks
+`COPY_ROWS` both ways and `room/tests/twins.rs` walks the two files both ways,
+so a string in one place and not the other fails `just test`. Change words the
+same way, from §11 down; never here first.
+
+**The freeze.** A page gets its words from `copy.js` and nowhere else — through
+`PQ.t(key, values)` or, for the wall, from the room, which fills the same
+templates from `copy.rs`. `web/test/copy-freeze.test.js` proves it by drawing
+every screen of the wall, the static fallback, the buzzer, the host phone and
+take-it-home with every copy value swapped for a marker naming its key, and
+failing on any word left that is not the screen's own data — `aria-label`s and
+live-region strings included. Its allowlist prints on every run and holds two
+entries, each with its reason: the host's status line (the room's `reason`
+shown verbatim, an open question) and the rustc flag spelling on take-it-home.
+It cannot see a literal word that also occurs in that screen's data.
+
+**`PROPOSED-§11`.** Strings a page already showed that §11 does not author yet
+sit in a marked block at the end of `COPY`, words unchanged, under the row
+`PROPOSED-§11 (not yet in SPEC)`, keys prefixed `proposed_`. They are routed
+upstream (F-34, F-38 and the three T-22 found) and leave the block for their
+row the day §11 adopts them. Nothing new goes in: a new sentence is a §11
+change.
+
+**The two lints.** `copylint.js` holds SPEC's patterns verbatim; its Python
+twin `pipeline/src/popquiz/copylint.py` holds the same text. Each suite reads
+`SPEC.md` and fails if its copy differs, and both run the hand-written fixtures
+in `bank/fixtures/copy-lint/`. Python is compiled to JavaScript's behaviour
+(ASCII `\b` and case folding, JavaScript's `\s`); the one case the engines
+cannot agree on, a `{0,N}` span over astral characters, is a fixture of its
+own. Both read a curly apostrophe as a straight one.
+
+| Over | Lints | Consequence | Where |
+|---|---|---|---|
+| The copy module (`copy.js`, `PROPOSED-§11` included) | Forbidden + §11.1 | Any match **fails `just test`** | `web/test/copylint.test.js` |
+| Question prose: `explains.what`, `explains.takeaway`, each `why_tempting`, `hint` (never `explains.legacy`, `source` or option text) | Forbidden + §11.1 | A **warning**, never a failure; `copylint.check_prose(record)` never raises | The review screen (§7.4) will show them beside the text — T-18 calls `check_prose`; nothing renders them yet. `pipeline/tests/test_copylint.py` runs it over every committed question and prints what it finds. |
+
+
