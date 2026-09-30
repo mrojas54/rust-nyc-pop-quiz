@@ -1,16 +1,27 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 9,
+  "comment_count": 10,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-22 (M4).\n\nThe copy freeze: every participant-facing string from `SPEC.md` \u00a711 in one module; the forbidden-copy lint and the \u00a711.1 trope check in `test`, the trope check failing the build on any match in the copy module (D-23)\n\nCriteria: AC-98, AC-59, AC-42, G-5\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-05\u201307, T-12\nBUILDPLAN notes: \u2014\n\nOrchestrator notes: Creates or completes `web/shared/copy` (F-11): serialized on `web/shared`. The forbidden list and the \u00a711.1 patterns are SPEC \u00a711's, verbatim.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M3RMSXAW4KP8SYCX4AEZWXKQ",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3RMTE8TD6S8XAPDAQYHRXD1",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZSCS61DT88DA38YQR4AF",
-  "last_event_id": "ev_01M3RGVDQSANQQRCNQYCYWHD8W",
+  "last_event_id": "ev_01M3RMTFNG82TDWABQ8PKCE7S1",
   "last_status_changed_at": "2026-09-30T06:41:35Z",
   "priority": "medium",
   "relationships_out": [
@@ -54,6 +65,6 @@
   ],
   "title": "Copy freeze and lints",
   "type": "task",
-  "updated_at": "2026-09-30T06:43:23Z",
+  "updated_at": "2026-09-30T07:52:46Z",
   "urgency": null
 }
