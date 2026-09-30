@@ -59,6 +59,9 @@
 .walk .trace-note, .walk .tval { overflow-wrap: anywhere; min-width: 0; }
 .walk .tval { flex-wrap: wrap; }
 .walk .trace-nav { flex-wrap: wrap; }
+/* AC-85 (T-13): trace.js sizes its step buttons inline at 34 px, for the
+   review surfaces; here they are a reader's touch targets. */
+.walk .trace-nav .btn { min-height: var(--touch-target) !important; min-width: var(--touch-target); }
 .keyhint { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 8px; }
 kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--border-default);
       border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px; background: var(--white);
@@ -77,6 +80,27 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--bo
 .receipt .vv { margin: 0; font: inherit; white-space: pre; overflow-x: auto; max-width: 100%; }
 .receipt .caveat { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border-default);
                    color: var(--text-secondary); line-height: 1.6; }
+
+/* --- accessibility (T-13) -------------------------------------------------
+   AC-82: a ring on everything focusable — the program well, the trace's
+   buttons, the -Vv block — in --focus-ring, 5.3:1 here where the shared
+   amber-500 ring is 2.3:1 (AC-84).
+   AC-84: the well's header, its line numbers and comments were --text-muted,
+   4.0:1 on the well's white; the ✓ takes --success-text as on every surface. */
+.home-page :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.home-page .rn-src-scroll:focus-visible { outline-offset: -2px; }
+.home-page .rn-src-head, .home-page .rn-src-ln, .home-page .tk-c { color: var(--text-secondary); }
+.home-page .rn-correct { color: var(--success-text); }
+/* The highlighted line's left edge says *this line, now*: 5.5:1, not 2.4:1. */
+.home-page .rn-src-line.hl { border-left-color: var(--focus-ring); }
+
+/* AC-86: nothing on this page animates; a trace step is a new highlight and
+   its *Step N of M* in words. This is the guard for the day something does. */
+@media (prefers-reduced-motion: reduce) {
+  .home-page *, .home-page *::before, .home-page *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}
 
 @media (max-width: 480px) {
   .receipt .row { flex-direction: column; gap: 0; }

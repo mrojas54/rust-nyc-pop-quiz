@@ -35,7 +35,10 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
        background: var(--bg-input); color: var(--text-primary); cursor: pointer;
        text-align: center; }
 .btn:hover { background: var(--bg-tertiary); }
-.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+/* AC-84 (T-13): --focus-ring, not the prototype's --border-focus — amber-500
+   is 2.3:1 on this page and a focus ring needs 3:1. */
+.btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.host-phone :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary);
                color: #2d3748; font-weight: 600; }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover);
@@ -71,6 +74,8 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
 .host-count { margin-top: auto; padding-top: 12px; font-size: var(--text-xs);
               color: var(--text-secondary); border-top: 1px solid var(--border-default); }
 
+/* AC-86. Nothing here animates; a phase change is a new screen and a new
+   primary action, announced by its label (host.js), never a motion. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
