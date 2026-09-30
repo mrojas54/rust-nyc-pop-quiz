@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 3,
+  "comment_count": 4,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -83,11 +83,16 @@
       "id": "art_01M3R7WKYYPNRBJNJ91T6PTFPZ",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3RCE09N09HH7YM149JA996F",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZR44F6TR7Q0X3W0ZFP9X",
-  "last_event_id": "ev_01M3R7WKZ0S7P6VYFT1V4GF74J",
-  "last_status_changed_at": "2026-09-30T03:46:06Z",
+  "last_event_id": "ev_01M3RCEHK1M69346S3KZAVHJHK",
+  "last_status_changed_at": "2026-09-30T05:26:13Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -115,7 +120,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-16",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m2",
     "fast-track",
@@ -123,6 +128,6 @@
   ],
   "title": "Accessibility sweep",
   "type": "task",
-  "updated_at": "2026-09-30T04:06:44Z",
+  "updated_at": "2026-09-30T05:26:26Z",
   "urgency": null
 }

@@ -4,13 +4,20 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-29 23:4x EDT. Run resumed on the client's `/lattice-orchestrator`; wave 17 dispatched. c11 restarted since the last snapshot: the run is `workspace:1`, the Orchestrator `surface:8` in `pane:1`, the client's terminal `surface:9` in `pane:2` (never used for spawns); delegators open as tabs of `pane:1`.
+Snapshot: 2026-09-30 01:3x EDT. PQ-16 at `review` (PR #37); wave 18 dispatched off its branch. The run is `workspace:1`, the Orchestrator `surface:8` in `pane:1`, the client's terminal `surface:9` in `pane:2` (never used for spawns); delegators open as tabs of `pane:1`.
 
 | Role | Ticket | Surface ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `surface:8` in `pane:1` | ai-c11-cc/lattice-build | Dispatch loop armed; next: verify PQ-16's READY, then its `review` |
-| agent:delegator-pq16 (Opus, fast-track) | PQ-16 / T-13 accessibility sweep | `surface:12` in `pane:1` | ai-c11-cc/a11y-sweep off `origin/main` @ `1263add` | launched 23:4x; boot prompt at `…-worktrees/a11y-sweep/.claude/boot-prompt.md` |
-| Not dispatched | PQ-26 burst and smoke in CI · PQ-27 copy freeze and lints | — | — | press ahead off PQ-16's branch at its `review` (`justfile` / `web/shared` serialization) |
+| Orchestrator | — | `surface:8` in `pane:1` | ai-c11-cc/lattice-build | Dispatch loop armed; next: READY receipts for PQ-26/PQ-27, CI on #37, the client's merge word |
+| agent:delegator-pq26 (Opus, inline-full) | PQ-26 / T-21 burst and smoke in CI | `surface:14` in `pane:1` | ai-c11-cc/burst-in-ci off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | launched 01:3x; boot prompt at `…-worktrees/burst-in-ci/.claude/boot-prompt.md` |
+| agent:delegator-pq27 (Opus, inline-full) | PQ-27 / T-22 copy freeze and lints | `surface:15` in `pane:1` | ai-c11-cc/copy-freeze off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | launched 01:3x; boot prompt at `…-worktrees/copy-freeze/.claude/boot-prompt.md` |
+| Waiting on the client | PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) | — | — | held; PQ-25 → PQ-29 → PQ-28 follow |
+
+### Archived (run history)
+
+| Actor | Ticket | Outcome | Notes |
+|---|---|---|---|
+| agent:delegator-pq16 (Opus, fast-track, surface:12) | PQ-16 / T-13 accessibility sweep | `review`, PR #37 open, head `b0dda3e` on `1263add` (main now `1d721f4`) | `just a11y` 28/28 over every surface and phase (node runner, no dependency; in `test` via the `test-web` glob; warm `just test` 12.7 s); AA fixes per surface with two new custom properties and no token value change (focus ring, wall join link, well header/line numbers/comments, ✓ letter, wall chip, trace-highlight edge, buzzer field edge — before/after screenshots and ratios attached); focus kept across repaints; the host's first phase label announced; take-it-home trace buttons 44 px; `web/README.md` *Accessibility* with the by-hand browser steps (WKWebView moves no focus on synthetic Tab). Seven deviations (F-37 dim-room clause; dimmed trace lines exempt at 1.84:1). Sonnet PASS-WITH-NITS at `8cb36e0`, Minors fixed after; exact-head review due at merge. Six signed commits. |
 
 ### Archived (run history)
 

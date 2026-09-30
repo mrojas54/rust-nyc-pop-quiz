@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZSCS61DT88DA38YQR4AF",
-  "last_event_id": "ev_01M3EDQ7NKDAAG531J809Z8YXG",
+  "last_event_id": "ev_01M3RCJ14MKFJP7ZCNDH0RP52R",
   "last_status_changed_at": "2026-09-20T21:01:39Z",
   "priority": "medium",
   "relationships_out": [
@@ -54,6 +54,6 @@
   ],
   "title": "Copy freeze and lints",
   "type": "task",
-  "updated_at": "2026-09-26T08:36:15Z",
+  "updated_at": "2026-09-30T05:28:20Z",
   "urgency": null
 }
