@@ -10,6 +10,7 @@
 #   just test-full      everything that exists, plus what is still pending
 #   just sandbox-build  build the verification image from pin.toml (T-15a)
 #   just secret-scan    AC-101's static half: no admin token in the repository (T-25)
+#   just a11y           AC-82…AC-86 on every surface and phase, and the matrix (T-13)
 #
 # Why `setup` exists: `test` has to be hermetic, and a fresh .venv has to come
 # from somewhere. Splitting the network step out is what lets `test` be run
@@ -22,7 +23,7 @@
 
 # Suites not built yet, and the ticket that delivers each. Read by both `_pending`
 # and `test-full`, so the two can never disagree about what is missing.
-PENDING := "burst:T-21 a11y:T-13"
+PENDING := "burst:T-21"
 
 _default:
     @just --list --unsorted
@@ -59,7 +60,7 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only")
+test-full: test a11y sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only")
     #!/usr/bin/env bash
     set -euo pipefail
     (cd room && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
@@ -245,9 +246,15 @@ bank-audit *ARGS:
 burst *ARGS:
     @just _pending burst
 
-a11y *ARGS:
-    @just _pending a11y
-
+# AC-82…AC-86 over every surface and phase (T-13): keyboard, the live region's
+# strings, AA contrast, 44 px targets, reduced motion. Hermetic and fast, so the
+# test-web glob runs it inside `test` too; here it also prints the surface ×
+# screen × criterion matrix and every contrast ratio. What needs a browser is
+# web/README.md, Accessibility.
+#
+# AC-82…AC-86 on every surface and phase, with the matrix.
+a11y:
+    A11Y_MATRIX=1 node --test web/test/a11y.test.js
 
 # Prints which ticket delivers a suite, then fails.
 _pending SUITE:
