@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>a11y browser pass</title>
+<!--
+  The browser half of `just a11y` (T-13): what a DOM without layout cannot
+  prove, checked once by hand in a real engine — the Tab order and the ring as
+  drawn, rendered target sizes, the live region's text, the reduced-motion
+  setting. web/README.md, Accessibility, has the steps.
+
+  Serve the repository root on loopback and open one surface at a time:
+
+    python3 -m http.server 8766 --bind 127.0.0.1
+    http://127.0.0.1:8766/web/test/a11y/browser.html?surface=buzzer
+
+  Each surface is the real page's markup, stylesheets and scripts. Where a
+  surface needs a room, a scripted stand-in plays one: the buzzer's socket and
+  answer route, the host's host route and socket. The wall is the real static
+  fallback on q3's bake (Space, Esc, arrows); take-it-home is the real page on
+  q3's snapshot. The harness bar below the surface is NOT product UI, and it
+  comes after the surface in the Tab order so it does not disturb it.
+
+  window.a11yProbe() returns what the engine rendered, as JSON.
+-->
+<script>
+(function () {
+  "use strict";
+  var q = /[?&]surface=([a-z]+)/.exec(location.search);
+  var surface = q ? q[1] : "";
+  window.__A11Y_SURFACE__ = surface;
+  var W = "/web/";
+  var CSS = {
+    wall: ["shared/tokens.css", "shared/components.css", "wall/wall.css"],
+    buzzer: ["shared/tokens.css", "shared/components.css", "buzzer/buzzer.css"],
+    host: ["shared/tokens.css", "shared/fonts.css", "shared/components.css", "host/host.css"],
+    home: ["shared/tokens.css", "shared/components.css", "home/home.css"]
+  }[surface] || [];
+  CSS.forEach(function (f) { document.write('<link rel="stylesheet" href="' + W + f + '">'); });
+  document.write("<style>.a11y-harness{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;gap:6px;" +
+    "flex-wrap:wrap;padding:6px;background:#111;color:#eee;font:12px monospace}" +
+    ".a11y-harness button{font:12px monospace}.a11y-index a{display:block;margin:8px}</style>");
+  function getJson(path) {
+    var x = new XMLHttpRequest();
+    x.open("GET", path, false);
+    x.send();
+    return x.responseText;
+  }
+  window.__A11Y_FIXTURE__ = function (path) { return getJson(W + path); };
+})();
+</script>
+</head>
+<body>
+<script>
+(function () {
+  "use strict";
+  var s = window.__A11Y_SURFACE__;
+  var W = "/web/";
+  var js = function (f) { document.write('<script src="' + W + f + '"><\/script>'); };
+  if (s === "wall") {
+    document.body.className = "wall-page";
+    document.write('<div class="wall-stage"><div class="wall-wrap" id="wallWrap" data-mode="static"></div></div>');
+    document.write('<script type="application/json" id="pq-static">' +
+      window.__A11Y_FIXTURE__("wall/fixtures/q3-static.json").replace(/<\//g, "<\\/") + "<\/script>");
+    ["shared/dom.js", "shared/phase.js", "shared/check.js", "shared/well.js", "shared/trace.js",
+     "shared/typemodel.js", "shared/copy.js", "wall/qr.js", "wall/wall.js", "wall/fallback/static.js"].forEach(js);
+  } else if (s === "buzzer") {
+    document.write('<main id="buzzer" class="buzzer" aria-live="off"></main>');
+    window.__POPQUIZ_NO_MOUNT__ = true;
+    ["shared/dom.js", "shared/copy.js", "shared/check.js", "buzzer/buzzer.js"].forEach(js);
+  } else if (s === "host") {
+    document.write('<main class="host-phone" id="host"></main>');
+    ["shared/dom.js", "shared/phase.js", "shared/copy.js", "host/host.js"].forEach(js);
+  } else if (s === "home") {
+    document.body.className = "home-page";
+    var snap = JSON.parse(window.__A11Y_FIXTURE__("home/fixtures/take-home.json")).q3;
+    document.write('<main class="home-app" id="home"></main>');
+    document.write('<script type="application/json" id="take-home">' +
+      JSON.stringify(snap).replace(/<\//g, "<\\/") + "<\/script>");
+    ["shared/dom.js", "shared/phase.js", "shared/check.js", "shared/well.js", "shared/trace.js",
+     "shared/copy.js", "home/home.js"].forEach(js);
+  } else {
+    document.write('<div class="a11y-index"><h1>a11y browser pass</h1>' +
+      ["wall", "buzzer", "host", "home"].map(function (n) {
+        return '<a href="?surface=' + n + '">' + n + "</a>";
+      }).join("") + "</div>");
+  }
+})();
+</script>
+<script>
+(function () {
+  "use strict";
+  var s = window.__A11Y_SURFACE__;
+  var PQ = window.PopQuiz;
+  var PHASES = ["idle", "live", "closed", "split", "work", "reveal", "released"];
+
+  /* A stand-in socket: the harness pushes frames into whichever one the page
+     opened last. */
+  var sockets = [];
+  function FakeSocket(url) {
+    var self = this;
+    this.url = url;
+    sockets.push(this);
+    setTimeout(function () { if (self.onopen) self.onopen(); }, 10);
+  }
+  FakeSocket.prototype.send = function () {};
+  FakeSocket.prototype.close = function () {};
+  function push(frame) {
+    var ws = sockets[sockets.length - 1];
+    if (ws && ws.onmessage) ws.onmessage({ data: JSON.stringify(frame) });
+  }
+  function reply(status, body) {
+    return Promise.resolve({ ok: status < 300, status: status, statusText: "",
+      text: function () { return Promise.resolve(body ? JSON.stringify(body) : ""); } });
+  }
+
+  function bar(buttons) {
+    var el = document.createElement("div");
+    el.className = "a11y-harness";
+    el.innerHTML = "<span>harness (not product):</span>";
+    buttons.forEach(function (b) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = b[0];
+      btn.addEventListener("click", b[1]);
+      el.appendChild(btn);
+    });
+    document.body.appendChild(el);
+  }
+
+  if (s === "buzzer") {
+    var BARS = ["A", "B", "C", "D", "E"].map(function (l, i) {
+      return { letter: l, count: [3, 1, 7, 0, 2][i], percent: [23, 8, 54, 0, 15][i] };
+    });
+    var at = 0, failNext = false, rev = 1;
+    var frameFor = function (phase) {
+      var f = { t: "state", revision: rev++, phase: phase, code: "ABC234", lines: [] };
+      if (phase === "live") f.hint = { text: "HARNESS-HINT: a made-up hint, standing in for the question's." };
+      if (["split", "work", "reveal"].indexOf(phase) >= 0) f.split = BARS;
+      if (phase === "reveal") f.correct = "E";
+      return f;
+    };
+    var handle = PQ.Buzzer.mount(document.getElementById("buzzer"), {
+      fetch: function (url, init) {
+        if (url === "/join") return reply(201, { room_id: "harness-room", token: "harness-token" });
+        var letter = JSON.parse(init.body).letter;
+        return new Promise(function (res) {
+          setTimeout(function () {
+            if (failNext) { failNext = false; res(reply(500)); } else res(reply(200, { saved: letter }));
+          }, 700);
+        }).then(function (r) { return r; });
+      },
+      WebSocket: FakeSocket,
+      storage: null,
+      location: { search: "", protocol: location.protocol, host: location.host },
+      setTimeout: window.setTimeout.bind(window),
+      announce: PQ.announce
+    });
+    window.__A11Y_BUZZER__ = handle;
+    bar([
+      ["attach (idle)", function () { var f = frameFor("idle"); f.session = { saved: null }; at = 0; push(f); }],
+      ["next phase", function () { at = Math.min(at + 1, PHASES.length - 1); push(frameFor(PHASES[at])); }],
+      ["fail next save", function () { failNext = true; }],
+      ["drop socket", function () { var ws = sockets[sockets.length - 1]; if (ws && ws.onclose) ws.onclose({ code: 1006 }); }]
+    ]);
+  }
+
+  if (s === "host") {
+    var hp = 0, hrev = 1, step = 0, M = 6;
+    var NEXT = { idle: "put-on-screen", live: "close-answers", closed: "show-split", split: "walk-it",
+      work: "reveal", reveal: "release", released: "run-it-again" };
+    var payload = function () {
+      var phase = PHASES[hp];
+      var p = { phase: phase, code: "ABC234", primary: { action: NEXT[phase] }, present: 12 };
+      if (phase !== "idle") p.answered = 7;
+      if (phase === "work" || phase === "reveal") {
+        var hi = phase === "work" ? M - 2 : M - 1;
+        p.step = { at: step, m: M, note: "HARNESS step note " + (step + 1) + ", standing in for the trace's words.",
+          can_back: step > 0, can_forward: step < hi };
+      }
+      if (phase === "reveal") {
+        p.read_aloud = { what: { text: "HARNESS what happens." },
+          middle: { heading: PQ.fill(PQ.COPY.host_reveal_beat_why, { n: 4, X: "B" }), text: "HARNESS why." },
+          takeaway: { text: "HARNESS what to remember." } };
+      }
+      return p;
+    };
+    var win = {
+      document: document,
+      location: { pathname: "/host/harness-room", hash: "#harness-session", search: "",
+        protocol: location.protocol, host: location.host, replace: function () {}, assign: function () {} },
+      history: { replaceState: function () {} },
+      sessionStorage: window.sessionStorage,
+      setTimeout: window.setTimeout.bind(window),
+      WebSocket: FakeSocket,
+      fetch: function (url, init) {
+        if (!init || init.method !== "POST") return reply(200, payload());
+        var slug = url.split("/").pop();
+        return new Promise(function (res) {
+          setTimeout(function () {
+            if (slug === "step-forward") step++;
+            else if (slug === "step-back") step--;
+            else if (hp < PHASES.length - 1) {
+              hp++;
+              step = PHASES[hp] === "reveal" ? M - 1 : 0;
+            }
+            res(reply(200, {}));
+            var f = payload();
+            f.t = "state"; f.revision = hrev++;
+            setTimeout(function () { push(f); }, 50);
+          }, 400);
+        });
+      }
+    };
+    PQ.host.boot(win);
+  }
+
+  /* What the engine rendered: every focusable element's box and, for the
+     focused one, its computed outline; the live region's text; the motion
+     setting. Read it after pressing Tab (a real key, so :focus-visible is
+     the browser's own call). */
+  window.a11yProbe = function () {
+    var focusable = Array.prototype.slice.call(document.querySelectorAll(
+      "button, a[href], input, select, textarea, [tabindex]")).filter(function (el) {
+        return !el.closest(".a11y-harness") && el.getAttribute("tabindex") !== "-1";
+      });
+    var a = document.activeElement;
+    var cs = a ? getComputedStyle(a) : null;
+    var region = document.querySelector('.sr-only[role="status"]');
+    return {
+      surface: s,
+      reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+      horizontalScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      live: region ? { role: region.getAttribute("role"), ariaLive: region.getAttribute("aria-live"), text: region.textContent } : null,
+      active: a && a !== document.body ? {
+        tag: a.tagName.toLowerCase(), cls: a.className, label: a.getAttribute("aria-label") || a.textContent.trim().slice(0, 40),
+        focusVisible: a.matches(":focus-visible"),
+        outline: cs.outlineStyle + " " + cs.outlineWidth + " " + cs.outlineColor, offset: cs.outlineOffset
+      } : null,
+      targets: focusable.map(function (el) {
+        var r = el.getBoundingClientRect();
+        return { tag: el.tagName.toLowerCase(), cls: el.className, w: Math.round(r.width), h: Math.round(r.height),
+          disabled: !!el.disabled };
+      }),
+      animations: document.getAnimations ? document.getAnimations().length : null
+    };
+  };
+})();
+</script>
+</body>
+</html>
