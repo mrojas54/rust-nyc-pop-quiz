@@ -8,6 +8,13 @@ The rule these are all circling: nobody writes down what a program prints. For a
 migration that is not a slogan - the August batch's outputs are sitting in a JSON
 file, and the difference between copying them and retyping them is the difference
 between a bank you can trust and a trivia deck.
+
+The migration is where the four records came from, not what they all are now.
+PR #36 re-authored q4, q7 and q8 for the wall's 29-character rule (D-15): q4's and
+q7's programs changed, and the pinned verifier wrote their new records (D-16); q8
+kept its program and its legacy record and changed only options. So q3 is checked
+byte for byte against a fresh run, q8's record against the migration's, and q4 and
+q7 against the verifier and the pin.
 """
 
 from __future__ import annotations
@@ -16,8 +23,11 @@ import dataclasses
 import json
 import pathlib
 
+import shutil
+
 import pytest
 
+from popquiz import sandbox, verify
 from popquiz.bank import (
     Explains,
     correct_index,
@@ -43,6 +53,11 @@ REPO = HERE.parent.parent
 MVP = REPO / "mvp" / "2026-08-12"
 BANK = REPO / "bank"
 MIGRATION_SOURCE = HERE.parent / "src" / "popquiz" / "migrate_mvp.py"
+
+# The records whose `verified` block is still the one the migration wrote.
+STILL_LEGACY = ("q3", "q8")
+# Re-authored after migration, with a new program the pinned verifier re-verified.
+REVERIFIED = ("q4", "q7")
 
 BATCH = json.loads((MVP / "verified.json").read_text(encoding="utf-8"))
 CONTENT = json.loads((MVP / "content.json").read_text(encoding="utf-8"))
@@ -73,25 +88,61 @@ def committed() -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 
 
-def test_the_committed_records_are_what_a_fresh_run_writes(
+def test_the_committed_record_is_what_a_fresh_run_writes(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Re-running the migration reproduces the files byte for byte.
+    """q3, the one question nobody has touched since, reproduces byte for byte.
 
-    Which makes the committed records reviewable: a reader can regenerate them rather
-    than take them on trust, and a later edit to the authored beats cannot land in the
-    module without the file beside it changing too.
+    Which makes it reviewable: a reader can regenerate it rather than take it on
+    trust, and a later edit to its authored beats cannot land in the module without
+    the file beside it changing too.
     """
     migrate(MVP, tmp_path)
-    for qid in MIGRATED:
-        fresh = (tmp_path / "questions" / f"{qid}.json").read_text(encoding="utf-8")
-        landed = (BANK / "questions" / f"{qid}.json").read_text(encoding="utf-8")
-        assert fresh == landed, f"{qid}.json on disk is not what the migration writes"
+    fresh = (tmp_path / "questions" / "q3.json").read_text(encoding="utf-8")
+    landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
+    assert fresh == landed, "q3.json on disk is not what the migration writes"
     # The shape, not the contents: dedupe grows the committed history (AC-17).
     fresh_history = json.loads((tmp_path / "history.json").read_text(encoding="utf-8"))
     landed_history = json.loads((BANK / "history.json").read_text(encoding="utf-8"))
     assert landed_history.keys() == fresh_history.keys()
     assert landed_history["version"] == fresh_history["version"]
+
+
+def test_q8_still_carries_the_record_the_migration_wrote(tmp_path: pathlib.Path) -> None:
+    """D-22: q8's program was not re-authored, so the answer stands and so does the
+    August record. Only its options changed (PR #36). The source lost its trailing
+    newline on the way, which changes no token of the program."""
+    migrate(MVP, tmp_path)
+    fresh = load_question(tmp_path, "q8")
+    landed = load_question(BANK, "q8")
+    assert question_to_dict(landed)["verified"] == question_to_dict(fresh)["verified"]
+    assert landed.source.rstrip("\n") == fresh.source.rstrip("\n")
+    assert landed.explains.legacy == fresh.explains.legacy
+
+
+@pytest.mark.parametrize("qid", REVERIFIED)
+def test_a_reauthored_record_was_written_by_the_pinned_verifier(qid: str) -> None:
+    """AC-6, AC-7, D-16. A new program needs a new record, and only `verify` writes
+    one: not legacy, carrying `verified_at` and `verifier_version`, current against
+    the pin, and passing the build's provenance check."""
+    path = BANK / "questions" / f"{qid}.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "legacy" not in data["verified"]
+    question = verify.check_provenance(data)
+    assert question.verified.verified_at and question.verified.verifier_version
+    assert not verify.is_stale(question.verified, sandbox.read_pin())
+    assert "Re-authored" in question.review.reason
+    assert "pinned verifier" in question.review.reason
+
+
+def test_a_rerun_leaves_the_bank_as_it_is(tmp_path: pathlib.Path) -> None:
+    """The bank is append-only (SPEC 3.3). Re-running the migration over the real
+    bank must not put the August programs back over q4 and q7, or q8's old options
+    back over its new ones, or empty the history dedupe has grown."""
+    shutil.copytree(BANK, tmp_path, dirs_exist_ok=True)
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*.json")}
+    assert migrate(MVP, tmp_path) == []
+    assert {p: p.read_bytes() for p in tmp_path.rglob("*.json")} == before
 
 
 def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
@@ -113,7 +164,7 @@ def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("qid", MIGRATED)
+@pytest.mark.parametrize("qid", STILL_LEGACY)
 def test_no_legacy_record_holds_a_field_the_mvp_never_recorded(
     qid: str, committed: dict
 ) -> None:
@@ -127,7 +178,7 @@ def test_no_legacy_record_holds_a_field_the_mvp_never_recorded(
         assert absent not in written, f"{qid}: {absent} was back-filled"
 
 
-@pytest.mark.parametrize("qid", MIGRATED)
+@pytest.mark.parametrize("qid", STILL_LEGACY)
 def test_a_legacy_compiler_string_is_the_version_line_not_a_vv(
     qid: str, committed: dict
 ) -> None:
@@ -159,7 +210,7 @@ def test_q8_carries_its_error_codes_renamed_and_nothing_that_ran() -> None:
         assert absent not in written
 
 
-@pytest.mark.parametrize("qid", [q for q in MIGRATED if q != "q8"])
+@pytest.mark.parametrize("qid", [q for q in STILL_LEGACY if q != "q8"])
 def test_a_compiling_question_carries_the_runs_and_miri_the_mvp_recorded(
     qid: str, committed: dict
 ) -> None:
@@ -206,7 +257,8 @@ def test_a_non_compiling_question_with_no_error_codes_is_refused() -> None:
 def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) -> None:
     """PHILOSOPHY 3: the machine decides the answer. The correct option's text is
     `normalized_output` of the recorded `stdout` and never an authored string, so the
-    derivation and the record cannot disagree."""
+    derivation and the record cannot disagree. For q3 that record is still August's;
+    for q4 and q7 it is the one the pinned verifier wrote."""
     question = committed[qid]
     index = correct_index(question)
     assert index is not None, f"{qid}: no option matches the verified answer"
@@ -214,9 +266,10 @@ def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) ->
     if qid == "q8":
         assert question.options[index].kind == "does_not_compile"
     else:
-        assert question.options[index].text == normalized_output(
-            MVP_BY_ID[qid]["answer"]
-        )
+        assert question.options[index].kind == "output"
+        assert question.options[index].text == normalized_output(question.verified.stdout)
+    if qid in STILL_LEGACY and qid != "q8":
+        assert question.verified.stdout == MVP_BY_ID[qid]["answer"]
 
 
 def test_the_resolving_trace_step_is_derived_from_the_record() -> None:
@@ -367,13 +420,28 @@ def test_every_beat_resolves_to_exactly_one_option(committed: dict) -> None:
 
 
 @pytest.mark.parametrize("qid", ["q4", "q7", "q8"])
-def test_the_questions_awaiting_reauthoring_have_no_middle_beats(
+def test_the_migration_drafted_no_middle_beats_for_the_questions_it_flagged(
+    qid: str,
+) -> None:
+    """Every incorrect option they would have attached to was scheduled for
+    replacement, so the migration drafted none - a beat drafted then would have been
+    drafted against text that no longer exists."""
+    built = build_question(BATCH, MVP_BY_ID[qid], CONTENT[qid])
+    assert all(o.why_tempting is None for o in built.options)
+
+
+@pytest.mark.parametrize("qid", ["q4", "q7", "q8"])
+def test_the_reauthored_questions_have_a_middle_beat_for_every_incorrect_option(
     qid: str, committed: dict
 ) -> None:
-    """Every incorrect option they would attach to is scheduled for replacement, so a
-    beat drafted now would be drafted against text that will not exist. The absence
-    blocks affirm (SPEC 7.4, AC-95), which is the correct state."""
-    assert all(o.why_tempting is None for o in committed[qid].options)
+    """AC-95, D-9: PR #36 replaced the options and drafted the beats with them."""
+    question = committed[qid]
+    correct = correct_index(question)
+    for i, option in enumerate(question.options):
+        if i == correct:
+            assert option.why_tempting is None, "the correct option has no tempting"
+        else:
+            assert option.why_tempting, f"{qid} option {i} has no why_tempting"
 
 
 def test_no_middle_beat_is_keyed_by_a_letter() -> None:
@@ -425,11 +493,13 @@ def test_q3_runs_on_the_wall_as_authored() -> None:
     ("qid", "expected_failures"), [("q4", 4), ("q7", 4), ("q8", 1)]
 )
 def test_the_review_note_names_the_options_that_break_the_wall_rule(
-    qid: str, expected_failures: int, committed: dict
+    qid: str, expected_failures: int
 ) -> None:
     """The note is generated from the measurement, not typed, so it and `bank-audit`
-    cannot disagree about which options fail (D-15)."""
-    question = committed[qid]
+    cannot disagree about which options fail (D-15). Asked of what the migration
+    writes: the committed records have been re-authored since, and their notes say
+    so instead."""
+    question = build_question(BATCH, MVP_BY_ID[qid], CONTENT[qid])
     failing = options_needing_reauthoring(question.options)
     assert len(failing) == expected_failures
 
@@ -445,16 +515,26 @@ def test_q8_needs_only_a_distractor_replaced_and_keeps_its_answer() -> None:
     """The distinction SPEC 5.2's table compresses. q4's and q7's failing options
     include the correct one, so their programs have to print something shorter and the
     machine decides a new answer. q8's failing option is a distractor, so its answer
-    stands and its program need not change."""
-    q8 = load_question(BANK, "q8")
+    stands and its program need not change. Asked of what the migration writes."""
+    q8 = build_question(BATCH, MVP_BY_ID["q8"], CONTENT["q8"])
     failing = options_needing_reauthoring(q8.options)
     assert correct_index(q8) not in failing
     assert "The correct option is not among them" in q8.review.reason
 
     for qid in ("q4", "q7"):
-        question = load_question(BANK, qid)
+        question = build_question(BATCH, MVP_BY_ID[qid], CONTENT[qid])
         assert correct_index(question) in options_needing_reauthoring(question.options)
         assert "The correct option is among them" in question.review.reason
+
+
+@pytest.mark.parametrize("qid", MIGRATED)
+def test_every_committed_option_is_one_short_line(qid: str, committed: dict) -> None:
+    """D-15, SPEC 5.2: after PR #36 every option of all four runs on the wall, and
+    q8 still answers "does not compile"."""
+    assert options_needing_reauthoring(committed[qid].options) == ()
+    if qid == "q8":
+        q8 = committed[qid]
+        assert q8.options[correct_index(q8)].kind == "does_not_compile"
 
 
 # --------------------------------------------------------------------------- #
