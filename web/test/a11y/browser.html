@@ -59,6 +59,10 @@
   var W = "/web/";
   var js = function (f) { document.write('<script src="' + W + f + '"><\/script>'); };
   if (s === "wall") {
+    /* ?surface=wall&frame=live draws one of the room's own q3 frames through
+       the live wall's mount (live, reveal, …); without it, the static fallback. */
+    var fm = /[?&]frame=([a-z]+)/.exec(location.search);
+    window.__A11Y_WALL_FRAME__ = fm ? fm[1] : null;
     document.body.className = "wall-page";
     document.write('<div class="wall-stage"><div class="wall-wrap" id="wallWrap" data-mode="static"></div></div>');
     document.write('<script type="application/json" id="pq-static">' +
@@ -127,6 +131,15 @@
       el.appendChild(btn);
     });
     document.body.appendChild(el);
+  }
+
+  if (s === "wall" && window.__A11Y_WALL_FRAME__) {
+    var frames = JSON.parse(window.__A11Y_FIXTURE__("wall/fixtures/q3-phases.json")).frames;
+    var f = frames[window.__A11Y_WALL_FRAME__];
+    if (Array.isArray(f)) f = f[0];
+    var wrap = document.getElementById("wallWrap");
+    wrap.innerHTML = "";
+    PQ.Wall.mount(wrap, {}).show(f);
   }
 
   if (s === "buzzer") {
