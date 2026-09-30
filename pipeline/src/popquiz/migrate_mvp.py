@@ -541,6 +541,8 @@ def main(argv: list[str] | None = None) -> int:
     for path in written:
         print(f"wrote {path}")
     kept = [qid for qid in MIGRATED if question_path(args.bank_dir, qid) not in written]
+    if history_path(args.bank_dir) not in written:
+        kept.append("history.json")
     if kept:
         print("kept, already in the bank: " + ", ".join(kept))
     print(
