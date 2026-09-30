@@ -1377,6 +1377,9 @@ pub enum Start<'a> {
 /// One room through every phase, the real buzzer page riding along.
 pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> Evidence {
     let p = plants();
+    // T-21: AC-55's request log is the room's log too; every line it writes
+    // during the walk is scanned below.
+    room::requestlog::start_capture();
     let mut w = match start {
         Start::Question(q) => Walk::create(server, q).await,
         Start::Room(created) => Walk::adopt(server, created, Seen::default()).await,
@@ -1529,6 +1532,13 @@ pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> E
         .filter(|x| x.viewer == "buzzer")
         .map(|x| (x.label.clone(), x.all.clone()))
         .collect();
+    // T-21: no line of the request log carries a plant (the room id is its
+    // one identifier; tokens, sessions, codes and answers are never fields).
+    for line in room::requestlog::captured_all() {
+        for (name, plant) in p.all() {
+            assert!(!line.contains(plant), "the request log carries the {name} plant: {line}");
+        }
+    }
     Evidence {
         seen: w.seen,
         reveal_wall,

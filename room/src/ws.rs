@@ -255,6 +255,9 @@ impl Transport {
         });
         if found.is_err() {
             lock(&inner.rooms).remove(room_id);
+            // T-21: a watched room swept without a release still gets its
+            // AC-55 summary (a no-op if release already wrote it).
+            crate::requestlog::ended(room_id, "gone");
         }
     }
 
@@ -346,6 +349,7 @@ impl Transport {
                 Some(k) => kicked = Some(k),
                 None => return bye(socket, close::ROOM_GONE).await,
             }
+            crate::requestlog::request(&room_id); // T-21: AC-55's denominator
         }
 
         // Full current state, before anything else (§4.3, AC-37).
@@ -355,7 +359,12 @@ impl Transport {
             None => first.as_ref().into(),
         };
         let mut replaced = false;
-        if send(&mut socket, first).await {
+        // T-21: the connection broke, or the room gave up sending to it — as
+        // opposed to the phone closing it, a replacement, or the room ending.
+        let mut broke = false;
+        if !send(&mut socket, first).await {
+            broke = true;
+        } else {
             let kick = async {
                 match kicked {
                     Some(k) => k.await.is_ok(),
@@ -372,6 +381,7 @@ impl Transport {
                         }
                         let f = sub.rx.borrow_and_update().clone();
                         if !send(&mut socket, f.as_ref().into()).await {
+                            broke = true;
                             break;
                         }
                     }
@@ -381,7 +391,11 @@ impl Transport {
                         break;
                     }
                     incoming = socket.recv() => match incoming {
-                        None | Some(Err(_)) | Some(Ok(Message::Close(_))) => break,
+                        Some(Ok(Message::Close(_))) => break,
+                        None | Some(Err(_)) => {
+                            broke = true;
+                            break;
+                        }
                         // Nothing else is read from an attached socket yet.
                         Some(Ok(_)) => {}
                     },
@@ -389,6 +403,14 @@ impl Transport {
             }
         }
 
+        if let (Some(_), true) = (session, broke) {
+            // AC-55: only while the room is still running.
+            if let Ok(phase) = inner.state.with_room(&room_id, |r| r.phase()) {
+                if phase != crate::phase::Phase::Released {
+                    crate::requestlog::socket_dropped(&room_id, serde_json::to_value(phase).unwrap_or_default());
+                }
+            }
+        }
         if let (Some(session), false) = (session, replaced) {
             if self.unregister(&room_id, session, connection) {
                 inner.tokens.gone(&room_id, session);
