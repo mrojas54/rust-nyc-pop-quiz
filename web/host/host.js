@@ -244,6 +244,7 @@
        so the key outlives the paint that could not honour it: pressing
        *Close answers* from the keyboard lands on *Show the room its split*. */
     var focusKey = null;
+    var owed = false;   // a paint could not honour the key; the next one may
 
     function keyOf(node) {
       if (!node || !node.getAttribute) return null;
@@ -264,10 +265,11 @@
     function repaint(html) {
       var active = win.document.activeElement;
       if (active && el.contains && el.contains(active)) focusKey = keyOf(active);
-      else if (active && active !== win.document.body) focusKey = null;
+      else if (!owed || (active && active !== win.document.body)) focusKey = null;   // the reader moved it
       el.innerHTML = html;
       var target = focusTarget(focusKey);
       if (target && target !== win.document.activeElement && typeof target.focus === "function") target.focus();
+      owed = !!focusKey && !target;
     }
 
     if (where.mode === "create") {
@@ -320,7 +322,8 @@
       payload = next;
       /* The first payload too (T-13): a host who opens or resumes a room hears
          which phase it is in, or `before the question` is never said at all. */
-      if (before !== next.phase) PQ.announce(PQ.HOST_PHASE_LABEL[next.phase]);
+      var label = PQ.HOST_PHASE_LABEL[next.phase];
+      if (before !== next.phase && label) PQ.announce(label);
       paint();
     }
 

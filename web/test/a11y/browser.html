@@ -40,7 +40,7 @@
   CSS.forEach(function (f) { document.write('<link rel="stylesheet" href="' + W + f + '">'); });
   document.write("<style>.a11y-harness{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;gap:6px;" +
     "flex-wrap:wrap;padding:6px;background:#111;color:#eee;font:12px monospace}" +
-    ".a11y-harness button{font:12px monospace}.a11y-index a{display:block;margin:8px}</style>");
+    ".a11y-harness button{font:12px monospace}body{padding-bottom:48px}.a11y-index a{display:block;margin:8px}</style>");
   function getJson(path) {
     var x = new XMLHttpRequest();
     x.open("GET", path, false);

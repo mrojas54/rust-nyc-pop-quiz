@@ -118,6 +118,10 @@ text, whether the page scrolls sideways, and the motion setting.
    → Accessibility → Display): nothing on any surface animates either way,
    and `a11yProbe().animations` is 0.
 
+The suite reads the default state of each rule. It does not check `:hover` or
+`:active` colours, or any `@media` variant. Those are this pass's too: on
+hover, the primary buttons turn white on the hover amber.
+
 The c11 browser drives steps 1–4 (`c11 browser <surface> eval "JSON.stringify(a11yProbe())"`).
 Its `press` sends a synthetic key, which moves no focus in WKWebView, so the
 real Tab walk and VoiceOver are step 5.

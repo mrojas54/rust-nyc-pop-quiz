@@ -400,6 +400,14 @@ test('ac82_buzzer: a letter, retry and the hint keep the keyboard where it was a
   el.querySelector('[data-act="hint"]').focus();
   handle.dispatch({ type: 'hint' });
   assert.ok(doc.activeElement.classes.includes('buzz-hint'), 'the hint takes the focus its button had');
+  // A reader who clicked blank space (the focus on <body>, not lost to a
+  // repaint) is not pulled back onto the buzzer by the next frame.
+  el.querySelector('[data-letter="C"]').focus();
+  handle.dispatch({ type: 'frame', frame: attach(BF.live, 'C') });
+  assert.equal(doc.activeElement.getAttribute('data-letter'), 'C');
+  doc.activeElement = doc.body;
+  handle.dispatch({ type: 'frame', frame: { ...BF.live, revision: 9 } });
+  assert.equal(doc.activeElement, doc.body, 'no focus steal');
   // A reader who moved the focus off the buzzer keeps it there.
   const outside = new D.Node('button', {}, doc.body, doc);
   doc.body.children.push(outside);

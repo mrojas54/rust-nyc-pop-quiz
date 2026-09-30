@@ -57,15 +57,13 @@ function color(css, n) {
   return [0, 0, 0];
 }
 
+// `background` and `background-color` compete in one cascade: whichever
+// declaration ranks higher sets the colour.
 function ownBackground(css, n, opts) {
-  for (const prop of ['background-color', 'background']) {
-    const w = winner(css, n, prop, opts);
-    if (w) {
-      const c = parseColor(w.value);
-      if (c) return c;
-    }
-  }
-  return null;
+  const hits = ['background-color', 'background'].map((p) => winner(css, n, p, opts)).filter(Boolean);
+  if (!hits.length) return null;
+  const w = hits.length === 2 && rankAbove(hits[1], hits[0]) ? hits[1] : hits[0];
+  return parseColor(w.value);
 }
 
 // The colour showing behind `n`: its own background or the nearest ancestor's.

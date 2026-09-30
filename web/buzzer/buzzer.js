@@ -544,8 +544,11 @@
        left on <body>, the next Tab back at the top. So the focus is remembered
        by what the control does and given back to its twin on the new screen.
        A control that no longer exists hands it on: retry to the letter it was
-       retrying, the hint button to the hint it showed. */
+       retrying, the hint button to the hint it showed. The key outlives a
+       paint only when that paint could not honour it (the control was
+       disabled or gone); a reader who clicked elsewhere is left there. */
     var focusKey = null;
+    var owed = false;
 
     function keyOf(node) {
       if (!node || !node.getAttribute) return null;
@@ -570,12 +573,13 @@
       var doc = el.ownerDocument;
       var active = doc && doc.activeElement;
       if (active && el.contains && el.contains(active)) focusKey = keyOf(active);
-      else if (active && active !== doc.body) focusKey = null;   // the reader moved it elsewhere
+      else if (!owed || (active && active !== doc.body)) focusKey = null;   // the reader moved it
       el.innerHTML = view(state);
       var input = el.querySelector && el.querySelector("#pq-code");
-      if (input && state.refusal && typeof input.focus === "function") { input.focus(); return; }
+      if (input && state.refusal && typeof input.focus === "function") { input.focus(); owed = false; return; }
       var target = focusTarget(focusKey);
       if (target && target !== doc.activeElement && typeof target.focus === "function") target.focus();
+      owed = !!focusKey && !target;
     }
 
     function dispatch(event) {
