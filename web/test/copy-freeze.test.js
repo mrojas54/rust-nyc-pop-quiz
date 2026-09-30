@@ -131,7 +131,8 @@ function vocabulary(...inputs) {
   return v;
 }
 
-const ATTRS = ['aria-label', 'title', 'alt', 'placeholder', 'aria-description'];
+const ATTRS = ['aria-label', 'title', 'alt', 'placeholder', 'aria-description', 'aria-valuetext',
+  'aria-roledescription', 'aria-placeholder'];
 
 // Every piece of text a screen shows or names: [{where, text, node}].
 function texts(html) {
@@ -331,9 +332,17 @@ test.after(() => {
 // --- The freeze -------------------------------------------------------------------
 
 test('every screen was drawn: each surface, each phase', () => {
+  // Exact, so a screen that drops out of the set is loud rather than quiet.
   const by = (s) => SCREENS.filter((x) => x.surface === s).length;
-  assert.ok(by('wall') >= 20 && by('buzzer') >= 20 && by('host') >= 10 && by('home') >= 10,
-    JSON.stringify({ wall: by('wall'), buzzer: by('buzzer'), host: by('host'), home: by('home') }));
+  assert.deepEqual({ wall: by('wall'), buzzer: by('buzzer'), host: by('host'), home: by('home') },
+    { wall: 33, buzzer: 24, host: 13, home: 19 });
+  // And each surface reaches every phase it has.
+  const wallPhases = new Set(SCREENS.filter((x) => x.surface === 'wall').map((x) => x.name.replace(/^static /, '').replace(/[[ ].*$/, '')));
+  for (const ph of PHASES) assert.ok(wallPhases.has(ph), `wall never drew ${ph}`);
+  for (const ph of PHASES) {
+    assert.ok(SCREENS.some((x) => x.surface === 'host' && x.name === ph), `host never drew ${ph}`);
+    assert.ok(SCREENS.some((x) => x.surface === 'buzzer' && x.name.startsWith(ph)), `buzzer never drew ${ph}`);
+  }
 });
 
 test('no screen shows a word that is neither a copy key nor its own data (G-5, §11)', () => {
