@@ -1,0 +1,101 @@
+{
+  "about": "One string per 11.1 pattern, in SPEC's order, so every compiled pattern is exercised (retired.json covers the groups, not every pattern).",
+  "cases": [
+    {
+      "text": "It's not a bug, it's the borrow checker.",
+      "expect": [
+        "contrast/1"
+      ]
+    },
+    {
+      "text": "This is not just a clone.",
+      "expect": [
+        "contrast/2"
+      ]
+    },
+    {
+      "text": "It moves. Not the value, the pointer.",
+      "expect": [
+        "contrast/3"
+      ]
+    },
+    {
+      "text": "Here: not once, not twice, not ever.",
+      "expect": [
+        "contrast/4"
+      ]
+    },
+    {
+      "text": "Think, do not guess.",
+      "expect": [
+        "contrast/5"
+      ]
+    },
+    {
+      "text": "It truly borrows.",
+      "expect": [
+        "filler/1"
+      ]
+    },
+    {
+      "text": "the method doing the work",
+      "expect": [
+        "filler/2"
+      ]
+    },
+    {
+      "text": "It is worth noting that v is moved.",
+      "expect": [
+        "signpost/1"
+      ]
+    },
+    {
+      "text": "Here's the thing: v moved.",
+      "expect": [
+        "signpost/2"
+      ]
+    },
+    {
+      "text": "The key part is the drop.",
+      "expect": [
+        "signpost/3"
+      ]
+    },
+    {
+      "text": "If you remember one thing, remember drop order.",
+      "expect": [
+        "signpost/4"
+      ]
+    },
+    {
+      "text": "That's okay.",
+      "expect": [
+        "reassurance/1"
+      ]
+    },
+    {
+      "text": "It's normal to miss this.",
+      "expect": [
+        "reassurance/2"
+      ]
+    },
+    {
+      "text": "Nothing is missing here.",
+      "expect": [
+        "reassurance/3"
+      ]
+    },
+    {
+      "text": "Don't worry about lifetimes.",
+      "expect": [
+        "reassurance/4"
+      ]
+    },
+    {
+      "text": "The most clever reading was B.",
+      "expect": [
+        "flattery/1"
+      ]
+    }
+  ]
+}

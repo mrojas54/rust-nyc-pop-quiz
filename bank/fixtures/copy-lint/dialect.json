@@ -1,0 +1,140 @@
+{
+  "about": "Where JavaScript's regex engine (flag i, no u) and Python's re (re.ASCII | re.IGNORECASE, \\s compiled as JavaScript's whitespace class) could differ. Cases with `expect` must agree; the one case with `expect_js`/`expect_py` is the documented divergence.",
+  "cases": [
+    {
+      "text": "It moves.\u000bNot the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+000B is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+00A0 is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+1680 is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+2000 is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+200A is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+2028 is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+2029 is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+202F is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves. Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+205F is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves.　Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+3000 is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves.﻿Not the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "U+FEFF is in JavaScript's \\s"
+    },
+    {
+      "text": "It moves.\u001cNot the value.",
+      "expect": [],
+      "note": "U+001C is Python str whitespace but not JavaScript's \\s; the compiled class follows JavaScript"
+    },
+    {
+      "text": "éwrong",
+      "expect": [
+        "forbidden/6"
+      ],
+      "note": "\\b is ASCII in both: é is not a word character, so there is a boundary before w"
+    },
+    {
+      "text": "wrongé",
+      "expect": [
+        "forbidden/6"
+      ],
+      "note": "the same boundary after g"
+    },
+    {
+      "text": "ask ſomeone",
+      "expect": [],
+      "note": "long s does not case-fold to s in either engine (JS i without u; Python re.ASCII)"
+    },
+    {
+      "text": "the Key part",
+      "expect": [],
+      "note": "Kelvin sign does not case-fold to k in either engine"
+    },
+    {
+      "text": "That’s fine.",
+      "expect": [
+        "reassurance/1"
+      ],
+      "note": "a curly apostrophe reads as the straight one SPEC's patterns spell"
+    },
+    {
+      "text": "Don’t worry.",
+      "expect": [
+        "reassurance/4"
+      ],
+      "note": "the same, U+2019"
+    },
+    {
+      "text": "That‘s okay.",
+      "expect": [
+        "reassurance/1"
+      ],
+      "note": "the same, U+2018"
+    },
+    {
+      "text": "not 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀, not x, not y",
+      "expect_js": [],
+      "expect_py": [
+        "contrast/4"
+      ],
+      "note": "THE ONE KNOWN DIVERGENCE: {0,40} counts UTF-16 units in JavaScript (1 + 42 here, over the bound) and code points in Python (1 + 21, within it)."
+    }
+  ]
+}
