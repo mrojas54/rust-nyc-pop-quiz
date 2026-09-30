@@ -8,9 +8,85 @@
   "custom_fields": {},
   "description": "BUILDPLAN.md T-13 (M2).\n\n`a11y`: keyboard, live regions per phase and the private hint, AA contrast, 44 px, reduced motion, over every surface and phase\n\nCriteria: AC-82\u201386\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-05\u201307\nBUILDPLAN notes: Serialized on `justfile` (`a11y`)\n\nWorkflow mode: fast-track. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M3R7Q95ETBY5QPHBNBZW5VWD",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7S6GKGQ13HX6XKESYZ7VQ",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W71PD633NW6R4X7ZQF9P",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W76MH9HM9XJHV4Z6TNR3",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W7AEXJ2S33Z5NE4MPJR4",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W7EDDNZREWBE6P8F6P6B",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W7JE2C9F2S5DSTSV5AKV",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W7PFC9DG00KC7XP6DGX9",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W7T988VZVVYNJADZZ745",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W7XWDQRE773K0TZ2Y5SC",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W81TXH7MRCB8D9JHTTSW",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W86JW7RVPM65Z2QKMTT7",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W8AMA0B4M9BR3QPBQZFD",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7W8ER6ZAB7PFG42M16XKA",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3R7WKYYPNRBJNJ91T6PTFPZ",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZR44F6TR7Q0X3W0ZFP9X",
-  "last_event_id": "ev_01M3R72PW13A700Z5A53RFV8WF",
+  "last_event_id": "ev_01M3R7WKZ0S7P6VYFT1V4GF74J",
   "last_status_changed_at": "2026-09-30T03:46:06Z",
   "priority": "medium",
   "relationships_out": [
@@ -47,6 +123,6 @@
   ],
   "title": "Accessibility sweep",
   "type": "task",
-  "updated_at": "2026-09-30T03:52:35Z",
+  "updated_at": "2026-09-30T04:06:44Z",
   "urgency": null
 }

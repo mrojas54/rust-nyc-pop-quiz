@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-30T04:06:44Z",
+  "created_by": "agent:delegator-pq16",
+  "custom_fields": {},
+  "id": "art_01M3R7WKYYPNRBJNJ91T6PTFPZ",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3R7WKYYPNRBJNJ91T6PTFPZ.md",
+    "size_bytes": 1968
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Validation: colour shifts, before/after",
+  "token_usage": null,
+  "type": "note"
+}

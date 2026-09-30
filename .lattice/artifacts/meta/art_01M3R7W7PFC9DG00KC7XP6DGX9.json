@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-30T04:06:32Z",
+  "created_by": "agent:delegator-pq16",
+  "custom_fields": {},
+  "id": "art_01M3R7W7PFC9DG00KC7XP6DGX9",
+  "model": null,
+  "payload": {
+    "content_type": "image/png",
+    "file": "art_01M3R7W7PFC9DG00KC7XP6DGX9.png",
+    "size_bytes": 134147
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Screenshot after-wall-reveal",
+  "token_usage": null,
+  "type": "file"
+}

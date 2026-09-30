@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-30T04:06:32Z",
+  "created_by": "agent:delegator-pq16",
+  "custom_fields": {},
+  "id": "art_01M3R7W7XWDQRE773K0TZ2Y5SC",
+  "model": null,
+  "payload": {
+    "content_type": "image/png",
+    "file": "art_01M3R7W7XWDQRE773K0TZ2Y5SC.png",
+    "size_bytes": 103028
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Screenshot before-buzzer-reveal",
+  "token_usage": null,
+  "type": "file"
+}
