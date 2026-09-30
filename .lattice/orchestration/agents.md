@@ -4,13 +4,13 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-29 02:3x EDT. Wave complete: PQ-17, PQ-13, PQ-15 merged (`main` `7c8b296`). No delegator live; delegator tabs 29/30/31 and browser tab 32 closed. Dispatch loop stopped at the client's pause point; PQ-16 waits for their word.
-Layout unchanged since the 2026-09-27 restart: delegators are tabs of `pane:2`; PQ-15's browser tab `surface:32` sits in `pane:6`.
+Snapshot: 2026-09-29 23:4x EDT. Run resumed on the client's `/lattice-orchestrator`; wave 17 dispatched. c11 restarted since the last snapshot: the run is `workspace:1`, the Orchestrator `surface:8` in `pane:1`, the client's terminal `surface:9` in `pane:2` (never used for spawns); delegators open as tabs of `pane:1`.
 
 | Role | Ticket | Surface ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `surface:28` in `pane:2` | ai-c11-cc/lattice-build | Stopped at the pause point; board commit pending 1Password; next: the client's word on PQ-16 |
-| Not dispatched | PQ-16 accessibility sweep | — | — | backlog; held by the client's pause; presses ahead off PQ-15 on their next word |
+| Orchestrator | — | `surface:8` in `pane:1` | ai-c11-cc/lattice-build | Dispatch loop armed; next: verify PQ-16's READY, then its `review` |
+| agent:delegator-pq16 (Opus, fast-track) | PQ-16 / T-13 accessibility sweep | `surface:12` in `pane:1` | ai-c11-cc/a11y-sweep off `origin/main` @ `1263add` | launched 23:4x; boot prompt at `…-worktrees/a11y-sweep/.claude/boot-prompt.md` |
+| Not dispatched | PQ-26 burst and smoke in CI · PQ-27 copy freeze and lints | — | — | press ahead off PQ-16's branch at its `review` (`justfile` / `web/shared` serialization) |
 
 ### Archived (run history)
 

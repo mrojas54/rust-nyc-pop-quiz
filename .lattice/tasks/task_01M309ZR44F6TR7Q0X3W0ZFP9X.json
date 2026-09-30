@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZR44F6TR7Q0X3W0ZFP9X",
-  "last_event_id": "ev_01M309ZY0AZTQXTZ14HV9HFPNT",
+  "last_event_id": "ev_01M3R67FK7DVPJ7JJWD8EW6PJD",
   "last_status_changed_at": "2026-09-20T21:01:38Z",
   "priority": "medium",
   "relationships_out": [
@@ -47,6 +47,6 @@
   ],
   "title": "Accessibility sweep",
   "type": "task",
-  "updated_at": "2026-09-20T21:01:44Z",
+  "updated_at": "2026-09-30T03:37:43Z",
   "urgency": null
 }

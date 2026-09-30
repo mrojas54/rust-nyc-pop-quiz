@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 21,
+  "comment_count": 22,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-12 (M2).\n\nTake it home: the last question with colour, the free-stepping trace, three beats, receipt, options with \u2713, container-scroll on a phone\n\nCriteria: AC-33, AC-71, AC-87, AC-95 (count from release), `SPEC.md` \u00a713\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-02, T-11\nBUILDPLAN notes: \u2014\n\nWorkflow mode: fast-track. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
+  "done_at": "2026-09-30T03:35:21Z",
   "evidence_refs": [
     {
       "id": "art_01M3KGPDTRGNZ11NEFTCPY853S",
@@ -58,11 +58,21 @@
       "id": "art_01M3NXM3V6HA9FNCYBSNGZHNJE",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3R6353HKSMW3B8W1A90GVPC",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3R6353HKSMW3B8W1A90GVPB",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZR0GC34P3JJ1GPVV4T2A",
-  "last_event_id": "ev_01M3NXM79J80SRAS5S3KX6AXHT",
-  "last_status_changed_at": "2026-09-29T06:28:55Z",
+  "last_event_id": "ev_01M3R6353HKSMW3B8W1A90GVPE",
+  "last_status_changed_at": "2026-09-30T03:35:21Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -83,13 +93,13 @@
   "reopened_count": 5,
   "schema_version": 1,
   "short_id": "PQ-15",
-  "status": "review",
+  "status": "done",
   "tags": [
     "m2",
     "fast-track"
   ],
   "title": "Take it home page",
   "type": "task",
-  "updated_at": "2026-09-29T06:28:55Z",
+  "updated_at": "2026-09-30T03:35:21Z",
   "urgency": null
 }
