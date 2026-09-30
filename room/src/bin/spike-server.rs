@@ -3,7 +3,7 @@
 //! One room, in memory, `idle -> live -> closed`, plus a reveal broadcast. That
 //! is the whole of it, and it is deliberately not the room: T-04a writes the
 //! real phase machine on a blank page, and nothing here should be carried over.
-//! What this exists to do is let `burst.rs` put 200 real WebSockets against a
+//! What this exists to do is let `spike-burst.rs` put 200 real WebSockets against a
 //! real Fly machine and measure AC-41, AC-52, AC-53 and AC-54 before any room
 //! code is written (BUILDPLAN T-03, and §5 — a p95 miss re-opens D-A option 2).
 //!
@@ -170,7 +170,7 @@ fn now_ms() -> u64 {
 
 /// The whole spike server as a router, with no socket bound.
 ///
-/// `main` serves it on `$PORT`; `burst.rs`'s loopback test serves it on
+/// `main` serves it on `$PORT`; `spike-burst.rs`'s loopback test serves it on
 /// `127.0.0.1:0` in-process, so the full segment can be proven end to end
 /// without a deploy and without a second process to manage.
 pub fn app(instance: String, region: String, app_name: String, capacity: usize) -> Router {

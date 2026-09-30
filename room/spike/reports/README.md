@@ -5,7 +5,9 @@ Measured 2026-09-22 (UTC) against `rustnyc-popquiz-spike.fly.dev` — one
 network is the laptop's. **Venue wifi is AC-55's oracle and is settled at HC-4,
 not here.**
 
-Every file is the untouched output of `burst --out`. Each one carries its own
+Every file is the untouched output of `burst --out` — the spike's client, which
+T-21 renamed to the `spike-burst` bin when `burst` came to speak the room's own
+protocol (`just burst`, room/README.md). Each one carries its own
 verdict, its own raw `samples_ms`, and the exact invocation, so any figure below
 can be recomputed from the file rather than taken from this page. The table was
 generated from these files, not typed.
@@ -99,13 +101,14 @@ runs only.
   bottleneck. The primary check, measured inside every run, covers it: send-lag
   p95 was 2.25–4.11 ms against a 25 ms invalid threshold.
 
-## Re-running (HC-0)
+## Re-running (the spike server only)
 
 ```sh
 cd room
-cargo build --release --features spike --bin burst
-./target/release/burst --url <deployed room> --clients 200 --seed 20260922 --out spike/reports/<date>.json
+cargo build --release --features spike --bin spike-burst
+./target/release/spike-burst --url <deployed spike server> --clients 200 --seed 20260922 --out spike/reports/<date>.json
 ```
 
-Against the walking skeleton, this client is HC-0's burst evidence. Leave a
-minute between back-to-back runs, for the reason run 1 records.
+This client speaks the spike server's protocol, not the room's. The room's own
+figures come from `just burst` (T-21; room/README.md, *Burst*). Leave a minute
+between back-to-back runs, for the reason run 1 records.
