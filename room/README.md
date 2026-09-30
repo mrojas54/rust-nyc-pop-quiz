@@ -987,7 +987,11 @@ The night's rate, the morning after (before anything restarts the machine):
 The rate is `failed / total`; AC-55 passes under 0.001. `total` counts
 successful joins, answer writes, state reads and buzzer sockets attached;
 refusals the room gave correctly (`409` closed or ended, `404`, `401`, `400`),
-a phone closing its own socket and a re-attach are counted but never failed.
+a socket closed with a close frame (a page leaving or reloading sends one) and
+a re-attach are counted but never failed. A socket that breaks without one is
+failed, whether the network dropped it or the phone was locked or its tab
+killed — the room cannot tell those apart, so read `socket_dropped` lines as
+an upper bound on the network's share. Nothing after a room's release counts.
 
 **It is a floor.** A request venue wifi lost before it reached the room is in
 no log. A burst of `401`s or a machine restart during the meetup (every phone

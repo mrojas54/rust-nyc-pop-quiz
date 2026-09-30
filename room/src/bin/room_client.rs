@@ -385,7 +385,12 @@ pub async fn all_reach(watchers: &[&Watcher], phase: &str, wait: Duration) -> Re
 /// restarted machine has no rooms (room/README.md, *Deploying*). Never read as
 /// "a second machine" — `fly.toml` runs one.
 pub fn explain(e: &str) -> String {
-    let gone = e.contains(": 404") || e.contains("closed before a response") || e.contains("connect ") || e.contains("never saw");
+    // Connection-level failures, a socket that stopped hearing the room, or a
+    // host action on the room answered 404. Not a create's 404 or 409: those
+    // are the question or the session, and say so themselves.
+    let connection = e.contains("closed before a response") || e.contains("connect ") || e.contains("never saw");
+    let room_404 = e.contains(": 404") && !e.starts_with("create");
+    let gone = connection || room_404;
     if gone {
         format!("{e} — the room may be gone: if this is the deployed app, the machine may have been stopped or restarted mid-run (the Fly trial stops it after about five minutes); restart it and run again inside one window")
     } else {

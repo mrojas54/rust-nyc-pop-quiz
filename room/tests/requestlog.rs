@@ -116,6 +116,9 @@ async fn ac55_drops_are_counted_ordinary_refusals_are_not_and_release_summarizes
     let summary: Vec<&Value> = lines.iter().filter(|v| v["event"] == "participant_requests").collect();
     assert_eq!(summary.len(), 1, "{lines:?}");
     assert_eq!((summary[0]["failed"].as_u64(), summary[0]["total"].as_u64(), summary[0]["ended"].as_str()), (Some(1), Some(11), Some("released")), "{}", summary[0]);
+    // A phone re-reading the released room does not reopen its counters.
+    assert_eq!(http(&app, Method::GET, &format!("/rooms/{room}/buzzer"), None, None).await.0, StatusCode::OK);
+    assert_eq!(requestlog::counts_for(&room), requestlog::Counts::default());
     // Sockets the room closes as it ends are not failures.
     drop(again);
     drop(sockets);

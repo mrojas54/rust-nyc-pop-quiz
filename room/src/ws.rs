@@ -349,7 +349,9 @@ impl Transport {
                 Some(k) => kicked = Some(k),
                 None => return bye(socket, close::ROOM_GONE).await,
             }
-            crate::requestlog::request(&room_id); // T-21: AC-55's denominator
+            if crate::requestlog::running(&inner.state, &room_id) {
+                crate::requestlog::request(&room_id); // T-21: AC-55's denominator
+            }
         }
 
         // Full current state, before anything else (§4.3, AC-37).

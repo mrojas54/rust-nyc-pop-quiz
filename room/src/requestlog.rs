@@ -10,20 +10,22 @@
 //!
 //! **What a participant request is** (the denominator): `POST /join` that
 //! found a room, `PUT /rooms/{id}/answer`, `GET /rooms/{id}/buzzer`, and each
-//! buzzer socket that attached.
+//! buzzer socket that attached — to a room that has not been released, so a
+//! phone re-reading an ended room never reopens its counters.
 //!
 //! **What failed** (the numerator), one line each:
 //! - `server_error`: any `5xx` answer to one of those routes — the room failed
 //!   the phone;
 //! - `socket_dropped`: an attached buzzer socket that ended while its room was
-//!   still running (not yet `released`) without the phone closing it: the
-//!   connection broke (a read error or end of stream with no close frame), or
-//!   the room could not send to it within its send timeout and let it go.
+//!   still running (not yet `released`) without a close frame: the
+//!   connection broke (a read error or end of stream — the network, but also a
+//!   phone locked or a tab killed, which the room cannot tell apart), or the
+//!   room could not send to it within its send timeout and let it go.
 //!
 //! **Not failures**, because the room answered correctly: `409` refusals (a
 //! closed room, one that ended, a full one), `404` (no such room or code),
 //! `401` (a token the room does not know), `400` (a malformed body), a close
-//! frame from the phone (it left or reloaded), a socket replaced by the same
+//! frame from the phone (a page leaving or reloading sends one), a socket replaced by the same
 //! phone re-attaching, and sockets the room closes itself when it ends.
 //!
 //! **What the room cannot see** — a request venue wifi lost before it reached
@@ -143,6 +145,12 @@ pub fn participant_route<'a>(method: &Method, path: &'a str) -> Option<(&'static
     }
 }
 
+/// A room that exists and has not been released — the only kind whose
+/// participant requests are counted.
+pub fn running(state: &AppState, room: &str) -> bool {
+    state.with_room(room, |r| r.phase() != crate::phase::Phase::Released).unwrap_or(false)
+}
+
 /// `POST /rooms/{id}/release` — the host's release, whose `200` ends the room.
 fn release_of<'a>(method: &Method, path: &'a str) -> Option<&'a str> {
     let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
@@ -162,7 +170,9 @@ pub(crate) async fn layer(State(state): State<Arc<AppState>>, request: Request, 
     let response = next.run(request).await;
     let status = response.status();
     if let Some((route, room)) = participant_route(&method, &path) {
-        let room = room.filter(|id| state.with_room(id, |_| ()).is_ok());
+        // Only a room that is still running: after release its summary is
+        // written, and a phone re-reading the ended room must not reopen it.
+        let room = room.filter(|id| running(&state, id));
         if let Some(id) = room {
             self::request(id);
         }
