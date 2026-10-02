@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-02T18:46:05Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3YZ0690NB8AC92GBAC0PZD2",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3YZ0690NB8AC92GBAC0PZD2.md",
+    "size_bytes": 305
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #40, merge commit 1e23c84, head-pinned to 4183c3b) after exact-head CI green (just test, just test-full) and a fresh exact-head Sonnet review PASS-W",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

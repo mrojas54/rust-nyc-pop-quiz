@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #40, merge commit 1e23c84, head-pinned to 4183c3b) after exact-head CI green (just test, just test-full) and a fresh exact-head Sonnet review PASS-WITH-NITS (art_01M3YXXN85ECH6VMA1R5WJQ89E). Five Minors go to one follow-up ticket by the client's choice.

@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 4,
+  "comment_count": 5,
   "complexity": null,
   "created_at": "2026-09-30T05:36:43Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "main is red since the client's PR #36 (1d721f4, 'Re-author q4/q7/q8 options for the 29-char wall rule', D-15). The records were rewritten by hand and 're-verified by running' outside the verifier; the pipeline's just test now fails: tests/test_migration.py:89 (q4.json on disk is not what the migration writes), test_migration.py (written['legacy'] KeyError for the re-authored records), test_migration.py:138 (rustc 1.98.1 in the record vs the MVP batch's 1.96.1), verified.stdout != mvp['answer'], tests/test_fit.py:107 (q4 source metrics (5,78) vs the expected (6,56)), tests/test_audit.py:756 (audit.main --date 2026-09-21 returns 0, expected 1). PR #37 and every later PR inherit the failure. House rule AC-7: correct answers come from a verified record written by the verifier, never by hand. Fix: run the pinned verifier (just verify, T-15a image) on q4, q7, q8 so the machine writes their verified blocks; treat them as re-authored (non-legacy, non-migrated) records; move the migration/fit/audit expectations to match; CI green on main. If the machine's answer differs from what PR #36 typed, stop at needs_human - the content is the client's. Never edit mvp/**.",
-  "done_at": null,
+  "done_at": "2026-10-02T18:46:05Z",
   "evidence_refs": [
     {
       "id": "art_01M3RQ29VYDKBZP4JWJG1WRHAY",
@@ -28,20 +28,30 @@
       "id": "art_01M3YXXN85ECH6VMA1R5WJQ89E",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3YZ0690NB8AC92GBAC0PZD3",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3YZ0690NB8AC92GBAC0PZD2",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M3RD1BGBPDKGXF6X7P4G1K9W",
-  "last_event_id": "ev_01M3YXXN895F8RHDX8F29HGYQQ",
-  "last_status_changed_at": "2026-10-02T18:16:50Z",
+  "last_event_id": "ev_01M3YZ0690NB8AC92GBAC0PZD5",
+  "last_status_changed_at": "2026-10-02T18:46:05Z",
   "priority": "high",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-38",
-  "status": "review",
+  "status": "done",
   "tags": null,
   "title": "Re-authored q4, q7, q8: machine-verify them and reconcile the pipeline tests",
   "type": "bug",
-  "updated_at": "2026-10-02T18:27:14Z",
+  "updated_at": "2026-10-02T18:46:05Z",
   "urgency": null
 }
