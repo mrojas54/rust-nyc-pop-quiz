@@ -826,6 +826,15 @@ function edge(surface, html, selector, prop, against, what, supplementary) {
   }
 }
 const parentBg = (n, css) => [W.background(css, n.parent).color];
+// SC 1.4.11 asks for 3:1 on the visual information *required* to identify a
+// control. A button identified by its own label — a word, a letter, an arrow —
+// does not need its edge to be found (Understanding SC 1.4.11, "text buttons":
+// a text-only button passes with no boundary at all), and that label is held to
+// AA as text above. So the --border-default edges of .btn and .buzz (about
+// 1.4:1) are printed, not held. Were a control ever identified by its edge
+// alone — an empty field, an icon with no glyph — the edge would be held, as
+// the join field's is.
+const LABELLED = 'its label identifies it (1.4.11)';
 const ownAndParent = (n, css) => [W.background(css, n.parent).color, W.background(css, n).color];
 
 test('ac84_wall: every text on every phase, step and fallback view is AA; the ✓, the highlight edge and the bars', () => {
@@ -846,9 +855,15 @@ test('ac84_buzzer: every text on every screen is AA; the join field\'s edge and 
   edge('buzzer', reveal, '.rn-check', 'color', parentBg, 'the ✓ glyph (correct marker)');
   const saved = SCREENS.buzzer.find((s) => s.name === 'live, saved').html;
   edge('buzzer', saved, '.buzz[aria-pressed="true"]', 'border-color', parentBg, 'your saved letter\'s edge', 'fill, ✓ and "saved — X" carry it');
+  const live = SCREENS.buzzer.find((s) => s.name === 'live, no answer').html;
+  edge('buzzer', live, '.buzz:not([aria-pressed="true"])', 'border', parentBg, 'a letter\'s edge', LABELLED);
+  edge('buzzer', SCREENS.buzzer.find((s) => s.name === 'live, failed').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a secondary button\'s edge', LABELLED);
 });
 
-test('ac84_host: every text on every screen is AA', () => { ac84('host'); });
+test('ac84_host: every text on every screen is AA; the step buttons\' edge is printed', () => {
+  ac84('host');
+  edge('host', SCREENS.host.find((s) => s.name === 'work').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a step button\'s edge', LABELLED);
+});
 
 test('ac84_home: every text at every step is AA; the ✓ and the highlight edge are 3:1', () => {
   ac84('home');
