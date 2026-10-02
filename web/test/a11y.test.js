@@ -755,12 +755,18 @@ test('ac83_home: a trace step is said in words; opening the page and a step past
 // Every element with visible text of its own, on every screen: its colour
 // (through every opacity above it) against the background showing behind it,
 // at its size and weight. Text inside .sr-only is not seen; a disabled control
-// is exempt (SC 1.4.3's "inactive user interface component"). Dimmed trace
-// lines are printed and flagged, not held (T-13 plan, D3): highlight-and-dim is
-// the trace's one signal, and a dim that passed 4.5:1 would not dim.
+// is exempt (SC 1.4.3's "inactive user interface component"). A dimmed trace
+// line is held like any other text: the client picked a dim that passes
+// (PQ-40, .70, 4.78:1). Its line number is the one thing under AA — it starts
+// at --text-muted and falls to 3.57:1 — and is held to that floor so it cannot
+// drift lower (F-46, for AC-84's owner). Only a .rn-src-ln inside a
+// .rn-src-line.dim gets that floor; any other .dim is held at AA.
 //
 // AC-84's dim-room presentation does not exist in the build (no dark mode in
 // v1, DESIGN.md; touchpoint T-16): this proves the one presentation there is.
+
+// The dimmed line number at the client's .70 (components.css:47), rounded down.
+const DIM_GUTTER_FLOOR = 3.57;
 
 function textPairs(surface, sc) {
   const css = SURFACES[surface].css;
@@ -772,36 +778,38 @@ function textPairs(surface, sc) {
     for (let x = n; x; x = x.parent) {
       if (x.classes.includes('sr-only')) hidden = true;
       if (x.disabled) inactive = true;
-      if (x.classes.includes('dim')) dim = true;
+      if (x.classes.includes('rn-src-line') && x.classes.includes('dim')) dim = true;
     }
     if (hidden || n.tag === 'script' || n.tag === 'style') continue;
     const bg = W.background(css, n).color;
     const fg = W.blend(W.color(css, n), bg, W.opacity(css, n));
     const px = W.fontPx(css, n);
     const large = W.isLarge(px, W.bold(css, n));
-    const need = large ? 3 : 4.5;
+    const gutter = dim && n.classes.includes('rn-src-ln');
+    const need = gutter ? DIM_GUTTER_FLOOR : large ? 3 : 4.5;
     const sel = `${n.tag}${n.classes.length ? '.' + n.classes.join('.') : ''}`;
-    out.push({ n, fg, bg, px, large, need, dim, inactive, sel, ratio: W.contrast(fg, bg) });
+    out.push({ n, fg, bg, px, large, need, dim, gutter, inactive, sel, ratio: W.contrast(fg, bg) });
   }
   return out;
 }
 
 function ac84(surface) {
-  const flagged = [];
+  const dimmed = [];
   for (const sc of SCREENS[surface]) {
     let min = Infinity;
     for (const t of textPairs(surface, sc)) {
       const what = `text ${t.sel} ${Math.round(t.px * 10) / 10}px${t.large ? ' large' : ''}`;
       if (t.inactive) { pair(surface, what, t.fg, t.bg, '-', 'exempt: disabled'); continue; }
-      if (t.dim) { pair(surface, what + ' (dim)', t.fg, t.bg, '-', 'exempt: trace dim, flagged (D3)'); flagged.push(t); continue; }
-      pair(surface, what, t.fg, t.bg, t.need, t.ratio >= t.need ? 'AA' : 'FAIL');
+      if (t.dim) dimmed.push(t);
+      const label = t.dim ? what + (t.gutter ? ' (dim gutter)' : ' (dim)') : what;
+      pair(surface, label, t.fg, t.bg, t.need, t.ratio < t.need ? 'FAIL' : t.gutter ? 'floor, F-46' : 'AA');
       assert.ok(t.ratio >= t.need,
-        `${surface} ${sc.name}: ${what} "${t.n.text.trim().slice(0, 30)}" is ${W.hex(t.fg)} on ${W.hex(t.bg)} = ${t.ratio.toFixed(2)}:1, needs ${t.need}:1`);
+        `${surface} ${sc.name}: ${label} "${t.n.text.trim().slice(0, 30)}" is ${W.hex(t.fg)} on ${W.hex(t.bg)} = ${t.ratio.toFixed(2)}:1, needs ${t.need}:1`);
       min = Math.min(min, t.ratio);
     }
     mark(surface, sc.name, 'AC-84', Number.isFinite(min) ? `min ${min.toFixed(2)}:1` : 'no text');
   }
-  return flagged;
+  return dimmed;
 }
 
 // Non-text contrast (SC 1.4.11) the surfaces rely on, from the real cascade.
@@ -838,8 +846,9 @@ const LABELLED = 'its label identifies it (1.4.11)';
 const ownAndParent = (n, css) => [W.background(css, n.parent).color, W.background(css, n).color];
 
 test('ac84_wall: every text on every phase, step and fallback view is AA; the ✓, the highlight edge and the bars', () => {
-  const flagged = ac84('wall');
-  assert.ok(flagged.length > 0, 'the trace dims something in work');
+  const dimmed = ac84('wall');
+  assert.ok(dimmed.some((t) => !t.gutter), 'the trace dims something in work, and it was held at AA');
+  assert.ok(dimmed.some((t) => t.gutter), 'a dimmed line number was held to its floor');
   const reveal = PQ.Wall.html(F.reveal[0]);
   edge('wall', reveal, '.rn-check', 'color', parentBg, 'the ✓ glyph (correct marker)');
   edge('wall', PQ.Wall.html(F.work[1]), '.rn-src-line.hl', 'border-left-color', ownAndParent, 'trace highlight edge (the line running now)');
