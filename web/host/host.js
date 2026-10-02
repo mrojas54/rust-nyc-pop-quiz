@@ -268,7 +268,7 @@
       else if (!owed || (active && active !== win.document.body)) focusKey = null;   // the reader moved it
       el.innerHTML = html;
       var target = focusTarget(focusKey);
-      if (target && target !== win.document.activeElement && typeof target.focus === "function") target.focus();
+      if (target && target !== win.document.activeElement && typeof target.focus === "function") target.focus({ preventScroll: true });
       owed = !!focusKey && !target;
     }
 

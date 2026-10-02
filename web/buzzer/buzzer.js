@@ -576,9 +576,9 @@
       else if (!owed || (active && active !== doc.body)) focusKey = null;   // the reader moved it
       el.innerHTML = view(state);
       var input = el.querySelector && el.querySelector("#pq-code");
-      if (input && state.refusal && typeof input.focus === "function") { input.focus(); owed = false; return; }
+      if (input && state.refusal && typeof input.focus === "function") { input.focus({ preventScroll: true }); owed = false; return; }
       var target = focusTarget(focusKey);
-      if (target && target !== doc.activeElement && typeof target.focus === "function") target.focus();
+      if (target && target !== doc.activeElement && typeof target.focus === "function") target.focus({ preventScroll: true });
       owed = !!focusKey && !target;
     }
 

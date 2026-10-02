@@ -372,6 +372,26 @@ class FakeSocket {
 }
 const settle = () => new Promise((r) => setImmediate(r));
 
+// The reader's own focus, as a click or Tab would set it. Taken back off the
+// record, so what is left there is only what the surface restored.
+function userFocus(n) {
+  n.focus();
+  n.ownerDocument.focusCalls.pop();
+}
+
+// Every focus the surface gave back asked not to scroll (PQ-40). On the host in
+// `reveal` the primary action sits below the read-aloud text; a restore that
+// scrolled would carry the host past the beat they are reading out.
+function restoredWithoutScroll(doc, what) {
+  const calls = doc.focusCalls || [];
+  assert.ok(calls.length > 0, `${what}: the surface restored the focus at least once`);
+  for (const c of calls) {
+    assert.deepEqual(c.opts && { ...c.opts }, { preventScroll: true },
+      `${what}: focus restored to <${c.node.tag} class="${c.node.attrs.class || ''}"> without preventScroll`);
+  }
+  return calls.length;
+}
+
 function listen(node) {
   node.handlers = {};
   node.addEventListener = (type, fn) => { node.handlers[type] = fn; };
@@ -388,21 +408,21 @@ test('ac82_buzzer: a letter, retry and the hint keep the keyboard where it was a
   });
   handle.dispatch(JOINED);
   handle.dispatch({ type: 'frame', frame: attach(BF.live) });
-  el.querySelector('[data-letter="C"]').focus();
+  userFocus(el.querySelector('[data-letter="C"]'));
   handle.dispatch({ type: 'tap', letter: 'C' });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C', 'after the tap');
   handle.dispatch({ type: 'answered', status: 500, body: null });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C', 'after the failure');
-  el.querySelector('[data-act="retry"]').focus();
+  userFocus(el.querySelector('[data-act="retry"]'));
   handle.dispatch({ type: 'retry' });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C', 'retry hands the focus to the letter it retries');
   handle.dispatch({ type: 'answered', status: 200, body: { saved: 'C' } });
-  el.querySelector('[data-act="hint"]').focus();
+  userFocus(el.querySelector('[data-act="hint"]'));
   handle.dispatch({ type: 'hint' });
   assert.ok(doc.activeElement.classes.includes('buzz-hint'), 'the hint takes the focus its button had');
   // A reader who clicked blank space (the focus on <body>, not lost to a
   // repaint) is not pulled back onto the buzzer by the next frame.
-  el.querySelector('[data-letter="C"]').focus();
+  userFocus(el.querySelector('[data-letter="C"]'));
   handle.dispatch({ type: 'frame', frame: attach(BF.live, 'C') });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C');
   doc.activeElement = doc.body;
@@ -411,10 +431,25 @@ test('ac82_buzzer: a letter, retry and the hint keep the keyboard where it was a
   // A reader who moved the focus off the buzzer keeps it there.
   const outside = new D.Node('button', {}, doc.body, doc);
   doc.body.children.push(outside);
-  outside.focus();
+  userFocus(outside);
   handle.dispatch({ type: 'frame', frame: attach(BF.closed, 'C') });
   assert.equal(doc.activeElement, outside);
-  mark('buzzer', 'live, saving', 'AC-82', 'focus kept');
+  const n = restoredWithoutScroll(doc, 'buzzer');
+  mark('buzzer', 'live, saving', 'AC-82', `focus kept, ${n} no-scroll`);
+});
+
+test('ac82_buzzer: a refused join hands the focus to the code field, without scrolling', () => {
+  const doc = D.page('', SURFACES.buzzer.chain);
+  const el = listen(doc.root);
+  const handle = B.mount(el, {
+    fetch: () => new Promise(() => {}), WebSocket: FakeSocket, storage: null,
+    location: { search: '', protocol: 'http:', host: 'h' }, setTimeout: () => 0, announce: () => {},
+  });
+  handle.dispatch({ type: 'boot', search: '', stored: null });
+  handle.dispatch({ type: 'submit', code: 'ABC234' });
+  handle.dispatch({ type: 'joined', status: 404, body: { refusal: Object.keys(B.REFUSAL_KEY)[0] } });
+  assert.equal(doc.activeElement.id, 'pq-code');
+  restoredWithoutScroll(doc, 'buzzer refusal');
 });
 
 function hostWindow(pathname) {
@@ -454,7 +489,7 @@ test('ac82_host: the primary action and the step buttons keep the keyboard throu
   ws.onmessage(frame(hostPayload('idle'), rev++));
   for (const phase of PHASES.slice(1)) {
     const primary = el.querySelector('[data-primary]');
-    primary.focus();
+    userFocus(primary);
     click(el, primary);
     assert.equal(doc.activeElement, doc.body, 'the disabled in-flight button cannot hold it');
     await settle();
@@ -466,11 +501,12 @@ test('ac82_host: the primary action and the step buttons keep the keyboard throu
   assert.equal(posts.length, 6);
   // Stepping forward onto the bound hands the focus to ←.
   ws.onmessage(frame(hostPayload('work', { step: { at: 3, m: 6, note: 'N', can_back: true, can_forward: true } }), rev++));
-  el.querySelector('[data-step="step-forward"]').focus();
+  userFocus(el.querySelector('[data-step="step-forward"]'));
   click(el, el.querySelector('[data-step="step-forward"]'));
   await settle();
   ws.onmessage(frame(hostPayload('work', { step: { at: 4, m: 6, note: 'N', can_back: true, can_forward: false } }), rev++));
   assert.equal(doc.activeElement.getAttribute('data-step'), 'step-back');
+  restoredWithoutScroll(doc, 'host');
 });
 
 test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hands it over at the end', () => {
@@ -478,11 +514,12 @@ test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hand
   const snap = HOME_FIX.q3;
   const page = HOME.mount(doc.root, snap);
   const nav = () => doc.getElementById('home-walk').querySelectorAll('.trace-nav button');
-  nav()[1].focus();
+  userFocus(nav()[1]);
   page.step(1);
   assert.equal(doc.activeElement, nav()[1], 'next keeps it');
   for (let i = 0; i < snap.trace.length; i++) page.step(1);
   assert.equal(doc.activeElement, nav()[0], 'at the last step, next is disabled and the focus moves to previous');
+  restoredWithoutScroll(doc, 'home');
 });
 
 // --- AC-83: the live region -------------------------------------------------------

@@ -54,7 +54,14 @@ class Node {
   getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; }
   setAttribute(k, v) { this.attrs[k] = String(v); }
   contains(n) { for (let x = n; x; x = x.parent) if (x === this) return true; return false; }
-  focus() { if (this.ownerDocument) this.ownerDocument.activeElement = this; }
+  // Records what each call asked for: a restore that scrolls the page would
+  // pull a reader off what they were reading (`preventScroll`, PQ-40).
+  focus(opts) {
+    const doc = this.ownerDocument;
+    if (!doc) return;
+    doc.activeElement = this;
+    (doc.focusCalls = doc.focusCalls || []).push({ node: this, opts: opts === undefined ? null : opts });
+  }
   *walk() { for (const c of this.children) { yield c; yield* c.walk(); } }
   querySelectorAll(sel) { return [...this.walk()].filter((n) => matches(n, sel)); }
   querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }

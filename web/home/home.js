@@ -251,7 +251,7 @@
         var buttons = walk.querySelectorAll(".trace-nav button");
         var want = buttons[d < 0 ? 0 : 1];
         if (!want || want.disabled) want = buttons[d < 0 ? 1 : 0];
-        if (want && !want.disabled) want.focus();
+        if (want && !want.disabled) want.focus({ preventScroll: true });
       }
       if (PQ.announce) PQ.announce(PQ.traceSay(traceQuestion(snap), at));
       return at;
