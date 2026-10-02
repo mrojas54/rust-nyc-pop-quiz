@@ -11,6 +11,8 @@
 #   just sandbox-build  build the verification image from pin.toml (T-15a)
 #   just secret-scan    AC-101's static half: no admin token in the repository (T-25)
 #   just a11y           AC-82…AC-86 on every surface and phase, and the matrix (T-13)
+#   just smoke URL      the deployed room end to end, all seven phases (T-09)
+#   just burst URL      AC-54, AC-53, AC-41 and AC-52 under 200 participants (T-21)
 #
 # Why `setup` exists: `test` has to be hermetic, and a fresh .venv has to come
 # from somewhere. Splitting the network step out is what lets `test` be run
@@ -21,9 +23,11 @@
 # prerequisite of `test-full` only. The image it produces runs with no network at
 # all, which is why the toolchain has to be baked in at build time.
 
-# Suites not built yet, and the ticket that delivers each. Read by both `_pending`
-# and `test-full`, so the two can never disagree about what is missing.
-PENDING := "burst:T-21"
+# Suites not built yet, and the ticket that delivers each (`name:T-nn`, space
+# separated). Read by both `_pending` and `test-full`, so the two can never
+# disagree about what is missing. Empty since T-21 built `burst`; the mechanism
+# stays for the next reserved name that lands before its suite.
+PENDING := ""
 
 _default:
     @just --list --unsorted
@@ -60,26 +64,50 @@ test-web:
 
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test a11y sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only")
+test-full: test a11y sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only") harness-full
     #!/usr/bin/env bash
     set -euo pipefail
     (cd room && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
     echo ""
     echo "=== test-full ==="
     echo "Ran: test (room, pipeline, web), the canary over real sockets, the AC-12"
-    echo "     containment suite, the verifier's cases on the sandbox image, and"
-    echo "     the transport at 200 buzzers."
+    echo "     containment suite, the verifier's cases on the sandbox image, the"
+    echo "     transport at 200 buzzers, and burst (200 participants) and smoke"
+    echo "     against an in-process room on loopback (T-21; numbers labelled loopback)."
     echo ""
     echo "PENDING — these suites are not built yet:"
+    pending=0
     for entry in {{ PENDING }}; do
         printf '  %-12s delivered by %s\n' "${entry%%:*}" "${entry##*:}"
+        pending=1
     done
+    [ "$pending" = 1 ] || echo "  (none)"
     echo ""
     echo "Run in a browser, not here — no headless browser on this machine or in CI:"
     echo "  wall-layout  the wall's measured layout, AC-100 / AC-33 (just wall-layout)"
     echo "  fallback     the static fallback stepped offline, AC-102 (room/README.md, Pages)"
     echo ""
-    echo "T-21 adds the deployed runs and extends this hook further."
+    echo "Run against the deployed room, not here — nothing unattended can create a room there:"
+    echo "  burst, smoke  the deployed-burst workflow (client-triggered) or the laptop form;"
+    echo "                AC-53's deployed-substrate clause is met only there (room/README.md, Burst)"
+
+# burst and smoke against a room this job starts (T-21): the real router on
+# loopback, authorized by the tests' HostAuth (room/tests/harness_full.rs). The
+# first call type-checks and unit-tests every feature-gated bin (smoke, burst,
+# and the frozen spike's two); the second runs the in-process harness, which is
+# #[ignore]d so `test` never runs it. 200 participants are ~800 descriptors in
+# one process, so the soft limit is raised first.
+harness-full:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ulimit -n 4096 2>/dev/null || true
+    if [ "$(ulimit -n)" != unlimited ] && [ "$(ulimit -n)" -lt 1024 ]; then
+        echo "harness-full: ulimit -n is $(ulimit -n); 1024 or more is needed" >&2
+        exit 1
+    fi
+    cd room
+    cargo test --offline --locked --features burst,spike --bins
+    cargo test --offline --locked --features burst --test harness_full -- --ignored --nocapture
 
 # AC-81 and AC-37 at 200 buzzers over loopback sockets (T-04c). The test is
 # #[ignore]d so `test` never runs it. 201 sockets are ~400 descriptors in one
@@ -211,21 +239,41 @@ secret-scan:
 # The deployed room end to end (T-09): all seven phases over real sockets with
 # mock participants, the join link and the stand-in's refusals checked, q3's
 # secrets scanned for in every pre-reveal frame (room/README.md, Deploying).
-# The host credential is read from HOST_DEV_TOKEN in the environment, never
-# from the command line. A by-hand gate until T-21 puts it in test-full.
+# The organizer's credential is read from POPQUIZ_ORGANIZER_SESSION in the
+# environment, never from the command line. `test-full` runs it against an
+# in-process room (harness-full); against the deployed room it is by hand or
+# the deployed-burst workflow.
 #
-#   just smoke https://rustnyc-popquiz.fly.dev [--participants N]   (1-200, default 20)
+#   just smoke https://rustnyc-popquiz.fly.dev [--participants N] [--question ID] [--out PATH]
 #
-# One run releases q3, and a machine refuses a question it has already run
-# until it restarts: `fly apps restart rustnyc-popquiz` before the next run.
+# One run releases the question it ran, and a machine refuses a question it has
+# already run until it restarts: `fly apps restart rustnyc-popquiz` before the
+# next run, and before any `popquiz sync`.
 #
-# The deployed room, all seven phases (HOST_DEV_TOKEN in the environment).
+# The deployed room, all seven phases (POPQUIZ_ORGANIZER_SESSION in the environment).
 smoke URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
     cd room
     cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
+
+# AC-54, AC-53, AC-41 and AC-52 on the room's own protocol (T-21): 200
+# participants, isolated deadline bursts, then a full segment to release. JSON
+# report on stdout (and --out); exit 0 pass, 1 a criterion missed, 2 invalid or
+# could not run. Credentials as smoke; the question is scheduled first over the
+# pipeline channel (room/README.md, Burst). Against https it is the deployed
+# substrate; `test-full` runs it on loopback (harness-full).
+#
+#   just burst https://rustnyc-popquiz.fly.dev --question burst-q3 [--out PATH]   (--help for the rest)
+#
+# AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION in the environment).
+burst URL *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ulimit -n 4096 2>/dev/null || true
+    cd room
+    cargo run --release --offline --locked --features burst --bin burst -- --url "{{ URL }}" {{ ARGS }}
 
 # --- Reserved names whose suites do not exist yet ------------------------------
 # Each fails loudly rather than passing quietly. `test` and `test-full` do not
@@ -243,8 +291,6 @@ verify *ARGS:
 bank-audit *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.audit --repo .. {{ ARGS }}
 
-burst *ARGS:
-    @just _pending burst
 
 # AC-82…AC-86 over every surface and phase (T-13): keyboard, the live region's
 # strings, AA contrast, 44 px targets, reduced motion. Hermetic and fast, so the
