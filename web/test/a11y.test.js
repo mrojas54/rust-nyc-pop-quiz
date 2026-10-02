@@ -537,19 +537,18 @@ test('ac82_host: an answer arriving rewrites the count, not the focused button; 
   const primary = el.querySelector('[data-primary]');
   userFocus(primary);
   const before = said.length;
-  ws.onmessage(frame(hostPayload('live', { answered: 8 }), 2));
-  ws.onmessage(frame(hostPayload('live', { answered: 9 }), 3));
+  const ticks = [8, 9];
+  ticks.forEach((n, i) => ws.onmessage(frame(hostPayload('live', { answered: n }), 2 + i)));
   assert.equal(doc.activeElement, primary, 'the focused button is the same node');
   assert.equal(el.querySelector('[data-primary]'), primary, 'and still on the page');
   assert.deepEqual(doc.focusCalls, [], 'no focus was given back, so nothing re-speaks the control');
-  const restores = doc.focusCalls.length;
   assert.equal(said.length, before, 'a count tick says nothing');
   assert.match(el.querySelector('.host-count').textContent, /9/);
   // A phase change still repaints whole: one label, one restore.
-  ws.onmessage(frame(hostPayload('reveal'), 4));
+  ws.onmessage(frame(hostPayload('reveal'), 2 + ticks.length));
   assert.equal(said.length, before + 1);
   assert.equal(doc.activeElement.getAttribute('data-primary'), NEXT.reveal);
-  mark('host', 'live, count tick', 'AC-82', `same node, ${restores} restores`);
+  mark('host', 'live, count tick', 'AC-82', `same node, ${ticks.length} ticks`);
 });
 
 test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hands it over at the end', () => {
@@ -969,6 +968,9 @@ function moving(surface, html) {
   }
   return out;
 }
+// Nothing moves today, so this passes on every screen; it is the guard that a
+// transition added outside a reduce block fails on the screen that shows it
+// (PQ-40 showed it failing on the buzzer's letters and the wall's lines).
 function still(surface, sc) {
   const m = moving(surface, sc.html);
   assert.deepEqual(m, [], `${surface} ${sc.name}: moves`);

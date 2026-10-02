@@ -265,7 +265,8 @@
     /* An answer arriving changes the count line and nothing else. Writing
        that line alone keeps the focused control the same node: giving the
        focus to a fresh copy of it would have a screen reader say the button
-       again on every answer in the room. */
+       again on every answer in the room. This reads the count as render()'s
+       last element (countHtml is appended last): keep it last. */
     var COUNT_OPEN = '<div class="host-count">';
     var painted = null;
 
