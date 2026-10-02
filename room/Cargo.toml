@@ -20,17 +20,16 @@ autobins = false
 name = "room"
 path = "src/main.rs"
 
-# --- The T-03 burst spike. Throwaway; both bins are gated off by default. ------
+# --- The T-03 burst spike. Throwaway, frozen; both bins are gated off. --------
 #
 # `required-features` is what holds EVALUATION.md's 60 s budget for `just test`:
 # `cargo test --offline --locked` passes no `--features`, so neither bin and not
 # one line of the crates below is compiled by the inner loop. The budget is kept
 # by construction rather than by care.
 #
-# The cost, stated rather than discovered later: nothing in `test` or `test-full`
-# type-checks these two bins until T-21 wires the `burst` recipe. Until then the
-# gate is by hand — `cargo check --features spike` and `cargo test --features
-# spike`, both named in README.md.
+# T-21 renamed the spike's client `spike-burst` (the room's own `burst` is
+# below) and kept both bins so the committed reports in `spike/reports/` stay
+# reproducible. `just test-full` type-checks and unit-tests them (`harness-full`).
 
 [[bin]]
 name = "spike-server"
@@ -38,8 +37,8 @@ path = "src/bin/spike-server.rs"
 required-features = ["spike"]
 
 [[bin]]
-name = "burst"
-path = "src/bin/burst.rs"
+name = "spike-burst"
+path = "src/bin/spike-burst.rs"
 required-features = ["spike"]
 
 # --- T-09: the deployed room's end-to-end check. ------------------------------
@@ -52,6 +51,26 @@ required-features = ["spike"]
 name = "smoke"
 path = "src/bin/smoke.rs"
 required-features = ["smoke"]
+
+# --- T-21: the room under load (`just burst <url>`). ---------------------------
+#
+# Smoke's client (`src/bin/room_client.rs`, shared) with the spike's
+# measurement (`src/bin/burst_report.rs`, which `tests/burst_report.rs` checks
+# inside `just test` — it is pure, so it needs no feature). Gated like smoke.
+
+[[bin]]
+name = "burst"
+path = "src/bin/burst.rs"
+required-features = ["burst"]
+
+# The in-process room that `test-full` points burst and smoke at (T-21): the
+# real router on loopback, authorized by the tests' `HostAuth`. A test, so
+# nothing of it reaches the binary or the image; gated, so `just test` never
+# compiles the TLS client it drives.
+[[test]]
+name = "harness_full"
+path = "tests/harness_full.rs"
+required-features = ["burst"]
 
 [features]
 # The WebSocket pieces (`axum/ws`, `tokio/sync`, `tokio/time`, `futures-util`)
@@ -68,6 +87,9 @@ spike = [
 smoke = [
     "dep:tokio-tungstenite",
 ]
+
+# `burst` (T-21) is smoke's client plus measurement: no crate of its own.
+burst = ["smoke"]
 
 [dependencies]
 # `ws`: the room's one broadcast per room (T-04c). axum 0.8's `ws` feature is

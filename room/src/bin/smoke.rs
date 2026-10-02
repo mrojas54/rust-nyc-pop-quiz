@@ -2,7 +2,8 @@
 //!
 //! EVALUATION.md's harness row: *the deployed room driven end to end through
 //! all seven phases with mock participants — the pre-checkpoint sanity run.*
-//! `just smoke <url> [--participants N]`. The organizer's credential comes from
+//! `just smoke <url> [--participants N] [--question ID] [--out PATH]`. The
+//! organizer's credential comes from
 //! `POPQUIZ_ORGANIZER_SESSION` in the environment and never from the command
 //! line, so it stays out of shell history and process listings. It is the
 //! organizer session a signed-in host page holds after Discord sign-in (T-10):
@@ -10,7 +11,10 @@
 //! the address the page lands on. It is one person's, it lasts 12 hours, and
 //! every room it creates passes Discord's live role check (SPEC §8) — smoke
 //! holds no shared secret that creates rooms. q3 must be scheduled first, over
-//! the pipeline channel (SPEC §8.3).
+//! the pipeline channel (SPEC §8.3) — under its own id, or (`--question`) under
+//! a harness id such as `smoke-q3` so that the run's release never retires a
+//! bank question (room/README.md, *Burst*). Whatever the id, the record must be
+//! q3's: the secrecy scan reads its secrets from q3.
 //!
 //! Against `<url>` (https/wss through the Fly edge, or plain http/ws on
 //! loopback), in order:
@@ -43,22 +47,24 @@
 //! T-25 can plant a canary question; it scans the real question instead.
 //!
 //! **What its numbers are not.** The write and reveal timings are smoke's, from
-//! wherever it runs. They are not `burst`'s AC-53/AC-54/AC-41 figures, which
-//! are T-21's harness against the deployed room.
+//! wherever it runs. They are not `burst`'s AC-53/AC-54/AC-41 figures.
+//!
+//! The HTTP and socket client is `room_client.rs`, shared with `burst` (T-21).
+//! `--out` also writes the result as JSON, for CI to keep.
 //!
 //! Exit: `0` every check passed; `1` a check failed; `2` it could not run
 //! (arguments, no session, the room unreachable, q3 not scheduled or already
 //! run, the organizer refused by Discord).
 
-use std::collections::HashMap;
+#[path = "room_client.rs"]
+mod client;
+
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
-use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Message;
+
+use client::{all_reach, millis, open_ws, wait_for_room, watch, Http, OnFrame, Rng, Target, Watcher, LETTERS, MAX_PARTICIPANTS};
 
 /// The HC-0 question, as the verifier wrote it — where the secrets come from.
 const Q3: &str = include_str!("../../../bank/questions/q3.json");
@@ -67,26 +73,28 @@ const WAIT: Duration = Duration::from_secs(20);
 /// SPEC §9's deadline burst: the final writes all land inside this window.
 const BURST_WINDOW: Duration = Duration::from_secs(2);
 const DEFAULT_PARTICIPANTS: usize = 20;
-/// The room's capacity (§4.1).
-const MAX_PARTICIPANTS: usize = 200;
 const PRE_REVEAL: [&str; 5] = ["idle", "live", "closed", "split", "work"];
-const LETTERS: [&str; 5] = ["A", "B", "C", "D", "E"];
 
 // --------------------------------------------------------------------------
-// Arguments and the target.
+// Arguments.
 // --------------------------------------------------------------------------
 
 #[derive(Debug, PartialEq, Eq)]
-struct Args {
-    url: String,
-    participants: usize,
+pub struct Args {
+    pub url: String,
+    pub participants: usize,
+    /// The id q3's record is scheduled under on the room.
+    pub question: String,
+    pub out: Option<String>,
 }
 
-const USAGE: &str = "usage: smoke --url <http(s)://host[:port]> [--participants N]   (POPQUIZ_ORGANIZER_SESSION in the environment)";
+const USAGE: &str = "usage: smoke --url <http(s)://host[:port]> [--participants N] [--question ID] [--out PATH]   (POPQUIZ_ORGANIZER_SESSION in the environment)";
 
-fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
+pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
     let mut url = None;
     let mut participants = DEFAULT_PARTICIPANTS;
+    let mut question = "q3".to_string();
+    let mut out = None;
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -99,6 +107,8 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
                     .filter(|n| (1..=MAX_PARTICIPANTS).contains(n))
                     .ok_or(format!("--participants must be 1 to {MAX_PARTICIPANTS}, not {n:?}"))?;
             }
+            "--question" => question = it.next().filter(|q| !q.is_empty()).ok_or("--question needs an id")?,
+            "--out" => out = Some(it.next().ok_or("--out needs a path")?),
             "-h" | "--help" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other:?}\n{USAGE}")),
         }
@@ -106,210 +116,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
     Ok(Args {
         url: url.ok_or(USAGE)?,
         participants,
+        question,
+        out,
     })
-}
-
-#[derive(Debug, PartialEq, Eq)]
-struct Target {
-    tls: bool,
-    host: String,
-    port: u16,
-    /// `scheme://host[:port]`, exactly as a join link starts.
-    base: String,
-}
-
-impl Target {
-    fn parse(url: &str) -> Result<Target, String> {
-        let url = url.trim().trim_end_matches('/');
-        let (tls, rest) = if let Some(r) = url.strip_prefix("https://") {
-            (true, r)
-        } else if let Some(r) = url.strip_prefix("http://") {
-            (false, r)
-        } else {
-            return Err(format!("{url:?}: the URL must start with http:// or https://"));
-        };
-        if rest.is_empty() || rest.contains(['/', '?', '#', '@']) {
-            return Err(format!("{url:?}: give the room's scheme and host only"));
-        }
-        let (host, port) = match rest.rsplit_once(':') {
-            Some((h, p)) if !h.ends_with(']') || rest.starts_with('[') => {
-                (h.to_string(), p.parse().map_err(|_| format!("{url:?}: bad port"))?)
-            }
-            _ => (rest.to_string(), if tls { 443 } else { 80 }),
-        };
-        Ok(Target { tls, host, port, base: url.to_string() })
-    }
-
-    fn host_header(&self) -> String {
-        match (self.tls, self.port) {
-            (true, 443) | (false, 80) => self.host.clone(),
-            _ => format!("{}:{}", self.host, self.port),
-        }
-    }
-
-    fn ws_url(&self, path: &str) -> String {
-        format!("{}://{}:{}{path}", if self.tls { "wss" } else { "ws" }, self.host, self.port)
-    }
-
-    fn connect_host(&self) -> &str {
-        self.host.trim_start_matches('[').trim_end_matches(']')
-    }
-}
-
-// --------------------------------------------------------------------------
-// HTTP/1.1, kept alive, over TCP or TLS. Just enough for the room's routes:
-// Content-Length or chunked bodies, no redirects followed.
-// --------------------------------------------------------------------------
-
-trait Io: AsyncRead + AsyncWrite + Unpin + Send {}
-impl<T: AsyncRead + AsyncWrite + Unpin + Send> Io for T {}
-
-struct Http {
-    target: Arc<Target>,
-    tls: Option<tokio_rustls::TlsConnector>,
-    conn: Option<BufReader<Box<dyn Io>>>,
-}
-
-struct Resp {
-    status: u16,
-    location: Option<String>,
-    body: Vec<u8>,
-}
-
-impl Resp {
-    fn json(&self) -> Value {
-        serde_json::from_slice(&self.body).unwrap_or(Value::Null)
-    }
-}
-
-impl Http {
-    fn new(target: &Arc<Target>, tls: &Option<tokio_rustls::TlsConnector>) -> Http {
-        Http {
-            target: target.clone(),
-            tls: tls.clone(),
-            conn: None,
-        }
-    }
-
-    async fn open(&mut self) -> Result<(), String> {
-        let t = &self.target;
-        let tcp = TcpStream::connect((t.connect_host(), t.port))
-            .await
-            .map_err(|e| format!("connect {}:{}: {e}", t.host, t.port))?;
-        tcp.set_nodelay(true).map_err(|e| e.to_string())?;
-        let io: Box<dyn Io> = match &self.tls {
-            None => Box::new(tcp),
-            Some(connector) => {
-                let name = rustls::pki_types::ServerName::try_from(t.connect_host().to_string())
-                    .map_err(|e| format!("{}: {e}", t.host))?;
-                Box::new(connector.connect(name, tcp).await.map_err(|e| format!("TLS to {}: {e}", t.host))?)
-            }
-        };
-        self.conn = Some(BufReader::new(io));
-        Ok(())
-    }
-
-    async fn call(&mut self, method: &str, path: &str, bearer: Option<&str>, body: Option<&Value>) -> Result<Resp, String> {
-        if self.conn.is_none() {
-            self.open().await?;
-        }
-        let result = self.exchange(method, path, bearer, body).await;
-        if result.is_err() {
-            self.conn = None;
-        }
-        result.map_err(|e| format!("{method} {path}: {e}"))
-    }
-
-    async fn exchange(&mut self, method: &str, path: &str, bearer: Option<&str>, body: Option<&Value>) -> Result<Resp, String> {
-        let mut req = format!(
-            "{method} {path} HTTP/1.1\r\nHost: {}\r\nUser-Agent: popquiz-smoke\r\nAccept: */*\r\n",
-            self.target.host_header()
-        );
-        if let Some(b) = bearer {
-            req.push_str(&format!("Authorization: Bearer {b}\r\n"));
-        }
-        let payload = body.map(|v| v.to_string()).unwrap_or_default();
-        if body.is_some() {
-            req.push_str("Content-Type: application/json\r\n");
-        }
-        if body.is_some() || method != "GET" {
-            req.push_str(&format!("Content-Length: {}\r\n", payload.len()));
-        }
-        req.push_str("\r\n");
-        req.push_str(&payload);
-
-        let conn = self.conn.as_mut().expect("opened");
-        conn.get_mut().write_all(req.as_bytes()).await.map_err(|e| e.to_string())?;
-        conn.get_mut().flush().await.map_err(|e| e.to_string())?;
-
-        let mut line = String::new();
-        if conn.read_line(&mut line).await.map_err(|e| e.to_string())? == 0 {
-            return Err("the connection closed before a response".into());
-        }
-        let status: u16 = line
-            .split_whitespace()
-            .nth(1)
-            .and_then(|s| s.parse().ok())
-            .ok_or(format!("bad status line {line:?}"))?;
-        let mut headers = HashMap::new();
-        loop {
-            line.clear();
-            conn.read_line(&mut line).await.map_err(|e| e.to_string())?;
-            let l = line.trim_end();
-            if l.is_empty() {
-                break;
-            }
-            if let Some((k, v)) = l.split_once(':') {
-                headers.insert(k.trim().to_ascii_lowercase(), v.trim().to_string());
-            }
-        }
-        let mut body = Vec::new();
-        let chunked = headers
-            .get("transfer-encoding")
-            .is_some_and(|v| v.to_ascii_lowercase().contains("chunked"));
-        if chunked {
-            read_chunked(conn, &mut body).await?;
-        } else if let Some(n) = headers.get("content-length") {
-            let n: usize = n.parse().map_err(|_| format!("bad content-length {n:?}"))?;
-            body.resize(n, 0);
-            conn.read_exact(&mut body).await.map_err(|e| e.to_string())?;
-        } else if !(status == 204 || status == 304 || (100..200).contains(&status)) {
-            conn.read_to_end(&mut body).await.map_err(|e| e.to_string())?;
-            self.conn = None;
-        }
-        if headers.get("connection").is_some_and(|v| v.eq_ignore_ascii_case("close")) {
-            self.conn = None;
-        }
-        Ok(Resp {
-            status,
-            location: headers.remove("location"),
-            body,
-        })
-    }
-}
-
-async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u8>) -> Result<(), String> {
-    let mut line = String::new();
-    loop {
-        line.clear();
-        r.read_line(&mut line).await.map_err(|e| e.to_string())?;
-        let size_hex = line.trim().split(';').next().unwrap_or("");
-        let size = usize::from_str_radix(size_hex, 16).map_err(|_| format!("bad chunk size {line:?}"))?;
-        if size == 0 {
-            // Trailers, if any, end at a blank line.
-            loop {
-                line.clear();
-                if r.read_line(&mut line).await.map_err(|e| e.to_string())? == 0 || line.trim().is_empty() {
-                    return Ok(());
-                }
-            }
-        }
-        let start = out.len();
-        out.resize(start + size, 0);
-        r.read_exact(&mut out[start..]).await.map_err(|e| e.to_string())?;
-        let mut crlf = [0u8; 2];
-        r.read_exact(&mut crlf).await.map_err(|e| e.to_string())?;
-    }
 }
 
 // --------------------------------------------------------------------------
@@ -412,103 +221,15 @@ fn scan(f: &Shared, secrets: &Secrets, phase: &str, surface: &str, v: &Value) {
 }
 
 // --------------------------------------------------------------------------
-// Sockets. Each is read by its own task, which notes when each phase first
-// arrived, keeps the last frame per phase, and scans every frame.
+// Sockets: `room_client`'s watcher, with every frame scanned.
 // --------------------------------------------------------------------------
 
-type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>;
-
-#[derive(Default)]
-struct Seen {
-    first: HashMap<String, Instant>,
-    last: HashMap<String, Value>,
-    frames: usize,
-    closed: bool,
-}
-
-struct Watcher {
-    seen: Arc<Mutex<Seen>>,
-    task: tokio::task::JoinHandle<()>,
-}
-
-impl Watcher {
-    fn arrived(&self, phase: &str) -> Option<Instant> {
-        self.seen.lock().unwrap().first.get(phase).copied()
-    }
-
-    fn last(&self, phase: &str) -> Option<Value> {
-        self.seen.lock().unwrap().last.get(phase).cloned()
-    }
-}
-
-impl Drop for Watcher {
-    fn drop(&mut self) {
-        self.task.abort();
-    }
-}
-
-async fn open_ws(target: &Target, path: &str, attach: Option<&str>) -> Result<Ws, String> {
-    let tcp = TcpStream::connect((target.connect_host(), target.port))
-        .await
-        .map_err(|e| format!("connect for {path}: {e}"))?;
-    tcp.set_nodelay(true).map_err(|e| e.to_string())?;
-    let (mut ws, _) = tokio_tungstenite::client_async_tls_with_config(target.ws_url(path), tcp, None, None)
-        .await
-        .map_err(|e| format!("socket {path}: {e}"))?;
-    if let Some(token) = attach {
-        let msg = json!({ "t": "attach", "token": token }).to_string();
-        ws.send(Message::Text(msg.into())).await.map_err(|e| format!("attach {path}: {e}"))?;
-    }
-    Ok(ws)
-}
-
-fn watch(mut ws: Ws, surface: String, secrets: Arc<Secrets>, findings: Shared) -> Watcher {
-    let seen = Arc::new(Mutex::new(Seen::default()));
-    let mine = seen.clone();
-    let task = tokio::spawn(async move {
-        while let Some(msg) = ws.next().await {
-            let Ok(Message::Text(text)) = msg else {
-                if matches!(msg, Ok(Message::Close(_)) | Err(_)) {
-                    break;
-                }
-                continue;
-            };
-            let at = Instant::now();
-            let Ok(frame) = serde_json::from_str::<Value>(&text) else {
-                fail(&findings, format!("{surface}: a frame that is not JSON"));
-                continue;
-            };
-            let phase = frame["phase"].as_str().unwrap_or("").to_string();
-            scan(&findings, &secrets, &phase, &surface, &frame);
-            let mut s = mine.lock().unwrap();
-            s.frames += 1;
-            s.first.entry(phase.clone()).or_insert(at);
-            s.last.insert(phase, frame);
-        }
-        mine.lock().unwrap().closed = true;
+fn watch_scanned(ws: client::Ws, surface: String, secrets: Arc<Secrets>, findings: Shared) -> Watcher {
+    let hook: OnFrame = Arc::new(move |frame: Option<&Value>| match frame {
+        None => fail(&findings, format!("{surface}: a frame that is not JSON")),
+        Some(frame) => scan(&findings, &secrets, frame["phase"].as_str().unwrap_or(""), &surface, frame),
     });
-    Watcher { seen, task }
-}
-
-/// Wait until every watcher has seen `phase`; the arrival instants, in order.
-async fn all_reach(watchers: &[&Watcher], phase: &str) -> Result<Vec<Instant>, String> {
-    let deadline = Instant::now() + WAIT;
-    loop {
-        let arrived: Vec<Option<Instant>> = watchers.iter().map(|w| w.arrived(phase)).collect();
-        if arrived.iter().all(Option::is_some) {
-            return Ok(arrived.into_iter().flatten().collect());
-        }
-        if Instant::now() > deadline {
-            let missing = arrived.iter().filter(|a| a.is_none()).count();
-            let closed = watchers.iter().filter(|w| w.seen.lock().unwrap().closed).count();
-            return Err(format!(
-                "{missing} of {} sockets never saw `{phase}` within {}s ({closed} closed)",
-                watchers.len(),
-                WAIT.as_secs()
-            ));
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
+    watch(ws, Some(hook))
 }
 
 // --------------------------------------------------------------------------
@@ -533,26 +254,6 @@ fn summary(name: &str, mut ms: Vec<f64>) -> String {
         percentile(&ms, 95.0),
         ms.last().copied().unwrap_or(f64::NAN)
     )
-}
-
-fn millis(d: Duration) -> f64 {
-    d.as_secs_f64() * 1000.0
-}
-
-/// xorshift64*: enough to scatter letters and burst offsets; the seed is printed.
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
-    }
-
-    fn below(&mut self, n: u64) -> u64 {
-        self.next() % n
-    }
 }
 
 // --------------------------------------------------------------------------
@@ -599,21 +300,10 @@ async fn act(ctx: &Ctx, host: &mut Http, room: &str, session: &str, slug: &str) 
     Ok(body)
 }
 
-/// The pages answer. The first request also waits out a stopped machine's
-/// start (Fly starts it on the first request after the trial's stop).
+/// The pages answer, once the machine does (`wait_for_room` waits out a
+/// stopped machine's start).
 async fn pages_answer(ctx: &Ctx) -> Result<(), String> {
-    let deadline = Instant::now() + Duration::from_secs(60);
-    loop {
-        let mut http = ctx.http();
-        match http.call("GET", "/join", None, None).await {
-            Ok(r) if r.status == 200 => break,
-            Ok(r) if Instant::now() < deadline && r.status >= 500 => {}
-            Ok(r) => return Err(format!("GET /join: {}", r.status)),
-            Err(_) if Instant::now() < deadline => {}
-            Err(e) => return Err(e),
-        }
-        tokio::time::sleep(Duration::from_secs(2)).await;
-    }
+    wait_for_room(&ctx.target, &ctx.tls).await?;
     let mut http = ctx.http();
     for page in ["/join", "/host"] {
         let r = http.call("GET", page, None, None).await?;
@@ -624,15 +314,25 @@ async fn pages_answer(ctx: &Ctx) -> Result<(), String> {
     Ok(())
 }
 
-async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
+/// What a run that could run found.
+pub struct Outcome {
+    pub substrate: &'static str,
+    pub lines: Vec<String>,
+    pub failures: Vec<String>,
+}
+
+impl Outcome {
+    pub fn passed(&self) -> bool {
+        self.failures.is_empty()
+    }
+}
+
+/// The whole run against `args.url`, as the organizer whose session is
+/// `token`. `Err` is "could not run" (exit 2); an `Outcome` with failures is a
+/// failed check (exit 1).
+pub async fn run(args: &Args, token: &str) -> Result<Outcome, String> {
     let target = Arc::new(Target::parse(&args.url)?);
-    let tls = target.tls.then(|| {
-        let roots = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let mut config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
-        config.alpn_protocols = vec![b"http/1.1".to_vec()];
-        tokio_rustls::TlsConnector::from(Arc::new(config))
-    });
+    let tls = target.tls_connector();
     let q3: Value = serde_json::from_str(Q3).map_err(|e| format!("q3.json: {e}"))?;
     let ctx = Ctx {
         target: target.clone(),
@@ -644,7 +344,9 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     let n = args.participants;
     let seed = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(1) | 1;
     let mut rng = Rng(seed);
-    let mut report = vec![format!("smoke {} with {n} participants (seed {seed})", target.base)];
+    let q = args.question.as_str();
+    let substrate = if target.is_loopback() { "loopback" } else { "deployed" };
+    let mut report = vec![format!("smoke {} ({substrate}) on {q} with {n} participants (seed {seed})", target.base)];
     let started = Instant::now();
 
     println!("· the pages");
@@ -652,13 +354,13 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
 
     println!("· Create a room: refused without a session, made with the organizer's (AC-64)");
     let mut host_http = ctx.http();
-    let create = json!({ "question_id": "q3" });
+    let create = json!({ "question_id": q });
     for (label, bearer) in [("no bearer", None), ("a wrong bearer", Some("not-the-host-token"))] {
         let r = host_http.call("POST", "/rooms", bearer, Some(&create)).await?;
         check(f, r.status == 401, format!("create with {label}: {} (want 401)", r.status));
         check(f, r.body.is_empty(), format!("create with {label}: the refusal has a body"));
     }
-    let r = host_http.call("POST", "/rooms", Some(&token), Some(&create)).await?;
+    let r = host_http.call("POST", "/rooms", Some(token), Some(&create)).await?;
     let created = r.json();
     match r.status {
         201 => {}
@@ -666,7 +368,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
         403 => return Err(format!("create: 403 {} — Discord says this organizer may not host", created["reason"])),
         409 => {
             return Err(format!(
-                "create: 409 {} — schedule q3 over the pipeline channel first; if it has already been run on this machine, restart it (fly apps restart) and schedule it again",
+                "create: 409 {} — schedule q3's record as {q} over the pipeline channel first; if it has already been run on this machine, restart it (fly apps restart) and schedule it again",
                 created["reason"]
             ))
         }
@@ -688,8 +390,8 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     );
 
     println!("· the wall and the host attach");
-    let wall = watch(open_ws(&target, &format!("/rooms/{room}/ws/wall"), None).await?, "wall".into(), ctx.secrets.clone(), f.clone());
-    let host = watch(open_ws(&target, &format!("/rooms/{room}/ws/host"), Some(&session)).await?, "host".into(), ctx.secrets.clone(), f.clone());
+    let wall = watch_scanned(open_ws(&target, &format!("/rooms/{room}/ws/wall"), None).await?, "wall".into(), ctx.secrets.clone(), f.clone());
+    let host = watch_scanned(open_ws(&target, &format!("/rooms/{room}/ws/host"), Some(&session)).await?, "host".into(), ctx.secrets.clone(), f.clone());
 
     println!("· {n} participants join and attach");
     let t = Instant::now();
@@ -711,7 +413,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
             }
             let token = body["token"].as_str().ok_or(format!("join {i}: no token"))?.to_string();
             let ws = open_ws(&target, &format!("/rooms/{room}/ws/buzzer"), Some(&token)).await?;
-            let watcher = watch(ws, format!("buzzer {i}"), secrets, findings);
+            let watcher = watch_scanned(ws, format!("buzzer {i}"), secrets, findings);
             Ok(Participant { http, token, watcher, fin: 0 })
         })
     });
@@ -721,7 +423,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     }
     report.push(format!("joined and attached {n} in {:.0}ms", millis(t.elapsed())));
 
-    all_reach(&everyone(&wall, &host, &people), "idle").await?;
+    all_reach(&everyone(&wall, &host, &people), "idle", WAIT).await?;
     let deadline = Instant::now() + WAIT;
     loop {
         let present = host.last("idle").map(|h| h["present"].clone());
@@ -737,7 +439,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
 
     println!("· live");
     act(&ctx, &mut host_http, &room, &session, "put-on-screen").await?;
-    all_reach(&everyone(&wall, &host, &people), "live").await?;
+    all_reach(&everyone(&wall, &host, &people), "live", WAIT).await?;
 
     println!("· answers, changed minds, then the deadline burst");
     for p in people.iter_mut() {
@@ -797,7 +499,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
 
     println!("· closed");
     act(&ctx, &mut host_http, &room, &session, "close-answers").await?;
-    all_reach(&everyone(&wall, &host, &people), "closed").await?;
+    all_reach(&everyone(&wall, &host, &people), "closed", WAIT).await?;
     let p0 = &mut people[0];
     let letter = LETTERS[(p0.fin + 1) % 5];
     let r = p0.http.call("PUT", &format!("/rooms/{room}/answer"), Some(&p0.token), Some(&json!({ "letter": letter }))).await?;
@@ -808,7 +510,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
 
     println!("· split: the totals are the final answers, exactly");
     act(&ctx, &mut host_http, &room, &session, "show-split").await?;
-    all_reach(&everyone(&wall, &host, &people), "split").await?;
+    all_reach(&everyone(&wall, &host, &people), "split", WAIT).await?;
     let mut disagree = 0;
     for p in &people {
         let frame = p.watcher.last("split").unwrap_or(Value::Null);
@@ -821,7 +523,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
 
     println!("· work stops at M-2");
     let body = act(&ctx, &mut host_http, &room, &session, "walk-it").await?;
-    all_reach(&everyone(&wall, &host, &people), "work").await?;
+    all_reach(&everyone(&wall, &host, &people), "work", WAIT).await?;
     let m = body["step"]["m"].as_u64().ok_or(format!("work: no step.m in {body}"))?;
     let mut at = body["step"]["at"].as_u64().unwrap_or(u64::MAX);
     check(f, at == 0, format!("work enters at step {at}, not 0"));
@@ -836,8 +538,8 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
     println!("· reveal");
     let t0 = Instant::now();
     act(&ctx, &mut host_http, &room, &session, "reveal").await?;
-    let arrivals = all_reach(&people.iter().map(|p| &p.watcher).collect::<Vec<_>>(), "reveal").await?;
-    all_reach(&[&wall, &host], "reveal").await?;
+    let arrivals = all_reach(&people.iter().map(|p| &p.watcher).collect::<Vec<_>>(), "reveal", WAIT).await?;
+    all_reach(&[&wall, &host], "reveal", WAIT).await?;
     report.push(summary("reveal reaching every buzzer (from the host's POST)", arrivals.iter().map(|a| millis(a.duration_since(t0))).collect()));
     // The positive control: the secrets do reach the surfaces that may show them.
     let s = &ctx.secrets;
@@ -864,7 +566,7 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
 
     println!("· released");
     act(&ctx, &mut host_http, &room, &session, "release").await?;
-    all_reach(&everyone(&wall, &host, &people), "released").await?;
+    all_reach(&everyone(&wall, &host, &people), "released", WAIT).await?;
     let r = host_http.call("POST", "/join", None, Some(&json!({ "code": code }))).await?;
     check(f, r.status == 409 && r.json()["refusal"] == "already_ended", format!("a join after release: {} {}", r.status, r.json()));
 
@@ -875,13 +577,33 @@ async fn run(args: Args, token: String) -> Result<Vec<String>, String> {
         findings.failures.iter().filter(|m| m.starts_with("LEAK")).count()
     ));
     report.push(format!("all seven phases on {} sockets in {:.1}s", n + 2, started.elapsed().as_secs_f64()));
-    if findings.failures.is_empty() {
-        Ok(report)
-    } else {
-        report.push(format!("{} checks failed:", findings.failures.len()));
-        report.extend(findings.failures.iter().map(|m| format!("  - {m}")));
-        Err(report.join("\n"))
-    }
+    Ok(Outcome {
+        substrate,
+        lines: report,
+        failures: findings.failures.clone(),
+    })
+}
+
+/// The result as JSON, for `--out` (CI keeps it as an artifact). Never the
+/// organizer session: `run` is handed it and nothing here sees it.
+pub fn report_json(args: &Args, result: &Result<Outcome, String>) -> Value {
+    let (status, exit, substrate, lines, failures) = match result {
+        Ok(o) if o.passed() => ("pass", 0, Some(o.substrate), o.lines.clone(), vec![]),
+        Ok(o) => ("fail", 1, Some(o.substrate), o.lines.clone(), o.failures.clone()),
+        Err(e) => ("could_not_run", 2, None, vec![], vec![client::explain(e)]),
+    };
+    json!({
+        "schema": "rustnyc-popquiz/smoke-report/1",
+        "ticket": "T-21",
+        "url": args.url,
+        "question": args.question,
+        "participants": args.participants,
+        "substrate": substrate,
+        "status": status,
+        "exit_code": exit,
+        "lines": lines,
+        "failures": failures,
+    })
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -897,18 +619,27 @@ async fn main() -> std::process::ExitCode {
         eprintln!("smoke: POPQUIZ_ORGANIZER_SESSION must be set in the environment (never on the command line): sign in at <url>/host?question=q3 and copy what follows the # in the address");
         return std::process::ExitCode::from(2);
     };
-    match run(args, token).await {
-        Ok(report) => {
+    let result = run(&args, &token).await;
+    if let Some(path) = &args.out {
+        if let Err(e) = std::fs::write(path, serde_json::to_string_pretty(&report_json(&args, &result)).unwrap_or_default()) {
+            eprintln!("smoke: could not write {path}: {e}");
+        }
+    }
+    match result {
+        Ok(o) if o.passed() => {
             println!("\nSMOKE PASS");
-            report.iter().for_each(|l| println!("  {l}"));
+            o.lines.iter().for_each(|l| println!("  {l}"));
             std::process::ExitCode::SUCCESS
         }
-        Err(e) if e.contains("checks failed") => {
-            println!("\nSMOKE FAIL\n{e}");
+        Ok(o) => {
+            println!("\nSMOKE FAIL");
+            o.lines.iter().for_each(|l| println!("  {l}"));
+            println!("{} checks failed:", o.failures.len());
+            o.failures.iter().for_each(|m| println!("  - {m}"));
             std::process::ExitCode::from(1)
         }
         Err(e) => {
-            eprintln!("\nSMOKE COULD NOT RUN: {e}");
+            eprintln!("\nSMOKE COULD NOT RUN: {}", client::explain(&e));
             std::process::ExitCode::from(2)
         }
     }
@@ -924,25 +655,29 @@ mod tests {
 
     #[test]
     fn arguments() {
-        assert_eq!(args("--url https://x.fly.dev").unwrap(), Args { url: "https://x.fly.dev".into(), participants: 20 });
-        assert_eq!(args("--url http://127.0.0.1:3000 --participants 200").unwrap().participants, 200);
-        for bad in ["", "--participants 5", "--url", "--url u --participants 0", "--url u --participants 201", "--url u --token t"] {
+        assert_eq!(
+            args("--url https://x.fly.dev").unwrap(),
+            Args { url: "https://x.fly.dev".into(), participants: 20, question: "q3".into(), out: None }
+        );
+        let a = args("--url http://127.0.0.1:3000 --participants 200 --question smoke-q3 --out r.json").unwrap();
+        assert_eq!((a.participants, a.question.as_str(), a.out.as_deref()), (200, "smoke-q3", Some("r.json")));
+        for bad in ["", "--participants 5", "--url", "--url u --participants 0", "--url u --participants 201", "--url u --token t", "--url u --question"] {
             assert!(args(bad).is_err(), "{bad:?}");
         }
     }
 
     #[test]
-    fn targets() {
-        let t = Target::parse("https://rustnyc-popquiz.fly.dev/").unwrap();
-        assert_eq!((t.tls, t.host.as_str(), t.port, t.base.as_str()), (true, "rustnyc-popquiz.fly.dev", 443, "https://rustnyc-popquiz.fly.dev"));
-        assert_eq!(t.host_header(), "rustnyc-popquiz.fly.dev");
-        assert_eq!(t.ws_url("/rooms/a/ws/wall"), "wss://rustnyc-popquiz.fly.dev:443/rooms/a/ws/wall");
-        let t = Target::parse("http://127.0.0.1:3000").unwrap();
-        assert_eq!((t.tls, t.port, t.host_header().as_str()), (false, 3000, "127.0.0.1:3000"));
-        assert_eq!(Target::parse("http://[::1]:8080").unwrap().connect_host(), "::1");
-        for bad in ["x.fly.dev", "https://x.fly.dev/path", "https://", "ws://x", "http://h:port"] {
-            assert!(Target::parse(bad).is_err(), "{bad:?}");
-        }
+    fn the_json_report_names_its_status_and_substrate() {
+        let a = args("--url http://127.0.0.1:3000 --question smoke-q3").unwrap();
+        let passed = Ok(Outcome { substrate: "loopback", lines: vec!["x".into()], failures: vec![] });
+        let r = report_json(&a, &passed);
+        assert_eq!((r["status"].as_str(), r["exit_code"].as_i64(), r["substrate"].as_str()), (Some("pass"), Some(0), Some("loopback")));
+        assert_eq!(r["question"], "smoke-q3");
+        let failed = Ok(Outcome { substrate: "deployed", lines: vec![], failures: vec!["LEAK: …".into()] });
+        assert_eq!(report_json(&a, &failed)["exit_code"], 1);
+        let r = report_json(&a, &Err("create: 404".into()));
+        assert_eq!((r["status"].as_str(), r["exit_code"].as_i64()), (Some("could_not_run"), Some(2)));
+        assert!(r["substrate"].is_null());
     }
 
     #[test]
@@ -966,14 +701,5 @@ mod tests {
         assert_eq!(s.found_in(&json!({ "correct": "E" })), vec!["key correct".to_string()]);
         let clean = json!({ "phase": "live", "source": q["source"], "options": q["options"].as_array().unwrap().iter().map(|o| &o["text"]).collect::<Vec<_>>() });
         assert!(s.found_in(&clean).is_empty());
-    }
-
-    #[tokio::test]
-    async fn chunked_bodies() {
-        let raw = b"4\r\nWiki\r\n6;x=y\r\npedia \r\n0\r\nTrailer: t\r\n\r\n";
-        let mut r = BufReader::new(&raw[..]);
-        let mut out = Vec::new();
-        read_chunked(&mut r, &mut out).await.unwrap();
-        assert_eq!(out, b"Wikipedia ");
     }
 }
