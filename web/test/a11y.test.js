@@ -240,10 +240,10 @@ test.after(() => {
   if (process.env.A11Y_MATRIX !== '1') return;
   const ACS = ['AC-82', 'AC-83', 'AC-84', 'AC-85', 'AC-86'];
   const lines = ['', '=== a11y: surface × screen × criterion ===',
-    `${'surface'.padEnd(8)} ${'screen'.padEnd(26)} ${ACS.map((a) => a.padEnd(15)).join(' ')}`];
+    `${'surface'.padEnd(8)} ${'screen'.padEnd(26)} ${ACS.map((a) => a.padEnd(18)).join(' ')}`];
   for (const [surface, screens] of Object.entries(MATRIX)) {
     for (const [screen, row] of Object.entries(screens)) {
-      lines.push(`${surface.padEnd(8)} ${screen.slice(0, 26).padEnd(26)} ${ACS.map((a) => String(row[a] || '·').slice(0, 15).padEnd(15)).join(' ')}`);
+      lines.push(`${surface.padEnd(8)} ${screen.slice(0, 26).padEnd(26)} ${ACS.map((a) => String(row[a] || '·').slice(0, 18).padEnd(18)).join(' ')}`);
     }
   }
   lines.push('', '=== a11y: contrast pairs (WCAG 2.1 relative luminance) ===');
@@ -593,16 +593,14 @@ test('ac83_wall: each phase entry says its §11 string once; idle and trace step
   assert.deepEqual(said, expectWall(correct));
   assert.deepEqual(per[0], [], 'idle');
   WALL_ORDER.forEach((f, i) => {
-    const name = f.phase + (per[i].length ? '' : ' (step)');
     mark('wall', f.phase === 'work' || f.phase === 'reveal' ? `${f.phase}[${(f.phase === 'work' ? F.work : F.reveal).indexOf(f)}]` : f.phase,
       'AC-83', per[i].length ? `"${per[i][0].slice(0, 12)}…"` : 'silent');
-    void name;
   });
   const u = wallRun([U.idle, U.live, U.closed, U.split, ...U.work, ...U.reveal, U.released]);
   assert.deepEqual(u.said, expectWall(U.reveal[0].reveal.correct));
   assert.ok(said.every(isLiveString));
-  // The answer's letter is said at reveal and not before (canary stays green).
-  assert.ok(!said.slice(0, 4).some((s) => s.includes(correct)) || !/\b[A-E]\b/.test(said.slice(0, 4).join(' ')));
+  // The answer's letter is said at reveal and not before: the deepEqual above
+  // pins every string in order, so a letter said early fails it there.
 });
 
 test('ac83_wall: the static fallback, stepped from the keyboard, says exactly what the live wall says', () => {
@@ -694,7 +692,24 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
   ws.onmessage(frame(hostPayload('released'), rev++));
   assert.deepEqual(said, PHASES.map((p) => hostEnv.PQ.HOST_PHASE_LABEL[p]));
   PHASES.forEach((p, i) => mark('host', p, 'AC-83', `"${said[i]}"`));
-  for (const s of hostScreens().filter((x) => !x.phase)) mark('host', s.name, 'AC-83', 'no phase yet');
+});
+
+// The screens before a room exists, booted for real: nothing is said on them.
+test('ac83_host: sign in, create and a refused create say nothing', async () => {
+  const cases = [['sign in', '', false], ['create', '#FIXTURE-SESSION', false], ['create, refused', '#FIXTURE-SESSION', true]];
+  for (const [name, hash, press] of cases) {
+    const { win, el } = hostWindow('/host');
+    win.location.hash = hash;
+    const said = [];
+    hostEnv.PQ.announce = (t) => said.push(t);
+    H.boot(win);
+    if (press) { click(el, el.querySelector('[data-primary]')); await settle(); await settle(); }
+    const screen = hostScreens().find((s) => s.name === name);
+    assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
+    if (press) assert.match(el.textContent, /200/, `${name}: the refusal is on screen`);
+    assert.deepEqual(said, [], name);
+    mark('host', name, 'AC-83', `silent (booted, ${said.length})`);
+  }
 });
 
 test('ac83_home: a trace step is said in words; opening the page and a step past the end say nothing', () => {
@@ -710,7 +725,29 @@ test('ac83_home: a trace step is said in words; opening the page and a step past
   assert.equal(said.length, 1);
   assert.match(said[0], /^Step 2 of \d+\. /);
   assert.equal(said[0], homeEnv.PQ.traceSay({ source: snap.source, trace: { steps: snap.trace } }, 1));
-  for (const sc of SCREENS.home) mark('home', sc.name, 'AC-83', sc.name.startsWith('nothing') ? 'no trace' : 'step said');
+  // Every step of every snapshot, stepped onto: said as "Step N of M." first.
+  // The first step is never stepped onto (opening says nothing), and with no
+  // snapshot there is nothing to step.
+  for (const key of ['q3', 'complete', 'dnc']) {
+    const s = HOME_FIX[key];
+    const heard = [];
+    homeEnv.PQ.announce = (t) => heard.push(t);
+    const p = HOME.mount(D.page('', SURFACES.home.chain).root, s);
+    assert.deepEqual(heard, [], `${key}: opening`);
+    mark('home', `${key} step 1`, 'AC-83', 'opening: silent');
+    for (let i = 1; i < s.trace.length; i++) {
+      p.step(1);
+      const last = heard[heard.length - 1];
+      assert.equal(heard.length, i, `${key}: one string per step`);
+      assert.ok(last.startsWith(`Step ${i + 1} of ${s.trace.length}. `), `${key} step ${i + 1}: ${last}`);
+      mark('home', `${key} step ${i + 1}`, 'AC-83', `"${last.slice(0, 12)}…"`);
+    }
+  }
+  const none = [];
+  homeEnv.PQ.announce = (t) => none.push(t);
+  HOME.mount(D.page('', SURFACES.home.chain).root, null).step(1);
+  assert.deepEqual(none, [], 'no snapshot: nothing to step');
+  mark('home', 'nothing released yet', 'AC-83', `silent (${none.length})`);
 });
 
 // --- AC-84: contrast ----------------------------------------------------------------
@@ -893,37 +930,73 @@ const STATIC_CUES = [
   ['buzzer', 'reveal, answered', (h) => /rn-check/.test(h) && text(h).includes('It was'), '✓ It was E.'],
 ];
 
+// What moves on one screen, from the cascade outside any @media block (a
+// reduce block is the only place motion may live) and the inline styles: every
+// element whose animation or transition is not none.
+const MOTION_PROPS = ['animation', 'animation-name', 'transition', 'transition-property'];
+function moving(surface, html) {
+  const css = SURFACES[surface].css;
+  const out = [];
+  for (const n of D.page(html, SURFACES[surface].chain).root.walk()) {
+    for (const prop of MOTION_PROPS) {
+      const w = D.winner(css, n, prop);
+      if (w && !/^(none|all 0s|0s?|0\.01ms)$/.test(w.value)) out.push(`<${n.tag} class="${n.attrs.class || ''}"> ${prop}: ${w.value}`);
+    }
+  }
+  return out;
+}
+function still(surface, sc) {
+  const m = moving(surface, sc.html);
+  assert.deepEqual(m, [], `${surface} ${sc.name}: moves`);
+  return m.length;
+}
+
 test('ac86_buzzer: every state has a static cue; none is motion', () => {
+  const cues = {};
   for (const [surface, name, ok, cue] of STATIC_CUES) {
     const sc = SCREENS[surface].find((s) => s.name === name);
     assert.ok(ok(sc.html), `${name}: ${cue}`);
-    mark(surface, name, 'AC-86', 'static cue');
+    cues[name] = cue;
   }
-  for (const sc of SCREENS.buzzer) if (!MATRIX.buzzer[sc.name]['AC-86']) mark('buzzer', sc.name, 'AC-86', 'no motion');
+  for (const sc of SCREENS.buzzer) {
+    const n = still('buzzer', sc);
+    mark('buzzer', sc.name, 'AC-86', cues[sc.name] ? `${cues[sc.name].slice(0, 9)}…, ${n} mv` : `${n} moving`);
+  }
 });
 
 test('ac86_wall: each phase is its own static frame, and each trace step says its number in words', () => {
   let prev = null;
   for (const sc of SCREENS.wall) {
     assert.match(sc.html, new RegExp(`data-phase="${sc.phase}"`));
+    let cell = `frame ${sc.phase}`;
     if (sc.phase === 'work' || sc.phase === 'reveal') {
-      assert.match(text(sc.html), /Step \d+ of \d+/, `${sc.name}: the step, in words`);
+      const m = /Step \d+ of \d+/.exec(text(sc.html));
+      assert.ok(m, `${sc.name}: the step, in words`);
       if (prev && prev.phase === sc.phase) assert.notEqual(sc.html, prev.html, `${sc.name}: a step is a different frame, not a motion`);
+      cell = m[0];
     }
     prev = sc;
-    mark('wall', sc.name, 'AC-86', sc.phase === 'work' || sc.phase === 'reveal' ? 'Step N of M' : 'static frame');
+    mark('wall', sc.name, 'AC-86', `${cell}, ${still('wall', sc)} mv`);
   }
 });
 
 test('ac86_host: each phase is a different primary action; nothing moves', () => {
   const labels = PHASES.map((p) => text(H.render(hostPayload(p), {})));
   PHASES.forEach((p, i) => assert.ok(labels[i].includes(H.actionLabel(NEXT[p])), p));
-  for (const sc of SCREENS.host) mark('host', sc.name, 'AC-86', 'static screen');
+  assert.equal(new Set(PHASES.map((p) => H.actionLabel(NEXT[p]))).size, PHASES.length, 'seven different actions');
+  for (const sc of SCREENS.host) {
+    const doc = D.page(sc.html, SURFACES.host.chain);
+    const primary = doc.root.querySelector('[data-primary],[data-sign-in]');
+    assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
+    mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)} mv`);
+  }
 });
 
 test('ac86_home: each step says its number in words; nothing moves', () => {
   for (const sc of SCREENS.home) {
-    if (!sc.name.startsWith('nothing')) assert.match(text(sc.html), /Step \d+ of \d+/, sc.name);
-    mark('home', sc.name, 'AC-86', 'static page');
+    const m = /Step \d+ of \d+/.exec(text(sc.html));
+    if (sc.name.startsWith('nothing')) assert.equal(m, null, `${sc.name}: no trace to step`);
+    else assert.ok(m, sc.name);
+    mark('home', sc.name, 'AC-86', `${m ? m[0] : 'no trace'}, ${still('home', sc)} mv`);
   }
 });
