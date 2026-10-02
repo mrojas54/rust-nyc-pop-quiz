@@ -71,3 +71,5 @@ sideways scroll, no colour-only — rerun).
 - `.btn` edge: AC-84 lists non-text at 3:1 for "edges that identify a control";
   I take the side that a labelled button's edge is not identifying (1.4.11).
 - (B) below-AA pick would contradict AC-84 → F-46 upstream, not a criteria edit.
+
+## Reset 2026-10-02 by agent:delegator-pq40

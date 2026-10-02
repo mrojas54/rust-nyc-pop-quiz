@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-02T19:55:55Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M3Z30203A091BG7H9WEQC7GE",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3Z30203A091BG7H9WEQC7GE.md",
+    "size_bytes": 1592
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Merge-scoped review 792161a..9d3b08c (not the merge gate)",
+  "token_usage": null,
+  "type": "note"
+}

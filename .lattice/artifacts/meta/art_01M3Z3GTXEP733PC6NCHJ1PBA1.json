@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-02T20:05:05Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M3Z3GTXEP733PC6NCHJ1PBA1",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3Z3GTXEP733PC6NCHJ1PBA1.md",
+    "size_bytes": 3242
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Full exact-head merge review at 9d3b08c",
+  "token_usage": null,
+  "type": "note"
+}

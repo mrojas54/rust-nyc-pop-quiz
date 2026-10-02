@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 3,
+  "comment_count": 6,
   "complexity": "low",
   "created_at": "2026-10-02T18:59:52Z",
   "created_by": "agent:orchestrator",
@@ -23,17 +23,42 @@
       "id": "art_01M3Z0AHX4QYCQTFDA5CBCZMBQ",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3Z279P89RPQWFBWK600Q3NT",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3Z279TE22VY8W556F9YF2GA",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3Z2FK6XD8VHKW3TKE7KK9AT",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3Z2FWJ4FKV1RKVM9XX8XA0F",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3Z2PRH8WSK3SK72V8FQ6TF5",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M3YZSD8KAKRHBRNCR48VDME3",
-  "last_event_id": "ev_01M3Z0AT27WGJHB4AJ8A9XX0VQ",
-  "last_status_changed_at": "2026-10-02T19:09:22Z",
+  "last_event_id": "ev_01M3Z30JY3N1KH97QHB61M73WK",
+  "last_status_changed_at": "2026-10-02T19:50:54Z",
   "priority": "high",
   "relationships_out": [],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-40",
-  "status": "needs_human",
+  "status": "review",
   "tags": [
     "follow-up",
     "web",
@@ -41,6 +66,6 @@
   ],
   "title": "Accessibility follow-ups: focus without scroll, the dimmed trace lines, the suite's blind spots",
   "type": "bug",
-  "updated_at": "2026-10-02T19:09:22Z",
+  "updated_at": "2026-10-02T19:56:13Z",
   "urgency": null
 }
