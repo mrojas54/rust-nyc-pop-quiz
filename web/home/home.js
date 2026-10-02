@@ -38,24 +38,24 @@
 
   function esc(s) { return PQ.escapeHtml(s); }
 
-  /* PROPOSED-§11. Strings this page needs that SPEC §11 does not author yet.
-     They are here, not in web/shared/copy.js, because this ticket may not edit
-     the shared copy module; the PR lists them for §11 to adopt or replace, and
-     each moves to copy.js the day it does. Checked against §11's Forbidden and
-     trope patterns by web/test/home.test.js. */
+  /* PROPOSED-§11 (F-34). Strings this page needs that SPEC §11 does not author
+     yet. They live in web/shared/copy.js's PROPOSED-§11 block, words unchanged,
+     so both lints cover them (T-22); this table names their keys, and
+     `PQ.Home.PROPOSED` reads them through for anything that wants the words. */
   var PROPOSED = {
     /* The page before the first release. */
-    nothing_yet: "Welcome to the POP QUIZ",
+    nothing_yet: "proposed_home_nothing_yet",
     /* §13: "the Miri row saying the check was run separately". */
-    miri_separately: "run separately",
+    miri_separately: "proposed_home_miri_separately",
     /* How we know, the machine's rows — the prototype's own labels. */
-    row_compiler: "compiler",
-    row_edition: "edition",
-    row_target: "target",
-    row_flags: "flags",
-    row_miri: "miri",
-    miri_seeds: "seeds"
+    row_compiler: "proposed_home_row_compiler",
+    row_edition: "proposed_home_row_edition",
+    row_target: "proposed_home_row_target",
+    row_flags: "proposed_home_row_flags",
+    row_miri: "proposed_home_row_miri",
+    miri_seeds: "proposed_home_miri_seeds"
   };
+  function p(name) { return PQ.t(PROPOSED[name]); }
 
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
     "August", "September", "October", "November", "December"];
@@ -165,23 +165,23 @@
     var out = [];
     /* The -Vv block scrolls sideways, so it takes the focus (AC-82): a
        scroller the keyboard cannot reach is a scroller it cannot scroll. */
-    out.push(row(PROPOSED.row_compiler, '<pre class="vv" tabindex="0" aria-label="' +
-      PQ.escapeAttr(PROPOSED.row_compiler) + '">' + esc(m.compiler) + "</pre>"));
-    out.push(row(PROPOSED.row_edition, esc(m.edition)));
-    out.push(row(PROPOSED.row_target, m.target === null || m.target === undefined
+    out.push(row(p("row_compiler"), '<pre class="vv" tabindex="0" aria-label="' +
+      PQ.escapeAttr(p("row_compiler")) + '">' + esc(m.compiler) + "</pre>"));
+    out.push(row(p("row_edition"), esc(m.edition)));
+    out.push(row(p("row_target"), m.target === null || m.target === undefined
       ? '<span class="not-recorded">' + esc(PQ.t("home_not_recorded")) + "</span>"
       : esc(m.target)));
-    if (m.flags) out.push(row(PROPOSED.row_flags, esc(flagsText(m.flags))));
+    if (m.flags) out.push(row(p("row_flags"), esc(flagsText(m.flags))));
     if (m.miri) {
       var mi = m.miri;
       var parts = [];
       if (mi.version) parts.push(esc(mi.version));
       if (mi.configs && mi.configs.length) parts.push(esc(mi.configs.join(", ")));
-      if (mi.seeds && mi.seeds.length) parts.push(esc(PROPOSED.miri_seeds + " " + mi.seeds.join(", ")));
+      if (mi.seeds && mi.seeds.length) parts.push(esc(p("miri_seeds") + " " + mi.seeds.join(", ")));
       /* A legacy record's pass ran outside the verifier and recorded no
          configuration: say so rather than print an empty row. */
-      out.push(row(PROPOSED.row_miri, m.legacy || !parts.length
-        ? '<span class="separately">' + esc(PROPOSED.miri_separately) + "</span>"
+      out.push(row(p("row_miri"), m.legacy || !parts.length
+        ? '<span class="separately">' + esc(p("miri_separately")) + "</span>"
         : parts.join('<span class="sep"> · </span>')));
     }
     return out.join("");
@@ -213,7 +213,7 @@
     opts = opts || {};
     if (!snap) {
       return '<div class="sheet nothing-yet">' +
-        mastheadHtml(PROPOSED.nothing_yet) +
+        mastheadHtml(p("nothing_yet")) +
       "</div>";
     }
     var at = PQ.clampStep(opts.step || 0, snap.trace.length);
@@ -288,9 +288,17 @@
     html: html,
     mount: mount,
     boot: boot,
-    spokenDate: spokenDate,
-    PROPOSED: PROPOSED
+    spokenDate: spokenDate
   };
+  /* The PROPOSED-§11 words by this page's own names, read from copy.js. */
+  Object.defineProperty(PQ.Home, "PROPOSED", {
+    enumerable: true,
+    get: function () {
+      var out = {};
+      Object.keys(PROPOSED).forEach(function (k) { out[k] = p(k); });
+      return out;
+    }
+  });
 
   if (root.document && root.document.getElementById && root.document.getElementById("home")) {
     boot();
