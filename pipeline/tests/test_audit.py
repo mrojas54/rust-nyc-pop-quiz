@@ -744,12 +744,17 @@ def test_the_command_line_writes_its_report_under_bank_audit(
 def test_a_flagged_question_in_the_reserve_fails_the_run(
     tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """q7's options are 48 characters. Flagged while it waits for re-authoring; a
-    failure the moment it is accepted and affirmed, because then tonight's schedule
-    could pick it (AC-100: flagged before it can be scheduled)."""
+    """An option too long for the wall is a flag while its question waits, and a
+    failure the moment the question is accepted and affirmed, because then tonight's
+    schedule could pick it (AC-100: flagged before it can be scheduled).
+
+    The long option is made here, in the copy: every option in the real bank fits
+    since D-15's re-authoring, so the bank no longer holds one to lean on."""
     repo = copy_bank(tmp_path)
     path = repo / "bank" / "questions" / "q7.json"
     record = json.loads(path.read_text(encoding="utf-8"))
+    wrong = next(o for o in record["options"] if o["kind"] == "output" and "why_tempting" in o)
+    wrong["text"] = "x" * 48
     record["review"].update(status="accepted", affirmed_by="organizer", affirmed_at="2026-09-21T20:00:00Z")
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 

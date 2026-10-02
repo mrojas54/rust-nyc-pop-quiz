@@ -99,10 +99,11 @@ def test_by_source_length_only_q3_q4_q7_q8_fit() -> None:
     assert fitting == ["q3", "q4", "q7", "q8"]
 
 
-def test_the_real_bank_sources_have_the_shapes_spec_measured() -> None:
-    """The worked table was measured from the August sources; the four in the bank
-    still have those shapes, and all four fit as programs."""
-    expected = {"q3": (5, 42), "q4": (6, 56), "q7": (5, 69), "q8": (6, 30)}
+def test_the_real_bank_sources_have_the_shapes_measured_here() -> None:
+    """The worked table was measured from the August sources. q3 and q8 still have
+    those shapes; q4 and q7 were re-authored for D-15 (PR #36) and are pinned at
+    what `source_metrics` measures now. All four fit as programs (AC-100)."""
+    expected = {"q3": (5, 42), "q4": (5, 78), "q7": (6, 67), "q8": (6, 30)}
     for q in bank.load_bank(REPO / "bank"):
         assert audit.source_metrics(q.source) == expected[q.id], q.id
         assert audit.fit(q.source, READING_AREA).fits, q.id
