@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-09-30T08:31:59Z",
+  "created_by": "agent:delegator-pq38",
+  "custom_fields": {},
+  "id": "art_01M3RQ29VYDKBZP4JWJG1WRHAY",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3RQ29VYDKBZP4JWJG1WRHAY.md",
+    "size_bytes": 1040
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Validation",
+  "token_usage": null,
+  "type": "note"
+}

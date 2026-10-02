@@ -4,14 +4,14 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-09-30 01:3x EDT. PQ-16 at `review` (PR #37); wave 18 dispatched off its branch. The run is `workspace:1`, the Orchestrator `surface:8` in `pane:1`, the client's terminal `surface:9` in `pane:2` (never used for spawns); delegators open as tabs of `pane:1`.
+Snapshot: 2026-10-02 12:3x EDT, on resume after a c11 restart (refs moved). PQ-38 unpushed at `4183c3b` and told to resume from its push; #37, #38, #39 open and red only because `main` is. The run is `workspace:1`, the Orchestrator `surface:8` and the delegators `surface:9`–`11` as tabs of the left pane, the client's terminal `surface:12` in the right pane (never used for spawns). The delegator tabs are in manual mode: every command asks the client.
 
 | Role | Ticket | Surface ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `surface:8` in `pane:1` | ai-c11-cc/lattice-build | Dispatch loop armed; next: READY receipts for PQ-26/PQ-27, CI on #37, the client's merge word |
-| agent:delegator-pq26 (Opus, inline-full) | PQ-26 / T-21 burst and smoke in CI | `surface:14` in `pane:1` | ai-c11-cc/burst-in-ci off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | launched 01:3x; boot prompt at `…-worktrees/burst-in-ci/.claude/boot-prompt.md` |
-| agent:delegator-pq27 (Opus, inline-full) | PQ-27 / T-22 copy freeze and lints | `surface:15` in `pane:1` | ai-c11-cc/copy-freeze off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | launched 01:3x; boot prompt at `…-worktrees/copy-freeze/.claude/boot-prompt.md` |
-| agent:delegator-pq38 (Opus, fast-track) | PQ-38 / fix-it: machine-verify the re-authored q4/q7/q8 and reconcile the pipeline tests | `surface:16` in `pane:1` | ai-c11-cc/bank-reverify off `origin/main` @ `1d721f4` (the client's PR #36, which turned main red) | launched 01:5x; lands before #37 and the wave-18 PRs; boot prompt at `…-worktrees/bank-reverify/.claude/boot-prompt.md` |
+| Orchestrator | — | `surface:8`, left pane | ai-c11-cc/lattice-build | Dispatch loop armed at the idle rate; next: PQ-38's push and PR (the client's prompts in tab 9), then the merge words |
+| agent:delegator-pq26 (Opus, inline-full) | PQ-26 / T-21 burst and smoke in CI | `surface:11`, left pane (was `surface:14`) | ai-c11-cc/burst-in-ci off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | `review` 04:29, **PR #39** @ `0b841e4` against `main`; tab kept open to merge `origin/main` after #37 and PQ-38 land |
+| agent:delegator-pq27 (Opus, inline-full) | PQ-27 / T-22 copy freeze and lints | `surface:10`, left pane (was `surface:15`) | ai-c11-cc/copy-freeze off `origin/ai-c11-cc/a11y-sweep` @ `b0dda3e` (PR #37) | `review` 04:28, **PR #38** @ `b1e9898` against `main`; AC-59 (F-41) is the client's before merge; tab kept open to merge `origin/main` |
+| agent:delegator-pq38 (Opus, fast-track) | PQ-38 / fix-it: machine-verify the re-authored q4/q7/q8 and reconcile the pipeline tests | `surface:9`, left pane (was `surface:16`) | ai-c11-cc/bank-reverify off `origin/main` @ `1d721f4` (the client's PR #36, which turned main red) | `in_progress`, worktree clean at `4183c3b`, five signed commits, **not pushed** (the 09-30 push prompt died with the c11 restart); validation and review (PASS-WITH-NITS at `01ec3ef`) attached; nudged 10-02 12:3x to push and open its PR, waiting at a permission prompt in its tab; lands before #37 and the wave-18 PRs; boot prompt at `…-worktrees/bank-reverify/.claude/boot-prompt.md` |
 | Waiting on the client | PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) | — | — | held; PQ-25 → PQ-29 → PQ-28 follow |
 
 ### Archived (run history)
