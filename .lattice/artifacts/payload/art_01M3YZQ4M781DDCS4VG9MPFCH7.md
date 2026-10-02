@@ -1,0 +1,1 @@
+Merged by the Orchestrator on the client's word (PR #37, head-pinned to 8cf3f8d, merge commit) after exact-head CI green and a fresh exact-head Sonnet review PASS-WITH-NITS with two Majors (art_01M3YZJWY721D3M8FYP9CSH2X3). By the client's choice both Majors and the Minors go to a follow-up ticket that lands before the next deploy; the dim-line ruling (F-46) waits on screenshots.

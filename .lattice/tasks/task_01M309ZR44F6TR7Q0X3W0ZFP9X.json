@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 6,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-13 (M2).\n\n`a11y`: keyboard, live regions per phase and the private hint, AA contrast, 44 px, reduced motion, over every surface and phase\n\nCriteria: AC-82\u201386\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-05\u201307\nBUILDPLAN notes: Serialized on `justfile` (`a11y`)\n\nWorkflow mode: fast-track. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
+  "done_at": "2026-10-02T18:58:37Z",
   "evidence_refs": [
     {
       "id": "art_01M3R7Q95ETBY5QPHBNBZW5VWD",
@@ -88,11 +88,26 @@
       "id": "art_01M3RCE09N09HH7YM149JA996F",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3YZJWY721D3M8FYP9CSH2X3",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3YZQ4M781DDCS4VG9MPFCH8",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3YZQ4M781DDCS4VG9MPFCH7",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZR44F6TR7Q0X3W0ZFP9X",
-  "last_event_id": "ev_01M3RD1F1Z5564A0KYRNW1HCT7",
-  "last_status_changed_at": "2026-09-30T05:26:13Z",
+  "last_event_id": "ev_01M3YZQ4M781DDCS4VG9MPFCHA",
+  "last_status_changed_at": "2026-10-02T18:58:37Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -120,7 +135,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-16",
-  "status": "review",
+  "status": "done",
   "tags": [
     "m2",
     "fast-track",
@@ -128,6 +143,6 @@
   ],
   "title": "Accessibility sweep",
   "type": "task",
-  "updated_at": "2026-09-30T05:36:46Z",
+  "updated_at": "2026-10-02T18:58:37Z",
   "urgency": null
 }
