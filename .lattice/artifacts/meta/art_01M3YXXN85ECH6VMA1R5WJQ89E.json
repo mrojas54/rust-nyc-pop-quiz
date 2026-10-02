@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-02T18:27:14Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M3YXXN85ECH6VMA1R5WJQ89E",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3YXXN85ECH6VMA1R5WJQ89E.md",
+    "size_bytes": 2148
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Exact-head merge review at 4183c3b",
+  "token_usage": null,
+  "type": "note"
+}
