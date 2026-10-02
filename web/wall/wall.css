@@ -99,7 +99,23 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
 .opt:has(.rn-correct) { border-color: var(--success); border-width: 4px; padding: 5px 11px; }
 .opt .letter.rn-correct { width: auto; min-width: 40px; padding: 0 6px; display: inline-flex; gap: 4px;
                           align-items: center; justify-content: center;
-                          background: var(--success); color: #fff; border-color: var(--success); }
+                          background: var(--success-text); color: #fff; border-color: var(--success-text); }
+/* AC-84 (T-13): the chip is --success-text, not green-500 — white on green-500
+   is 3.3:1 and the machine column sets it at 16 px. The bar letter beside
+   its ✓ is text at 18–22 px, so it takes the same green. The fill and the
+   track's edge stay --success: supplementary to the ✓ and to `n · p%`. */
+.bar-row .letter.rn-correct { color: var(--success-text); }
+
+/* AC-84 (T-13): the well's header is the question itself (*What does this
+   program print?*), and it, the line numbers and comments were --text-muted,
+   4.0:1 on the well's white. --text-secondary is 7.5:1. */
+.wall .rn-src-head, .wall .rn-src-ln, .wall .tk-c { color: var(--text-secondary); }
+/* AC-82: the reading region is the wall's one focusable element (AC-79: no
+   control). Its ring is --focus-ring, as on every surface. */
+.wall .rn-src-scroll:focus-visible { outline-color: var(--focus-ring); }
+/* AC-84: the highlighted line's left edge is what says *this line, now* in a
+   trace; amber-500 is 2.4:1 against the well. --focus-ring is 5.5:1. */
+.wall .rn-src-line.hl { border-left-color: var(--focus-ring); }
 
 /* --- The trace (work, reveal) --------------------------------------------- */
 .wall-trace { min-width: 0; overflow: hidden; }
@@ -148,10 +164,15 @@ body.wall-page { margin: 0; height: 100%; overflow: hidden; background: #12151c;
 .joinstrip { flex: none; display: flex; justify-content: space-between; align-items: baseline;
              border-top: 1px solid var(--border-default); padding-top: 10px; margin-top: 12px;
              min-height: 41px; font-size: 19px; color: var(--text-secondary); }
-.joinstrip b { color: var(--accent-primary); font-family: var(--font-heading); font-size: 30px; font-weight: 400; }
+/* AC-84 (T-13): --accent-hover, not the prototype's --accent-primary — amber-500
+   on the page is 2.3:1, under even large text's 3:1. The released link
+   (.endlink) was already this amber. */
+.joinstrip b { color: var(--accent-hover); font-family: var(--font-heading); font-size: 30px; font-weight: 400; }
 /* Joined / Answered (§11, Host + wall, count) at the strip's right end. */
 .wall-counts { display: flex; gap: 24px; }
 
+/* AC-86. Nothing on the wall animates: a phase is a new frame, a trace step
+   a new highlight with its *Step N of M* in words. This is the guard. */
 @media (prefers-reduced-motion: reduce) {
   .wall-page *, .wall-page *::before, .wall-page *::after {
     animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;

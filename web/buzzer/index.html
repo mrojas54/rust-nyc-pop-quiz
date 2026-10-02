@@ -10,7 +10,11 @@
 </head>
 <body>
 <!-- The buzzer (T-06). Everything on it is rendered by buzzer.js from the
-     room's state and web/shared/copy.js; this page types no string of its own. -->
+     room's state and web/shared/copy.js; this page types no string of its own.
+     aria-live="off" is deliberate (T-13): <main> is repainted whole on every
+     event, and a screen reader must not read each repaint. What changed is
+     said once, in words, by the one polite region PopQuiz.announce appends to
+     <body> outside <main> (AC-83, web/shared/dom.js). -->
 <main id="buzzer" class="buzzer" aria-live="off"></main>
 <script src="/shared/dom.js"></script>
 <script src="/shared/copy.js"></script>

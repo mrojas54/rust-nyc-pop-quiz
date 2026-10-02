@@ -398,7 +398,9 @@
       return '<button class="btn buzz-hint-go" type="button" data-act="hint">' +
         esc(t("buzzer_hint_action")) + '</button>';
     }
-    return '<div class="panel buzz-hint" data-state="hint-shown">' + esc(h.text) + '</div>';
+    /* tabindex -1: not a stop in the Tab order, but somewhere for the focus the
+       hint button had to land when the button goes (mount, render; AC-82). */
+    return '<div class="panel buzz-hint" data-state="hint-shown" tabindex="-1">' + esc(h.text) + '</div>';
   }
 
   function liveScreen(s) {
@@ -537,10 +539,47 @@
     var socket = null;
     var backoff = 500;
 
+    /* AC-82: every event repaints the whole screen, and the control that had
+       the focus goes with it — a keyboard user who pressed a letter would be
+       left on <body>, the next Tab back at the top. So the focus is remembered
+       by what the control does and given back to its twin on the new screen.
+       A control that no longer exists hands it on: retry to the letter it was
+       retrying, the hint button to the hint it showed. The key outlives a
+       paint only when that paint could not honour it (the control was
+       disabled or gone); a reader who clicked elsewhere is left there. */
+    var focusKey = null;
+    var owed = false;
+
+    function keyOf(node) {
+      if (!node || !node.getAttribute) return null;
+      if (node.id === "pq-code") return "code";
+      var letter = node.getAttribute("data-letter");
+      if (letter) return "letter:" + letter;
+      var act = node.getAttribute("data-act");
+      return act ? "act:" + act : null;
+    }
+
+    function focusTarget(key) {
+      if (!key || !el.querySelector) return null;
+      var found = key === "code" ? el.querySelector("#pq-code")
+        : el.querySelector("[data-" + key.replace(":", '="') + '"]');
+      if (found && !found.disabled) return found;
+      if (key === "act:hint") return el.querySelector(".buzz-hint");
+      if (key === "act:retry" && state.lastTried) return focusTarget("letter:" + state.lastTried);
+      return null;
+    }
+
     function render() {
+      var doc = el.ownerDocument;
+      var active = doc && doc.activeElement;
+      if (active && el.contains && el.contains(active)) focusKey = keyOf(active);
+      else if (!owed || (active && active !== doc.body)) focusKey = null;   // the reader moved it
       el.innerHTML = view(state);
       var input = el.querySelector && el.querySelector("#pq-code");
-      if (input && state.refusal && typeof input.focus === "function") input.focus();
+      if (input && state.refusal && typeof input.focus === "function") { input.focus(); owed = false; return; }
+      var target = focusTarget(focusKey);
+      if (target && target !== doc.activeElement && typeof target.focus === "function") target.focus();
+      owed = !!focusKey && !target;
     }
 
     function dispatch(event) {
