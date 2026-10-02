@@ -6,7 +6,7 @@
     "rustc_release": "1.98.1",
     "rustc_commit_hash": "48a229ceaefd4985c50990b14116b6d856af0985",
     "miri_version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
-    "recorded_at": "2026-09-26T08:07:23Z"
+    "recorded_at": "2026-09-30T08:29:13Z"
   },
   "_source_sha256": "1cfcb6dbacdd347c997779a40a6f59fa7222d3cd3f5a5119b22ae5be89f8c48f",
   "toolchain": {
@@ -14,13 +14,13 @@
     "stdout": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\nmiri 0.1.0 (420ed2a0c3 2026-09-18)\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.191
+    "wall_clock_s": 0.161
   },
   "compile": {
     "exit_code": 1,
     "stdout": "",
     "stderr": "error: expected expression, found `;`\n --> main.rs:4:13\n  |\n4 |     let x = ;\n  |             ^ expected expression\n\nerror: aborting due to 1 previous error\n\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.237
+    "wall_clock_s": 0.152
   }
 }

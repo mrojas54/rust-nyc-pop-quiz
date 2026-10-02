@@ -1,24 +1,28 @@
 {
   "id": "q8",
-  "source": "fn main() {\n    let mut v = vec![1, 2, 3];\n    let first = &v[0];\n    v.push(4);\n    println!(\"{}\", first);\n}\n",
+  "source": "fn main() {\n    let mut v = vec![1, 2, 3];\n    let first = &v[0];\n    v.push(4);\n    println!(\"{}\", first);\n}",
   "topic": "Borrow checking",
   "difficulty_requested": 3,
   "options": [
     {
       "text": "1",
-      "kind": "output"
+      "kind": "output",
+      "why_tempting": "The most natural read: first borrows v[0], push appends without touching it, println reads the borrow. If the borrow checker never crosses your mind, 1 is the whole story."
     },
     {
       "text": "4",
-      "kind": "output"
+      "kind": "output",
+      "why_tempting": "If you think push reallocates the buffer and first follows the data \u2014 reading whatever now sits where v[0] was \u2014 you'd expect the new element. The borrow never gets that far."
     },
     {
       "text": "[1, 2, 3, 4]",
-      "kind": "output"
+      "kind": "output",
+      "why_tempting": "If you misread `first` as the vector itself rather than a borrow of one element, the println looks like a debug print of the whole thing after the push."
     },
     {
-      "text": "1\n4",
-      "kind": "output"
+      "text": "panics at runtime",
+      "kind": "panic",
+      "why_tempting": "If you believe the borrow checker only warns and the real failure comes when push moves the buffer out from under first, you'd expect a crash at runtime instead of a compile error. The refusal happens before the program ever runs."
     },
     {
       "text": "does not compile",
@@ -43,6 +47,6 @@
     ]
   },
   "review": {
-    "reason": "Migrated from the August batch by T-14. 1 of 5 options breaks the wall's rule that an option is one line of at most 29 characters (D-15, SPEC 5.2): index 3 in bank order. The correct option is not among them, so the answer stands and the program need not change: only that distractor needs replacing. No why_tempting beats were drafted, because every incorrect option they would attach to is scheduled for replacement. Cannot be affirmed as it stands: the trace is empty and the middle beats are missing (SPEC 7.4, AC-95)."
+    "reason": "Re-authored 2026-09-29: the one option that broke the wall's one-line 29-char rule (index 3, \"1\\n4\") was replaced with a single-line distractor, and why_tempting beats were drafted for every incorrect option. The program is unchanged so the answer stands and the August verified record stands with it. Trace still empty; affirm needs the walk-through steps (SPEC 7.4)."
   }
 }
