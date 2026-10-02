@@ -6,7 +6,7 @@
     "rustc_release": "1.98.1",
     "rustc_commit_hash": "48a229ceaefd4985c50990b14116b6d856af0985",
     "miri_version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
-    "recorded_at": "2026-09-26T08:07:23Z"
+    "recorded_at": "2026-09-30T08:29:13Z"
   },
   "_source_sha256": "677a60fd4adebf85ede51527bb34cb088d5c23d71d6429f9fc5d60f6b5f9721e",
   "toolchain": {
@@ -14,55 +14,55 @@
     "stdout": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\nmiri 0.1.0 (420ed2a0c3 2026-09-18)\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.264
+    "wall_clock_s": 0.178
   },
   "compile": {
     "exit_code": 0,
     "stdout": "",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.308
+    "wall_clock_s": 0.293
   },
   "run:1": {
     "exit_code": 101,
     "stdout": "counting\n",
     "stderr": "\nthread 'main' (1) panicked at main.rs:6:18:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.276
+    "wall_clock_s": 0.27
   },
   "run:2": {
     "exit_code": 101,
     "stdout": "counting\n",
     "stderr": "\nthread 'main' (1) panicked at main.rs:6:18:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.317
+    "wall_clock_s": 0.251
   },
   "run:3": {
     "exit_code": 101,
     "stdout": "counting\n",
     "stderr": "\nthread 'main' (1) panicked at main.rs:6:18:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.311
+    "wall_clock_s": 0.287
   },
   "run:4": {
     "exit_code": 101,
     "stdout": "counting\n",
     "stderr": "\nthread 'main' (1) panicked at main.rs:6:18:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.307
+    "wall_clock_s": 0.313
   },
   "run:5": {
     "exit_code": 101,
     "stdout": "counting\n",
     "stderr": "\nthread 'main' (1) panicked at main.rs:6:18:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.303
+    "wall_clock_s": 0.374
   },
   "miri:stacked_borrows:0": {
     "exit_code": 101,
     "stdout": "counting\n",
     "stderr": "\nthread 'main' (1000) panicked at src/main.rs:6:18:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nnote: in Miri, you may have to set `MIRIFLAGS=-Zmiri-env-forward=RUST_BACKTRACE` for the environment variable to have an effect\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.488
+    "wall_clock_s": 0.397
   }
 }
