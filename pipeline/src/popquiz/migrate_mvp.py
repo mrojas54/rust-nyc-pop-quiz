@@ -1,6 +1,10 @@
 """Migrate the August MVP batch into the bank as `legacy` records (BUILDPLAN T-14).
 
-Run once; its output is committed. Re-running regenerates the same four files.
+Run once; its output is committed. A re-run writes only what the bank does not
+already hold, so it can never undo what happened to a record after it landed:
+q4, q7 and q8 were re-authored and q4 and q7 re-verified since (D-15, D-16).
+`test_migration.py` still regenerates all four into an empty directory to show
+where each record came from.
 
     cd pipeline && uv run python -m popquiz.migrate_mvp
 
@@ -56,8 +60,10 @@ from popquiz.bank import (
     TraceStep,
     ValueDelta,
     Verified,
+    history_path,
     normalized_output,
     options_needing_reauthoring,
+    question_path,
     save_history,
     save_question,
 )
@@ -494,7 +500,13 @@ def build_question(batch: dict, question: dict, content: dict) -> Question:
 
 
 def migrate(mvp_dir: Path, bank_dir: Path) -> list[Path]:
-    """Read the MVP batch, write the bank records and the history shape."""
+    """Read the MVP batch, write the bank records and the history shape.
+
+    A file already in the bank is kept, never overwritten: the bank is
+    append-only (SPEC 3.3), and a record that was re-authored or re-verified
+    after it was migrated is no longer the migration's to write. Returns the
+    paths it wrote.
+    """
     batch = json.loads((mvp_dir / "verified.json").read_text(encoding="utf-8"))
     content = json.loads((mvp_dir / "content.json").read_text(encoding="utf-8"))
     by_id = {q["id"]: q for q in batch["questions"]}
@@ -506,12 +518,15 @@ def migrate(mvp_dir: Path, bank_dir: Path) -> list[Path]:
     written = []
     for qid in MIGRATED:
         question = build_question(batch, by_id[qid], content[qid])
+        if question_path(bank_dir, qid).exists():
+            continue
         written.append(save_question(bank_dir, question))
 
     # The history store's shape, with its three stores empty. T-17 fills and reads
     # them and proves AC-17 on this shape; writing it here means T-17 arrives to a
     # file that exists rather than one it has to invent (SPEC 3.3).
-    written.append(save_history(bank_dir, History()))
+    if not history_path(bank_dir).exists():
+        written.append(save_history(bank_dir, History()))
     return written
 
 
@@ -522,8 +537,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bank-dir", type=Path, default=repo / "bank")
     args = parser.parse_args(argv)
 
-    for path in migrate(args.mvp_dir, args.bank_dir):
+    written = migrate(args.mvp_dir, args.bank_dir)
+    for path in written:
         print(f"wrote {path}")
+    kept = [qid for qid in MIGRATED if question_path(args.bank_dir, qid) not in written]
+    if history_path(args.bank_dir) not in written:
+        kept.append("history.json")
+    if kept:
+        print("kept, already in the bank: " + ", ".join(kept))
     print(
         "not migrated: "
         + ", ".join(f"{q} ({why})" for q, why in sorted(NOT_MIGRATED.items()))
