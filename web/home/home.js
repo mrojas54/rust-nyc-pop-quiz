@@ -165,7 +165,7 @@
     var out = [];
     /* The -Vv block scrolls sideways, so it takes the focus (AC-82): a
        scroller the keyboard cannot reach is a scroller it cannot scroll. */
-    out.push(row(PROPOSED.row_compiler, '<pre class="vv" tabindex="0" aria-label="' +
+    out.push(row(PROPOSED.row_compiler, '<pre class="vv" tabindex="0" role="region" aria-label="' +
       PQ.escapeAttr(PROPOSED.row_compiler) + '">' + esc(m.compiler) + "</pre>"));
     out.push(row(PROPOSED.row_edition, esc(m.edition)));
     out.push(row(PROPOSED.row_target, m.target === null || m.target === undefined

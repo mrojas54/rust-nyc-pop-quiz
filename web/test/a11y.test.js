@@ -304,6 +304,9 @@ function ac82(surface) {
       const label = `${sc.name}: <${n.tag} class="${n.attrs.class || ''}">`;
       if (isAction(n)) assert.ok(NATIVE(n), `${label} acts on click but is not a native control, so no key reaches it`);
       assert.ok(accessibleName(doc, n), `${label} has no accessible name`);
+      // A scroller given a Tab stop is named to a screen reader only through a
+      // role: an aria-label on a role-less <pre> is not reliably read out.
+      if (!NATIVE(n)) assert.ok(n.getAttribute('role'), `${label} takes the focus but has no role`);
       if (!n.disabled) {
         const r = ring(surface, n);
         assert.ok(r.ok, `${label}: ${r.why}`);
@@ -449,6 +452,15 @@ test('ac82_buzzer: a refused join hands the focus to the code field, without scr
   handle.dispatch({ type: 'submit', code: 'ABC234' });
   handle.dispatch({ type: 'joined', status: 404, body: { refusal: Object.keys(B.REFUSAL_KEY)[0] } });
   assert.equal(doc.activeElement.id, 'pq-code');
+  // A join that fails on the network: the button was disabled while it tried,
+  // and the focus goes to the code field to try again, not to <body>. (So the
+  // join button needs no focus key of its own: every way out of a join either
+  // places the focus there or leaves the join screen.)
+  userFocus(el.querySelector('.buzz-join-go'));
+  handle.dispatch({ type: 'submit', code: 'ABC234' });
+  assert.equal(doc.activeElement, doc.body, 'the disabled button cannot hold it');
+  handle.dispatch({ type: 'joined', status: 0, body: null });
+  assert.equal(doc.activeElement.id, 'pq-code', 'the code field has it');
   restoredWithoutScroll(doc, 'buzzer refusal');
 });
 
@@ -507,6 +519,37 @@ test('ac82_host: the primary action and the step buttons keep the keyboard throu
   ws.onmessage(frame(hostPayload('work', { step: { at: 4, m: 6, note: 'N', can_back: true, can_forward: false } }), rev++));
   assert.equal(doc.activeElement.getAttribute('data-step'), 'step-back');
   restoredWithoutScroll(doc, 'host');
+});
+
+// AC-83 and the focus together: a phase change says its label and moves the
+// focus to the next action (two different things, both meant). An answer
+// arriving changes only the count; if that repaint handed the focus to a fresh
+// copy of the same button, a screen reader would say the button again on every
+// answer. It writes the count alone, and the focused node survives.
+test('ac82_host: an answer arriving rewrites the count, not the focused button; nothing is said twice', async () => {
+  const { win, doc, el } = hostWindow('/host/room-1');
+  const said = [];
+  hostEnv.PQ.announce = (t) => said.push(t);
+  H.boot(win);
+  await settle();
+  const ws = FakeSocket.last;
+  ws.onmessage(frame(hostPayload('live'), 1));
+  const primary = el.querySelector('[data-primary]');
+  userFocus(primary);
+  const before = said.length;
+  ws.onmessage(frame(hostPayload('live', { answered: 8 }), 2));
+  ws.onmessage(frame(hostPayload('live', { answered: 9 }), 3));
+  assert.equal(doc.activeElement, primary, 'the focused button is the same node');
+  assert.equal(el.querySelector('[data-primary]'), primary, 'and still on the page');
+  assert.deepEqual(doc.focusCalls, [], 'no focus was given back, so nothing re-speaks the control');
+  const restores = doc.focusCalls.length;
+  assert.equal(said.length, before, 'a count tick says nothing');
+  assert.match(el.querySelector('.host-count').textContent, /9/);
+  // A phase change still repaints whole: one label, one restore.
+  ws.onmessage(frame(hostPayload('reveal'), 4));
+  assert.equal(said.length, before + 1);
+  assert.equal(doc.activeElement.getAttribute('data-primary'), NEXT.reveal);
+  mark('host', 'live, count tick', 'AC-82', `same node, ${restores} restores`);
 });
 
 test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hands it over at the end', () => {
