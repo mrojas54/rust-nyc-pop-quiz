@@ -46,7 +46,6 @@ from popquiz.bank import (
     save_history,
 )
 from popquiz import migrate_mvp
-from popquiz.runner import StubRunner
 from popquiz.migrate_mvp import (
     MIGRATED,
     NOT_MIGRATED,
@@ -54,6 +53,7 @@ from popquiz.migrate_mvp import (
     build_question,
     migrate,
 )
+from popquiz.runner import StubRunner
 
 HERE = pathlib.Path(__file__).parent
 REPO = HERE.parent.parent
@@ -138,8 +138,8 @@ def test_q8_was_re_verified_and_its_record_replaced_whole(tmp_path: pathlib.Path
 @pytest.mark.parametrize("qid", REVERIFIED)
 def test_a_reauthored_record_was_written_by_the_pinned_verifier(qid: str) -> None:
     """AC-6, AC-7, D-16. A re-authored question is re-verified, and only `verify`
-    writes the record: not legacy, carrying `verified_at` and `verifier_version`, current against
-    the pin, and passing the build's provenance check."""
+    writes the record: not legacy, carrying `verified_at` and `verifier_version`,
+    current against the pin, and passing the build's provenance check."""
     path = BANK / "questions" / f"{qid}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     assert "legacy" not in data["verified"]
