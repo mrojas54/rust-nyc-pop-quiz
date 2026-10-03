@@ -47,3 +47,21 @@ No physical phone, VoiceOver, Safari, real network throttling, container/Miri
 suite, or deployed burst check was run for this change. No CSS or visual identity
 changed. Timeout aborts fetch where AbortController exists and ignores late
 responses in all supported injection paths.
+
+## Review-fix verification
+
+The initial PR head was `01de92dc166f5ce702e4d51d7951275599a9bcda` on
+`codex/harden-buzzer-join`; `e8da` above identifies the worktree directory, not
+its Git revision. GitHub CI on that initial head passed `just test` and
+`just test-full` before these review changes.
+
+The added recovery-feedback regression failed before the review fix and passed
+afterward. The updated local `UV_PYTHON=3.12 just test` exited 0: 275 web tests,
+634 pipeline tests, and 235 Rust tests passed, with four deliberately ignored
+Rust tests and the same existing warnings. The Impeccable detector returned no
+findings; `git diff --check` was clean.
+
+A fresh browser pass confirmed the revised message, retained code and focus,
+`data-error="join-connection"` with no server-refusal marker, and no horizontal
+overflow on desktop or a 320px phone viewport. The message recommends waiting
+before retry but does not enforce a Retry-After delay.
