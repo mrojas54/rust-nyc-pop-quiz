@@ -587,3 +587,15 @@ test('a hung join becomes retryable and its late response cannot replace a newer
   assert.equal(handle.state().code, 'XYZ567');
   assert.equal(handle.state().joining, true);
 });
+
+test('unconfirmed joins offer a pause before retry without claiming the room was unreachable', () => {
+  for (const status of [0, 429, 500, 201]) {
+    const pending = B.reduce(B.initial(), { type: 'submit', code: 'ABC234' }).state;
+    const failed = B.reduce(pending, { type: 'joined', status, body: null }).state;
+    const html = B.view(failed);
+    assert.match(html, /Wait a moment/);
+    assert.doesNotMatch(html, /reach the room/);
+    assert.match(html, /data-error="join-connection"/);
+    assert.doesNotMatch(html, /data-refusal="unknown_error"/);
+  }
+});
