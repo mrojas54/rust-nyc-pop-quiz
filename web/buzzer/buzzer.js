@@ -29,6 +29,8 @@
   "use strict";
   var PQ = (root.PopQuiz = root.PopQuiz || {});
 
+  var JOIN_DEADLINE_MS = 10000;
+
   var LETTERS = ["A", "B", "C", "D", "E"];
 
   /* The six refusals `POST /join` names (room/README.md, *Joining*), each to
@@ -192,7 +194,8 @@
           s.refusal = body.refusal;
         } else {
           // The server did not answer with a refusal it names — a network
-          // failure or a 5xx. Nothing was created; the field stays for a retry.
+          // failure or a 5xx. A session may exist even without a usable
+          // response; retain the code for a deliberate retry.
           s.refusal = "unknown_error";
         }
         break;
@@ -370,7 +373,8 @@
       ' value="' + attr(s.code) + '"' + (msg ? ' aria-describedby="pq-refusal"' : '') + '>' +
       '<button class="btn btn-primary buzz-join-go" type="submit"' + (s.joining ? ' disabled' : '') + '>' +
       esc(t("buzzer_join_button")) + '</button>' +
-      (msg ? '<p class="buzz-refusal" id="pq-refusal" role="status" data-refusal="' + attr(s.refusal) + '">' +
+      (msg ? '<p class="buzz-refusal" id="pq-refusal" role="status"' +
+        (s.refusal === 'unknown_error' ? ' data-error="join-connection"' : ' data-refusal="' + attr(s.refusal) + '"') + '>' +
         esc(msg) + '</p>' : '') +
       '</form>';
   }
@@ -621,7 +625,7 @@
           timer = io.setTimeout(function () {
             finish(0, null);
             if (controller) controller.abort();
-          }, 10000);
+          }, JOIN_DEADLINE_MS);
           var options = {
             method: "POST",
             headers: { "content-type": "application/json" },

@@ -74,7 +74,7 @@
     join_fail_not_yet_open: "That room isn't open yet. Hold on — the host will put it on the screen.",
     join_fail_already_ended: "That room has ended. Look for the link on the screen.",
     join_fail_closed_inactivity: "That room went quiet and closed. If it comes back, the screen at the front will say so.",
-    join_transport_failed: "Couldn't reach the room. Try again — or watch the screen and play along.",
+    join_transport_failed: "Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along.",
     join_fail_full: "That room is full. Watch the screen — you can still play along.",
 
     /* --- Buzzer, hint --------------------------------------------------- */
