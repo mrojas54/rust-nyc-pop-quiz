@@ -64,3 +64,32 @@ Instrument Serif, pinned so the bytes are reproducible:
 Verify against the table before committing:
 
     shasum -a 256 *.ttf *.txt
+
+## Compressed browser delivery
+
+Each TTF has a losslessly compressed `.woff2` sibling. `fonts.css` prefers
+WOFF2 and retains TTF as a compatibility fallback. Both formats are served
+locally by the room. The single-file offline fallback embeds only WOFF2, with
+`data:font/woff2` MIME, so it does not carry duplicate fonts.
+
+Original TTFs and licence files remain unchanged. No subsetting or weight
+instancing is applied. Generate siblings with FontTools 4.60.1 and Brotli 1.1.0:
+
+```python
+from pathlib import Path
+from fontTools.ttLib import TTFont
+
+for source in Path("web/shared/fonts").glob("*.ttf"):
+    font = TTFont(source)
+    font.flavor = "woff2"
+    font.save(source.with_suffix(".woff2"))
+```
+
+| File | SHA-256 |
+|---|---|
+| `CascadiaMono-VariableFont_wght.woff2` | `d4b4998ad47f83e9d744d077b13a08506ebada62002ce93498d599783ee5def6` |
+| `CascadiaMono-Italic-VariableFont_wght.woff2` | `5fea6440656116f022cc02e52fad389009cf18143ba892eb6ff0e622e41ce124` |
+| `InstrumentSerif-Regular.woff2` | `a85235850e4bccf3f6a9f3d686eee1ec160cb388377ed83aa2a12c9e36be59f3` |
+| `InstrumentSerif-Italic.woff2` | `ddd5635a58d34da302cb5ef468fecc7cc12bd25320b3a8b251349433ac4954d5` |
+
+Measurements and validation: [font performance report](../../performance/2026-10-03-fonts.md).
