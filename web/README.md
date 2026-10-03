@@ -32,11 +32,15 @@ third ecosystem.
 ### Buzzer join recovery
 
 The join form ignores repeated submits while a request is pending. Each join
-has a ten-second deadline, including response-body reading. Network failures,
+targets a ten-second deadline, including response-body reading. Background
+tabs may delay that timer until JavaScript resumes. Network failures,
 unrecognized responses and timeouts show recovery guidance linked to the room
 code field; the submitted code stays available for retry. The browser aborts a
 timed-out fetch when AbortController is available. Late responses are ignored
-so they cannot attach an old room after a retry.
+so they cannot attach an old room after a retry. An unconfirmed response can
+still leave a server session consuming capacity, and retrying can create another;
+join is not idempotent. The recovery message recommends waiting before retry but
+does not enforce server Retry-After.
 
 For a local browser check, open
 `/web/test/a11y/browser.html?surface=buzzer` from a server at the repository root.

@@ -1,6 +1,8 @@
 # Buzzer join hardening verification
 
-Verified on 2026-10-02 in the e8da worktree.
+Initial verification on 2026-10-02 in worktree
+`/Users/michellerojas/.codex/worktrees/e8da/rust-nyc-pop-quiz`, branch
+`codex/harden-buzzer-join`. The initial reviewed head was `01de92d`.
 
 ## Regression evidence
 
@@ -65,3 +67,42 @@ A fresh browser pass confirmed the revised message, retained code and focus,
 `data-error="join-connection"` with no server-refusal marker, and no horizontal
 overflow on desktop or a 320px phone viewport. The message recommends waiting
 before retry but does not enforce a Retry-After delay.
+
+
+## Known limits and deferred server work
+
+**Unconfirmed joins can consume sessions.** `AppState::join` creates a session
+under the room lock before the response reaches the browser; `SessionMap::join`
+checks capacity against the session map and issues a new token on every join.
+The browser deadline and abort do not roll back that server operation. If the
+body is slow, the connection fails after allocation, or the abort arrives after
+allocation, the browser can discard a successful response without ever storing
+the token. A retry can allocate a second session. An unattached orphan can occupy
+capacity and inflate the room's present count without adding an answer. Repeated
+failures may cause a full-room refusal. Room release clears the session map;
+there is no idempotent join recovery in this change. The late-response guard
+protects browser state only.
+
+This is the review's permitted documentation path, not a claim that the risk
+has been fixed or that an organizer has accepted it for a live event. Proper
+recovery would need a per-attempt client nonce with server-side deduplication
+and an explicit lifetime, or cleanup of sessions that never attach. Deduplication
+by room code alone would conflate different attendees joining the same room.
+That protocol work is deferred from this UI hardening PR.
+
+**The deadline is a timer target, not a wall-clock guarantee.** Background mobile
+tabs can throttle timers or suspend JavaScript, keeping the join button disabled
+beyond ten seconds until execution resumes. Foreground deadline behavior was
+verified; physical-device background suspension was not. The settled guard still
+prevents a late response from replacing a newer attempt.
+
+**Error wording deliberately groups unconfirmed outcomes.** Network failure,
+429, 5xx and malformed success bodies share "Couldn't finish joining". This
+makes no claim that the request failed to reach the server. "Wait a moment"
+is guidance only: the browser does not enforce server Retry-After or automatic
+backoff for joining.
+
+**Copy provenance has a manual step.** The new wording is authored in SPEC.md
+section 11 and manually transcribed into the JS and Rust copy modules. The
+`twins.rs` test enforces equality between those two modules; no test parses the
+SPEC table or proves that transcription against the prose.
