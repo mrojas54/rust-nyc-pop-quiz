@@ -29,6 +29,23 @@ Node's built-in test runner, which means **no `package.json`, no
 dependency tree is what lets `just test` stay hermetic without a lockfile for a
 third ecosystem.
 
+### Buzzer join recovery
+
+The join form ignores repeated submits while a request is pending. Each join
+has a ten-second deadline, including response-body reading. Network failures,
+unrecognized responses and timeouts show recovery guidance linked to the room
+code field; the submitted code stays available for retry. The browser aborts a
+timed-out fetch when AbortController is available. Late responses are ignored
+so they cannot attach an old room after a retry.
+
+For a local browser check, open
+`/web/test/a11y/browser.html?surface=buzzer` from a server at the repository root.
+Use **fail next join** or **stall next join**, enter a code, and submit. The stall
+should disable the join button until the deadline, then allow another attempt.
+These controls belong to the fixture harness, outside the product interface.
+[Verification evidence](test/verification/buzzer-join.md) records the scope and
+limits of the checks.
+
 ### A note for T-02
 
 There is deliberately no `"type": "module"` anywhere here. The prototype loads
