@@ -165,7 +165,7 @@
     var out = [];
     /* The -Vv block scrolls sideways, so it takes the focus (AC-82): a
        scroller the keyboard cannot reach is a scroller it cannot scroll. */
-    out.push(row(p("row_compiler"), '<pre class="vv" tabindex="0" aria-label="' +
+    out.push(row(p("row_compiler"), '<pre class="vv" tabindex="0" role="region" aria-label="' +
       PQ.escapeAttr(p("row_compiler")) + '">' + esc(m.compiler) + "</pre>"));
     out.push(row(p("row_edition"), esc(m.edition)));
     out.push(row(p("row_target"), m.target === null || m.target === undefined
@@ -251,7 +251,7 @@
         var buttons = walk.querySelectorAll(".trace-nav button");
         var want = buttons[d < 0 ? 0 : 1];
         if (!want || want.disabled) want = buttons[d < 0 ? 1 : 0];
-        if (want && !want.disabled) want.focus();
+        if (want && !want.disabled) want.focus({ preventScroll: true });
       }
       if (PQ.announce) PQ.announce(PQ.traceSay(traceQuestion(snap), at));
       return at;

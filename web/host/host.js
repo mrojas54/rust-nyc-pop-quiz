@@ -262,13 +262,34 @@
         el.querySelector('[data-step="' + other + '"]:not([disabled])');
     }
 
+    /* An answer arriving changes the count line and nothing else. Writing
+       that line alone keeps the focused control the same node: giving the
+       focus to a fresh copy of it would have a screen reader say the button
+       again on every answer in the room. This reads the count as render()'s
+       last element (countHtml is appended last): keep it last. */
+    var COUNT_OPEN = '<div class="host-count">';
+    var painted = null;
+
+    function aboveCount(html) {
+      var cut = html ? html.lastIndexOf(COUNT_OPEN) : -1;
+      return cut < 0 ? null : html.slice(0, cut);
+    }
+
     function repaint(html) {
+      var above = aboveCount(html);
+      var count = above !== null && el.querySelector && el.querySelector(".host-count");
+      if (count && above === aboveCount(painted)) {
+        count.innerHTML = html.slice(above.length + COUNT_OPEN.length, html.length - "</div>".length);
+        painted = html;
+        return;
+      }
+      painted = html;
       var active = win.document.activeElement;
       if (active && el.contains && el.contains(active)) focusKey = keyOf(active);
       else if (!owed || (active && active !== win.document.body)) focusKey = null;   // the reader moved it
       el.innerHTML = html;
       var target = focusTarget(focusKey);
-      if (target && target !== win.document.activeElement && typeof target.focus === "function") target.focus();
+      if (target && target !== win.document.activeElement && typeof target.focus === "function") target.focus({ preventScroll: true });
       owed = !!focusKey && !target;
     }
 

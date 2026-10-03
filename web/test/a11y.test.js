@@ -240,10 +240,10 @@ test.after(() => {
   if (process.env.A11Y_MATRIX !== '1') return;
   const ACS = ['AC-82', 'AC-83', 'AC-84', 'AC-85', 'AC-86'];
   const lines = ['', '=== a11y: surface × screen × criterion ===',
-    `${'surface'.padEnd(8)} ${'screen'.padEnd(26)} ${ACS.map((a) => a.padEnd(15)).join(' ')}`];
+    `${'surface'.padEnd(8)} ${'screen'.padEnd(26)} ${ACS.map((a) => a.padEnd(18)).join(' ')}`];
   for (const [surface, screens] of Object.entries(MATRIX)) {
     for (const [screen, row] of Object.entries(screens)) {
-      lines.push(`${surface.padEnd(8)} ${screen.slice(0, 26).padEnd(26)} ${ACS.map((a) => String(row[a] || '·').slice(0, 15).padEnd(15)).join(' ')}`);
+      lines.push(`${surface.padEnd(8)} ${screen.slice(0, 26).padEnd(26)} ${ACS.map((a) => String(row[a] || '·').slice(0, 18).padEnd(18)).join(' ')}`);
     }
   }
   lines.push('', '=== a11y: contrast pairs (WCAG 2.1 relative luminance) ===');
@@ -304,6 +304,9 @@ function ac82(surface) {
       const label = `${sc.name}: <${n.tag} class="${n.attrs.class || ''}">`;
       if (isAction(n)) assert.ok(NATIVE(n), `${label} acts on click but is not a native control, so no key reaches it`);
       assert.ok(accessibleName(doc, n), `${label} has no accessible name`);
+      // A scroller given a Tab stop is named to a screen reader only through a
+      // role: an aria-label on a role-less <pre> is not reliably read out.
+      if (!NATIVE(n)) assert.ok(n.getAttribute('role'), `${label} takes the focus but has no role`);
       if (!n.disabled) {
         const r = ring(surface, n);
         assert.ok(r.ok, `${label}: ${r.why}`);
@@ -372,6 +375,26 @@ class FakeSocket {
 }
 const settle = () => new Promise((r) => setImmediate(r));
 
+// The reader's own focus, as a click or Tab would set it. Taken back off the
+// record, so what is left there is only what the surface restored.
+function userFocus(n) {
+  n.focus();
+  n.ownerDocument.focusCalls.pop();
+}
+
+// Every focus the surface gave back asked not to scroll (PQ-40). On the host in
+// `reveal` the primary action sits below the read-aloud text; a restore that
+// scrolled would carry the host past the beat they are reading out.
+function restoredWithoutScroll(doc, what) {
+  const calls = doc.focusCalls || [];
+  assert.ok(calls.length > 0, `${what}: the surface restored the focus at least once`);
+  for (const c of calls) {
+    assert.deepEqual(c.opts && { ...c.opts }, { preventScroll: true },
+      `${what}: focus restored to <${c.node.tag} class="${c.node.attrs.class || ''}"> without preventScroll`);
+  }
+  return calls.length;
+}
+
 function listen(node) {
   node.handlers = {};
   node.addEventListener = (type, fn) => { node.handlers[type] = fn; };
@@ -388,21 +411,21 @@ test('ac82_buzzer: a letter, retry and the hint keep the keyboard where it was a
   });
   handle.dispatch(JOINED);
   handle.dispatch({ type: 'frame', frame: attach(BF.live) });
-  el.querySelector('[data-letter="C"]').focus();
+  userFocus(el.querySelector('[data-letter="C"]'));
   handle.dispatch({ type: 'tap', letter: 'C' });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C', 'after the tap');
   handle.dispatch({ type: 'answered', status: 500, body: null });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C', 'after the failure');
-  el.querySelector('[data-act="retry"]').focus();
+  userFocus(el.querySelector('[data-act="retry"]'));
   handle.dispatch({ type: 'retry' });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C', 'retry hands the focus to the letter it retries');
   handle.dispatch({ type: 'answered', status: 200, body: { saved: 'C' } });
-  el.querySelector('[data-act="hint"]').focus();
+  userFocus(el.querySelector('[data-act="hint"]'));
   handle.dispatch({ type: 'hint' });
   assert.ok(doc.activeElement.classes.includes('buzz-hint'), 'the hint takes the focus its button had');
   // A reader who clicked blank space (the focus on <body>, not lost to a
   // repaint) is not pulled back onto the buzzer by the next frame.
-  el.querySelector('[data-letter="C"]').focus();
+  userFocus(el.querySelector('[data-letter="C"]'));
   handle.dispatch({ type: 'frame', frame: attach(BF.live, 'C') });
   assert.equal(doc.activeElement.getAttribute('data-letter'), 'C');
   doc.activeElement = doc.body;
@@ -411,10 +434,34 @@ test('ac82_buzzer: a letter, retry and the hint keep the keyboard where it was a
   // A reader who moved the focus off the buzzer keeps it there.
   const outside = new D.Node('button', {}, doc.body, doc);
   doc.body.children.push(outside);
-  outside.focus();
+  userFocus(outside);
   handle.dispatch({ type: 'frame', frame: attach(BF.closed, 'C') });
   assert.equal(doc.activeElement, outside);
-  mark('buzzer', 'live, saving', 'AC-82', 'focus kept');
+  const n = restoredWithoutScroll(doc, 'buzzer');
+  mark('buzzer', 'live, saving', 'AC-82', `focus kept, ${n} no-scroll`);
+});
+
+test('ac82_buzzer: a refused join hands the focus to the code field, without scrolling', () => {
+  const doc = D.page('', SURFACES.buzzer.chain);
+  const el = listen(doc.root);
+  const handle = B.mount(el, {
+    fetch: () => new Promise(() => {}), WebSocket: FakeSocket, storage: null,
+    location: { search: '', protocol: 'http:', host: 'h' }, setTimeout: () => 0, announce: () => {},
+  });
+  handle.dispatch({ type: 'boot', search: '', stored: null });
+  handle.dispatch({ type: 'submit', code: 'ABC234' });
+  handle.dispatch({ type: 'joined', status: 404, body: { refusal: Object.keys(B.REFUSAL_KEY)[0] } });
+  assert.equal(doc.activeElement.id, 'pq-code');
+  // A join that fails on the network: the button was disabled while it tried,
+  // and the focus goes to the code field to try again, not to <body>. (So the
+  // join button needs no focus key of its own: every way out of a join either
+  // places the focus there or leaves the join screen.)
+  userFocus(el.querySelector('.buzz-join-go'));
+  handle.dispatch({ type: 'submit', code: 'ABC234' });
+  assert.equal(doc.activeElement, doc.body, 'the disabled button cannot hold it');
+  handle.dispatch({ type: 'joined', status: 0, body: null });
+  assert.equal(doc.activeElement.id, 'pq-code', 'the code field has it');
+  restoredWithoutScroll(doc, 'buzzer refusal');
 });
 
 function hostWindow(pathname) {
@@ -454,7 +501,7 @@ test('ac82_host: the primary action and the step buttons keep the keyboard throu
   ws.onmessage(frame(hostPayload('idle'), rev++));
   for (const phase of PHASES.slice(1)) {
     const primary = el.querySelector('[data-primary]');
-    primary.focus();
+    userFocus(primary);
     click(el, primary);
     assert.equal(doc.activeElement, doc.body, 'the disabled in-flight button cannot hold it');
     await settle();
@@ -466,11 +513,42 @@ test('ac82_host: the primary action and the step buttons keep the keyboard throu
   assert.equal(posts.length, 6);
   // Stepping forward onto the bound hands the focus to ←.
   ws.onmessage(frame(hostPayload('work', { step: { at: 3, m: 6, note: 'N', can_back: true, can_forward: true } }), rev++));
-  el.querySelector('[data-step="step-forward"]').focus();
+  userFocus(el.querySelector('[data-step="step-forward"]'));
   click(el, el.querySelector('[data-step="step-forward"]'));
   await settle();
   ws.onmessage(frame(hostPayload('work', { step: { at: 4, m: 6, note: 'N', can_back: true, can_forward: false } }), rev++));
   assert.equal(doc.activeElement.getAttribute('data-step'), 'step-back');
+  restoredWithoutScroll(doc, 'host');
+});
+
+// AC-83 and the focus together: a phase change says its label and moves the
+// focus to the next action (two different things, both meant). An answer
+// arriving changes only the count; if that repaint handed the focus to a fresh
+// copy of the same button, a screen reader would say the button again on every
+// answer. It writes the count alone, and the focused node survives.
+test('ac82_host: an answer arriving rewrites the count, not the focused button; nothing is said twice', async () => {
+  const { win, doc, el } = hostWindow('/host/room-1');
+  const said = [];
+  hostEnv.PQ.announce = (t) => said.push(t);
+  H.boot(win);
+  await settle();
+  const ws = FakeSocket.last;
+  ws.onmessage(frame(hostPayload('live'), 1));
+  const primary = el.querySelector('[data-primary]');
+  userFocus(primary);
+  const before = said.length;
+  const ticks = [8, 9];
+  ticks.forEach((n, i) => ws.onmessage(frame(hostPayload('live', { answered: n }), 2 + i)));
+  assert.equal(doc.activeElement, primary, 'the focused button is the same node');
+  assert.equal(el.querySelector('[data-primary]'), primary, 'and still on the page');
+  assert.deepEqual(doc.focusCalls, [], 'no focus was given back, so nothing re-speaks the control');
+  assert.equal(said.length, before, 'a count tick says nothing');
+  assert.match(el.querySelector('.host-count').textContent, /9/);
+  // A phase change still repaints whole: one label, one restore.
+  ws.onmessage(frame(hostPayload('reveal'), 2 + ticks.length));
+  assert.equal(said.length, before + 1);
+  assert.equal(doc.activeElement.getAttribute('data-primary'), NEXT.reveal);
+  mark('host', 'live, count tick', 'AC-82', `same node, ${ticks.length} ticks`);
 });
 
 test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hands it over at the end', () => {
@@ -478,11 +556,12 @@ test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hand
   const snap = HOME_FIX.q3;
   const page = HOME.mount(doc.root, snap);
   const nav = () => doc.getElementById('home-walk').querySelectorAll('.trace-nav button');
-  nav()[1].focus();
+  userFocus(nav()[1]);
   page.step(1);
   assert.equal(doc.activeElement, nav()[1], 'next keeps it');
   for (let i = 0; i < snap.trace.length; i++) page.step(1);
   assert.equal(doc.activeElement, nav()[0], 'at the last step, next is disabled and the focus moves to previous');
+  restoredWithoutScroll(doc, 'home');
 });
 
 // --- AC-83: the live region -------------------------------------------------------
@@ -513,16 +592,14 @@ test('ac83_wall: each phase entry says its §11 string once; idle and trace step
   assert.deepEqual(said, expectWall(correct));
   assert.deepEqual(per[0], [], 'idle');
   WALL_ORDER.forEach((f, i) => {
-    const name = f.phase + (per[i].length ? '' : ' (step)');
     mark('wall', f.phase === 'work' || f.phase === 'reveal' ? `${f.phase}[${(f.phase === 'work' ? F.work : F.reveal).indexOf(f)}]` : f.phase,
       'AC-83', per[i].length ? `"${per[i][0].slice(0, 12)}…"` : 'silent');
-    void name;
   });
   const u = wallRun([U.idle, U.live, U.closed, U.split, ...U.work, ...U.reveal, U.released]);
   assert.deepEqual(u.said, expectWall(U.reveal[0].reveal.correct));
   assert.ok(said.every(isLiveString));
-  // The answer's letter is said at reveal and not before (canary stays green).
-  assert.ok(!said.slice(0, 4).some((s) => s.includes(correct)) || !/\b[A-E]\b/.test(said.slice(0, 4).join(' ')));
+  // The answer's letter is said at reveal and not before: the deepEqual above
+  // pins every string in order, so a letter said early fails it there.
 });
 
 test('ac83_wall: the static fallback, stepped from the keyboard, says exactly what the live wall says', () => {
@@ -614,7 +691,24 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
   ws.onmessage(frame(hostPayload('released'), rev++));
   assert.deepEqual(said, PHASES.map((p) => hostEnv.PQ.HOST_PHASE_LABEL[p]));
   PHASES.forEach((p, i) => mark('host', p, 'AC-83', `"${said[i]}"`));
-  for (const s of hostScreens().filter((x) => !x.phase)) mark('host', s.name, 'AC-83', 'no phase yet');
+});
+
+// The screens before a room exists, booted for real: nothing is said on them.
+test('ac83_host: sign in, create and a refused create say nothing', async () => {
+  const cases = [['sign in', '', false], ['create', '#FIXTURE-SESSION', false], ['create, refused', '#FIXTURE-SESSION', true]];
+  for (const [name, hash, press] of cases) {
+    const { win, el } = hostWindow('/host');
+    win.location.hash = hash;
+    const said = [];
+    hostEnv.PQ.announce = (t) => said.push(t);
+    H.boot(win);
+    if (press) { click(el, el.querySelector('[data-primary]')); await settle(); await settle(); }
+    const screen = hostScreens().find((s) => s.name === name);
+    assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
+    if (press) assert.match(el.textContent, /200/, `${name}: the refusal is on screen`);
+    assert.deepEqual(said, [], name);
+    mark('host', name, 'AC-83', `silent (booted, ${said.length})`);
+  }
 });
 
 test('ac83_home: a trace step is said in words; opening the page and a step past the end say nothing', () => {
@@ -630,7 +724,29 @@ test('ac83_home: a trace step is said in words; opening the page and a step past
   assert.equal(said.length, 1);
   assert.match(said[0], /^Step 2 of \d+\. /);
   assert.equal(said[0], homeEnv.PQ.traceSay({ source: snap.source, trace: { steps: snap.trace } }, 1));
-  for (const sc of SCREENS.home) mark('home', sc.name, 'AC-83', sc.name.startsWith('nothing') ? 'no trace' : 'step said');
+  // Every step of every snapshot, stepped onto: said as "Step N of M." first.
+  // The first step is never stepped onto (opening says nothing), and with no
+  // snapshot there is nothing to step.
+  for (const key of ['q3', 'complete', 'dnc']) {
+    const s = HOME_FIX[key];
+    const heard = [];
+    homeEnv.PQ.announce = (t) => heard.push(t);
+    const p = HOME.mount(D.page('', SURFACES.home.chain).root, s);
+    assert.deepEqual(heard, [], `${key}: opening`);
+    mark('home', `${key} step 1`, 'AC-83', 'opening: silent');
+    for (let i = 1; i < s.trace.length; i++) {
+      p.step(1);
+      const last = heard[heard.length - 1];
+      assert.equal(heard.length, i, `${key}: one string per step`);
+      assert.ok(last.startsWith(`Step ${i + 1} of ${s.trace.length}. `), `${key} step ${i + 1}: ${last}`);
+      mark('home', `${key} step ${i + 1}`, 'AC-83', `"${last.slice(0, 12)}…"`);
+    }
+  }
+  const none = [];
+  homeEnv.PQ.announce = (t) => none.push(t);
+  HOME.mount(D.page('', SURFACES.home.chain).root, null).step(1);
+  assert.deepEqual(none, [], 'no snapshot: nothing to step');
+  mark('home', 'nothing released yet', 'AC-83', `silent (${none.length})`);
 });
 
 // --- AC-84: contrast ----------------------------------------------------------------
@@ -638,12 +754,18 @@ test('ac83_home: a trace step is said in words; opening the page and a step past
 // Every element with visible text of its own, on every screen: its colour
 // (through every opacity above it) against the background showing behind it,
 // at its size and weight. Text inside .sr-only is not seen; a disabled control
-// is exempt (SC 1.4.3's "inactive user interface component"). Dimmed trace
-// lines are printed and flagged, not held (T-13 plan, D3): highlight-and-dim is
-// the trace's one signal, and a dim that passed 4.5:1 would not dim.
+// is exempt (SC 1.4.3's "inactive user interface component"). A dimmed trace
+// line is held like any other text: the client picked a dim that passes
+// (PQ-40, .70, 4.78:1). Its line number is the one thing under AA — it starts
+// at --text-muted and falls to 3.57:1 — and is held to that floor so it cannot
+// drift lower (F-46, for AC-84's owner). Only a .rn-src-ln inside a
+// .rn-src-line.dim gets that floor; any other .dim is held at AA.
 //
 // AC-84's dim-room presentation does not exist in the build (no dark mode in
 // v1, DESIGN.md; touchpoint T-16): this proves the one presentation there is.
+
+// The dimmed line number at the client's .70 (components.css:47), rounded down.
+const DIM_GUTTER_FLOOR = 3.57;
 
 function textPairs(surface, sc) {
   const css = SURFACES[surface].css;
@@ -655,36 +777,38 @@ function textPairs(surface, sc) {
     for (let x = n; x; x = x.parent) {
       if (x.classes.includes('sr-only')) hidden = true;
       if (x.disabled) inactive = true;
-      if (x.classes.includes('dim')) dim = true;
+      if (x.classes.includes('rn-src-line') && x.classes.includes('dim')) dim = true;
     }
     if (hidden || n.tag === 'script' || n.tag === 'style') continue;
     const bg = W.background(css, n).color;
     const fg = W.blend(W.color(css, n), bg, W.opacity(css, n));
     const px = W.fontPx(css, n);
     const large = W.isLarge(px, W.bold(css, n));
-    const need = large ? 3 : 4.5;
+    const gutter = dim && n.classes.includes('rn-src-ln');
+    const need = gutter ? DIM_GUTTER_FLOOR : large ? 3 : 4.5;
     const sel = `${n.tag}${n.classes.length ? '.' + n.classes.join('.') : ''}`;
-    out.push({ n, fg, bg, px, large, need, dim, inactive, sel, ratio: W.contrast(fg, bg) });
+    out.push({ n, fg, bg, px, large, need, dim, gutter, inactive, sel, ratio: W.contrast(fg, bg) });
   }
   return out;
 }
 
 function ac84(surface) {
-  const flagged = [];
+  const dimmed = [];
   for (const sc of SCREENS[surface]) {
     let min = Infinity;
     for (const t of textPairs(surface, sc)) {
       const what = `text ${t.sel} ${Math.round(t.px * 10) / 10}px${t.large ? ' large' : ''}`;
       if (t.inactive) { pair(surface, what, t.fg, t.bg, '-', 'exempt: disabled'); continue; }
-      if (t.dim) { pair(surface, what + ' (dim)', t.fg, t.bg, '-', 'exempt: trace dim, flagged (D3)'); flagged.push(t); continue; }
-      pair(surface, what, t.fg, t.bg, t.need, t.ratio >= t.need ? 'AA' : 'FAIL');
+      if (t.dim) dimmed.push(t);
+      const label = t.dim ? what + (t.gutter ? ' (dim gutter)' : ' (dim)') : what;
+      pair(surface, label, t.fg, t.bg, t.need, t.ratio < t.need ? 'FAIL' : t.gutter ? 'floor, F-46' : 'AA');
       assert.ok(t.ratio >= t.need,
-        `${surface} ${sc.name}: ${what} "${t.n.text.trim().slice(0, 30)}" is ${W.hex(t.fg)} on ${W.hex(t.bg)} = ${t.ratio.toFixed(2)}:1, needs ${t.need}:1`);
+        `${surface} ${sc.name}: ${label} "${t.n.text.trim().slice(0, 30)}" is ${W.hex(t.fg)} on ${W.hex(t.bg)} = ${t.ratio.toFixed(2)}:1, needs ${t.need}:1`);
       min = Math.min(min, t.ratio);
     }
     mark(surface, sc.name, 'AC-84', Number.isFinite(min) ? `min ${min.toFixed(2)}:1` : 'no text');
   }
-  return flagged;
+  return dimmed;
 }
 
 // Non-text contrast (SC 1.4.11) the surfaces rely on, from the real cascade.
@@ -709,11 +833,21 @@ function edge(surface, html, selector, prop, against, what, supplementary) {
   }
 }
 const parentBg = (n, css) => [W.background(css, n.parent).color];
+// SC 1.4.11 asks for 3:1 on the visual information *required* to identify a
+// control. A button identified by its own label — a word, a letter, an arrow —
+// does not need its edge to be found (Understanding SC 1.4.11, "text buttons":
+// a text-only button passes with no boundary at all), and that label is held to
+// AA as text above. So the --border-default edges of .btn and .buzz (about
+// 1.4:1) are printed, not held. Were a control ever identified by its edge
+// alone — an empty field, an icon with no glyph — the edge would be held, as
+// the join field's is.
+const LABELLED = 'its label identifies it (1.4.11)';
 const ownAndParent = (n, css) => [W.background(css, n.parent).color, W.background(css, n).color];
 
 test('ac84_wall: every text on every phase, step and fallback view is AA; the ✓, the highlight edge and the bars', () => {
-  const flagged = ac84('wall');
-  assert.ok(flagged.length > 0, 'the trace dims something in work');
+  const dimmed = ac84('wall');
+  assert.ok(dimmed.some((t) => !t.gutter), 'the trace dims something in work, and it was held at AA');
+  assert.ok(dimmed.some((t) => t.gutter), 'a dimmed line number was held to its floor');
   const reveal = PQ.Wall.html(F.reveal[0]);
   edge('wall', reveal, '.rn-check', 'color', parentBg, 'the ✓ glyph (correct marker)');
   edge('wall', PQ.Wall.html(F.work[1]), '.rn-src-line.hl', 'border-left-color', ownAndParent, 'trace highlight edge (the line running now)');
@@ -729,9 +863,15 @@ test('ac84_buzzer: every text on every screen is AA; the join field\'s edge and 
   edge('buzzer', reveal, '.rn-check', 'color', parentBg, 'the ✓ glyph (correct marker)');
   const saved = SCREENS.buzzer.find((s) => s.name === 'live, saved').html;
   edge('buzzer', saved, '.buzz[aria-pressed="true"]', 'border-color', parentBg, 'your saved letter\'s edge', 'fill, ✓ and "saved — X" carry it');
+  const live = SCREENS.buzzer.find((s) => s.name === 'live, no answer').html;
+  edge('buzzer', live, '.buzz:not([aria-pressed="true"])', 'border', parentBg, 'a letter\'s edge', LABELLED);
+  edge('buzzer', SCREENS.buzzer.find((s) => s.name === 'live, failed').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a secondary button\'s edge', LABELLED);
 });
 
-test('ac84_host: every text on every screen is AA', () => { ac84('host'); });
+test('ac84_host: every text on every screen is AA; the step buttons\' edge is printed', () => {
+  ac84('host');
+  edge('host', SCREENS.host.find((s) => s.name === 'work').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a step button\'s edge', LABELLED);
+});
 
 test('ac84_home: every text at every step is AA; the ✓ and the highlight edge are 3:1', () => {
   ac84('home');
@@ -813,37 +953,76 @@ const STATIC_CUES = [
   ['buzzer', 'reveal, answered', (h) => /rn-check/.test(h) && text(h).includes('It was'), '✓ It was E.'],
 ];
 
+// What moves on one screen, from the cascade outside any @media block (a
+// reduce block is the only place motion may live) and the inline styles: every
+// element whose animation or transition is not none.
+const MOTION_PROPS = ['animation', 'animation-name', 'transition', 'transition-property'];
+function moving(surface, html) {
+  const css = SURFACES[surface].css;
+  const out = [];
+  for (const n of D.page(html, SURFACES[surface].chain).root.walk()) {
+    for (const prop of MOTION_PROPS) {
+      const w = D.winner(css, n, prop);
+      if (w && !/^(none|all 0s|0s?|0\.01ms)$/.test(w.value)) out.push(`<${n.tag} class="${n.attrs.class || ''}"> ${prop}: ${w.value}`);
+    }
+  }
+  return out;
+}
+// Nothing moves today, so this passes on every screen; it is the guard that a
+// transition added outside a reduce block fails on the screen that shows it
+// (PQ-40 showed it failing on the buzzer's letters and the wall's lines).
+function still(surface, sc) {
+  const m = moving(surface, sc.html);
+  assert.deepEqual(m, [], `${surface} ${sc.name}: moves`);
+  return m.length;
+}
+
 test('ac86_buzzer: every state has a static cue; none is motion', () => {
+  const cues = {};
   for (const [surface, name, ok, cue] of STATIC_CUES) {
     const sc = SCREENS[surface].find((s) => s.name === name);
     assert.ok(ok(sc.html), `${name}: ${cue}`);
-    mark(surface, name, 'AC-86', 'static cue');
+    cues[name] = cue;
   }
-  for (const sc of SCREENS.buzzer) if (!MATRIX.buzzer[sc.name]['AC-86']) mark('buzzer', sc.name, 'AC-86', 'no motion');
+  for (const sc of SCREENS.buzzer) {
+    const n = still('buzzer', sc);
+    mark('buzzer', sc.name, 'AC-86', cues[sc.name] ? `${cues[sc.name].slice(0, 9)}…, ${n} mv` : `${n} moving`);
+  }
 });
 
 test('ac86_wall: each phase is its own static frame, and each trace step says its number in words', () => {
   let prev = null;
   for (const sc of SCREENS.wall) {
     assert.match(sc.html, new RegExp(`data-phase="${sc.phase}"`));
+    let cell = `frame ${sc.phase}`;
     if (sc.phase === 'work' || sc.phase === 'reveal') {
-      assert.match(text(sc.html), /Step \d+ of \d+/, `${sc.name}: the step, in words`);
+      const m = /Step \d+ of \d+/.exec(text(sc.html));
+      assert.ok(m, `${sc.name}: the step, in words`);
       if (prev && prev.phase === sc.phase) assert.notEqual(sc.html, prev.html, `${sc.name}: a step is a different frame, not a motion`);
+      cell = m[0];
     }
     prev = sc;
-    mark('wall', sc.name, 'AC-86', sc.phase === 'work' || sc.phase === 'reveal' ? 'Step N of M' : 'static frame');
+    mark('wall', sc.name, 'AC-86', `${cell}, ${still('wall', sc)} mv`);
   }
 });
 
 test('ac86_host: each phase is a different primary action; nothing moves', () => {
   const labels = PHASES.map((p) => text(H.render(hostPayload(p), {})));
   PHASES.forEach((p, i) => assert.ok(labels[i].includes(H.actionLabel(NEXT[p])), p));
-  for (const sc of SCREENS.host) mark('host', sc.name, 'AC-86', 'static screen');
+  assert.equal(new Set(PHASES.map((p) => H.actionLabel(NEXT[p]))).size, PHASES.length, 'seven different actions');
+  for (const sc of SCREENS.host) {
+    const doc = D.page(sc.html, SURFACES.host.chain);
+    const primary = doc.root.querySelector('[data-primary],[data-sign-in]');
+    assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
+    mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)} mv`);
+  }
 });
 
 test('ac86_home: each step says its number in words; nothing moves', () => {
   for (const sc of SCREENS.home) {
-    if (!sc.name.startsWith('nothing')) assert.match(text(sc.html), /Step \d+ of \d+/, sc.name);
-    mark('home', sc.name, 'AC-86', 'static page');
+    const m = /Step \d+ of \d+/.exec(text(sc.html));
+    if (sc.name.startsWith('nothing')) assert.equal(m, null, `${sc.name}: no trace to step`);
+    else assert.ok(m, sc.name);
+    mark('home', sc.name, 'AC-86', `${m ? m[0] : 'no trace'}, ${still('home', sc)} mv`);
   }
 });

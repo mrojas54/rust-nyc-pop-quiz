@@ -89,9 +89,9 @@ contrast ratio, written out.
 
 | Criterion | What the suite asserts |
 |---|---|
-| AC-82 | Every element that acts on a click is a native control; none is out of the Tab order or reordered; each has a name; each draws a `:focus-visible` outline of 2 px or more at 3:1 against what is behind it. The wall has no control (AC-79): its one Tab stop is the reading region. The static fallback reaches every phase and step from the keyboard. The buzzer, host and take-it-home keep the focus on the same control across a repaint (driven through their own `mount` / `boot`). |
+| AC-82 | Every element that acts on a click is a native control; none is out of the Tab order or reordered; each has a name; each draws a `:focus-visible` outline of 2 px or more at 3:1 against what is behind it. Anything else that takes the focus (a scroller) has a role. The wall has no control (AC-79): its one Tab stop is the reading region. The static fallback reaches every phase and step from the keyboard. The buzzer, host and take-it-home keep the focus on the same control across a repaint (driven through their own `mount` / `boot`), and every such restore asks `{ preventScroll: true }`, so a repaint never scrolls the reader off what they are reading. An answer arriving on the host rewrites only the count, so the focused button stays the same node and is not said again. |
 | AC-83 | Each state change says its §11 string through `PopQuiz.announce` and nothing else: the wall's six phase entries (and the static fallback's, identical), the buzzer's ten strings, the host's seven labels (the first on opening the room), take-it-home's trace steps. `idle` and trace steps on the wall say nothing. The hint is said by the buzzer alone and makes no request (AC-48). |
-| AC-84 | Every element with visible text, on every screen: 4.5:1, or 3:1 at 24 px / 18.66 px bold. Plus the ✓, the join field's edge and the trace highlight's edge at 3:1. Dimmed trace lines and the split's bars are printed but not held: the dim *is* the trace's signal, and `n · p%` carries each bar's value. |
+| AC-84 | Every element with visible text, on every screen: 4.5:1, or 3:1 at 24 px / 18.66 px bold. Plus the ✓, the join field's edge and the trace highlight's edge at 3:1. The `.btn` and `.buzz` edges (`--border-default`, about 1.4:1) are printed, not held: SC 1.4.11 asks for 3:1 on what is *required* to identify a control, and a button found by its own label (a word, a letter, an arrow) needs no boundary to be found — the label is held as text. Dimmed trace lines are held at AA like any text (opacity .70, 4.78:1 — the client's pick, PQ-40); their line numbers fall to 3.57:1 and are held to that floor so it cannot drift (F-46, under AA, reported upstream). The split's bars are printed but not held: `n · p%` carries each bar's value. |
 | AC-85 | Every buzzer, host and take-it-home control asks for `min-height` and `min-width` of at least `--touch-target` (44 px). |
 | AC-86 | No stylesheet animates or transitions outside a `prefers-reduced-motion: reduce` block; each surface carries that block; no script animates. Each state's static cue (the words, the glyph, the frame) is present. |
 
@@ -126,7 +126,12 @@ text, whether the page scrolls sideways, and the motion setting.
 2. **Host.** Tab to the primary action and press it at each phase. The focus
    moves on to the next action, and the region says each phase label,
    starting with *before the question* on load. In `work`, press → at the last
-   step and the focus moves to ←.
+   step and the focus moves to ←. In `reveal` on a phone-sized window, put the
+   focus on the primary action, scroll up to the read-aloud text and press a
+   step button with the pointer: when the new frame lands the focus is back
+   on the primary action and `scrollY` has not moved. (PQ-40 measured this in
+   the c11 browser with the page in a 390 × 504 iframe: 150 → 150; with the
+   `preventScroll` option stripped, 150 → 316.)
 3. **Wall.** Space through the phases, then Esc and the arrows. The region
    says the same six strings as the live wall, and a step says nothing. The
    reading region is the only Tab stop.
