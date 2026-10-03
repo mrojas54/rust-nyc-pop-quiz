@@ -6,7 +6,7 @@
     "rustc_release": "1.98.1",
     "rustc_commit_hash": "48a229ceaefd4985c50990b14116b6d856af0985",
     "miri_version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
-    "recorded_at": "2026-09-30T08:29:13Z"
+    "recorded_at": "2026-10-03T23:39:18Z"
   },
   "_source_sha256": "c1c0180eddafc1fcd895886c1e222393bd127611ff3086ac3f20587816e95905",
   "toolchain": {
@@ -14,55 +14,55 @@
     "stdout": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\nmiri 0.1.0 (420ed2a0c3 2026-09-18)\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.224
+    "wall_clock_s": 0.189
   },
   "compile": {
     "exit_code": 0,
     "stdout": "",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.352
+    "wall_clock_s": 0.25
   },
   "run:1": {
     "exit_code": 0,
     "stdout": "native\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.262
+    "wall_clock_s": 0.244
   },
   "run:2": {
     "exit_code": 0,
     "stdout": "native\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.256
+    "wall_clock_s": 0.254
   },
   "run:3": {
     "exit_code": 0,
     "stdout": "native\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.384
+    "wall_clock_s": 0.255
   },
   "run:4": {
     "exit_code": 0,
     "stdout": "native\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.36
+    "wall_clock_s": 0.247
   },
   "run:5": {
     "exit_code": 0,
     "stdout": "native\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.246
+    "wall_clock_s": 0.286
   },
   "miri:stacked_borrows:0": {
     "exit_code": 0,
     "stdout": "under Miri\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.285
+    "wall_clock_s": 0.287
   }
 }

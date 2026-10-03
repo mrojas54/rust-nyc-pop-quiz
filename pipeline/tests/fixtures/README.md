@@ -36,6 +36,8 @@ since its recording was made.
 | Program | Source | What it shows |
 |---|---|---|
 | `q3` | `bank/questions/q3.json` | deterministic, Miri clean: accepted as *ran*; rejected declared *does not compile* or *UB* |
+| `q4` | `bank/questions/q4.json` | deterministic, Miri clean: accepted as *ran*; `test_migration.py` derives its correct option from this replay |
+| `q7` | `bank/questions/q7.json` | deterministic, Miri clean: accepted as *ran*; `test_migration.py` derives its correct option from this replay |
 | `q8` | `bank/questions/q8.json` | E0502: accepted declared *does not compile*, code recorded (AC-11); rejected declared *ran* |
 | `syntax-error` | `verify/programs/` | fails to compile with no error code: rejected (AC-11) |
 | `loops-forever` | `sandbox/programs/loops_forever.rs` | stopped by the deadline, shortened to 5 s for this case: rejected |
@@ -46,9 +48,9 @@ since its recording was made.
 | `miri-differs` | `verify/programs/` | `cfg!(miri)` changes the output: rejected (AC-10) |
 | `miri-unsupported` | `verify/programs/` | Miri's isolation refuses `getcwd`: rejected, Miri could not run it |
 
-All ten were recorded on `popquiz-sandbox:1.98.1-2026-09-19-25a914853547`
-(aarch64-unknown-linux-gnu) on 2026-09-26; each file's `_recorded` says so
-exactly.
+All twelve were recorded on `popquiz-sandbox:1.98.1-2026-09-19-25a914853547`
+(aarch64-unknown-linux-gnu) on 2026-10-03, when q4 and q7 were added (`record.py`
+rewrites every recording at once); each file's `_recorded` says so exactly.
 
 The bank programs are read from the bank, not copied, so a recording cannot stand
 for a question whose source has since changed without `_source_sha256` noticing.
