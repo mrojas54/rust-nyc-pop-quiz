@@ -32,6 +32,7 @@ pub const JOIN_FAIL_UNKNOWN: &str = "No room with that code. Check the screen at
 pub const JOIN_FAIL_NOT_YET_OPEN: &str = "That room isn't open yet. Hold on — the host will put it on the screen.";
 pub const JOIN_FAIL_ALREADY_ENDED: &str = "That room has ended. Look for the link on the screen.";
 pub const JOIN_FAIL_CLOSED_INACTIVITY: &str = "That room went quiet and closed. If it comes back, the screen at the front will say so.";
+pub const JOIN_TRANSPORT_FAILED: &str = "Couldn't reach the room. Try again — or watch the screen and play along.";
 pub const JOIN_FAIL_FULL: &str = "That room is full. Watch the screen — you can still play along.";
 pub const BUZZER_HINT_ACTION: &str = "Show me a hint";
 pub const BUZZER_SAVING: &str = "saving…";
@@ -149,6 +150,7 @@ pub const ALL: &[(&str, &str)] = &[
     ("join_fail_not_yet_open", JOIN_FAIL_NOT_YET_OPEN),
     ("join_fail_already_ended", JOIN_FAIL_ALREADY_ENDED),
     ("join_fail_closed_inactivity", JOIN_FAIL_CLOSED_INACTIVITY),
+    ("join_transport_failed", JOIN_TRANSPORT_FAILED),
     ("join_fail_full", JOIN_FAIL_FULL),
     ("buzzer_hint_action", BUZZER_HINT_ACTION),
     ("buzzer_saving", BUZZER_SAVING),
