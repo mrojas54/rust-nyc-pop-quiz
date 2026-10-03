@@ -92,4 +92,4 @@ for source in Path("web/shared/fonts").glob("*.ttf"):
 | `InstrumentSerif-Regular.woff2` | `a85235850e4bccf3f6a9f3d686eee1ec160cb388377ed83aa2a12c9e36be59f3` |
 | `InstrumentSerif-Italic.woff2` | `ddd5635a58d34da302cb5ef468fecc7cc12bd25320b3a8b251349433ac4954d5` |
 
-Measurements and validation: [font performance report](../../performance/2026-10-03-fonts.md).
+Measurements and validation: [font performance report](../../../docs/performance/2026-10-03-fonts.md).
