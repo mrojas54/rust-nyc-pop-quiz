@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-02T18:46:25Z",
   "created_by": "agent:orchestrator",
@@ -10,14 +10,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M3YZ0SNMBW91P0VAVDHZEJ5X",
-  "last_event_id": "ev_01M3YZ0SNNTT2SWD51GGPV3ZZJ",
-  "last_status_changed_at": "2026-10-02T18:46:25Z",
+  "last_event_id": "ev_01M41Y3GBF05HFN24R567SNX13",
+  "last_status_changed_at": "2026-10-03T22:28:09Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-39",
-  "status": "backlog",
+  "status": "in_progress",
   "tags": [
     "follow-up",
     "pipeline",
@@ -25,6 +25,6 @@
   ],
   "title": "Bank re-verify follow-ups: q8's record, the bank README, three blind tests",
   "type": "task",
-  "updated_at": "2026-10-02T18:46:25Z",
+  "updated_at": "2026-10-03T22:28:09Z",
   "urgency": null
 }

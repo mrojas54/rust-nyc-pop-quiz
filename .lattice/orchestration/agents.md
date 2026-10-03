@@ -9,7 +9,7 @@ Snapshot: 2026-10-03 18:2x EDT. PR #41 merged (`main` = `2730806`); PQ-40 done a
 | Role | Ticket | Tab ref | Branch | Phase |
 |---|---|---|---|---|
 | Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | 18:2x: #41 merged on the client's word, PQ-40 done, PQ-43 minted and held, PQ-39 dispatched. Next: PQ-39's READY receipt and its prompts; `main` CI at `2730806`; the deploy is the client's call |
-| agent:delegator-pq39 (Opus, fast-track) | PQ-39 / bank re-verify follow-ups (PQ-38's review Minors; not PR #39) | `tab:11` | ai-c11-cc/bank-followups off `origin/main` @ `2730806`, worktree `bank-followups` | launched 18:2x, at its first prompt (the cwd guard and fetch; flag raised); READY receipt pending; first gates after that are `uv sync`, then Docker for the pinned image (q8's re-verify, q4/q7 recordings) |
+| agent:delegator-pq39 (Opus, fast-track) | PQ-39 / bank re-verify follow-ups (PQ-38's review Minors; not PR #39) | `tab:11` | ai-c11-cc/bank-followups off `origin/main` @ `2730806`, worktree `bank-followups` | `in_progress` (18:2x); READY verified (HEAD = BASE = `2730806`); tab in auto mode; 18:4x **at the Docker ask prompt** (start Docker Desktop for the pinned image: q8's re-verify, q4/q7 recordings), flag raised; nothing committed yet |
 | Waiting on the client | PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) · held follow-ups: PQ-41 (burst; the `hard_limit` decision; not PR #41), PQ-42 (copy lint; F-47), PQ-43 (a11y round two; F-46's remedy and the edge ruling; not PR #43) | — | — | held; PQ-25 → PQ-29 → PQ-28 follow |
 
 ### Archived (run history)
