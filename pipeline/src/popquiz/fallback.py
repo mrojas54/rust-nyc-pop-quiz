@@ -161,6 +161,7 @@ def bake(question: Question, *, home_link: str = DEFAULT_HOME_LINK) -> dict[str,
 
 _CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 _IMPORT_FONTS = re.compile(r'@import\s+url\("fonts\.css"\);')
+_TTF_FALLBACK = re.compile(r',\s*url\("fonts/[^"]+\.ttf"\)\s*format\("truetype"\)')
 _FONT_URL = re.compile(r'url\("fonts/([^"]+)"\)')
 
 
@@ -168,10 +169,14 @@ def _fonts_css(web: Path) -> str:
     """fonts.css with each vendored face inlined as a data URI (D-14)."""
 
     def inline(match: re.Match[str]) -> str:
-        data = (web / "shared" / "fonts" / match.group(1)).read_bytes()
-        return f'url("data:font/ttf;base64,{base64.b64encode(data).decode("ascii")}")'
+        name = match.group(1)
+        data = (web / "shared" / "fonts" / name).read_bytes()
+        kind = "woff2" if name.endswith(".woff2") else "ttf"
+        return f'url("data:font/{kind};base64,{base64.b64encode(data).decode("ascii")}")'
 
     css = (web / "shared" / "fonts.css").read_text(encoding="utf-8")
+    # The single-file deck needs one copy per face, not a legacy URL fallback.
+    css = _TTF_FALLBACK.sub("", css)
     out, n = _FONT_URL.subn(inline, css)
     if n == 0:
         raise BankError("web/shared/fonts.css declares no vendored font")

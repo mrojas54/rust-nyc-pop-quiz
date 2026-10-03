@@ -155,6 +155,7 @@ async fn join(
             // PQ-32: `/join` is not under `/rooms/{id}/`, so the `notify` layer
             // cannot tell which room moved; the new `present` is pushed here.
             transport.changed(&joined.room_id);
+            crate::requestlog::request(&joined.room_id); // T-21: AC-55's denominator
             (
                 StatusCode::CREATED,
                 Json(serde_json::json!({
@@ -294,6 +295,26 @@ const FONT_ASSETS: &[Asset] = &[
         "InstrumentSerif-Italic.ttf",
         "font/ttf",
         include_bytes!("../../web/shared/fonts/InstrumentSerif-Italic.ttf"),
+    ),
+    (
+        "CascadiaMono-Italic-VariableFont_wght.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/CascadiaMono-Italic-VariableFont_wght.woff2"),
+    ),
+    (
+        "InstrumentSerif-Italic.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/InstrumentSerif-Italic.woff2"),
+    ),
+    (
+        "InstrumentSerif-Regular.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/InstrumentSerif-Regular.woff2"),
+    ),
+    (
+        "CascadiaMono-VariableFont_wght.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/CascadiaMono-VariableFont_wght.woff2"),
     ),
 ];
 
@@ -661,6 +682,9 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     // default transport. Only inside a tokio runtime.
     crate::lifecycle::spawn_reaper(state.clone(), default.clone());
     let router = router
+        // T-21: AC-55's log — participant requests counted, 5xx logged, the
+        // room's summary at release (`requestlog.rs`).
+        .layer(axum::middleware::from_fn_with_state(state.clone(), crate::requestlog::layer))
         .layer(axum::middleware::from_fn(crate::ws::notify))
         .layer(axum::middleware::from_fn_with_state(default, crate::ws::provide));
     // end T-04c routes ------------------------------------------------------

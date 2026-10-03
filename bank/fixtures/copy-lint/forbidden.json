@@ -1,0 +1,59 @@
+{
+  "about": "One string per pattern of SPEC 11's Forbidden row, in order.",
+  "cases": [
+    {
+      "text": "Turn to the person beside you.",
+      "expect": [
+        "forbidden/1"
+      ]
+    },
+    {
+      "text": "Ask your neighbor what they picked.",
+      "expect": [
+        "forbidden/2"
+      ]
+    },
+    {
+      "text": "Find someone who read it differently.",
+      "expect": [
+        "forbidden/3"
+      ]
+    },
+    {
+      "text": "Any volunteers?",
+      "expect": [
+        "forbidden/4"
+      ]
+    },
+    {
+      "text": "Who said B?",
+      "expect": [
+        "forbidden/5"
+      ]
+    },
+    {
+      "text": "That answer is wrong.",
+      "expect": [
+        "forbidden/6"
+      ]
+    },
+    {
+      "text": "B was incorrect.",
+      "expect": [
+        "forbidden/7"
+      ]
+    },
+    {
+      "text": "✗ B",
+      "expect": [
+        "forbidden/8"
+      ]
+    },
+    {
+      "text": "The argument is subtle.",
+      "expect": [
+        "forbidden/9"
+      ]
+    }
+  ]
+}

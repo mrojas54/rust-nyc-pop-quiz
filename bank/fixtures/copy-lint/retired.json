@@ -1,0 +1,48 @@
+{
+  "about": "EVALUATION.md AC-42: the seven strings this project wrote and then cut. Every 11.1 group must fire on at least one; every string must be caught. `expect` is every rule id that matches (forbidden/N or <group>/N, N from 1 in SPEC's order), written by hand from SPEC.",
+  "cases": [
+    {
+      "text": "That is not a room getting it wrong — that is a room…",
+      "expect": [
+        "forbidden/6",
+        "contrast/1"
+      ]
+    },
+    {
+      "text": "Not the explanation — that one is human",
+      "expect": [
+        "contrast/3"
+      ]
+    },
+    {
+      "text": "listen, don't read",
+      "expect": [
+        "contrast/5"
+      ]
+    },
+    {
+      "text": "that's fine",
+      "expect": [
+        "reassurance/1"
+      ]
+    },
+    {
+      "text": "the most interesting answer in the room",
+      "expect": [
+        "flattery/1"
+      ]
+    },
+    {
+      "text": "The word doing all the work",
+      "expect": [
+        "filler/2"
+      ]
+    },
+    {
+      "text": "The bit worth talking about",
+      "expect": [
+        "signpost/1"
+      ]
+    }
+  ]
+}

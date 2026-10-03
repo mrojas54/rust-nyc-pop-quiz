@@ -26,6 +26,8 @@
 //!   at release (G-10), and the take-it-home snapshot (T-11).
 //! - [`admin`] — SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`
 //!   and `GET /admin/used` behind one constant-time bearer check (T-25).
+//! - [`requestlog`] — AC-55's evidence: a line per failed participant request
+//!   and a per-room summary, on standard error for `fly logs` (T-21).
 //!
 //! SPEC §8.2's M1 stand-in (a shared-secret create check behind a Cargo
 //! feature, and the HC-0 question seeded with it) was deleted by T-10;
@@ -49,6 +51,7 @@ pub mod discord;
 pub mod lifecycle;
 pub mod phase;
 pub mod question;
+pub mod requestlog;
 pub mod rooms;
 mod routes;
 pub mod sessions;

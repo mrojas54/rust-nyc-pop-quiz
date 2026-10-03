@@ -29,6 +29,8 @@
   "use strict";
   var PQ = (root.PopQuiz = root.PopQuiz || {});
 
+  var JOIN_DEADLINE_MS = 10000;
+
   var LETTERS = ["A", "B", "C", "D", "E"];
 
   /* The six refusals `POST /join` names (room/README.md, *Joining*), each to
@@ -166,6 +168,7 @@
       }
 
       case "submit": {
+        if (s.screen !== "join" || s.joining) break;
         s.code = normalizeCode(event.code);
         s.refusal = null;
         s.joining = true;
@@ -191,7 +194,8 @@
           s.refusal = body.refusal;
         } else {
           // The server did not answer with a refusal it names — a network
-          // failure or a 5xx. Nothing was created; the field stays for a retry.
+          // failure or a 5xx. A session may exist even without a usable
+          // response; retain the code for a deliberate retry.
           s.refusal = "unknown_error";
         }
         break;
@@ -360,16 +364,17 @@
 
   function joinScreen(s) {
     var msg = null;
-    if (s.refusal === "unknown_error") msg = null;
+    if (s.refusal === "unknown_error") msg = t("join_transport_failed");
     else if (s.refusal) msg = refusalMessage(s.refusal);
-    return title() + '<form class="buzz-join" data-act="join" novalidate>' +
+    return title() + '<form class="buzz-join" data-act="join" aria-busy="' + (s.joining ? 'true' : 'false') + '" novalidate>' +
       '<label class="buzz-join-label" for="pq-code">' + esc(t("buzzer_join_label")) + '</label>' +
       '<input id="pq-code" name="code" class="buzz-input" type="text" inputmode="text"' +
       ' autocomplete="off" autocapitalize="characters" spellcheck="false"' +
       ' value="' + attr(s.code) + '"' + (msg ? ' aria-describedby="pq-refusal"' : '') + '>' +
       '<button class="btn btn-primary buzz-join-go" type="submit"' + (s.joining ? ' disabled' : '') + '>' +
       esc(t("buzzer_join_button")) + '</button>' +
-      (msg ? '<p class="buzz-refusal" id="pq-refusal" role="status" data-refusal="' + attr(s.refusal) + '">' +
+      (msg ? '<p class="buzz-refusal" id="pq-refusal" role="status"' +
+        (s.refusal === 'unknown_error' ? ' data-error="join-connection"' : ' data-refusal="' + attr(s.refusal) + '"') + '>' +
         esc(msg) + '</p>' : '') +
       '</form>';
   }
@@ -605,17 +610,35 @@
 
     function run(effect) {
       switch (effect.do) {
-        case "join":
-          io.fetch("/join", {
+        case "join": {
+          // A deadline includes reading the body. Once settled, an old
+          // response cannot attach a room after the reader has retried.
+          var settled = false;
+          var controller = io.AbortController ? new io.AbortController() : null;
+          var timer;
+          function finish(status, body) {
+            if (settled) return;
+            settled = true;
+            if (io.clearTimeout) io.clearTimeout(timer);
+            dispatch({ type: "joined", status: status, body: body });
+          }
+          timer = io.setTimeout(function () {
+            finish(0, null);
+            if (controller) controller.abort();
+          }, JOIN_DEADLINE_MS);
+          var options = {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ code: effect.code })
-          }).then(json).then(function (r) {
-            dispatch({ type: "joined", status: r.status, body: r.body });
-          }, function () {
-            dispatch({ type: "joined", status: 0, body: null });
-          });
+          };
+          if (controller) options.signal = controller.signal;
+          try {
+            Promise.resolve(io.fetch("/join", options)).then(json).then(function (r) {
+              finish(r.status, r.body);
+            }, function () { finish(0, null); });
+          } catch (e) { finish(0, null); }
           break;
+        }
         case "put":
           io.fetch("/rooms/" + encodeURIComponent(state.roomId) + "/answer", {
             method: "PUT",
@@ -706,6 +729,8 @@
         storage: (function () { try { return root.sessionStorage; } catch (e) { return null; } })(),
         location: root.location,
         setTimeout: root.setTimeout.bind(root),
+        clearTimeout: root.clearTimeout.bind(root),
+        AbortController: root.AbortController,
         announce: PQ.announce
       });
     };

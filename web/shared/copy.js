@@ -74,6 +74,7 @@
     join_fail_not_yet_open: "That room isn't open yet. Hold on — the host will put it on the screen.",
     join_fail_already_ended: "That room has ended. Look for the link on the screen.",
     join_fail_closed_inactivity: "That room went quiet and closed. If it comes back, the screen at the front will say so.",
+    join_transport_failed: "Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along.",
     join_fail_full: "That room is full. Watch the screen — you can still play along.",
 
     /* --- Buzzer, hint --------------------------------------------------- */
@@ -207,7 +208,37 @@
 
     /* --- Take it home, beyond the wall's list (§13, AC-71, AC-87) ------- */
     home_machine_only: "The machine checked the answer only. An organizer approved the explanation.",
-    home_not_recorded: "not recorded"
+    home_not_recorded: "not recorded",
+
+    /* === PROPOSED-§11 ====================================================
+       Strings a page already shows that SPEC §11 does not author. They were
+       literals in the pages; T-22 moved them here WORDS UNCHANGED so that
+       every participant-facing string is a key and both lints cover it. Each
+       is routed upstream for §11 to adopt or replace — F-34 (take it home),
+       F-38 (the step buttons), and three found by T-22's inventory — and the
+       day §11 authors one, it leaves this block for its row. Add nothing here
+       that a page does not already say; a new sentence goes to §11 first. */
+
+    /* F-34: take it home, the page before the first release. */
+    proposed_home_nothing_yet: "Welcome to the POP QUIZ",
+    /* F-34: §13's "the Miri row saying the check was run separately". */
+    proposed_home_miri_separately: "run separately",
+    /* F-34: How we know, the machine's rows — the prototype's own labels. */
+    proposed_home_row_compiler: "compiler",
+    proposed_home_row_edition: "edition",
+    proposed_home_row_target: "target",
+    proposed_home_row_flags: "flags",
+    proposed_home_row_miri: "miri",
+    proposed_home_miri_seeds: "seeds",
+    /* F-38: the trace's step buttons, as a screen reader names them. */
+    proposed_trace_previous_step: "previous step",
+    proposed_trace_next_step: "next step",
+    /* T-22: a trace step's value change, spoken after the note (AC-83). */
+    proposed_trace_value_now: "‹name› is now ‹now›",
+    /* T-22: the screen-reader word beside a ✓ (check.js, AC-40). */
+    proposed_check_correct: "Correct",
+    /* T-22: a source well's region label when its caller names none. */
+    proposed_well_label: "Source code"
   };
 
   /* Which §11 row each key came from. The completeness test walks this in both
@@ -219,6 +250,7 @@
     "Wall, idle": ["wall_idle_title", "wall_idle_join"],
     "Wall, live": ["wall_live_join", "wall_live_well_header"],
     "Wall, trace (work, reveal)": ["wall_trace_step", "wall_trace_pivot"],
+    "Buzzer, join connection failure": ["join_transport_failed"],
     "Buzzer, join form": ["buzzer_join_label", "buzzer_join_button"],
     "Wall, closed": ["wall_closed"],
     "Wall, split on": ["wall_split_answered"],
@@ -261,7 +293,13 @@
     "Receipt (§7.5)": ["receipt_heading", "receipt_compiled", "receipt_ran_n_times",
                        "receipt_output_never_varied", "receipt_miri_clean", "receipt_miri_ub",
                        "receipt_compiler_refused", "receipt_error_codes", "receipt_nothing_ran"],
-    "Take it home (§13, AC-71, AC-87)": ["home_machine_only", "home_not_recorded"]
+    "Take it home (§13, AC-71, AC-87)": ["home_machine_only", "home_not_recorded"],
+    /* Not a §11 row: the block above that is waiting for one. */
+    "PROPOSED-§11 (not yet in SPEC)": ["proposed_home_nothing_yet", "proposed_home_miri_separately",
+                       "proposed_home_row_compiler", "proposed_home_row_edition", "proposed_home_row_target",
+                       "proposed_home_row_flags", "proposed_home_row_miri", "proposed_home_miri_seeds",
+                       "proposed_trace_previous_step", "proposed_trace_next_step", "proposed_trace_value_now",
+                       "proposed_check_correct", "proposed_well_label"]
   };
 
   /* The seven phase labels, in G-6 order, for a host screen that indexes by

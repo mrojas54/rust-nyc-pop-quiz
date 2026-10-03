@@ -1,0 +1,35 @@
+{
+  "about": "One string per lint group that comes close and must match nothing.",
+  "cases": [
+    {
+      "text": "a wrongly ordered drop",
+      "expect": [],
+      "note": "forbidden: \\bwrong\\b needs a boundary after the g"
+    },
+    {
+      "text": "It is not moved.",
+      "expect": [],
+      "note": "contrast"
+    },
+    {
+      "text": "The true value is 3.",
+      "expect": [],
+      "note": "filler"
+    },
+    {
+      "text": "It is worth 3.",
+      "expect": [],
+      "note": "signpost"
+    },
+    {
+      "text": "That's final.",
+      "expect": [],
+      "note": "reassurance"
+    },
+    {
+      "text": "The most common reading was B.",
+      "expect": [],
+      "note": "flattery"
+    }
+  ]
+}

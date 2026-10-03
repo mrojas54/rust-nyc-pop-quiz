@@ -146,7 +146,7 @@
     var BARS = ["A", "B", "C", "D", "E"].map(function (l, i) {
       return { letter: l, count: [3, 1, 7, 0, 2][i], percent: [23, 8, 54, 0, 15][i] };
     });
-    var at = 0, failNext = false, rev = 1;
+    var at = 0, failNext = false, failJoin = false, hangJoin = false, rev = 1;
     var frameFor = function (phase) {
       var f = { t: "state", revision: rev++, phase: phase, code: "ABC234", lines: [] };
       if (phase === "live") f.hint = { text: "HARNESS-HINT: a made-up hint, standing in for the question's." };
@@ -156,7 +156,11 @@
     };
     var handle = PQ.Buzzer.mount(document.getElementById("buzzer"), {
       fetch: function (url, init) {
-        if (url === "/join") return reply(201, { room_id: "harness-room", token: "harness-token" });
+        if (url === "/join") {
+          if (failJoin) { failJoin = false; return Promise.reject(new Error("offline fixture")); }
+          if (hangJoin) { hangJoin = false; return new Promise(function () {}); }
+          return reply(201, { room_id: "harness-room", token: "harness-token" });
+        }
         var letter = JSON.parse(init.body).letter;
         return new Promise(function (res) {
           setTimeout(function () {
@@ -168,10 +172,14 @@
       storage: null,
       location: { search: "", protocol: location.protocol, host: location.host },
       setTimeout: window.setTimeout.bind(window),
+      clearTimeout: window.clearTimeout.bind(window),
+      AbortController: window.AbortController,
       announce: PQ.announce
     });
     window.__A11Y_BUZZER__ = handle;
     bar([
+      ["fail next join", function () { failJoin = true; }],
+      ["stall next join", function () { hangJoin = true; }],
       ["attach (idle)", function () { var f = frameFor("idle"); f.session = { saved: null }; at = 0; push(f); }],
       ["next phase", function () { at = Math.min(at + 1, PHASES.length - 1); push(frameFor(PHASES[at])); }],
       ["fail next save", function () { failNext = true; }],
@@ -206,6 +214,8 @@
       history: { replaceState: function () {} },
       sessionStorage: window.sessionStorage,
       setTimeout: window.setTimeout.bind(window),
+      clearTimeout: window.clearTimeout.bind(window),
+      AbortController: window.AbortController,
       WebSocket: FakeSocket,
       fetch: function (url, init) {
         if (!init || init.method !== "POST") return reply(200, payload());

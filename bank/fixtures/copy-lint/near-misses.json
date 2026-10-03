@@ -1,0 +1,13 @@
+{
+  "about": "SPEC 11: the wall's '‹n› of us said ‹X›' and the host phone's 'Why ‹n› of us said ‹X›' do not match who (said|picked|chose) and are allowed. Filled as the room fills them.",
+  "cases": [
+    {
+      "text": "24 of us said B",
+      "expect": []
+    },
+    {
+      "text": "Why 24 of us said B",
+      "expect": []
+    }
+  ]
+}

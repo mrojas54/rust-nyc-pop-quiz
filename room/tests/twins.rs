@@ -379,3 +379,34 @@ fn the_phase_labels_and_host_actions_are_section_11s() {
     assert_eq!(copy::WALL_IDLE_TITLE, "Time for a pop quiz.");
     assert_eq!(copy::WALL_RELEASED_TITLE, "Let's go to the bar.");
 }
+
+#[test]
+fn the_proposed_block_is_copy_js_s_and_the_room_sends_none_of_it() {
+    // PROPOSED-§11 is `copy.js`'s block of strings §11 has not adopted yet
+    // (T-22). The mirror carries it so the two files stay one list; no room
+    // payload may use one, because nothing on the wire is authored outside §11.
+    let js_row: Vec<String> = copy_js()
+        .into_iter()
+        .map(|(k, _)| k)
+        .filter(|k| k.starts_with("proposed_"))
+        .collect();
+    let rust_row: Vec<String> = copy::ALL
+        .iter()
+        .map(|(k, _)| k.to_string())
+        .filter(|k| k.starts_with("proposed_"))
+        .collect();
+    assert!(!js_row.is_empty(), "no PROPOSED-§11 keys parsed from copy.js");
+    assert_eq!(rust_row, js_row);
+    let src = common::repo().join("room/src");
+    for entry in std::fs::read_dir(&src).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") || path.ends_with("copy.rs") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
+        for key in &rust_row {
+            let name = format!("copy::{}", key.to_uppercase());
+            assert!(!text.contains(&name), "{} uses {name}", path.display());
+        }
+    }
+}
