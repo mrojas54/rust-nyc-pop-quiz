@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 13,
+  "comment_count": 16,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-22 (M4).\n\nThe copy freeze: every participant-facing string from `SPEC.md` \u00a711 in one module; the forbidden-copy lint and the \u00a711.1 trope check in `test`, the trope check failing the build on any match in the copy module (D-23)\n\nCriteria: AC-98, AC-59, AC-42, G-5\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-05\u201307, T-12\nBUILDPLAN notes: \u2014\n\nOrchestrator notes: Creates or completes `web/shared/copy` (F-11): serialized on `web/shared`. The forbidden list and the \u00a711.1 patterns are SPEC \u00a711's, verbatim.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
+  "done_at": "2026-10-02T21:51:23Z",
   "evidence_refs": [
     {
       "id": "art_01M3RMSXAW4KP8SYCX4AEZWXKQ",
@@ -33,11 +33,26 @@
       "id": "art_01M3RPVEP9E8RTAP17VB8SW4HX",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M3Z8N3FYVWJW0H8JFBMWT73V",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M3Z9KFGG9QFP3XMZHWA8X48G",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M3Z9KFGG9QFP3XMZHWA8X48F",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZSCS61DT88DA38YQR4AF",
-  "last_event_id": "ev_01M3Z2FDFCXEH1FS47B4Z28YY8",
-  "last_status_changed_at": "2026-09-30T08:28:20Z",
+  "last_event_id": "ev_01M3Z9KFGG9QFP3XMZHWA8X48J",
+  "last_status_changed_at": "2026-10-02T21:51:23Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -72,7 +87,7 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-27",
-  "status": "review",
+  "status": "done",
   "tags": [
     "m4",
     "inline-full",
@@ -80,6 +95,6 @@
   ],
   "title": "Copy freeze and lints",
   "type": "task",
-  "updated_at": "2026-10-02T19:46:50Z",
+  "updated_at": "2026-10-02T21:51:23Z",
   "urgency": null
 }

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-02T21:51:23Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M3Z9KFGG9QFP3XMZHWA8X48F",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M3Z9KFGG9QFP3XMZHWA8X48F.md",
+    "size_bytes": 396
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged by the Orchestrator on the client's word (PR #38, head-pinned to 70afeca, merge commit) after exact-head CI green and a full fresh exact-head Sonnet review PASS-WITH-NITS (art_01M3Z8N3FYVWJW0H8",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
