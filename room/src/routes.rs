@@ -296,6 +296,26 @@ const FONT_ASSETS: &[Asset] = &[
         "font/ttf",
         include_bytes!("../../web/shared/fonts/InstrumentSerif-Italic.ttf"),
     ),
+    (
+        "CascadiaMono-Italic-VariableFont_wght.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/CascadiaMono-Italic-VariableFont_wght.woff2"),
+    ),
+    (
+        "InstrumentSerif-Italic.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/InstrumentSerif-Italic.woff2"),
+    ),
+    (
+        "InstrumentSerif-Regular.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/InstrumentSerif-Regular.woff2"),
+    ),
+    (
+        "CascadiaMono-VariableFont_wght.woff2",
+        "font/woff2",
+        include_bytes!("../../web/shared/fonts/CascadiaMono-VariableFont_wght.woff2"),
+    ),
 ];
 
 fn asset(list: &[Asset], file: &str) -> Response {

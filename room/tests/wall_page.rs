@@ -484,3 +484,21 @@ async fn the_walls_verdict_becomes_the_hosts_fit_line() {
         StatusCode::NOT_FOUND
     );
 }
+
+#[tokio::test]
+async fn compressed_fonts_serve_as_woff2() {
+    let h = harness();
+    for name in [
+        "CascadiaMono-VariableFont_wght",
+        "CascadiaMono-Italic-VariableFont_wght",
+        "InstrumentSerif-Regular",
+        "InstrumentSerif-Italic",
+    ] {
+        let uri = format!("/shared/fonts/{name}.woff2");
+        let (status, ty, body) = get(&h.app, &uri).await;
+        assert_eq!(status, StatusCode::OK, "{uri}");
+        assert_eq!(ty, "font/woff2", "{uri}");
+        let disk = std::fs::read(repo().join(format!("web/shared/fonts/{name}.woff2"))).unwrap();
+        assert_eq!(body, disk, "{uri}");
+    }
+}

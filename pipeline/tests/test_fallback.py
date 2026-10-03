@@ -101,9 +101,11 @@ def test_the_file_forbids_every_request_itself(page):
 def test_the_vendored_fonts_are_inlined_as_data_uris(page):
     """D-14: the four faces fonts.css declares, byte for byte, and no font file
     reference left."""
-    uris = re.findall(r'url\("data:font/ttf;base64,([A-Za-z0-9+/=]+)"\)', page)
+    uris = re.findall(r'url\("data:font/woff2;base64,([A-Za-z0-9+/=]+)"\)', page)
     faces = re.findall(r'url\("fonts/([^"]+)"\)', (WEB / "shared" / "fonts.css").read_text())
+    faces = [f for f in faces if f.endswith(".woff2")]
     assert len(faces) == 4
+    assert "data:font/ttf" not in page
     assert sorted(base64.b64decode(u) for u in uris) == sorted(
         (WEB / "shared" / "fonts" / f).read_bytes() for f in faces
     )
