@@ -765,7 +765,32 @@ def test_a_flagged_question_in_the_reserve_fails_the_run(
 
 
 def test_strict_fails_on_any_flag(tmp_path: pathlib.Path) -> None:
+    """A flag on a question still waiting for review is reported, and fails the run
+    only under --strict.
+
+    No question in the real bank carries a flag since D-15's re-authoring, and the
+    option-position tell warns, which fails --strict on its own - so a copy of the
+    bank as it is would pass this through the warning and prove nothing about
+    flags. The flag is made here, in the copy, as the reserve test above makes
+    one, and --strict is asked of the report with its warnings set aside."""
     repo = copy_bank(tmp_path)
+    clean = audit.run_audit(repo)
+    assert not any(q["flags"] for q in clean["questions"].values())
+    assert audit.exit_status({**clean, "warned": []}, strict=True) == 0
+
+    path = repo / "bank" / "questions" / "q7.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    wrong = next(o for o in record["options"] if o["kind"] == "output" and "why_tempting" in o)
+    wrong["text"] = "x" * 48
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+    flagged = audit.run_audit(repo)
+    assert flagged["questions"]["q7"]["flags"]
+    assert not flagged["questions"]["q7"]["in_reserve"]
+    assert flagged["failed"] == []
+    assert "fits the configured room" in flagged["warned"]
+    assert audit.exit_status({**flagged, "warned": []}, strict=True) == 1
+    assert audit.main(["--repo", str(repo), "--date", "2026-09-21"]) == 0
     assert audit.main(["--repo", str(repo), "--date", "2026-09-21", "--strict"]) == 1
 
 
