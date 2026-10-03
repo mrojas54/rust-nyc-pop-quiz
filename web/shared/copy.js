@@ -74,6 +74,7 @@
     join_fail_not_yet_open: "That room isn't open yet. Hold on — the host will put it on the screen.",
     join_fail_already_ended: "That room has ended. Look for the link on the screen.",
     join_fail_closed_inactivity: "That room went quiet and closed. If it comes back, the screen at the front will say so.",
+    join_transport_failed: "Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along.",
     join_fail_full: "That room is full. Watch the screen — you can still play along.",
 
     /* --- Buzzer, hint --------------------------------------------------- */
@@ -249,6 +250,7 @@
     "Wall, idle": ["wall_idle_title", "wall_idle_join"],
     "Wall, live": ["wall_live_join", "wall_live_well_header"],
     "Wall, trace (work, reveal)": ["wall_trace_step", "wall_trace_pivot"],
+    "Buzzer, join connection failure": ["join_transport_failed"],
     "Buzzer, join form": ["buzzer_join_label", "buzzer_join_button"],
     "Wall, closed": ["wall_closed"],
     "Wall, split on": ["wall_split_answered"],
