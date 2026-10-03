@@ -542,3 +542,48 @@ test('the page shell types no string of its own', () => {
   const body = html.slice(html.indexOf('<body>'), html.indexOf('</body>')).replace(/<!--[\s\S]*?-->/g, '');
   assert.equal(text(body.replace(/<script[^>]*><\/script>/g, '')), '');
 });
+
+// Hardening: these catch overlapping joins, invisible transport failures,
+// and a request that never settles (including a late success after retry).
+test('joining ignores a second submit without changing the pending room code', () => {
+  const first = B.reduce(B.initial(), { type: 'submit', code: 'ABC234' });
+  const second = B.reduce(first.state, { type: 'submit', code: 'XYZ567' });
+  assert.equal(second.state.code, 'ABC234');
+  assert.equal(second.effects.length, 0);
+});
+
+test('transport failures show accessible recovery guidance and preserve the room code', () => {
+  for (const status of [0, 429, 500, 201]) {
+    const pending = B.reduce(B.initial(), { type: 'submit', code: 'ABC234' }).state;
+    const failed = B.reduce(pending, { type: 'joined', status, body: null }).state;
+    const html = B.view(failed);
+    assert.match(html, /id="pq-refusal" role="status"/);
+    assert.match(html, /aria-describedby="pq-refusal"/);
+    assert.match(html, /Try again/);
+    assert.match(html, /value="ABC234"/);
+    assert.doesNotMatch(html, /type="submit" disabled/);
+  }
+});
+
+test('a hung join becomes retryable and its late response cannot replace a newer join', async () => {
+  const timers = [];
+  const requests = [];
+  const el = { innerHTML: '', addEventListener() {}, querySelector: () => null };
+  const handle = B.mount(el, {
+    fetch: () => new Promise(resolve => requests.push(resolve)),
+    location: { search: '', protocol: 'http:', host: 'x' },
+    setTimeout: fn => { timers.push(fn); return timers.length; },
+    clearTimeout() {},
+  });
+  handle.dispatch({ type: 'submit', code: 'ABC234' });
+  assert.equal(timers.length, 1, 'the pending request has a deadline');
+  timers[0]();
+  assert.equal(handle.state().joining, false);
+  assert.match(el.innerHTML, /Try again/);
+  handle.dispatch({ type: 'submit', code: 'XYZ567' });
+  requests[0]({ status: 201, text: () => Promise.resolve(JSON.stringify({ room_id: 'old', token: 'old' })) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(handle.state().screen, 'join');
+  assert.equal(handle.state().code, 'XYZ567');
+  assert.equal(handle.state().joining, true);
+});
