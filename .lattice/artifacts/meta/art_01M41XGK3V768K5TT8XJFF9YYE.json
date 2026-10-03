@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-03T22:17:49Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M41XGK3V768K5TT8XJFF9YYE",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M41XGK3V768K5TT8XJFF9YYE.md",
+    "size_bytes": 266
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged on the client's word: PR #41 merge commit 2730806 (head d1db359 on cd4e373), exact-head CI green, full fresh exact-head Sonnet review PASS-WITH-NITS (art_01M41WMXQJMFC0FX85RAQF2DB2); Minors and",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

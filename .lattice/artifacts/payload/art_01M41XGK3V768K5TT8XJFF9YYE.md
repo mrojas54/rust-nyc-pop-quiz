@@ -1,0 +1,1 @@
+Merged on the client's word: PR #41 merge commit 2730806 (head d1db359 on cd4e373), exact-head CI green, full fresh exact-head Sonnet review PASS-WITH-NITS (art_01M41WMXQJMFC0FX85RAQF2DB2); Minors and NITs to a held follow-up ticket; F-46 remedy correction upstream.

@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 8,
+  "comment_count": 9,
   "complexity": "low",
   "created_at": "2026-10-02T18:59:52Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Follow-up of PQ-16 (PR #37, merged at 475700c). Source: the exact-head review artifact art_01M3YZJWY721D3M8FYP9CSH2X3 on PQ-16. MUST LAND BEFORE THE NEXT DEPLOY. (A) MAJOR, new in #37: focus is restored on every repaint with focus() and no preventScroll - web/host/host.js:271, web/buzzer/buzzer.js:579 and :581, web/home/home.js:254. On the host in reveal the primary button sits below the read-aloud text (host.js:173-174), so a repaint can scroll the host past the beats. Fix: focus({preventScroll:true}) at each site, a test that fails without the option, and a real-browser check on the host in reveal. (B) MAJOR, F-46, the client's ruling pending: web/shared/components.css:47 .rn-src-line.dim{opacity:.32} is 1.84:1 and fails AC-84; the wall has no full-contrast copy of those lines during work or reveal. The client asked to SEE OPTIONS FIRST: render the wall's trace at opacity .32, .55 and .70 (computed ratios 1.84, 3.17, 4.78 against 11.99 at full strength - recompute them, do not copy), attach the three screenshots with their ratios, then stop for the client's pick (needs_human plus a flag). Do not change the value before the pick. After the pick: AA chosen -> change the opacity, remove the dim exemption from the suite and assert the floor; look kept -> scope the exemption to .rn-src-line.dim, state the ratio in a comment at the CSS rule, and report F-46 for upstream. (C) Minors: web/test/a11y.test.js:658 exempts any element with a dim class and asserts no floor; web/home/home.js:168 pre.vv has tabindex and aria-label but no role (role=region, as web/shared/well.js:116); matrix cells are literal strings (a11y.test.js:617,633,822,834,841,847), :525 cannot fail alone, :519 is dead code - derive the cells from the assertions; focus restore plus PQ.announce may make a screen reader re-speak the control (host.js:271, home.js:254) - check and say what you could verify; the non-text edge list is hand-picked - examine .btn and .buzz edges (about 1.4:1 on --border-default) and say whether SC 1.4.11 applies. NITs: the buzzer join submit gets no focus key. Out of scope here: justfile:63 (a11y runs twice, a11y *ARGS gone) - the justfile is PQ-26's until PR #39 merges; DESIGN.md's missing amendments for the colour shifts - contract, upstream. Acceptance: AC-84, AC-85, AC-33, AC-40; just test and just a11y green; each new or rewritten check shown to fail under its mutation. Harness: just a11y, just test-web, just test.",
-  "done_at": null,
+  "done_at": "2026-10-03T22:17:49Z",
   "evidence_refs": [
     {
       "id": "art_01M3Z0AHG35MZ83824Z9D15Q43",
@@ -53,17 +53,27 @@
       "id": "art_01M41WMXQJMFC0FX85RAQF2DB2",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M41XGK3V768K5TT8XJFF9YYF",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M41XGK3V768K5TT8XJFF9YYE",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M3YZSD8KAKRHBRNCR48VDME3",
-  "last_event_id": "ev_01M41WMXQP8M9XC5311FKTBJ9K",
-  "last_status_changed_at": "2026-10-02T19:50:54Z",
+  "last_event_id": "ev_01M41XGK3V768K5TT8XJFF9YYH",
+  "last_status_changed_at": "2026-10-03T22:17:49Z",
   "priority": "high",
   "relationships_out": [],
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-40",
-  "status": "review",
+  "status": "done",
   "tags": [
     "follow-up",
     "web",
@@ -71,6 +81,6 @@
   ],
   "title": "Accessibility follow-ups: focus without scroll, the dimmed trace lines, the suite's blind spots",
   "type": "bug",
-  "updated_at": "2026-10-03T22:02:42Z",
+  "updated_at": "2026-10-03T22:17:49Z",
   "urgency": null
 }

@@ -1,0 +1,31 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-10-03T22:18:57Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "Follow-up of PQ-40 (PR #41, merged at 2730806 on 2026-10-03). Four Minors and three NITs from the full exact-head review at d1db359 (artifact art_01M41WMXQJMFC0FX85RAQF2DB2 on PQ-40). Line numbers were true at d1db359; re-find each before trusting it. (1) F-46's remedy is mislocated: web/shared/components.css:49 and web/test/a11y.test.js:759-760 say the dimmed line numbers start at --text-muted, but on the wall and home they are --text-secondary (#4a5568) from web/wall/wall.css:112 and web/home/home.css:92, which override components.css:41 (proved by mutation: recolouring :41 changes nothing). The 3.57:1 floor is #4a5568 at .70. Fix both comments; if the owner wants the gutter at AA without an AC-84 amendment, --text-primary at wall.css:112 and home.css:92 gives 4.78:1 (an owner decision; do not change a token value). (2) web/host/host.js:265-283: the count-only rewrite depends on the count staying last in render(), guarded by a comment only; a trailing element added after the count would be sliced into .host-count and the tick test would still pass. Add one assertion that render() ends with the count's closing element, and show it failing under the mutation. (3) The .btn and .buzz edges at 1.41:1 are printed, not held (web/README.md:94, a11y.test.js:836-844 and :867-873), on a reading of WCAG 1.4.11 for text-labelled controls; AC-84's owner has not ruled on essential UI. This is the owner's ruling (routed upstream with F-46); build to the ruling once given, otherwise leave as printed. (4) Matrix cells: a11y.test.js:441 overwrites the buzzer live/saving AC-82 cell and truncates it to 'focus kept, 6 no-s'; three literal cells remain at :315, :328, :625; still() at :974-978 always returns 0, so every 'N mv' cell is a constant. Derive each from the assertion that ran. NITs: a11y.test.js:767 cites components.css:47 but the rule is at :51; MOTION_PROPS (:959) omits the duration properties (the sheet-level test still catches them); web/README.md:129-134 expects focus back on the primary action, which depends on the engine. Acceptance: just a11y, just test-web and both CI jobs green; each rewritten check fails under its named mutation; no copy string and no token value changes; colour never the only signal (AC-40); no horizontal scroll (AC-33). Harness: just a11y, just test-web. Shared files cleared: web/shared/components.css comments only. Not PR #41; this ticket gets its own PR.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M41XJNW6JGRQ58V2X4M14HEW",
+  "last_event_id": "ev_01M41XJNW7WVE59NTJD5XWKVM2",
+  "last_status_changed_at": "2026-10-03T22:18:57Z",
+  "priority": "low",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-43",
+  "status": "backlog",
+  "tags": [
+    "follow-up",
+    "web",
+    "a11y",
+    "held"
+  ],
+  "title": "Accessibility follow-ups, round two: F-46's real remedy, the host count invariant, the edge ruling, the matrix cells",
+  "type": "task",
+  "updated_at": "2026-10-03T22:18:57Z",
+  "urgency": null
+}
