@@ -56,12 +56,16 @@ position of the answer, not the position of *does not compile* (AC-26).
 take them. Four are here; four are not. `SPEC.md` §5.2's fit table, worked at the
 guessed 15 ft / 20 ft room, is why.
 
-| Question | Here? | Why |
+The table is what T-14 found. The three marked *needed work* have had it since:
+PR #36 re-authored q4, q7 and q8 for the 29-character rule (D-15), and every
+option in the bank now fits.
+
+| Question | Here? | Why, at T-14 |
 |---|---|---|
 | **q3** Collections | **yes, as authored** | 5 source lines, and all five options are one line of ≤ 29 characters — the only one of the eight that passes D-15 unchanged |
-| **q4** Integer arithmetic | **yes, needs work** | fits as a program (6 lines); 4 of 5 options are two lines |
-| **q7** Sorting | **yes, needs work** | fits as a program (5 lines); 4 of 5 options are one line of 48 characters |
-| **q8** Borrow checking | **yes, needs work** | fits as a program (6 lines); 1 of 5 options is two lines |
+| **q4** Integer arithmetic | **yes, needed work** | fit as a program (6 lines); 4 of 5 options were two lines |
+| **q7** Sorting | **yes, needed work** | fit as a program (5 lines); 4 of 5 options were one line of 48 characters |
+| **q8** Borrow checking | **yes, needed work** | fit as a program (6 lines); 1 of 5 options was two lines |
 | **q1** Ownership and Drop | no | 16 source lines |
 | **q2** Iterators and closures | no | 10 source lines |
 | **q5** Strings and UTF-8 | no | 9 source lines |
@@ -73,13 +77,13 @@ floor** — the wall cannot show them at a size the back row can read. They stay
 shorter, or when the rehearsal's screen and back-row measurements (H-5) raise the
 floor and with it every number in §5.2.
 
-**"Needs work" is not one thing.** An option's text has to equal what the program
-printed, so a too-long *correct* option cannot be fixed by rewriting the option —
-the program has to print something shorter, and then the machine decides the new
-answer (T-15b). That is q4 and q7. q8's too-long option is a *distractor*, so its
-answer stands, its program need not change, and only that one option needs
-replacing. Each record's `review.reason` says which case it is, generated from the
-measurement rather than typed.
+**"Needed work" was not one thing.** An option's text has to equal what the
+program printed, so a too-long *correct* option cannot be fixed by rewriting the
+option — the program has to print something shorter, and then the machine decides
+the new answer (T-15b). That was q4 and q7: PR #36 changed their programs and the
+pinned verifier wrote their new records. q8's too-long option was a *distractor*,
+so its answer stood, its program's tokens did not change, and only that one
+option was replaced. Each record's `review.reason` says what was re-authored and why.
 
 **Nothing here is affirmed.** Every migrated record has `review.status` unset and
 no `affirmed_by` / `affirmed_at`, so none of them can reach a deck (AC-72, G-12).
@@ -368,11 +372,12 @@ schedule could pick it. A flagged question still waiting for review is listed bu
 does not fail the run. Otherwise every too-long draft would keep the audit red
 until someone reviewed it. `--strict` fails on any flag or warning.
 
-As of this ticket, q4, q7 and q8 are flagged for option length, as the table
-above says. The option-position tell warns because every migrated record has its
-correct option last in the file. The file order is not meant to be the order a
-room sees. But until the room's arrangement exists and is shown to reshuffle it,
-the audit treats it as visible, and a fifth record written answer-last will fail.
+No question in the bank carries a flag for fit or option length. At T-14, q4, q7
+and q8 did; PR #36's re-authoring (D-15) cleared all three. The option-position
+tell warns because every migrated record has its correct option last in the
+file. The file order is not meant to be the order a room sees. But until the
+room's arrangement exists and is shown to reshuffle it, the audit treats it as
+visible, and a fifth record written answer-last will fail.
 
 **The report is organizer-only and not committed.** It names answer categories and
 how often a rule would have won, which is exactly what AC-25 keeps from attendees.

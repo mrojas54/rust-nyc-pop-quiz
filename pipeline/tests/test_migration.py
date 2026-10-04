@@ -28,7 +28,7 @@ import shutil
 import pytest
 
 from fixtures.verify.verify_cases import RECORDINGS
-from popquiz import bank, dedupe, sandbox, verify
+from popquiz import bank, dedupe, migrate_mvp, sandbox, verify
 from popquiz.bank import (
     Explains,
     History,
@@ -39,13 +39,12 @@ from popquiz.bank import (
     load_question,
     normalized_output,
     options_needing_reauthoring,
+    question_path,
     question_to_dict,
     quoted_outputs,
-    question_path,
     receipt_class,
     save_history,
 )
-from popquiz import migrate_mvp
 from popquiz.migrate_mvp import (
     MIGRATED,
     NOT_MIGRATED,
@@ -207,6 +206,24 @@ def test_a_rerun_refuses_a_bank_file_it_cannot_read(tmp_path: pathlib.Path) -> N
     with pytest.raises(MigrationError, match="history.json"):
         migrate(MVP, bank_dir)
     assert history_path(bank_dir).read_text(encoding="utf-8") == "{"
+
+
+def test_the_command_line_refuses_in_plain_words(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The same refusal from the command line is a sentence on stderr and exit 1,
+    as fallback.py does for a bank it cannot read, not a traceback."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    damaged = question_path(bank_dir, "q4")
+    damaged.write_bytes(damaged.read_bytes()[:40])
+    truncated = damaged.read_bytes()
+
+    assert migrate_mvp.main(["--mvp-dir", str(MVP), "--bank-dir", str(bank_dir)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("popquiz.migrate_mvp: ")
+    assert "q4.json is in the bank but cannot be read" in err
+    assert "Traceback" not in err
+    assert damaged.read_bytes() == truncated
 
 
 def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:

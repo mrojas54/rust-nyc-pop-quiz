@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -508,8 +509,9 @@ def migrate(mvp_dir: Path, bank_dir: Path) -> list[Path]:
 
     A file already in the bank is kept, never overwritten: the bank is
     append-only (SPEC 3.3), and a record that was re-authored or re-verified
-    after it was migrated is no longer the migration's to write. Returns the
-    paths it wrote.
+    after it was migrated is no longer the migration's to write. A file that is
+    there but cannot be read stops the run with `MigrationError`, neither kept
+    nor overwritten. Returns the paths it wrote.
     """
     batch = json.loads((mvp_dir / "verified.json").read_text(encoding="utf-8"))
     content = json.loads((mvp_dir / "content.json").read_text(encoding="utf-8"))
@@ -554,13 +556,19 @@ def _already_held(path: Path, load: Callable[[], object]) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    repo = Path(__file__).resolve().parents[3]
+    """Exit 0: migrated, or kept what the bank already held. Exit 1: refused, a
+    `MigrationError` such as a bank file that cannot be read, said on stderr."""
+    repo =Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mvp-dir", type=Path, default=repo / "mvp" / "2026-08-12")
     parser.add_argument("--bank-dir", type=Path, default=repo / "bank")
     args = parser.parse_args(argv)
 
-    written = migrate(args.mvp_dir, args.bank_dir)
+    try:
+        written = migrate(args.mvp_dir, args.bank_dir)
+    except MigrationError as e:
+        print(f"popquiz.migrate_mvp: {e}", file=sys.stderr)
+        return 1
     for path in written:
         print(f"wrote {path}")
     kept = [qid for qid in MIGRATED if question_path(args.bank_dir, qid) not in written]
