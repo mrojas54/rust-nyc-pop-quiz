@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-04T03:44:15Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M42G69WTQJTD6BHECYFA5D0E",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M42G69WTQJTD6BHECYFA5D0E.md",
+    "size_bytes": 3098
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Exact-head review from the Orchestrator seat, c2095c1: PASS-WITH-NITS",
+  "token_usage": null,
+  "type": "note"
+}
