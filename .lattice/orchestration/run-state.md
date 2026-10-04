@@ -3,7 +3,18 @@
 Opened 2026-09-20. Phase 0 approved by the client the same day. Phase 0 record:
 `phase0-trail.md` in the orchestrator's scratchpad (copied below where it matters).
 
-## Current checkpoint — 2026-10-04 05:4x EDT
+## Current checkpoint — 2026-10-04 10:2x EDT
+
+**Run resumed on the client's `/lattice-orchestrator` ("resume the run") in a fresh Orchestrator session; the 05:51 wake never fired because that session ended. Nothing moved in the gap: `origin/main` = `013076b` (the #46 merge), its CI run SUCCESS (09:49Z); no PR open; no new merge; remote branches `main` only; Fly still v11 = `1263add`; the board unchanged at 34 done / 1 cancelled / 15 backlog, every open ticket held or client-gated, no comment or event on any of them since the 04:5x minting (PQ-45…PQ-50 `updated_at` 08:50Z); the c11 tree holds only this tab (`tab:7`, window now 1240×872), no flag on it. "Resume" is not a ruling (05:3x precedent); nothing dispatchable. Waiting on: PQ-45's A or B first; the other rulings; the closeout word.**
+
+- **External work, not yet landed:** the client's local Codex branch `codex/webmcp-session-tour` sits four commits ahead of `main` (`c6f2816` … `bd41a9d`, 10-02 21:1x–21:3x: a human-driven WebMCP session tour, RED / GREEN / VERIFY / DOCS) in `~/.codex/worktrees/1a74`, no PR, not pushed. Another Codex worktree (`a054`) is detached at `013076b`. If the tour lands it goes in `external-work/client-codex.jsonl` and on the drift list, like #42–#44. The other three Codex branches are already in `main`.
+- **Worktrees for the client's cleanup:** `bank-round-two` (`71f51af`, PQ-44 merged), `validate-main` (detached `0a4b6fb`, the audit's checkout), and some forty older ticket worktrees under `…-worktrees/`, every branch merged. None removed from this seat.
+- **Root checkout:** `ai-c11-cc/lattice-build` at `747c2ee`, clean but for the two untracked files (`HANDOFF.md`, `REHEARSAL-GUIDE.md`), left alone as before.
+- **Sandbox this session:** the c11 socket, `gh`, `git fetch` and `fly` refused inside the Bash sandbox; each ran with the per-command bypass. `lattice` reads work inside it. `lattice list --json` and `show --json` wrap their payload as `{ok, data}`; a ticket carries `comment_count` and `events`, not a `comments` array.
+- **Next from this seat:** PQ-45's ruling (A = T-20's push half, B = a stop-gap) releases a dispatch; any other ruling releases its ticket; the closeout audit (lessons → `LESSONS.md`, `CLAUDE.md`, the skill's `runs-ledger.md`) runs on the client's word. Dispatch, when it comes, bases on `origin/main` @ `013076b`.
+- **Cadence:** idle (30 min) while the client is at the keyboard, hourly through a quiet stretch; the loop ends after the closeout audit on the client's word.
+
+### Previous checkpoint — 2026-10-04 05:4x EDT
 
 **PR #46 (PQ-44) merged on the client's word ("merge") at `013076b` (parents `0a4b6fb`, `71f51af`), from this seat with `--match-head-commit 71f51af` after a same-minute re-read of OPEN / MERGEABLE / CLEAN and `main == 0a4b6fb`; re-read MERGED by mrojas54; `origin/main` = `013076b`; branch auto-deleted; CI on `main` queued at 05:4x. PQ-44 `done` (34 done). No PR open, no delegator live (the tab went in the 05:3x c11 restart). Worktrees `bank-round-two` and `validate-main` remain for the client's cleanup. Everything else below the 04:5x line stands: the yellow validation report, PQ-45…PQ-50 held, F-48…F-51 upstream. Nothing dispatchable without a ruling; next is PQ-45's A or B, then the closeout audit.**
 
