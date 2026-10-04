@@ -373,8 +373,8 @@ does not fail the run. Otherwise every too-long draft would keep the audit red
 until someone reviewed it. `--strict` fails on any flag or warning.
 
 No question in the bank carries a flag for fit or option length. At T-14, q4, q7
-and q8 did; PR #36's re-authoring (D-15) cleared all three. The option-position tell warns because every migrated record has its
-correct option last in the file. The file order is not meant to be the order a
+and q8 did; PR #36's re-authoring (D-15) cleared all three. The option-position
+tell warns because every migrated record has its correct option last in the file. The file order is not meant to be the order a
 room sees. But until the room's arrangement exists and is shown to reshuffle it,
 the audit treats it as visible, and a fifth record written answer-last will fail.
 
