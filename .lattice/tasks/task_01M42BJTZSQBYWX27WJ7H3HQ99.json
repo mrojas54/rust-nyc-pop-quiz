@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-04T02:23:43Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M42BJTZSQBYWX27WJ7H3HQ99",
-  "last_event_id": "ev_01M42BJTZVJZTAKG94CR0MM8NQ",
+  "last_event_id": "ev_01M42DT7A2VEP8CF5GFQVQQJ6T",
   "last_status_changed_at": "2026-10-04T02:23:43Z",
   "priority": "low",
   "relationships_out": [],
@@ -21,11 +21,10 @@
   "tags": [
     "follow-up",
     "pipeline",
-    "bank",
-    "held"
+    "bank"
   ],
   "title": "Bank follow-ups, round two: the README's stale flag lines, the hashmap redraw note, the strict test's bank assumption",
   "type": "chore",
-  "updated_at": "2026-10-04T02:23:43Z",
+  "updated_at": "2026-10-04T03:02:42Z",
   "urgency": null
 }

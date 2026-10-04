@@ -4,12 +4,13 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-10-03 22:2x EDT. PR #45 merged (`main` = `0a4b6fb`); PQ-39 done. No delegator live. One pane: the Orchestrator `tab:7`; `tab:11` is the finished PQ-39 delegator, left open because the client is using it to clean up the worktree. The client's `.cfg` workspace (`workspace:2`, `tab:10`) is not the run's.
+Snapshot: 2026-10-03 23:0x EDT. Run resumed on the client's `/lattice-orchestrator` ("resume the run"). `main` = `0a4b6fb`, CI green there; no PR open; Fly still v11 (`1263add`). **Wave 21 live: PQ-44 bank follow-ups, round two, at `tab:12`.** `tab:11` (PQ-39's delegator) closed at 22:5x after it finished the client's worktree cleanup. One pane (`area:1`): the Orchestrator `tab:7`, the delegator `tab:12`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Tab ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | 22:2x: #45 ratified and PQ-39 done, PQ-44 minted and held; nothing dispatchable. Waiting on the client's word: the Result Validator on `main` @ `0a4b6fb` (recommended), or a ruling that unblocks a held ticket; the deploy is the client's call |
-| Waiting on the client | PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) · held follow-ups: PQ-41 (burst; the `hard_limit` decision; not PR #41), PQ-42 (copy lint; F-47), PQ-43 (a11y round two; F-46's remedy and the edge ruling; not PR #43), PQ-44 (bank round two; not PR #44) | — | — | held; PQ-25 → PQ-29 → PQ-28 follow |
+| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | 23:0x: PQ-44's hold lifted and the ticket dispatched; watching for its READY receipt and the mode it came up in. Still the client's: the Result Validator on `main` @ `0a4b6fb` (recommended once the build is called done), the rulings below, the deploy |
+| Delegator (Opus, fast-track) | PQ-44 / bank follow-ups, round two (PR #45's review Minors and NITs; **not PR #44**) | `tab:12` | `ai-c11-cc/bank-round-two` off `origin/main` @ `0a4b6fb`, worktree `…-worktrees/bank-round-two` | launched 22:5x; actor `agent:delegator-pq44`; boot prompt at `<worktree>/.claude/boot-prompt.md`; expect manual mode (ENV_SCRUB) until the client toggles auto; one `uv sync` if `pipeline/.venv` is missing; no Docker; PR against `main`, stops at `review` |
+| Waiting on the client | PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) · held follow-ups: PQ-41 (burst; the `hard_limit` decision; not PR #41), PQ-42 (copy lint; F-47), PQ-43 (a11y round two; F-46's remedy and the edge ruling; not PR #43) | — | — | held; PQ-25 → PQ-29 → PQ-28 follow |
 
 ### Archived (run history)
 
