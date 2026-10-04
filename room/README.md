@@ -201,9 +201,13 @@ machine without it does not start. Rotation is the same three lines with a new
 value, plus one local edit where the pipeline reads it.
 
 **The live half of AC-101** is one push from the client's laptop to the
-deployed room before the first real batch is scheduled. Until T-20's
-`popquiz schedule` exists, `curl` stands in for it. It reads the token from
-1Password, so the token never lands in shell history:
+deployed room before the first real batch is scheduled. That push is
+`popquiz schedule` (`pipeline/README.md`, *Scheduling a meetup*), which arranges
+the options for the meetup's date before it sends them. On a laptop without the
+pipeline, `curl` can still stand in. It reads the token from 1Password, so the
+token never lands in shell history. Note that it pushes the file's stored order,
+which is not arranged for any date, so it is a check of the channel and not a
+meetup's question:
 
     curl -i -X PUT \
       -H "Authorization: Bearer $(op read 'op://<vault>/<item>/<field>')" \

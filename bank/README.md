@@ -375,9 +375,12 @@ until someone reviewed it. `--strict` fails on any flag or warning.
 No question in the bank carries a flag for fit or option length. At T-14, q4, q7
 and q8 did; PR #36's re-authoring (D-15) cleared all three. The option-position
 tell warns because every migrated record has its correct option last in the
-file. The file order is not meant to be the order a room sees. But until the
-room's arrangement exists and is shown to reshuffle it, the audit treats it as
-visible, and a fifth record written answer-last will fail.
+file. The file order is not the order a room sees: `popquiz schedule` puts the
+correct option at the meetup date's slot before the room and the static fallback
+receive the record, and never rewrites the file (`pipeline/README.md`,
+*Scheduling a meetup*). The audit still reads the stored order as a tell about the
+generator, so a fifth record written answer-last will fail; that rule is its own
+ticket's to revisit.
 
 **The report is organizer-only and not committed.** It names answer categories and
 how often a rule would have won, which is exactly what AC-25 keeps from attendees.

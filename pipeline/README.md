@@ -35,9 +35,62 @@ so the interpreter and every dependency are the same everywhere.
 | `dedupe` | Exact, normalized, and near-duplicate detection | T-17 |
 | `review` | The organizer's screen: accept, reject, edit, affirm | T-18 |
 | `audit` | `bank-audit` — uniformity in both tails, the enumerated tells, fit | T-19 |
-| `schedule` | Push one affirmed question to the room; pull the used ledger back | T-20 |
+| `schedule` | `popquiz schedule`: the affirm gate, the date's arrangement, the push, and the static fallback with its host sheet; `popquiz sync`: the used ledger pulled back; the reserve count, trend and warning | T-20 |
 
-`generate`, `verify`, `dedupe`, `review`, `audit` and `schedule` are empty stubs.
+`generate` and `review` are empty stubs.
+
+## Scheduling a meetup
+
+One question a meetup, from the reserve: accepted, affirmed, unused (`SPEC.md`
+§3.3, §7.7). From `pipeline/`, with the admin token read from 1Password into the
+environment so it never lands in shell history or a file:
+
+    POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
+      uv run --offline --no-sync python -m popquiz.schedule schedule q3 \
+        --date 2026-10-14 --room https://rustnyc-popquiz.fly.dev --out ~/popquiz-night
+
+What it does, in order:
+
+1. **Prints the reserve** — how many questions are ready, the trend (accepted and
+   waiting for affirmation, not yet reviewed, used in the last 90 days) and a
+   warning when fewer than `--threshold` are ready (default: the `--lead-time`,
+   two meetups at one question each). `sync` and `reserve` open the same way.
+2. **Refuses** a question with no `verified` record, one not accepted at review,
+   one missing `affirmed_by` or `affirmed_at` (AC-72, G-12), or one already used
+   (G-10). A refusal is a hard error: nothing is sent and nothing is written.
+3. **Arranges** the options for that night: the correct one at
+   `slot_for_day(date)` — the date and nothing else (AC-23) — and the other four
+   shuffled on the date and the question id. The file in `bank/` is not changed.
+4. **Pushes** the arranged record to `PUT /admin/questions/<id>` and prints
+   `scheduled: new` or `scheduled: replaced`. A refusal prints the room's reason.
+   Connection failures and 5xx are retried three times with growing waits; a 4xx
+   is never retried; a redirect is never followed. The room must be `https`, or
+   plain `http` to this machine.
+5. **Writes** `<id>.html` (the static fallback) and `<id>.host-sheet.txt` beside
+   it, from the same arranged record, so the room and the file agree about where
+   the answer sits. Both hold the answer, so `--out` must be outside the
+   repository. With `--no-push` (no `--room`, no token) it writes the two files
+   alone, for a night the room cannot be reached.
+
+Scheduling writes nothing under `bank/`, and a scheduled question still counts in
+the reserve: it is *used* when its room is released, not before (G-10, AC-92).
+
+**After the meetup, sync before anything restarts the room.** The room keeps its
+used ledger in memory, so a restart before a sync loses the night's record:
+
+    POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
+      uv run --offline --no-sync python -m popquiz.schedule sync --room https://rustnyc-popquiz.fly.dev
+
+`sync` writes each released question's `used` block into its bank record and
+prints the ledger report: every record synced, and any room whose wall reported a
+fit other than *fits* — or none at all (`fit` absent). Ids that are not bank
+questions (`smoke-q3`, `burst-q3` from the deployed test runs) are listed and
+skipped. A question the ledger names under a second room is refused for that
+record, and the run exits non-zero. Running it twice changes nothing.
+
+**Today no committed question can be scheduled.** Every record in `bank/questions/`
+is unreviewed and unaffirmed, so `schedule` refuses all four until an organizer
+affirms one (T-18 builds that step).
 
 ## The bank record, in one paragraph
 
