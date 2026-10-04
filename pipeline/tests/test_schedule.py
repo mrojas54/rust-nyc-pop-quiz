@@ -545,6 +545,10 @@ def test_ac101_a_redirect_is_refused_and_not_followed(affirmed, room, tmp_path, 
 
 
 def test_ac101_the_real_opener_follows_no_redirect():
+    opener = getattr(schedule._urlopen, "__self__", None)
+    assert opener is not None and any(isinstance(h, schedule._NoRedirects) for h in opener.handlers), (
+        "the module's opener must be the one that follows no redirect"
+    )
     handler = schedule._NoRedirects()
     assert handler.redirect_request(None, None, 302, "Found", {}, "https://elsewhere.test/") is None
 
