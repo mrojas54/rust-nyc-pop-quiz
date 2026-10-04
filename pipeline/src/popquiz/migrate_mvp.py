@@ -556,7 +556,9 @@ def _already_held(path: Path, load: Callable[[], object]) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    repo = Path(__file__).resolve().parents[3]
+    """Exit 0: migrated, or kept what the bank already held. Exit 1: refused, a
+    `MigrationError` such as a bank file that cannot be read, said on stderr."""
+    repo =Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mvp-dir", type=Path, default=repo / "mvp" / "2026-08-12")
     parser.add_argument("--bank-dir", type=Path, default=repo / "bank")

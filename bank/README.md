@@ -82,8 +82,8 @@ program printed, so a too-long *correct* option cannot be fixed by rewriting the
 option — the program has to print something shorter, and then the machine decides
 the new answer (T-15b). That was q4 and q7: PR #36 changed their programs and the
 pinned verifier wrote their new records. q8's too-long option was a *distractor*,
-so its answer stood, its program did not change, and only that one option was
-replaced. Each record's `review.reason` says what was re-authored and why.
+so its answer stood, its program's tokens did not change, and only that one
+option was replaced. Each record's `review.reason` says what was re-authored and why.
 
 **Nothing here is affirmed.** Every migrated record has `review.status` unset and
 no `affirmed_by` / `affirmed_at`, so none of them can reach a deck (AC-72, G-12).
@@ -374,9 +374,10 @@ until someone reviewed it. `--strict` fails on any flag or warning.
 
 No question in the bank carries a flag for fit or option length. At T-14, q4, q7
 and q8 did; PR #36's re-authoring (D-15) cleared all three. The option-position
-tell warns because every migrated record has its correct option last in the file. The file order is not meant to be the order a
-room sees. But until the room's arrangement exists and is shown to reshuffle it,
-the audit treats it as visible, and a fifth record written answer-last will fail.
+tell warns because every migrated record has its correct option last in the
+file. The file order is not meant to be the order a room sees. But until the
+room's arrangement exists and is shown to reshuffle it, the audit treats it as
+visible, and a fifth record written answer-last will fail.
 
 **The report is organizer-only and not committed.** It names answer categories and
 how often a rule would have won, which is exactly what AC-25 keeps from attendees.

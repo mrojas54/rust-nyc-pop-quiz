@@ -212,7 +212,7 @@ def test_the_command_line_refuses_in_plain_words(
     tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The same refusal from the command line is a sentence on stderr and exit 1,
-    the package's code for a bank it cannot read, not a traceback."""
+    as fallback.py does for a bank it cannot read, not a traceback."""
     bank_dir = _bank_with_a_grown_history(tmp_path)
     damaged = question_path(bank_dir, "q4")
     damaged.write_bytes(damaged.read_bytes()[:40])
