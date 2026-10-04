@@ -236,7 +236,7 @@
     "Used": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["meetup_date", "room_id", "released_at", "fit"],
+      "required": ["meetup_date", "room_id", "released_at"],
       "description": "Written by the release transition and nothing else (G-10). NOT by a deck build: build_deck.py wrote a ledger line at build time, which retired questions for meetups that then did not happen, and that is a retired defect (BUILDPLAN 2).",
       "properties": {
         "meetup_date": { "type": "string" },
@@ -244,7 +244,7 @@
         "released_at": { "type": "string" },
         "fit": {
           "enum": ["fits", "clipped_x", "clipped_y", "clipped_xy"],
-          "description": "The wall's measured verdict at reveal, the last refit of the night (AC-100)."
+          "description": "The wall's measured verdict at reveal, the last refit of the night (AC-100). Absent when the wall never reported a verdict before release: the room sends null, and absent is absent (F-30). Absent is not fits."
         }
       }
     }

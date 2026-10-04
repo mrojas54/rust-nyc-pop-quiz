@@ -436,6 +436,24 @@ def test_a_record_round_trips_through_json() -> None:
     assert question_from_dict(json.loads(json.dumps(question_to_dict(q)))) == q
 
 
+def test_a_null_fit_from_the_room_is_an_absent_key_and_reads_back_as_none() -> None:
+    """F-30: the room sends `fit: null` when no wall reported a verdict. Nothing
+    observed it, so the record holds no `fit` key - absent is absent - and a missing
+    key reads back as `None`, which is not *fits*."""
+    data = question_to_dict(_question())
+    data["used"] = {"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "fit": None}
+    q = question_from_dict(data)
+    assert q.used.fit is None
+    written = question_to_dict(q)
+    assert written["used"] == {"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t"}
+    assert question_from_dict(json.loads(json.dumps(written))) == q
+    # The published contract agrees: what was written has every required key and
+    # nothing the schema does not name.
+    schema = _schema()["$defs"]["Used"]
+    assert set(schema["required"]) <= set(written["used"]) <= set(schema["properties"])
+    assert "fit" not in schema["required"]
+
+
 def test_an_unknown_field_is_an_error_rather_than_ignored() -> None:
     """A typo'd key would otherwise read as a field somebody forgot to fill, and a
     record silently missing its beats is the failure this project cannot have."""

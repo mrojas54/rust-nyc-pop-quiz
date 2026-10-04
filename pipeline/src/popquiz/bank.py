@@ -213,12 +213,16 @@ class Used:
     Not by a deck build. `build_deck.py` wrote a ledger line at *build* time, which
     retired questions for meetups that then did not happen; that is a defect the
     brownfield table retires (BUILDPLAN 2, G-10).
+
+    `fit` is `None` when the wall never reported a verdict before release: the
+    room sends `null` (room/src/used.rs), nothing observed it, and so - absent is
+    absent - the key is not written (F-30). `None` is not *fits*.
     """
 
     meetup_date: str
     room_id: str
     released_at: str
-    fit: Fit
+    fit: Fit | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -753,7 +757,7 @@ def question_from_dict(data: dict[str, Any]) -> Question:
             meetup_date=used_raw["meetup_date"],
             room_id=used_raw["room_id"],
             released_at=used_raw["released_at"],
-            fit=used_raw["fit"],
+            fit=used_raw.get("fit"),
         ),
     )
     validate_question(question)
