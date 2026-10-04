@@ -8,9 +8,20 @@
   "custom_fields": {},
   "description": "Follow-up of PQ-38 (PR #40, merged at 1e23c84). Five Minors and three NITs from the exact-head review (artifact art_01M3YXXN85ECH6VMA1R5WJQ89E on PQ-38). (1) q8 keeps its August legacy record (compile_error_code E0502, no verified_at or verifier_version) although PR #36 re-authored its options and stripped its source's trailing newline. Run the pinned verifier: just verify bank/questions/q8.json --expect does_not_compile on the T-15a image, and let the machine write the record (AC-7; never by hand). If the verifier's rules keep a does-not-compile record legacy on purpose (D-22), say so in the DONE comment instead of forcing it. (2) bank/README.md:125-127 and :133-135 are false since PR #40: they say all four migrated records are still legacy and not re-verified, and that a re-run reproduces the files byte for byte. Correct them: q3 and q8 legacy (or q8 per item 1), q4 and q7 verifier-written, a re-run keeps what is in the bank. (3) pipeline/tests/test_migration.py test_a_rerun_leaves_the_bank_as_it_is cannot catch a history regression because bank/history.json is empty: removing the guard at migrate_mvp.py:526-528 keeps it green. Seed a non-empty history in the tmp copy, and add a partial-bank case (one file missing, only that one written). (4) test_the_correct_option_is_the_machines_output restates correct_index for q4 and q7 (bank.py:425-426), a tautology; nothing in CI re-derives their stdout. Add q4 and q7 recordings and replay them through verify, as q3 and q8 have. (5) pipeline/tests/test_audit.py:767 test_strict_fails_on_any_flag: no bank question carries a flag now, so it may pass only through a warn (audit.py:1059, 1478). Confirm what it exercises and build a flag in the copy as test_audit.py:744 does. NITs: migrate_mvp.py:520/:528 exists() would keep a truncated file forever (bank.py:796 append_question already refuses overwrite); commit 6cac9ec stripped q8's trailing newline under 'program unchanged' with only a test docstring saying so; q7 explains.legacy still names bob/amy/cal/dan (predates the PR, disclosed in review.reason). Acceptance: just test and just test-full green; each rewritten test fails when its guard is removed (show the mutation); no answer written by hand. Harness: just test (pipeline), just verify, just bank-audit. Not on the shared-file list.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M422HM0YJNPQXCK0CHNN9Y86",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M422KMDR054V5FBR5E2110J0",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M3YZ0SNMBW91P0VAVDHZEJ5X",
-  "last_event_id": "ev_01M41Y3GBF05HFN24R567SNX13",
+  "last_event_id": "ev_01M422KMDT3GMTZRDMAX729J9G",
   "last_status_changed_at": "2026-10-03T22:28:09Z",
   "priority": "medium",
   "relationships_out": [],
@@ -25,6 +36,6 @@
   ],
   "title": "Bank re-verify follow-ups: q8's record, the bank README, three blind tests",
   "type": "task",
-  "updated_at": "2026-10-03T22:28:09Z",
+  "updated_at": "2026-10-03T23:46:51Z",
   "urgency": null
 }

@@ -1,0 +1,11 @@
+Validation at ca78693 (branch ai-c11-cc/bank-followups).
+(1) q8: just verify bank/questions/q8.json --expect does_not_compile on popquiz-sandbox:1.98.1-2026-09-19-25a914853547 printed: 'q8: ACCEPTED: it does not compile, as declared: E0502. Record written to bank/questions/q8.json.' Legacy record replaced whole (verified_at 2026-10-03T23:38:21Z, verifier_version popquiz-verify 7b1bc351e4dd). No rule keeps a DNC record legacy: verify.py:326-345 writes record(compile_error_code=...); SPEC 3.2:118-120 replaces a legacy record whole on re-verify.
+(4) record.py on the same image: every case gave the verdict cases.toml names, including 'q4 ... -> accepted' and 'q7 ... -> accepted' (toolchain, compile, run:1-5, miri:stacked_borrows:0). Recordings carry _recorded {image popquiz-sandbox:1.98.1-2026-09-19-25a914853547, host aarch64-unknown-linux-gnu, rustc 1.98.1 48a229ce, miri 0.1.0 (420ed2a0c3 2026-09-18), 2026-10-03}.
+just test-verify-full: 18 passed in 33.05s. just test: rc 0, warm 11 s (pipeline 642 passed, web 279 pass, room all ok).
+Mutations (each applied to a saved copy, test run, file restored):
+M1 migrate_mvp history guard -> 'if True:' : test_a_rerun_leaves_the_bank_as_it_is FAILED 'assert [.../history.json] == []'; partial-bank test FAILED.
+M2 question guard -> 'if False:' : rerun test FAILED 'Left contains 4 more items'; partial-bank FAILED.
+M3 any missing file rewrites all four (hoisted all-exist check): partial-bank FAILED 'Left contains 3 more items, first extra .../q4.json'.
+M4 readable-file guard back to exists(): test_a_rerun_refuses_a_bank_file_it_cannot_read FAILED 'DID NOT RAISE MigrationError'.
+M5 audit.exit_status strict ignores flags: test_strict_fails_on_any_flag FAILED 'assert 0 == 1'. (Before this PR the test passed via warned=['tell: option position'] alone; confirmed by run_audit on the real bank: flags all empty.)
+M6 self-consistent hand edit inside q4.json (distractor text moved to the correct slot, stdout set to it): check_provenance passes, the pre-PR assertion holds (True), test_the_correct_option_is_the_machines_output[q4] FAILED 'assert 0 == 4' (replayed record derives option 0, bank derives 4).
