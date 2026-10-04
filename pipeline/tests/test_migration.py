@@ -28,7 +28,7 @@ import shutil
 import pytest
 
 from fixtures.verify.verify_cases import RECORDINGS
-from popquiz import bank, dedupe, sandbox, verify
+from popquiz import bank, dedupe, migrate_mvp, sandbox, verify
 from popquiz.bank import (
     Explains,
     History,
@@ -39,13 +39,12 @@ from popquiz.bank import (
     load_question,
     normalized_output,
     options_needing_reauthoring,
+    question_path,
     question_to_dict,
     quoted_outputs,
-    question_path,
     receipt_class,
     save_history,
 )
-from popquiz import migrate_mvp
 from popquiz.migrate_mvp import (
     MIGRATED,
     NOT_MIGRATED,
