@@ -51,6 +51,10 @@ since its recording was made.
 All twelve were recorded on `popquiz-sandbox:1.98.1-2026-09-19-25a914853547`
 (aarch64-unknown-linux-gnu) on 2026-10-03, when q4 and q7 were added (`record.py`
 rewrites every recording at once); each file's `_recorded` says so exactly.
+`hashmap-order`'s five `stdout` strings are new random iteration orders every time
+`record.py` runs, because that case exists to show output varying, so a re-record
+changes them while its verdict stays the same; no test pins them
+(`test_verify.py` counts the distinct outputs in the recording itself).
 
 The bank programs are read from the bank, not copied, so a recording cannot stand
 for a question whose source has since changed without `_source_sha256` noticing.
