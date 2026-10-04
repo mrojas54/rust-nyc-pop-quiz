@@ -1,0 +1,3 @@
+# PQ-49: Run just bank-audit in CI
+
+From the Result Validator report (Drift, smaller items): CI runs just test but never just bank-audit, so the audit's checks over the real bank reach CI only through pytest's fixtures. Add a CI step that runs just bank-audit on the committed bank and fails the job on a FAIL (a WARN passes, as the recipe does). The report is organizer-only and gitignored; do not upload it as an artifact (AC-25). Touches .github/workflows/** (a serialized shared file: ask before editing). Acceptance: the step runs on a PR and on main, green on main @ the merge of this ticket; a planted fifth record written answer-last in a throwaway branch turns it red (name the mutation). HELD: minted from the audit; released on the client's word.

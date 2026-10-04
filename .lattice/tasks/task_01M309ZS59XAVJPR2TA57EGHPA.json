@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 3,
+  "comment_count": 4,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZS59XAVJPR2TA57EGHPA",
-  "last_event_id": "ev_01M3RR9HK98FFFPR20W5SSB4DS",
+  "last_event_id": "ev_01M431PWTNN9K9M8E8Y9MN5FQZ",
   "last_status_changed_at": "2026-09-20T21:01:39Z",
   "priority": "medium",
   "relationships_out": [
@@ -60,6 +60,6 @@
   ],
   "title": "Schedule and sync",
   "type": "task",
-  "updated_at": "2026-09-30T08:53:25Z",
+  "updated_at": "2026-10-04T08:50:24Z",
   "urgency": null
 }

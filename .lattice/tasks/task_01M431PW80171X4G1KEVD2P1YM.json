@@ -1,0 +1,31 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-10-04T08:50:24Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "From the Result Validator report, row 107 (AC-92), the one failing clause: the plan's pass condition says build_deck.py's ledger write is gone, but mvp/tools/build_deck.py:220-234 (slot_for_meetup) still writes mvp/answer-history.json on every build (line 233). CLAUDE.md names this footgun (a deck built for a meetup that does not happen falsely retires a question; it happened 2026-08-12 and was rolled back by hand) and says no code satisfies AC-92's record of what each meetup used. T-19 (PQ-24) declined to port the write but did not retire it (G-10). mvp/ is contract-protected and October runs on the MVP deck, so this is HELD on the client's clearance to touch mvp/tools/build_deck.py. Shape when cleared: remove the write (the ledger stays a record written at run time, by hand or by the room's release), keep the deck build otherwise identical, and say in mvp/README.md how the ledger is recorded after a meetup. Acceptance: building a deck writes nothing to answer-history.json; the existing deck output is byte-identical for the same inputs.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M431PW80171X4G1KEVD2P1YM",
+  "last_event_id": "ev_01M431PW818WXNF3SXSSA3PHE3",
+  "last_status_changed_at": "2026-10-04T08:50:24Z",
+  "priority": "medium",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-46",
+  "status": "backlog",
+  "tags": [
+    "follow-up",
+    "mvp",
+    "validation",
+    "held"
+  ],
+  "title": "Retire build_deck.py's ledger write at build time",
+  "type": "chore",
+  "updated_at": "2026-10-04T08:50:24Z",
+  "urgency": null
+}

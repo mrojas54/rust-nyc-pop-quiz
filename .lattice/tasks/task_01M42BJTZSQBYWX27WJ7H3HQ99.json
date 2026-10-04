@@ -28,10 +28,15 @@
       "id": "art_01M42G69WTQJTD6BHECYFA5D0E",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M431JCPDCMCVGXZG8WSGJZYB",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M42BJTZSQBYWX27WJ7H3HQ99",
-  "last_event_id": "ev_01M430AWSNJTYH56M0PHJFSJN8",
+  "last_event_id": "ev_01M431JCPG7HEK20HXZN2CENPN",
   "last_status_changed_at": "2026-10-04T03:30:09Z",
   "priority": "low",
   "relationships_out": [],
@@ -46,6 +51,6 @@
   ],
   "title": "Bank follow-ups, round two: the README's stale flag lines, the hashmap redraw note, the strict test's bank assumption",
   "type": "chore",
-  "updated_at": "2026-10-04T08:26:22Z",
+  "updated_at": "2026-10-04T08:47:57Z",
   "urgency": null
 }

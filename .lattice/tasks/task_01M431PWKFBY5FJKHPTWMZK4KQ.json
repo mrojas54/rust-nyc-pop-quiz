@@ -1,0 +1,31 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-10-04T08:50:24Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "From the Result Validator report (Drift, smaller items): CI runs just test but never just bank-audit, so the audit's checks over the real bank reach CI only through pytest's fixtures. Add a CI step that runs just bank-audit on the committed bank and fails the job on a FAIL (a WARN passes, as the recipe does). The report is organizer-only and gitignored; do not upload it as an artifact (AC-25). Touches .github/workflows/** (a serialized shared file: ask before editing). Acceptance: the step runs on a PR and on main, green on main @ the merge of this ticket; a planted fifth record written answer-last in a throwaway branch turns it red (name the mutation). HELD: minted from the audit; released on the client's word.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M431PWKFBY5FJKHPTWMZK4KQ",
+  "last_event_id": "ev_01M431PWKGKT46KZQSEG2DJSQE",
+  "last_status_changed_at": "2026-10-04T08:50:24Z",
+  "priority": "low",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-49",
+  "status": "backlog",
+  "tags": [
+    "follow-up",
+    "ci",
+    "validation",
+    "held"
+  ],
+  "title": "Run just bank-audit in CI",
+  "type": "chore",
+  "updated_at": "2026-10-04T08:50:24Z",
+  "urgency": null
+}

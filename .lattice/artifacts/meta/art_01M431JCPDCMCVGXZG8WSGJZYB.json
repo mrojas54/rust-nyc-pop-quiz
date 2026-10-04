@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-04T08:47:57Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M431JCPDCMCVGXZG8WSGJZYB",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M431JCPDCMCVGXZG8WSGJZYB.md",
+    "size_bytes": 974
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Merge-scoped re-read of 71f51af (Orchestrator seat): PASS-WITH-NITS",
+  "token_usage": null,
+  "type": "note"
+}
