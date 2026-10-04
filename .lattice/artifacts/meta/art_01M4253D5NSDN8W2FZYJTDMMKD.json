@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-04T00:30:25Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4253D5NSDN8W2FZYJTDMMKD",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4253D5NSDN8W2FZYJTDMMKD.md",
+    "size_bytes": 12850
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Full exact-head review at b313cb2",
+  "token_usage": null,
+  "type": "note"
+}

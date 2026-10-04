@@ -18,10 +18,15 @@
       "id": "art_01M422KMDR054V5FBR5E2110J0",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4253D5NSDN8W2FZYJTDMMKD",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M3YZ0SNMBW91P0VAVDHZEJ5X",
-  "last_event_id": "ev_01M422KMDT3GMTZRDMAX729J9G",
+  "last_event_id": "ev_01M4253D5RSQ3FM93KFMF6CWSP",
   "last_status_changed_at": "2026-10-03T22:28:09Z",
   "priority": "medium",
   "relationships_out": [],
@@ -36,6 +41,6 @@
   ],
   "title": "Bank re-verify follow-ups: q8's record, the bank README, three blind tests",
   "type": "task",
-  "updated_at": "2026-10-03T23:46:51Z",
+  "updated_at": "2026-10-04T00:30:25Z",
   "urgency": null
 }
