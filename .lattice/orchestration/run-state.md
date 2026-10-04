@@ -3,7 +3,11 @@
 Opened 2026-09-20. Phase 0 approved by the client the same day. Phase 0 record:
 `phase0-trail.md` in the orchestrator's scratchpad (copied below where it matters).
 
-## Current checkpoint — 2026-10-04 04:5x EDT
+## Current checkpoint — 2026-10-04 05:4x EDT
+
+**PR #46 (PQ-44) merged on the client's word ("merge") at `013076b` (parents `0a4b6fb`, `71f51af`), from this seat with `--match-head-commit 71f51af` after a same-minute re-read of OPEN / MERGEABLE / CLEAN and `main == 0a4b6fb`; re-read MERGED by mrojas54; `origin/main` = `013076b`; branch auto-deleted; CI on `main` queued at 05:4x. PQ-44 `done` (34 done). No PR open, no delegator live (the tab went in the 05:3x c11 restart). Worktrees `bank-round-two` and `validate-main` remain for the client's cleanup. Everything else below the 04:5x line stands: the yellow validation report, PQ-45…PQ-50 held, F-48…F-51 upstream. Nothing dispatchable without a ruling; next is PQ-45's A or B, then the closeout audit.**
+
+### Previous checkpoint — 2026-10-04 04:5x EDT
 
 **The Result Validator has reported: 🟡 YELLOW on `main` @ `0a4b6fb` — 83 pre-merge rows: 55 pass, 15 partial, 2 fail (AC-26's option-position tell cannot fail at a bank of four; AC-84's dimmed gutter, F-46), 11 blocked (T-16, T-18, T-20, T-24 never built). Its chief finding sits outside every row: every bank question stores its answer at E and nothing on the tree applies `slot_for_day`, so a room or fallback built from this tree shows the answer at E until T-20's push half (or a stop-gap) lands. Six held tickets minted from the report (PQ-45…PQ-50); findings F-48…F-51 routed upstream. PR #46 (PQ-44) is ready for the client's merge word at `71f51af`. Nothing is dispatchable without a ruling.**
 

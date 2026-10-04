@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-04T09:50:50Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4355HJDPVA8JT28VYACFGN0",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4355HJDPVA8JT28VYACFGN0.md",
+    "size_bytes": 348
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #46 (merge commit 013076bdcd4e761f58340bf194d12979e7cc862b, parents 0a4b6fb and 71f51af) on the client's word 2026-10-04 05:4x EDT. Exact-head CI green on 71f51af; full fresh exact-head ",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

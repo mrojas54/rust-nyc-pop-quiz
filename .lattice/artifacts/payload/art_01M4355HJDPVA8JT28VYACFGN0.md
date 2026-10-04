@@ -1,0 +1,1 @@
+Merged via PR #46 (merge commit 013076bdcd4e761f58340bf194d12979e7cc862b, parents 0a4b6fb and 71f51af) on the client's word 2026-10-04 05:4x EDT. Exact-head CI green on 71f51af; full fresh exact-head review PASS-WITH-NITS at c2095c1 plus a merge-scoped re-read of the fix commit 71f51af from the Orchestrator seat; one cosmetic NIT parked on PQ-50.
