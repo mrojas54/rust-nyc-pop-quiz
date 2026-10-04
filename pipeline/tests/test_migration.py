@@ -209,6 +209,24 @@ def test_a_rerun_refuses_a_bank_file_it_cannot_read(tmp_path: pathlib.Path) -> N
     assert history_path(bank_dir).read_text(encoding="utf-8") == "{"
 
 
+def test_the_command_line_refuses_in_plain_words(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The same refusal from the command line is a sentence on stderr and exit 1,
+    the package's code for a bank it cannot read, not a traceback."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    damaged = question_path(bank_dir, "q4")
+    damaged.write_bytes(damaged.read_bytes()[:40])
+    truncated = damaged.read_bytes()
+
+    assert migrate_mvp.main(["--mvp-dir", str(MVP), "--bank-dir", str(bank_dir)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("popquiz.migrate_mvp: ")
+    assert "q4.json is in the bank but cannot be read" in err
+    assert "Traceback" not in err
+    assert damaged.read_bytes() == truncated
+
+
 def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
     """SPEC 5.2's fit table, D-15. q1, q2, q5 and q6 exceed the reading layout's
     7-line capacity at the guessed room, so the wall cannot show them legibly at
