@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 4,
+  "comment_count": 5,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZS59XAVJPR2TA57EGHPA",
-  "last_event_id": "ev_01M431PWTNN9K9M8E8Y9MN5FQZ",
+  "last_event_id": "ev_01M43NV8R9PRH92PCERT2HEQ96",
   "last_status_changed_at": "2026-09-20T21:01:39Z",
   "priority": "medium",
   "relationships_out": [
@@ -19,13 +19,6 @@
       "created_by": "agent:orchestrator-intake",
       "note": null,
       "target_task_id": "task_01M309ZQWVSTWVP44P8JNC5VBC",
-      "type": "depends_on"
-    },
-    {
-      "created_at": "2026-09-20T21:01:46Z",
-      "created_by": "agent:orchestrator-intake",
-      "note": null,
-      "target_task_id": "task_01M309ZRXZSP6J2MBF62V9JG5W",
       "type": "depends_on"
     },
     {
@@ -60,6 +53,6 @@
   ],
   "title": "Schedule and sync",
   "type": "task",
-  "updated_at": "2026-10-04T08:50:24Z",
+  "updated_at": "2026-10-04T14:42:19Z",
   "urgency": null
 }

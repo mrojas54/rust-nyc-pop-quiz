@@ -8,8 +8,9 @@ Snapshot: 2026-10-04 10:2x EDT. **Run resumed in a fresh Orchestrator session on
 
 | Role | Ticket | Tab ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | 10:2x: fresh session; GitHub, the board, c11 and Fly re-read, no change since the 05:4x merge of #46 (`013076b`); no ruling found. Waiting on the client: PQ-45's A/B first; the rulings below; the closeout word. Idle cadence, 30 min |
-| Waiting on the client | PQ-45 (**critical**: date-drawn arrangement before any real meetup; A = T-20's push half, B = a stop-gap) · PQ-48 (AC-26's rule, F-48) · PQ-46 (`build_deck.py` ledger write; `mvp/` clearance) · PQ-47 (AC-1 static check) · PQ-49 (`bank-audit` in CI) · PQ-50 (the report's small items) · PQ-41 (`hard_limit`; not PR #41) · PQ-42 (F-47) · PQ-43 (F-46 remedy and the edge ruling; not PR #43) · PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) | — | — | all held or gated; PQ-25 → PQ-29 → PQ-28 follow |
+| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | 10:5x: PQ-45 ruled Option A by the client; PQ-25 dispatched (below); PQ-45 un-held and linked to PQ-25; PQ-25's T-18 dependency unlinked on the client's word. Next: PQ-25's READY receipt and first bump; then its arc to `review`, exact-head CI, a fresh review from this seat, the merge word. Open with the client: the unaffirmed bank (T-18 or a hand affirmation on q3); the rulings below |
+| Delegator (Opus, inline-full) | **PQ-25** / T-20 schedule and sync — the push half first; resolves PQ-45 | `tab:11` | ai-c11-cc/schedule-sync (worktree `…-worktrees/schedule-sync`, off `origin/main` @ `013076b`) | launched 10:5x; `backlog` until its first bump; READY receipt awaited; expect manual mode until the client toggles auto in its tab |
+| Waiting on the client | the unaffirmed bank (every record; q3 is the only one with a trace) · PQ-48 (AC-26's rule, F-48) · PQ-46 (`build_deck.py` ledger write; `mvp/` clearance) · PQ-47 (AC-1 static check) · PQ-49 (`bank-audit` in CI) · PQ-50 (the report's small items) · PQ-41 (`hard_limit`; not PR #41) · PQ-42 (F-47) · PQ-43 (F-46 remedy and the edge ruling; not PR #43) · PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) | — | — | all held or gated; PQ-29 → PQ-28 behind PQ-25 |
 
 ### Archived (run history)
 
