@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -87,6 +88,7 @@ TIMEOUT_SECONDS = 20
 
 LETTERS = fallback.LETTERS
 
+
 class _NoRedirects(urllib.request.HTTPRedirectHandler):
     """A redirect is refused, not followed: urllib would carry the bearer to
     wherever a 3xx pointed. The admin routes never redirect."""
@@ -102,6 +104,10 @@ _sleep = time.sleep
 #: Plain http is for a room on this machine only; anything else is Fly's TLS (SPEC 8.3).
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_TOKEN_CHARS = re.compile(r"[\x21-\x7e]+")
+
+#: 4xx answers that mean "not now" rather than "no": retried like a 5xx.
+RETRIED_4XX = frozenset({408, 429})
 
 
 class ScheduleError(Exception):
@@ -206,11 +212,19 @@ def arrange(question: Question, day: date) -> Question:
 
 
 def admin_token(environ: dict[str, str] | None = None) -> str:
-    value = (os.environ if environ is None else environ).get(TOKEN_ENV, "")
-    if not value.strip():
+    """The token, stripped. A value that cannot travel in an HTTP header (a stray
+    newline inside it, a non-ASCII character) is refused here, without echoing it,
+    because `http.client` would otherwise raise with the header in its message."""
+    value = (os.environ if environ is None else environ).get(TOKEN_ENV, "").strip()
+    if not value:
         raise ScheduleError(
             f"{TOKEN_ENV} is not set in the environment; the room's admin channel needs it "
             "(see pipeline/README.md, Scheduling a meetup)"
+        )
+    if not _TOKEN_CHARS.fullmatch(value):
+        raise ScheduleError(
+            f"{TOKEN_ENV} holds characters a token cannot have (spaces, control characters "
+            "or non-ASCII); check the value you exported"
         )
     return value
 
@@ -254,12 +268,19 @@ def _call(method: str, url: str, token: str, body: bytes | None = None) -> tuple
                     f"{method} {url}: the room answered with a redirect ({status}), which is "
                     "not followed with the admin token; give the room's own URL"
                 ) from None
-            if status < 500:
+            if status < 500 and status not in RETRIED_4XX:
                 return status, payload
             last = f"the room answered {status}"
-        except (urllib.error.URLError, OSError) as e:
-            reason = getattr(e, "reason", None) or type(e).__name__
-            last = f"the room could not be reached ({reason})"
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
+            # The class name only: a message here may quote what was sent.
+            reason = getattr(e, "reason", None)
+            last = f"the room could not be reached ({reason if isinstance(reason, str) else type(e).__name__})"
+        except (ValueError, UnicodeError) as e:
+            # http.client refuses a header it cannot send with the header in its
+            # message; the token is in that header, so the message is dropped.
+            raise ScheduleError(
+                f"{method} {url}: the request could not be sent ({type(e).__name__})"
+            ) from None
     raise ScheduleError(f"{method} {url}: {last}, after {attempts} attempts")
 
 
@@ -292,7 +313,7 @@ def push(arranged: Question, room: str, token: str) -> str:
     if status == 401:
         raise _refused_token(status)
     if status in (400, 409, 413):
-        raise ScheduleError(_reason(payload, f"the room refused the record ({status})"))
+        raise ScheduleError(_reason(payload, f"the room refused the record ({status})").replace(token, "[redacted]"))
     raise ScheduleError(f"the room answered {status} to the push")
 
 
@@ -419,6 +440,14 @@ def merge_used(bank_dir: Path, entries: Sequence[dict[str, Any]]) -> SyncResult:
         incoming = records[0]
         if question.used is not None:
             if question.used.room_id == incoming.get("room_id"):
+                stored = question_to_dict(question)["used"]
+                if stored != {k: v for k, v in incoming.items() if v is not None}:
+                    result.refused.append(
+                        f"{qid}: the bank's used record for room {question.used.room_id} differs "
+                        "from the room's ledger for the same room; the record is written once, "
+                        "so nothing was changed"
+                    )
+                    continue
                 result.unchanged.append(qid)
                 result.report.append(_report_row(question))
                 continue

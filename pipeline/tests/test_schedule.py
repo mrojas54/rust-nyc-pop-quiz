@@ -589,3 +589,57 @@ def test_the_ported_rng_is_the_slot_modules_stream():
     for parts in (("a",), ("distractors", "2026-10-14", "q3"), ("meetup-slot", "2026-10-14")):
         mine, theirs = schedule._rng(*parts), slot._rng(*parts)
         assert [mine(5) for _ in range(20)] == [theirs(5) for _ in range(20)]
+
+
+# --------------------------------------------------------------------------- #
+# Code-review follow-ups
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("bad", [PLANT + "\n" + "x", "token with space", PLANT + "é"])
+def test_ac101_a_token_that_cannot_be_a_header_is_refused_without_echoing_it(affirmed, room, monkeypatch, tmp_path, capsys, bad):
+    fake = room((201, {"scheduled": "new"}))
+    monkeypatch.setenv(schedule.TOKEN_ENV, bad)
+    assert schedule_q3(affirmed, tmp_path / "out") == 1
+    captured = capsys.readouterr()
+    assert "characters a token cannot have" in captured.err
+    assert bad not in captured.out + captured.err and PLANT not in captured.err
+    assert fake.requests == []
+
+
+def test_ac101_a_trailing_newline_is_stripped_not_sent(affirmed, room, monkeypatch, tmp_path):
+    fake = room((201, {"scheduled": "new"}))
+    monkeypatch.setenv(schedule.TOKEN_ENV, PLANT + "\n")
+    assert schedule_q3(affirmed, tmp_path / "out") == 0
+    assert fake.requests[0].get_header("Authorization") == f"Bearer {PLANT}"
+
+
+def test_ac101_a_header_the_transport_refuses_never_carries_its_message(affirmed, room, tmp_path, capsys):
+    room((ValueError(f"Invalid header value b'Bearer {PLANT}'"), None))
+    assert schedule_q3(affirmed, tmp_path / "out") == 1
+    err = capsys.readouterr().err
+    assert "could not be sent (ValueError)" in err and PLANT not in err
+
+
+def test_ac101_a_reason_that_echoes_the_token_is_redacted(affirmed, room, tmp_path, capsys):
+    room((400, {"reason": f"bad request with Bearer {PLANT}"}))
+    assert schedule_q3(affirmed, tmp_path / "out") == 1
+    err = capsys.readouterr().err
+    assert "[redacted]" in err and PLANT not in err
+
+
+@pytest.mark.parametrize("status", [408, 429])
+def test_ac101_not_now_answers_are_retried(affirmed, room, tmp_path, status):
+    fake = room((status, b""), (201, {"scheduled": "new"}))
+    assert schedule_q3(affirmed, tmp_path / "out") == 0
+    assert len(fake.requests) == 2
+
+
+def test_sync_refuses_a_same_room_record_that_differs(bank, room, capsys):
+    room((200, ledger(("q3", "2026-10-14", "room-a", "fits"))))
+    assert sync(bank) == 0
+    before = snapshot(bank)
+    room((200, ledger(("q3", "2026-10-14", "room-a", "clipped_y"))))
+    assert sync(bank) == 1
+    assert "differs" in capsys.readouterr().err
+    assert snapshot(bank) == before
