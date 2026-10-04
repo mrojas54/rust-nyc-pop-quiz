@@ -1,0 +1,31 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-10-04T02:23:43Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "Follow-up of PQ-39 (PR #45, merged at 0a4b6fb on 2026-10-04). Two Minors and five NITs from the full exact-head review at b313cb2 (artifact art_01M4253D5NSDN8W2FZYJTDMMKD on PQ-39). Line numbers were true at b313cb2; re-find each before trusting it. (1) bank/README.md:371-375, the present-tense table at :59-64 and the prose at :76-82 still say q4, q7 and q8 are flagged for option length; false since the D-15 re-authoring, and pipeline/tests/test_audit.py:767 now shows no bank question carries a flag. Reword to the truth, or mark them as T-14 history. (2) pipeline/tests/fixtures/verify/recordings/hashmap-order.json's five random stdout strings were redrawn when record.py re-recorded every case in 7e6353f; the verdict is unchanged and nothing pins the strings, but the commit message and pipeline/tests/fixtures/README.md do not say so. Add one sentence to the fixtures README. (3) pipeline/tests/test_audit.py:789 assumes q7 stays unaffirmed in the real bank, so it breaks when an organizer affirms q7; clear the review fields in the test's copy instead. (4) pipeline/src/popquiz/migrate_mvp.py:556-576: main() does not catch MigrationError, and the migrate() docstring omits the new refuse-if-unreadable branch. (5) pipeline/tests/test_migration.py:42-44: import order. Also note, not fix: q8.json:15's em dash was re-encoded by the verifier's serializer (same string); q7's explains.legacy names stay verbatim by AC-73. Acceptance: just test-pipeline green; no verified block or recording touched (AC-7); nothing outside bank/README.md, pipeline/tests/** and migrate_mvp.py changes. Harness: just test-pipeline. Not on the shared-file list. Not PR #44.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M42BJTZSQBYWX27WJ7H3HQ99",
+  "last_event_id": "ev_01M42BJTZVJZTAKG94CR0MM8NQ",
+  "last_status_changed_at": "2026-10-04T02:23:43Z",
+  "priority": "low",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-44",
+  "status": "backlog",
+  "tags": [
+    "follow-up",
+    "pipeline",
+    "bank",
+    "held"
+  ],
+  "title": "Bank follow-ups, round two: the README's stale flag lines, the hashmap redraw note, the strict test's bank assumption",
+  "type": "chore",
+  "updated_at": "2026-10-04T02:23:43Z",
+  "urgency": null
+}

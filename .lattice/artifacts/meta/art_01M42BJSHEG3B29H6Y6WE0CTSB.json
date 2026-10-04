@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-04T02:23:41Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M42BJSHEG3B29H6Y6WE0CTSB",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M42BJSHEG3B29H6Y6WE0CTSB.md",
+    "size_bytes": 329
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged on the client's in-tab word by the delegator: PR #45 merge commit 0a4b6fb (head b313cb2 on 2730806), exact-head CI green, full fresh exact-head Sonnet review PASS-WITH-NITS (art_01M4253D5NSDN8W",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

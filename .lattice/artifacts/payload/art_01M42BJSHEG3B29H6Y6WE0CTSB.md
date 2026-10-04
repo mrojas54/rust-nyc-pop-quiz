@@ -1,0 +1,1 @@
+Merged on the client's in-tab word by the delegator: PR #45 merge commit 0a4b6fb (head b313cb2 on 2730806), exact-head CI green, full fresh exact-head Sonnet review PASS-WITH-NITS (art_01M4253D5NSDN8W2FZYJTDMMKD, machine-written check passed); ratified by the Orchestrator from GitHub. Minors and NITs to a held follow-up ticket.
