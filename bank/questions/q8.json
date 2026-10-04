@@ -12,7 +12,7 @@
     {
       "text": "4",
       "kind": "output",
-      "why_tempting": "If you think push reallocates the buffer and first follows the data \u2014 reading whatever now sits where v[0] was \u2014 you'd expect the new element. The borrow never gets that far."
+      "why_tempting": "If you think push reallocates the buffer and first follows the data — reading whatever now sits where v[0] was — you'd expect the new element. The borrow never gets that far."
     },
     {
       "text": "[1, 2, 3, 4]",
@@ -39,14 +39,21 @@
     "steps": []
   },
   "verified": {
-    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
     "edition": "2021",
-    "legacy": true,
+    "target_triple": "aarch64-unknown-linux-gnu",
+    "flags": {
+      "opt_level": "0",
+      "overflow_checks": true,
+      "debug_assertions": true
+    },
     "compile_error_code": [
       "E0502"
-    ]
+    ],
+    "verified_at": "2026-10-03T23:38:21Z",
+    "verifier_version": "popquiz-verify 7b1bc351e4dd"
   },
   "review": {
-    "reason": "Re-authored 2026-09-29: the one option that broke the wall's one-line 29-char rule (index 3, \"1\\n4\") was replaced with a single-line distractor, and why_tempting beats were drafted for every incorrect option. The program is unchanged so the answer stands and the August verified record stands with it. Trace still empty; affirm needs the walk-through steps (SPEC 7.4)."
+    "reason": "Re-authored 2026-09-29: the one option that broke the wall's one-line 29-char rule (index 3, \"1\\n4\") was replaced with a single-line distractor, and why_tempting beats were drafted for every incorrect option. The program's tokens are unchanged, so the answer stands; its source lost only the trailing newline the migration carried from the MVP (commit 6cac9ec). Trace still empty; affirm needs the walk-through steps (SPEC 7.4). Re-verified 2026-10-03 by the pinned verifier (just verify --expect does_not_compile, rustc 1.98.1; refused with E0502, nothing ran), which replaced the August legacy record whole with the verified record above."
   }
 }

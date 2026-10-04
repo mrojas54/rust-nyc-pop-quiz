@@ -6,7 +6,7 @@
     "rustc_release": "1.98.1",
     "rustc_commit_hash": "48a229ceaefd4985c50990b14116b6d856af0985",
     "miri_version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
-    "recorded_at": "2026-09-30T08:29:13Z"
+    "recorded_at": "2026-10-03T23:39:18Z"
   },
   "_source_sha256": "6bf2a5afa1b66dd26d392b90b96dea6d7820c28abb73d842defecdd00ff39bf8",
   "toolchain": {
@@ -14,48 +14,48 @@
     "stdout": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\nmiri 0.1.0 (420ed2a0c3 2026-09-18)\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.246
+    "wall_clock_s": 0.222
   },
   "compile": {
     "exit_code": 0,
     "stdout": "",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.348
+    "wall_clock_s": 0.365
   },
   "run:1": {
     "exit_code": 0,
-    "stdout": "[\"linus\", \"bjarne\", \"ada\", \"grace\", \"barbara\", \"niklaus\", \"rob\", \"ken\"]\n",
+    "stdout": "[\"barbara\", \"rob\", \"ada\", \"linus\", \"ken\", \"niklaus\", \"grace\", \"bjarne\"]\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.286
+    "wall_clock_s": 0.335
   },
   "run:2": {
     "exit_code": 0,
-    "stdout": "[\"linus\", \"grace\", \"ada\", \"ken\", \"niklaus\", \"bjarne\", \"rob\", \"barbara\"]\n",
+    "stdout": "[\"barbara\", \"ken\", \"niklaus\", \"bjarne\", \"grace\", \"ada\", \"rob\", \"linus\"]\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.296
+    "wall_clock_s": 0.32
   },
   "run:3": {
     "exit_code": 0,
-    "stdout": "[\"ken\", \"barbara\", \"bjarne\", \"linus\", \"ada\", \"rob\", \"grace\", \"niklaus\"]\n",
+    "stdout": "[\"grace\", \"ada\", \"linus\", \"ken\", \"rob\", \"bjarne\", \"niklaus\", \"barbara\"]\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.318
+    "wall_clock_s": 0.304
   },
   "run:4": {
     "exit_code": 0,
-    "stdout": "[\"bjarne\", \"ken\", \"ada\", \"linus\", \"grace\", \"barbara\", \"niklaus\", \"rob\"]\n",
+    "stdout": "[\"barbara\", \"bjarne\", \"grace\", \"ada\", \"ken\", \"linus\", \"niklaus\", \"rob\"]\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.283
+    "wall_clock_s": 0.279
   },
   "run:5": {
     "exit_code": 0,
-    "stdout": "[\"rob\", \"linus\", \"niklaus\", \"ada\", \"grace\", \"ken\", \"bjarne\", \"barbara\"]\n",
+    "stdout": "[\"niklaus\", \"rob\", \"ken\", \"grace\", \"ada\", \"bjarne\", \"barbara\", \"linus\"]\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.281
+    "wall_clock_s": 0.288
   }
 }

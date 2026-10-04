@@ -2,7 +2,7 @@
 
 Run once; its output is committed. A re-run writes only what the bank does not
 already hold, so it can never undo what happened to a record after it landed:
-q4, q7 and q8 were re-authored and q4 and q7 re-verified since (D-15, D-16).
+q4, q7 and q8 were re-authored and re-verified since (D-15, D-16).
 `test_migration.py` still regenerates all four into an empty directory to show
 where each record came from.
 
@@ -45,10 +45,12 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from popquiz.bank import (
     MAX_OPTION_LINE_CHARS,
+    BankError,
     Explains,
     History,
     Miri,
@@ -61,6 +63,8 @@ from popquiz.bank import (
     ValueDelta,
     Verified,
     history_path,
+    load_history,
+    load_question,
     normalized_output,
     options_needing_reauthoring,
     question_path,
@@ -518,16 +522,35 @@ def migrate(mvp_dir: Path, bank_dir: Path) -> list[Path]:
     written = []
     for qid in MIGRATED:
         question = build_question(batch, by_id[qid], content[qid])
-        if question_path(bank_dir, qid).exists():
+        if _already_held(question_path(bank_dir, qid), lambda: load_question(bank_dir, qid)):
             continue
         written.append(save_question(bank_dir, question))
 
     # The history store's shape, with its three stores empty. T-17 fills and reads
     # them and proves AC-17 on this shape; writing it here means T-17 arrives to a
     # file that exists rather than one it has to invent (SPEC 3.3).
-    if not history_path(bank_dir).exists():
+    if not _already_held(history_path(bank_dir), lambda: load_history(bank_dir)):
         written.append(save_history(bank_dir, History()))
     return written
+
+
+def _already_held(path: Path, load: Callable[[], object]) -> bool:
+    """Whether the bank already holds a readable file at `path`.
+
+    A file that is there but does not load - truncated, say - stops the run. Keeping
+    it would leave a damaged record looking migrated, and overwriting it would put
+    the August record back over whatever it had become (SPEC 3.3).
+    """
+    if not path.exists():
+        return False
+    try:
+        load()
+    except (OSError, ValueError, KeyError, TypeError, BankError) as exc:
+        raise MigrationError(
+            f"{path} is in the bank but cannot be read ({exc}); it is neither kept nor "
+            "overwritten. Restore it from git, then re-run."
+        ) from exc
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:

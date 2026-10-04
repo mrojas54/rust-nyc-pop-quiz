@@ -127,6 +127,21 @@ def test_a_does_not_compile_record_claims_no_run_and_no_miri() -> None:
         assert "nothing ran" in joined, name
 
 
+def test_the_q8_fixture_agrees_with_the_migration_and_the_bank(tmp_path: pathlib.Path) -> None:
+    """The fixture is q8's record as the migration writes it, and the record the
+    pinned verifier put in the bank in its place renders the same three lines, so
+    the wall shows q8 the receipt this fixture pins (D-22, D-25)."""
+    from popquiz.bank import load_question, question_to_dict
+    from popquiz.migrate_mvp import migrate
+
+    case = _case("q8-does-not-compile-legacy")
+    migrate(REPO / "mvp" / "2026-08-12", tmp_path)
+    assert question_to_dict(load_question(tmp_path, "q8"))["verified"] == case["verified"]
+    in_the_bank = load_question(REPO / "bank", "q8").verified
+    assert not in_the_bank.legacy
+    assert receipt_lines(in_the_bank) == case["expected_lines"]
+
+
 def test_the_two_lists_are_the_only_two() -> None:
     """SPEC 7.5: does-not-compile first, otherwise the four-line list, and no third.
 

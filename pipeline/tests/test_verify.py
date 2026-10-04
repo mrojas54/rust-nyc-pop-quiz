@@ -383,10 +383,9 @@ def test_a_does_not_compile_record_is_not_stale_on_miri_alone() -> None:
 
 
 def test_a_legacy_record_is_exempt_from_the_stale_check() -> None:
-    for qid in ("q3", "q8"):
-        v = question_for(qid).verified
-        assert v is not None and v.legacy
-        assert not verify.is_stale(v, dataclasses.replace(_pin(), release="0.0.0"))
+    v = question_for("q3").verified
+    assert v is not None and v.legacy
+    assert not verify.is_stale(v, dataclasses.replace(_pin(), release="0.0.0"))
 
 
 def test_a_non_legacy_record_whose_rustc_cannot_be_compared_is_stale() -> None:

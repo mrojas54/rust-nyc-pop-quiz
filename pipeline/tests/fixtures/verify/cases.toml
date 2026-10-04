@@ -12,6 +12,8 @@
 # so the fixture cannot drift from the question it stands for.
 [programs]
 q3 = "bank:q3"
+q4 = "bank:q4"
+q7 = "bank:q7"
 q8 = "bank:q8"
 hashmap-order = "programs/hashmap-order.rs"
 syntax-error = "programs/syntax-error.rs"
@@ -39,6 +41,18 @@ name = "clean program, declared UB: rejected (AC-9)"
 program = "q3"
 expect = "ub"
 verdict = "declared_ub_but_miri_clean"
+
+[[case]]
+name = "q4, re-authored, declared to run: accepted, so its correct option is derived from a run (AC-7, AC-8)"
+program = "q4"
+expect = "ran"
+verdict = "accepted"
+
+[[case]]
+name = "q7, re-authored, declared to run: accepted, so its correct option is derived from a run (AC-7, AC-8)"
+program = "q7"
+expect = "ran"
+verdict = "accepted"
 
 [[case]]
 name = "E0502, declared not to compile: accepted with the code recorded (AC-11)"

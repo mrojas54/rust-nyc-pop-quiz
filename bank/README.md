@@ -122,19 +122,24 @@ and options that no longer derive an answer from the record. It cannot see an
 edit *inside* the record that leaves it self-consistent — nothing in §3.2 binds a
 record to the run that produced it — and says so.
 
-The four migrated questions below still carry their `legacy` records; they were
-not re-verified on T-15b. That is an organizer step (T-20), and q4 and q7 need
-their programs re-authored first.
+Of the four migrated questions below, only q3 still carries its `legacy` record.
+q4, q7 and q8 were re-authored for the wall (PR #36) and re-verified on the pinned
+image, which replaced each legacy record whole with one it wrote: q4 and q7 on
+2026-09-30 (new programs, declared *ran*), q8 on 2026-10-03 (the same program,
+declared *does not compile*; E0502 again).
 
 Miri checks only the paths the program executed (AC-43).
 
 ## Where the migrated records came from
 
-`pipeline/src/popquiz/migrate_mvp.py`, run once, output committed. Re-running it
-reproduces these files byte for byte, and a test asserts that, so you can
-regenerate them rather than take them on trust.
+`pipeline/src/popquiz/migrate_mvp.py`, run once, output committed. A re-run writes
+only what the bank does not already hold: a question file or `history.json` that is
+there is kept, and one that is there but cannot be read stops the run rather than
+being kept or overwritten. Run into an empty directory it regenerates all four, and
+q3, the one nobody has touched since, comes out byte for byte the committed file; a
+test asserts that, so you can regenerate it rather than take it on trust.
 
-The records are **`legacy`** (`SPEC.md` §3.2, D-16): they hold only what the
+The records it writes are **`legacy`** (`SPEC.md` §3.2, D-16): they hold only what the
 August batch recorded — `rustc` as the one-line `--version` string, `edition`,
 `runs`, `stdout`, and a Miri result with no version, no borrow models and no
 seeds, because that pass ran outside the repo. `target_triple`, `flags`,
@@ -150,8 +155,12 @@ recorded* and the Miri row says the check was run separately (§13, AC-87). When
 T-15b re-verifies one of these questions the record is **replaced whole, never
 merged**, so the bank never holds half of each.
 
-q8's record carries `compile_error_code`, renamed from the MVP's `error_codes`
-with the codes unchanged, and no `runs`, `stdout` or `miri` — nothing ran (D-22).
+The record it writes for q8 carries `compile_error_code`, renamed from the MVP's
+`error_codes` with the codes unchanged, and no `runs`, `stdout` or `miri` — nothing
+ran (D-22). That record is kept as the receipt fixture
+`q8-does-not-compile-legacy`; the bank's q8 now holds the verifier's. q8's source
+in the bank is the migration's without its trailing newline (commit 6cac9ec), which
+changes no token of the program.
 The MVP's `miri` field for q8 reads `n/a (does not compile)`, which is not a
 result, so no Miri record was written rather than one implying it was fine.
 
@@ -246,8 +255,8 @@ and the run report shows the size before and after (AC-17). The committed file i
 still the empty shape T-14 wrote, so the first real run backfills the four
 migrated questions. `pipeline/tests/test_migration.py` checks only this file's
 shape (its version and three stores), not its contents, so a grown history keeps
-the suite green. Re-running the migration empties the history again; nothing is
-lost when that happens, because the next dedupe run rebuilds it from the bank.
+the suite green. Re-running the migration keeps the history as it is; it writes
+the empty shape only when there is no `history.json` at all.
 
 **The normalized check works on tokens, not a syntax tree, and that is a
 deviation from `SPEC.md` §7.3.** The contract says "normalized AST". Python's

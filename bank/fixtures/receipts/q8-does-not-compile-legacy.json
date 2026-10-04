@@ -1,5 +1,5 @@
 {
-  "_note": "q8's real legacy record, copied from mvp/2026-08-12/verified.json with error_codes renamed to compile_error_code and the values unchanged (T-14, D-16). The MVP's miri field for this question reads 'n/a (does not compile)', which is not a result, so no miri record exists to carry. Proves the three-line list, and that no run count and no Miri line appear for a record where nothing ran (AC-43, AC-87, D-22).",
+  "_note": "q8's real legacy record, copied from mvp/2026-08-12/verified.json with error_codes renamed to compile_error_code and the values unchanged (T-14, D-16). It is what migrate_mvp.py writes for q8 and what the bank held until the pinned verifier replaced it whole (2026-10-03); the bank's record now renders the same three lines (test_receipt.py asserts both). The MVP's miri field for this question reads 'n/a (does not compile)', which is not a result, so no miri record exists to carry. Proves the three-line list, and that no run count and no Miri line appear for a record where nothing ran (AC-43, AC-87, D-22).",
   "verified": {
     "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
     "edition": "2021",

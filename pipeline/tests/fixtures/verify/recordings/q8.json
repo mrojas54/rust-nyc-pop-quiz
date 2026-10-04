@@ -6,7 +6,7 @@
     "rustc_release": "1.98.1",
     "rustc_commit_hash": "48a229ceaefd4985c50990b14116b6d856af0985",
     "miri_version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
-    "recorded_at": "2026-09-30T08:29:13Z"
+    "recorded_at": "2026-10-03T23:39:18Z"
   },
   "_source_sha256": "891f9d02fa6140df2bb4a92fbbd81ed349767682dd1760feb191209c2c96d0da",
   "toolchain": {
@@ -14,13 +14,13 @@
     "stdout": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\nmiri 0.1.0 (420ed2a0c3 2026-09-18)\n",
     "stderr": "",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.166
+    "wall_clock_s": 0.178
   },
   "compile": {
     "exit_code": 1,
     "stdout": "",
     "stderr": "error[E0502]: cannot borrow `v` as mutable because it is also borrowed as immutable\n --> main.rs:4:5\n  |\n3 |     let first = &v[0];\n  |                  - immutable borrow occurs here\n4 |     v.push(4);\n  |     ^^^^^^^^^ mutable borrow occurs here\n5 |     println!(\"{}\", first);\n  |                    ----- immutable borrow later used here\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0502`.\n",
     "recorded_from": "popquiz-sandbox:1.98.1-2026-09-19-25a914853547",
-    "wall_clock_s": 0.169
+    "wall_clock_s": 0.182
   }
 }
