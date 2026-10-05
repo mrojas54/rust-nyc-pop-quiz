@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K1K1T2GNNB1VPSPXQKRJ",
-  "last_event_id": "ev_01M461K1K21RXESX6XT9908S8K",
+  "last_event_id": "ev_01M46CXV1DA1H5NM1SWFSWXZJ8",
   "last_status_changed_at": "2026-10-05T12:46:01Z",
   "priority": "low",
   "relationships_out": [],
@@ -27,6 +27,6 @@
   ],
   "title": "Room and phase test gaps: fit after release, the host sheet phase order, the route-table scan",
   "type": "chore",
-  "updated_at": "2026-10-05T12:46:01Z",
+  "updated_at": "2026-10-05T16:04:09Z",
   "urgency": null
 }

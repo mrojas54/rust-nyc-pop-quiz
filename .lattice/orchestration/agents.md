@@ -4,15 +4,16 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-10-05 09:3x EDT. **The Orchestrator stood down for a fresh session on the client's word ("stand down for refresh session"). The Result Validator (final pass) is still running in `tab:22` on `main` @ `e239346` (detached `validate-final`) and does not depend on this seat. `main` = `e239346` (PR #49, PQ-28, merged 09:2x); board 38 done / 25 backlog (every one held) / 1 cancelled; no PR open; no delegator live. Fly still v11 = `1263add`, twenty merges behind.** c11 tree at stand-down: `tab:7` (this seat) and `tab:22` (validator) in `area:1`; the client's `lattice dashboard --port 8799` at `tab:16` in `area:5`. Refs change on every c11 restart: `c11 tree` first.
+Snapshot: 2026-10-05 12:1x EDT. **Phase 2 is complete. The final Result Validator's report is in `validation-report.md` (🟡 YELLOW: 60 Pass / 15 Partial / 2 Fail / 6 Blocked on `main` @ `e239346`), routed from this seat; `tab:22` closed. Board 38 done / 25 backlog (every one held) / 1 cancelled; no PR open; no delegator live. Fly still v11 = `1263add`, twenty merges behind.** c11: `tab:7` (this seat) in `area:1`; the client's `lattice dashboard --port 8799` at `tab:16` in `area:5`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Tab ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `tab:7` (standing down) | ai-c11-cc/lattice-build | Resume note at the top of `run-state.md`. Next seat: read `validation-report.md` when its status line reads final, route it, then the closeout audit on the client's word |
-| Result Validator | Phase 2 (final) | `tab:22` | detached `e239346` in `…-worktrees/validate-final` | Started 09:28; baseline green (`just test` 17.0 s warm: pipeline 710, web 286, room 0 fail; canary 12/12; bank-audit passed, 1 WARN; a11y 31/31); fanning out buckets A–E; 0 of 83 rows at stand-down. One-shot: it writes `validation-report.md` and stops |
-| Waiting on the client | F-52 (affirmation path; no committed question is schedulable) · F-54…F-57 · PQ-21 (H-4) · PQ-23 (F-15) · PQ-30 · PQ-41…PQ-43 · PQ-46…PQ-50 · the audit's PQ-51…PQ-64 (Majors PQ-51…PQ-57; PQ-52 and PQ-54 matter most before a real meetup) · the Fly deploy · the closeout word | — | — | all held |
+| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | Report routed; idle. Next: the closeout audit, on the client's word only |
+| Waiting on the client | F-52 (affirmation path; no committed question is schedulable) · F-54…F-58 · F-46, F-48 (the report's two Fails) · PQ-21 (H-4) · PQ-23 (F-15) · PQ-30 · PQ-41…PQ-43 · PQ-46…PQ-50 · PQ-51…PQ-64 (before a real meetup: PQ-54, PQ-52, PQ-46) · the Fly deploy · the closeout word | — | — | all held |
 
 ### Archived (run history)
+
+- **Result Validator (final pass)** — `tab:22`, detached `e239346` in `…-worktrees/validate-final` (checkout kept). 09:28–12:03 EDT on 10-05. Five Sonnet bucket sub-agents; one report-writer. 83 rows: 60 Pass / 15 Partial / 2 Fail (rows 39, 100) / 6 Blocked (T-16, T-18). A client-requested addendum (headless WebKit via Playwright) moved rows 49, 98 and 102 Partial → Pass. Nothing committed or pushed; no ticket touched. Tab closed from this seat at 12:1x.
 
 | Actor | Ticket | Outcome | Notes |
 |---|---|---|---|

@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-04T08:50:24Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M431PWBSC3CP4ED9NQJGK2VN",
-  "last_event_id": "ev_01M431PWBVJHV7K73E8AQ206BJ",
+  "last_event_id": "ev_01M46CXV595HE4KDCENDYY4YQC",
   "last_status_changed_at": "2026-10-04T08:50:24Z",
   "priority": "medium",
   "relationships_out": [],
@@ -27,6 +27,6 @@
   ],
   "title": "Static dependency check: the room reaches no generator, verifier or LLM code",
   "type": "task",
-  "updated_at": "2026-10-04T08:50:24Z",
+  "updated_at": "2026-10-05T16:04:10Z",
   "urgency": null
 }
