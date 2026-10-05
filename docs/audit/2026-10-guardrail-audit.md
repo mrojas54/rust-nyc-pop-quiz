@@ -35,8 +35,8 @@ Not run: `just test-full` (needs Docker and the sandbox image), `just smoke` and
 
 ## Summary
 
-46 mutations tried: 31 caught, 15 survived. One probe confirmed a leak (G-3). No
-Critical.
+49 mutations tried: 34 caught, 15 survived. One probe confirmed a leak (G-3). No
+Critical. Two planned mutations were not run (see the mutation table).
 
 | Guardrail | Verdict | Critical | Major | Minor | NIT |
 |---|---|---|---|---|---|
@@ -48,13 +48,13 @@ Critical.
 | G-6 phase order | HOLDS | 0 | 0 | 0 | 0 |
 | G-7 the receipt claims what was proved | HOLDS-WITH-GAPS | 0 | 1 | 0 | 0 |
 | G-8 no source or trace on a phone | HOLDS | 0 | 0 | 0 | 0 |
-| G-9 every credential path enumerated | HOLDS-WITH-GAPS | 0 | 0 | 1 | 2 |
+| G-9 every credential path enumerated | HOLDS-WITH-GAPS | 0 | 0 | 2 | 1 |
 | G-10 used at release, not at build | HOLDS-WITH-GAPS | 0 | 2 | 1 | 0 |
 | G-11 no published distribution | HOLDS-WITH-GAPS | 0 | 0 | 2 | 0 |
 | G-12 every scheduled question affirmed | UNENFORCED | 0 | 1 | 1 | 0 |
 | Phase invariants (§4) | HOLDS-WITH-GAPS | 0 | 0 | 1 | 0 |
 | Cross-cutting | — | 0 | 0 | 1 | 0 |
-| **Total (27 gaps)** | | **0** | **11** | **13** | **3** |
+| **Total (27 gaps)** | | **0** | **11** | **14** | **2** |
 
 A gap that spans two guardrails is counted once, under the guardrail named first in
 its row of the gap list.
@@ -89,7 +89,7 @@ its row of the gap list.
 **The attack that survived (M1c).** `arrange` is where tonight's letter is actually
 placed, and no lint or simulation reads it. Adding *never the same letter as last
 meetup* inside it (read the bank's latest `used.meetup_date`, recompute that night's
-slot, bump tonight's by one if they match) passed all of `just test`. The lints look
+slot, bump tonight's by one if they match) passed the whole pipeline suite. The lints look
 for the ledger's file name, a slot parameter, and a draw-and-write function; this
 needs none of them. The simulation runs `slot_for_day`, not `arrange`. `schedule.py:166`
 also carries its own copy of `_rng`, so a draw written against it is invisible to
@@ -107,15 +107,19 @@ here).**
   - q4, q7, q8: exit 1 today, because their traces are empty. Each bakes at E once it
     has a trace.
 - Who documents it: only `popquiz schedule` (`schedule.py:529-533`) arranges by date
-  before it builds. The runbook sends organizers to `just schedule`. `room/README.md:596`
-  documents the standalone form as a `test-full` step.
+  before it builds. The runbook sends organizers to `just schedule`.
+  `room/README.md:595-596` documents the standalone form as a `test-full` step.
 - What tests it: `test_fallback.py:288` asserts the standalone command succeeds on q3,
   so the suite pins the behaviour rather than catching it.
 - Why it matters: the fallback is what goes on the projector when the room cannot run.
   A file built this way shows the answer at E on every such night. That is the third
   regression in PHILOSOPHY §2 (the same slot every meetup) by another door.
-- Severity, Major: the documented procedure does not reach it. If the Orchestrator
-  judges a standalone build on a no-wifi night plausible, it is Critical.
+- Severity, Major (the client confirmed this on 2026-10-05):
+  - One night built this way discloses nothing on its own. An attendee learns from it
+    only after repeated E nights, all built through the standalone path.
+  - It still needs fixing soon. `just schedule` refuses every committed question today,
+    because none is affirmed (`docs/RUNBOOK.md:54-65`). That leaves the standalone
+    builder as the only command that produces a fallback at all.
 - New: PQ-48 is about what the AC-26 tell measures in the stored order, and PQ-45 put
   the arrangement in `schedule` only. Neither covers this entry point.
 
@@ -137,8 +141,9 @@ letter today. `refusal` and `reserve_lines` read `used` to refuse and to count;
 print. The unevenness of the four stored answers (all at E) is not a gap; what the
 option-position tell measures is (GAP-26).
 
-**Verdict: HOLDS-WITH-GAPS.** The slot function is the strongest-guarded code on the
-tree. The arrangement around it is not guarded at all.
+**Verdict: HOLDS-WITH-GAPS.** The slot function is held by a parity test, three lints,
+both tails of the generator audit and the attendee simulation. The arrangement around
+it is held by none of them.
 
 ## G-2 — no hand-written answer reaches a deck or a room
 
@@ -156,10 +161,13 @@ tree. The arrangement around it is not guarded at all.
 - Provenance field: `verifier_version` (a digest of the verifier's code,
   `verify.py:255-261`) and `verified_at`.
 - *The build refuses a question whose answer field lacks it*: `verify.check_provenance`
-  (`verify.py:577-628`) refuses it, but nothing on the build path calls it. Its only
-  callers are tests. M2a (a non-legacy record with no `verifier_version` or
-  `verified_at`, affirmed by hand in a copied bank) scheduled with exit 0 and wrote its
-  fallback. GAP-4.
+  (`verify.py:577-628`) refuses it, and
+  `test_verify.py:425-428` (`test_every_bank_question_passes_the_provenance_check`) runs
+  it over every committed bank file in CI. So a committed record without provenance
+  fails CI. The build path itself never calls it: `schedule.refusal` and `fallback.bake`
+  do not. M2a (a non-legacy record with no `verifier_version` or `verified_at`,
+  affirmed by hand in a copied bank) scheduled with exit 0 and wrote its fallback. The
+  gap is a bank the organizer schedules from without committing it first. GAP-4.
 - M2f (`verified` deleted) was refused by `schedule.refusal`.
 
 **Hand edits inside the record (M2c).** `verified.stdout` was changed so the answer moved
@@ -210,7 +218,9 @@ Self { Self { _machine: PhantomData } } }` to `phase.rs`, or `#[derive(Default)]
 the struct, passed `boundary.rs` and the lib tests. The boundary test looks for the
 literal text `RevealWitness {` and checks a fixed list of sealed types for derives;
 `RevealWitness` is not on it. The compile-fail doctest still passes because the
-field stays private. AC-61's structural proof rests on a text search. GAP-9.
+field stays private. The vault's own surface is held: adding a method to it (M3e3)
+was caught by `boundary::the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness`.
+The key that opens it is held by a text search alone. GAP-9.
 
 **Two rooms on one question leak through `/last` (probe).** `create_for`
 (`rooms.rs:846-886`) refuses a question already *used*, but not one held by another
@@ -218,10 +228,16 @@ live room. At release, the take-it-home snapshot goes into one global slot
 (`rooms.rs:925`), served without authentication at `/last` (`routes.rs:639`). A
 throwaway test made rooms A and B on q3, put B live, and released A. `/last` then
 served q3's options with `"correct": true` on E while B's buzzer was still in `live`
-with its hint showing. Reverted. Severity Major, not Critical: an attendee alone cannot
-cause it. It needs an organizer to run two rooms on one question and release one
-before the other reveals. No documented procedure does that. A double *Create a room*,
-or a rehearsal room on the night's question, is the plausible route. GAP-8.
+with its hint showing. Reverted.
+
+Severity, Major: once it happens an attendee does learn the answer, but getting there
+takes a setup the documented procedure rules out. To release room A, its host has to
+take A through all six host actions, A's own reveal included, while B sits before
+reveal. The runbook keeps rehearsal questions away from the night's question
+(`docs/RUNBOOK.md:43-44`), and it sends smoke runs to a harness id
+(`docs/RUNBOOK.md:77-80`). An idle duplicate room leaks nothing until someone walks it
+to release. What is missing is a refusal in code, with a test, for something only the
+runbook prevents. GAP-8.
 
 **Reachability.** Every route a phone can reach, from `routes.rs`, `admin.rs` and
 `ws.rs`:
@@ -252,11 +268,14 @@ met by the vault's types, defeated by GAP-9.
 > Nothing per-person is stored beyond the room, and nothing per-person leaves the phone
 > after close. (AC-56, AC-57, AC-58)
 
-**Enforced by, checked.** No per-participant answer table: sessions live in
+**Enforced by, checked.** Totals carry an expiry: they live on the room record and go
+with it at the 4 h expiry (`lifecycle.rs:115-117`, `rooms.rs:352`), read here, not
+mutated. No per-participant answer table: sessions live in
 `SessionMap` and `release` empties it (`rooms.rs:915`). M4b (that call removed) was
 caught by `lifecycle.rs::ac56_nothing_per_person_survives_release`. `UsedRecord`
 (`used.rs:34-44`) holds `meetup_date`, `room_id`, `released_at`, `fit` and no count,
-pinned by exact-JSON and key-equality tests. The post-close traffic canary
+pinned by exact-JSON and key-equality tests and by a compile-time pattern over its
+fields (`used.rs:56`), which stopped M4a (a `totals` field) at compile time. The post-close traffic canary
 (`canary_scan/mod.rs:1614-1637`) fails a fetch ending `/answer`, a body containing the
 letter, or any socket send but attach.
 
@@ -400,10 +419,11 @@ only. GAP-17.
 **Also.** `HOST_DEV_TOKEN=` and its comments remain in `.env.example:39-40` and
 `fly.toml` (GAP-18, PQ-50). `deployed-burst.yml` stores `POPQUIZ_ORGANIZER_SESSION`
 and `POPQUIZ_ADMIN_TOKEN` as repository secrets for a client-triggered run and tells the
-operator to delete them afterwards; that is a credential path SPEC §8 does not list
-(GAP-19).
+operator to delete them afterwards. That is a credential path SPEC §8 does not list,
+and SPEC §8.3 says the admin token is never in the repository. GAP-19, Minor:
+*every path enumerated* is only partly met.
 
-**Audit demand.** *Auth audit covering all three paths*: met.
+**Audit demand.** *Auth audit covering all three paths*: met for the three paths SPEC names.
 
 **Verdict: HOLDS-WITH-GAPS.**
 
@@ -476,7 +496,7 @@ with exit 0. The affirmation also names who and when but not what: text edited a
 affirmation stays affirmed (CONTRACT NOTE 3). GAP-24.
 
 **Other paths around the gate.**
-- `popquiz fallback` checks nothing (M12d, GAP-2).
+- `python -m popquiz.fallback` checks nothing (M12d, GAP-2).
 - The room's admin `PUT` reads no `review` (`answers.rs:100`), so anything holding the
   token schedules an unaffirmed question. The harnesses do this by design with their
   own ids, and with the real q3 by default (GAP-21). GAP-25.
@@ -515,7 +535,7 @@ checks has no writer.
 | `review.affirmed_by`, `affirmed_at` | none (T-18 unbuilt) | `schedule`, `audit`, `dedupe` | no writer |
 | `verified.verified_at`, `verifier_version` | `verify` | `check_provenance` only, which nothing calls | no production reader |
 | `verified.miri.seeds` | `verify` | none | no reader |
-| `review.reason` | migration | none (its reader is T-16, unbuilt) | no reader |
+| `review.reason` | migration | none (its reader is T-16, PQ-21, unbuilt) | no reader |
 | `explains.legacy` | migration | `bank.quoted_outputs`, which nothing calls (T-18) | no production reader |
 | Room `fit` | the wall's `PUT` | host payload, `used` at release | writable after release (GAP-10) |
 
@@ -540,15 +560,15 @@ Severity is the attendee's (ruling 6). *Covered* means a board ticket already ho
 
 ```
 GAP-1  | G-1        | Major | new | The arrangement is outside every slot lint and simulation | schedule.py:189-208, schedule.py:166 (own _rng); audit.py:357,501,537 read slot.py and slot_for_day calls only; M1c survived | Lint schedule.arrange like the slot path (no bank, used or ledger reads; no draw but slot_for_day) and run the attendee simulation over arrange's output positions
-GAP-2  | G-1, G-12  | Major | new (not PQ-48 or PQ-45) | The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check | fallback.py:27-29,306-333; `popquiz.fallback q3 --bake` exit 0, E = q3's answer; test_fallback.py:288 pins it; room/README.md:596 documents it; M12d | Require --date and arrange, apply schedule.refusal, or remove the CLI in favour of `popquiz schedule --no-push`
+GAP-2  | G-1, G-12  | Major | new (not PQ-48 or PQ-45) | The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check | fallback.py:27-29,306-333; `python -m popquiz.fallback q3 --bake` exit 0, E = q3's answer; test_fallback.py:288 pins it; room/README.md:596 documents it; M12d | Require --date and arrange, apply schedule.refusal, or remove the CLI in favour of `popquiz schedule --no-push`
 GAP-3  | G-1        | Minor | covered by PQ-46 (needs: also retire answer_slots) | build_deck.py balances answer positions in the multi-question deck | build_deck.py:96-109 | Retire answer_slots with slot_for_meetup's write
-GAP-4  | G-2        | Major | new | The provenance check is not on the build path | check_provenance (verify.py:577) has no production caller; schedule.refusal (schedule.py:127) and fallback.bake (fallback.py:105) skip it; the replay covers MIGRATED only (migrate_mvp.py:76); M2a survived | Call check_provenance in refusal and bake, and replay every bank question that has a recording
+GAP-4  | G-2        | Major | new | The provenance check is not on the build path, so an uncommitted or local bank schedules without it | check_provenance (verify.py:577) runs in CI over committed files only (test_verify.py:425-428); schedule.refusal (schedule.py:127) and fallback.bake (fallback.py:105) skip it; the replay covers MIGRATED only (migrate_mvp.py:76); M2a survived | Call check_provenance in refusal and bake, and replay every bank question that has a recording
 GAP-5  | G-2        | Minor | new | Scheduling does not refuse a stale pin | verify.is_stale (verify.py:507) has no caller; SPEC 7.2 | Call is_stale in schedule.refusal for non-legacy records
 GAP-6  | G-2        | Minor | new (CONTRACT NOTE 1) | A self-consistent hand edit to a verified record is undetectable | verify.py:592-596; M2c accepted by check_provenance | Contract: a digest or recording id binding the record to its run
 GAP-7  | G-2        | Minor | new | The MVP deck trusts verified.json's answer with no provenance and no test | mvp/tools/build_deck.py:241,266; mvp/tools/verify.py:166-216 | A provenance check in build_deck, or retire the MVP deck once the room runs
 GAP-8  | G-3        | Major | new | Two live rooms on one question: releasing one publishes the answer at /last while the other is pre-reveal | rooms.rs:846-886 (create_for checks used only), rooms.rs:925 (global take_home), routes.rs:639; probe test | Refuse create_for while another unreleased room holds the question, with a test
 GAP-9  | G-3        | Major | new | A RevealWitness can be forged without boundary.rs noticing | phase.rs:336; boundary.rs:98-113,148-156; M3e, M3e2 survived | Put RevealWitness in the no-derive, no-impl scan and count every constructor form in phase.rs
-GAP-10 | G-10, G-4  | Minor | new | fit is writable after release; the guard is untested | rooms.rs:438; routes.rs:364 (no auth); M10d survived | A test that a released room ignores PUT fit and its revision does not move
+GAP-10 | G-10       | Minor | new | fit is writable after release; the guard is untested | rooms.rs:438; routes.rs:364 (no auth); M10d survived | A test that a released room ignores PUT fit and its revision does not move
 GAP-11 | G-5        | Major | new | The Forbidden row is not enforced on question prose | copylint.py:183-194 warns only; test_copylint.py:191-199; M5d2 survived | Fail `just test` on a Forbidden match in explains, why_tempting, hint (tropes stay warnings, SPEC 11.1)
 GAP-12 | G-5        | Major | covered by PQ-42 (sufficient) | trace.steps[].note is rendered and not linted | copylint.py:157-180 | PQ-42 A
 GAP-13 | G-5        | Minor | covered by PQ-42 (sufficient) | Whitespace and Unicode variants bypass the prose patterns | copylint.js:95-97, copylint.py:126-129 | PQ-42 C
@@ -557,12 +577,12 @@ GAP-15 | Phase inv. | Minor | new | The host sheet's phase order is a third lite
 GAP-16 | G-7        | Major | new | A receipt can claim a Miri run the record does not hold | answers.rs:347, receipt.py:120-121; answers.rs:174 accepts runs without miri; M7a, M7b survived | A receipt fixture with runs and no miri, asserting no Miri line, in both twins
 GAP-17 | G-9        | Minor | new | The route-table tests read routes.rs only | canary_scan/mod.rs:566-592; admin.rs:292; M9a2 survived | Walk the built Router, or scan every file that calls .route/.nest/.fallback
 GAP-18 | G-9        | NIT   | covered by PQ-50 (sufficient) | HOST_DEV_TOKEN residue | .env.example:39-40; fly.toml | PQ-50 item 7
-GAP-19 | G-9        | NIT   | new | Deployed burst keeps an organizer session and the admin token as repo secrets | .github/workflows/deployed-burst.yml:7-11,58-67,100 | Name it in SPEC 8 as a credential path, or pass them as one-run inputs
+GAP-19 | G-9        | Minor | new | Deployed burst keeps an organizer session and the admin token as repo secrets | .github/workflows/deployed-burst.yml:7-11,58-67,100 | Name it in SPEC 8 as a credential path, or pass them as one-run inputs
 GAP-20 | G-10       | Major | covered by PQ-46 (sufficient) | build_deck.py still writes the ledger at build | build_deck.py:220-234 | PQ-46
 GAP-21 | G-10, G-12 | Major | covered by PQ-41 (sufficient) | smoke and burst default to the real q3 and release it on the deployed room | burst.rs:100, smoke.rs:96 | PQ-41 B
 GAP-22 | G-11       | Minor | new (CONTRACT NOTE 2) | The distribution scan's file list misses docs/RUNBOOK.md, web/README.md, the page shells and room/src/copy.rs | audit.py:636-647; M11b survived | Scan by rule (every authored file outside bank/) and settle which organizer docs may carry tells
 GAP-23 | G-11       | Minor | covered by PQ-49 (sufficient) | bank-audit is not its own CI step | .github/workflows/ci.yml | PQ-49
-GAP-24 | G-12       | Major | covered by PQ-23 (needs: bind the affirmation to the text it affirmed; `edited` clears it) | No affirmation writer; the gate trusts hand-typed strings | schedule.py:147; audit.py:1078; M12b survived | PQ-23, with CONTRACT NOTE 3
+GAP-24 | G-12       | Major | covered by PQ-23 (needs: bind the affirmation to the text it affirmed; `edited` clears it) | No affirmation writer; the gate trusts hand-typed strings | schedule.py:147; audit.py:1085-1087 (in_reserve); bank.py:206 (affirmed()); M12b survived | PQ-23, with CONTRACT NOTE 3
 GAP-25 | G-12       | Minor | new | The room accepts a pushed question with no affirmation | answers.rs:100 (review ignored); admin.rs | Decide whether the room refuses an unaffirmed bank question or the gate stays client-side and is said so
 GAP-26 | G-1        | NIT   | covered by PQ-48 (needs: the option-position tell measures stored order, which arrange discards) | The AC-26 position tell reads the bank's order, not the wall's | audit.py tell pool, answer_index | PQ-48's ruling should say what position it measures
 GAP-27 | Cross-cut. | Minor | new | Persisted fields with no writer or no production reader | see the one-writer table | Delete or wire each, per SPEC 3
@@ -575,7 +595,7 @@ The interim report audited `0a4b6fb`. Each item below was re-checked on `0c7d60a
 - **"The answer is at E for every question; nothing arranges options by date."** Closed
   for `popquiz schedule` by PR #47: `schedule.arrange` (`schedule.py:189-208`) places
   the answer at `slot_for_day(date)`, tested by `test_ac23_*` (M1d caught). Still open
-  for `popquiz fallback` (GAP-2). The stored order is still E for all four, which is
+  for `python -m popquiz.fallback` (GAP-2). The stored order is still E for all four, which is
   correct: the bank's order means nothing.
 - **"G-12 has no enforcement on this tree."** The schedule-side gate now exists
   (`schedule.refusal`, PR #47; M12a caught). The affirmation writer is still unbuilt
@@ -614,11 +634,12 @@ in the tree.
 |---|---|---|---|
 | M1a | `slot_for_day` gains `history=None` | slot.py:55 | `bank-audit` slot lint (`FAIL slot path and ledger`); `test_audit.py` signature anchor |
 | M1b | `slot_for_day` returns `day.toordinal() % 5` | slot.py:76 | `test_slot.py::test_slot_for_day_draws_exactly_what_the_mvp_drew`; `bank-audit` generator (`TOO EVEN`), attendee simulation, slot lint |
+| M1b′ | a least-used, never-repeat balancer passed straight to the audit (`audit_generator`, `simulate_attendees`) | audit.py:163,261 | `audit_generator` raises `TOO EVEN (chi2=0.000)`; the simulation's least-used attendee hits 100%, outside the 18–22% band |
 | M1c | `arrange` avoids last meetup's letter, read from the bank's `used` | schedule.py:198 | **SURVIVED** (all of `pipeline` pytest) |
 | M1d | `arrange` puts the answer at E | schedule.py:198 | `test_schedule.py::test_ac23_the_correct_option_sits_at_the_dates_slot` (+3) |
 | M2a | non-legacy record without `verifier_version`, `verified_at`; affirmed; copied bank | bank record | **SURVIVED** (`popquiz schedule --no-push` exit 0) |
 | M2b | `"correct": 1` added; copied bank | bank record | `bank.question_from_dict` (`unknown field(s) ['correct']`), exit 1 |
-| M2c | `verified.stdout` edited so the answer moves to A; copied bank | bank record | **SURVIVED** (`check_provenance` accepts; `schedule` arranges A) |
+| M2c | `verified.stdout` edited so the answer moves to A, and E given a `why_tempting` (without it `schedule` refused, exit 1); copied bank | bank record | **SURVIVED** (`check_provenance` accepts; `schedule` arranges A) |
 | M2c-q3 | the same edit to `bank/questions/q3.json` | q3.json | `test_migration.py::test_the_correct_option_is_the_machines_output[q3]` (+5); `take_home::the_fixtures_are_what_the_room_builds` |
 | M2c-q4 | the same edit to `bank/questions/q4.json` | q4.json | `test_migration.py::test_the_correct_option_is_the_machines_output[q4]` (+2) |
 | M2d | room's `correct_index` returns 0 | answers.rs:268 | `canary::every_phase_every_surface_the_answer_stays_sealed_until_reveal` (+7) |
@@ -628,7 +649,9 @@ in the tree.
 | M3d | pre-reveal options reversed | view.rs:305 | `canary::every_phase_every_surface…` (`correct option's text is somewhere other than option E's slot`) |
 | M3e | `RevealWitness::forge()` added | phase.rs:336 | **SURVIVED** (`boundary`, lib) |
 | M3e2 | `#[derive(Default)]` on `RevealWitness` | phase.rs:336 | **SURVIVED** (`boundary`, lib) |
+| M3e3 | a `peek` method added to the vault | answers.rs:496 | `boundary::the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness` |
 | M4b | `sessions.release()` removed at release | rooms.rs:915 | `lifecycle::ac56_nothing_per_person_survives_release` |
+| M4a | `UsedRecord` gains `totals`, filled at release | used.rs:43, rooms.rs:922 | the compile-time field pin at `used.rs:56` (E0027, `pattern does not mention field totals`) |
 | M5a | *Turn to your neighbour.* in `buzzer_idle` | copy.js:63 | `copylint.test.js` Forbidden row; AC-98 test |
 | M5a2 | the same with two spaces | copy.js:63 | AC-98 test; copy freeze (not the Forbidden-row lint) |
 | M5b | the same in `copy.rs` only | copy.rs:27 | `twins::the_copy_module_mirrors_copy_js_in_both_directions` |
@@ -657,7 +680,13 @@ in the tree.
 | M11c | the same in the buzzer page shell | web/buzzer/index.html | `copy-freeze.test.js` (`the page shell types no string of its own`), not the AC-25 lint |
 | M12a | affirmation checks removed from `refusal` | schedule.py:148,156 | `test_ac72_*` (4) |
 | M12b | `affirmed_by: "x"`, `affirmed_at: "x"` typed in; copied bank | bank record | **SURVIVED** (`popquiz schedule --no-push` exit 0) |
-| M12d | `popquiz fallback q3` on the unaffirmed record | copied bank | **SURVIVED** (exit 0, answer at E) |
+| M12d | `python -m popquiz.fallback q3` on the unaffirmed record | copied bank | **SURVIVED** (exit 0, answer at E) |
+
+**Planned and not run.** M3g (the `/last` snapshot taken at `reveal`) and M4c (the
+buzzer sending its saved answer after close) were in the plan and were not run. The
+tests that would catch them were read (`used.rs::ac92_nothing_is_written_before_release`,
+`canary_scan/mod.rs:1277-1295`; `canary_scan/mod.rs:1614-1637`), not proven. G-4's
+post-close claim rests on M4b, M4a and that reading.
 
 **Probe P1** (GAP-8, not counted as a mutation): a throwaway test in
 `room/tests/take_home.rs` created two rooms on q3, put one live and released the other.
