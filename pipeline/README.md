@@ -42,12 +42,15 @@ so the interpreter and every dependency are the same everywhere.
 ## Scheduling a meetup
 
 One question a meetup, from the reserve: accepted, affirmed, unused (`SPEC.md`
-§3.3, §7.7). From `pipeline/`, with the admin token read from 1Password into the
-environment so it never lands in shell history or a file:
+§3.3, §7.7). From the repository root, with the admin token read from 1Password
+into the environment so it never lands in shell history or a file:
 
     POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
-      uv run --offline --no-sync python -m popquiz.schedule schedule q3 \
-        --date 2026-10-14 --room https://rustnyc-popquiz.fly.dev --out ~/popquiz-night
+      just schedule q3 --date 2026-10-14 --room https://rustnyc-popquiz.fly.dev --out ~/popquiz-night
+
+On a machine without `just`, the same command from `pipeline/` is
+`uv run --offline --no-sync python -m popquiz.schedule schedule …` (and `… sync …`
+below). The night itself, from scheduling to sync, is `docs/RUNBOOK.md`.
 
 What it does, in order:
 
@@ -79,7 +82,7 @@ the reserve: it is *used* when its room is released, not before (G-10, AC-92).
 used ledger in memory, so a restart before a sync loses the night's record:
 
     POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
-      uv run --offline --no-sync python -m popquiz.schedule sync --room https://rustnyc-popquiz.fly.dev
+      just sync --room https://rustnyc-popquiz.fly.dev
 
 `sync` writes each released question's `used` block into its bank record and
 prints the ledger report: every record synced, and any room whose wall reported a

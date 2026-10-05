@@ -291,6 +291,14 @@ verify *ARGS:
 bank-audit *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.audit --repo .. {{ ARGS }}
 
+# One question for a meetup: the affirm gate, the push, the fallback and host sheet (T-20).
+schedule *ARGS:
+    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
+
+# After a meetup, before anything restarts the room: the used ledger into the bank (T-20).
+sync *ARGS:
+    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
+
 
 # AC-82…AC-86 over every surface and phase (T-13): keyboard, the live region's
 # strings, AA contrast, 44 px targets, reduced motion. Hermetic and fast, so the

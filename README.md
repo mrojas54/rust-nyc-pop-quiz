@@ -101,7 +101,7 @@ A few rules the code holds itself to:
 - **Verification says exactly what ran.** "Miri ran clean" means no undefined
   behavior on the paths that executed, and nothing more.
 
-Hosts sign in with a stand-in credential today. Discord replaces it at T-10.
+Hosts sign in with Discord; the organizer role decides who can create a room.
 
 ## Where things live
 
@@ -111,6 +111,7 @@ Hosts sign in with a stand-in credential today. Discord replaces it at T-10.
 | [`web/`](web/README.md) | The wall, the buzzer and the host phone. Plain HTML, CSS and JS, no build step |
 | [`pipeline/`](pipeline/README.md) | Generate, verify, dedupe, review, the bank |
 | [`bank/`](bank/README.md) | The question records |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Running the Pop Quiz at a meetup: schedule, host, sync |
 | [`mvp/`](mvp/README.md) | The hand-run projector deck. One HTML file, no server, already running real questions |
 | [`PHILOSOPHY.md`](PHILOSOPHY.md) | The one thing, and the principles. Read it before changing anything people see |
 | [`SPEC.md`](SPEC.md) | What to build, and the guardrails |
