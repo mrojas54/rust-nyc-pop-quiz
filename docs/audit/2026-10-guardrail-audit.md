@@ -533,7 +533,7 @@ checks has no writer.
 | Field | Writer | Reader | Finding |
 |---|---|---|---|
 | `review.affirmed_by`, `affirmed_at` | none (T-18 unbuilt) | `schedule`, `audit`, `dedupe` | no writer |
-| `verified.verified_at`, `verifier_version` | `verify` | `check_provenance` only, which nothing calls | no production reader |
+| `verified.verified_at`, `verifier_version` | `verify` | `check_provenance`, called only by the CI test over committed files | no production reader |
 | `verified.miri.seeds` | `verify` | none | no reader |
 | `review.reason` | migration | none (its reader is T-16, PQ-21, unbuilt) | no reader |
 | `explains.legacy` | migration | `bank.quoted_outputs`, which nothing calls (T-18) | no production reader |
@@ -560,7 +560,7 @@ Severity is the attendee's (ruling 6). *Covered* means a board ticket already ho
 
 ```
 GAP-1  | G-1        | Major | new | The arrangement is outside every slot lint and simulation | schedule.py:189-208, schedule.py:166 (own _rng); audit.py:357,501,537 read slot.py and slot_for_day calls only; M1c survived | Lint schedule.arrange like the slot path (no bank, used or ledger reads; no draw but slot_for_day) and run the attendee simulation over arrange's output positions
-GAP-2  | G-1, G-12  | Major | new (not PQ-48 or PQ-45) | The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check | fallback.py:27-29,306-333; `python -m popquiz.fallback q3 --bake` exit 0, E = q3's answer; test_fallback.py:288 pins it; room/README.md:596 documents it; M12d | Require --date and arrange, apply schedule.refusal, or remove the CLI in favour of `popquiz schedule --no-push`
+GAP-2  | G-1, G-12  | Major | new (not PQ-48 or PQ-45) | The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check | fallback.py:27-29,306-333; `python -m popquiz.fallback q3 --bake` exit 0, E = q3's answer; test_fallback.py:288 pins it; room/README.md:595-596 documents it; M12d | Require --date and arrange, apply schedule.refusal, or remove the CLI in favour of `popquiz schedule --no-push`
 GAP-3  | G-1        | Minor | covered by PQ-46 (needs: also retire answer_slots) | build_deck.py balances answer positions in the multi-question deck | build_deck.py:96-109 | Retire answer_slots with slot_for_meetup's write
 GAP-4  | G-2        | Major | new | The provenance check is not on the build path, so an uncommitted or local bank schedules without it | check_provenance (verify.py:577) runs in CI over committed files only (test_verify.py:425-428); schedule.refusal (schedule.py:127) and fallback.bake (fallback.py:105) skip it; the replay covers MIGRATED only (migrate_mvp.py:76); M2a survived | Call check_provenance in refusal and bake, and replay every bank question that has a recording
 GAP-5  | G-2        | Minor | new | Scheduling does not refuse a stale pin | verify.is_stale (verify.py:507) has no caller; SPEC 7.2 | Call is_stale in schedule.refusal for non-legacy records
@@ -650,8 +650,8 @@ in the tree.
 | M3e | `RevealWitness::forge()` added | phase.rs:336 | **SURVIVED** (`boundary`, lib) |
 | M3e2 | `#[derive(Default)]` on `RevealWitness` | phase.rs:336 | **SURVIVED** (`boundary`, lib) |
 | M3e3 | a `peek` method added to the vault | answers.rs:496 | `boundary::the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness` |
-| M4b | `sessions.release()` removed at release | rooms.rs:915 | `lifecycle::ac56_nothing_per_person_survives_release` |
 | M4a | `UsedRecord` gains `totals`, filled at release | used.rs:43, rooms.rs:922 | the compile-time field pin at `used.rs:56` (E0027, `pattern does not mention field totals`) |
+| M4b | `sessions.release()` removed at release | rooms.rs:915 | `lifecycle::ac56_nothing_per_person_survives_release` |
 | M5a | *Turn to your neighbour.* in `buzzer_idle` | copy.js:63 | `copylint.test.js` Forbidden row; AC-98 test |
 | M5a2 | the same with two spaces | copy.js:63 | AC-98 test; copy freeze (not the Forbidden-row lint) |
 | M5b | the same in `copy.rs` only | copy.rs:27 | `twins::the_copy_module_mirrors_copy_js_in_both_directions` |
