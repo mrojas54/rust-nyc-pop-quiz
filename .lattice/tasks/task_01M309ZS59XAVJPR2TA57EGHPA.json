@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 13,
+  "comment_count": 14,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-20 (M3).\n\n`popquiz schedule` / `sync`: push the affirmed question to the server over the \u00a78.3 channel and write the **static fallback** file and its **host sheet** with T-26's build; pull `used`; reserve count, trend, and the low-reserve warning; a meetup from reserve with no generation\n\nCriteria: AC-75\u201377, AC-89, AC-92, AC-101, AC-102, `SPEC.md` \u00a712, G-12\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-11, T-18, T-19, T-25, T-26\nBUILDPLAN notes: Human track: H-11, for the first deployed push\n\nOrchestrator notes: Calls T-26's build and host-sheet functions; pushes over T-25's channel. H-11 (admin token) is needed only for the first deployed push, not to build or test.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
+  "done_at": "2026-10-05T01:39:02Z",
   "evidence_refs": [
     {
       "id": "art_01M43SAT02PNBCKM162JNQE3TN",
@@ -33,11 +33,21 @@
       "id": "art_01M44TE343HEPHXEZSWRQW55ZF",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M44VDRC0WJHATRB9HNAR2YPK",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M44VDRC0WJHATRB9HNAR2YPJ",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZS59XAVJPR2TA57EGHPA",
-  "last_event_id": "ev_01M44TE345R5X9N7J775TNPEX5",
-  "last_status_changed_at": "2026-10-05T00:48:08Z",
+  "last_event_id": "ev_01M44VDRC0WJHATRB9HNAR2YPN",
+  "last_status_changed_at": "2026-10-05T01:39:02Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -72,13 +82,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-25",
-  "status": "review",
+  "status": "done",
   "tags": [
     "m3",
     "inline-full"
   ],
   "title": "Schedule and sync",
   "type": "task",
-  "updated_at": "2026-10-05T01:21:45Z",
+  "updated_at": "2026-10-05T01:39:02Z",
   "urgency": null
 }

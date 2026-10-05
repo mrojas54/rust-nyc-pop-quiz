@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T01:39:02Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M44VDRC0WJHATRB9HNAR2YPJ",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M44VDRC0WJHATRB9HNAR2YPJ.md",
+    "size_bytes": 405
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #47 at de1da5fc69c648140cb9fefdbdcebe590ef0d346 (parents 013076b, a796add) on the client's word 2026-10-04 21:3x EDT, from the Orchestrator seat with --match-head-commit a796add. Exact-h",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T01:40:41Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M44VGS1BDGAA2WWPKSV46VAM",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M44VGS1BDGAA2WWPKSV46VAM.md",
+    "size_bytes": 521
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Resolved by PQ-25 (PR #47, merged at de1da5f on 2026-10-04): popquiz schedule arranges the options with the correct one at slot_for_day(meetup_date) before the room and the fallback see the record; st",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
