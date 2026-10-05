@@ -16,7 +16,7 @@ working-through never has to be cut off, one question a night makes a batch
 last most of a year, and nobody leaves during a three-minute closer.
 
 The room is the wall on the projector, a buzzer on every phone and the host
-phone in your hand. Every phase change is a tap on the host phone. Nothing
+phone in your hand. Every phase change is a tap on the host phone. No phase
 advances on its own.
 
 ## Before the night
@@ -25,7 +25,8 @@ advances on its own.
 
 The reserve is every question that is accepted, affirmed and unused (`SPEC.md`
 §3.3). `just schedule` and `just sync` print it before they do anything else.
-On `de1da5f` they print this:
+A snapshot, taken on `de1da5f`; the numbers move with every review and every
+night:
 
 ```
 reserve: 0 ready (accepted, affirmed, unused) - 0 meetups of runway at one question a meetup
@@ -107,9 +108,10 @@ step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
 2. Deploy from an up-to-date `main`, from the repository root:
    `fly deploy --ha=false --remote-only`. One machine, never two.
 3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`,
-   with `POPQUIZ_ORGANIZER_SESSION` in the environment and `smoke-q3`
-   scheduled first, as `room/README.md`, *Burst*, shows. It runs all seven
-   phases on a harness id, so no bank question is spent.
+   with `POPQUIZ_ORGANIZER_SESSION` in the environment. It runs all seven
+   phases on `smoke-q3`, a harness id, so no bank question is spent.
+   `smoke-q3` is not a bank record, so `just schedule` cannot push it: push it
+   with the loop in `room/README.md`, *Burst*, under *Scheduling*, first.
 4. `fly apps restart rustnyc-popquiz` after every smoke run. **Never during a
    night.**
 5. Then `just schedule`. A restart or deploy forgets every scheduled question,

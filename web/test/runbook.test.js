@@ -25,9 +25,9 @@ const REPO = path.join(__dirname, '..', '..');
 const RUNBOOK = fs.readFileSync(path.join(REPO, 'docs', 'RUNBOOK.md'), 'utf8');
 const JUSTFILE = fs.readFileSync(path.join(REPO, 'justfile'), 'utf8');
 
-// Whitespace is collapsed on both sides so a re-wrapped line still matches;
-// every character of the sentence still has to be there.
-const flat = (s) => s.replace(/\s+/g, ' ');
+// Blockquote markers are dropped and whitespace collapsed, so a re-wrapped line
+// still matches; every character of the sentence still has to be there.
+const flat = (s) => s.replace(/^[ \t]*>[ \t]?/gm, '').replace(/\s+/g, ' ');
 
 // SPEC.md §8.1, character for character.
 const OPTIONS_PUBLIC =
@@ -104,11 +104,28 @@ test('every just recipe the runbook names is in the justfile', () => {
   }
 });
 
+test('every button the host script says to tap is a SPEC §11 host action', () => {
+  const { PQ } = load('copy');
+  const actions = new Set(Object.keys(PQ.COPY)
+    .filter((k) => k.startsWith('host_action_')).map((k) => PQ.COPY[k]));
+  const taps = [...section('The host script').matchAll(/\*\*Tap \*([^*]+)\*\.\*\*/g)].map((m) => m[1]);
+  assert.ok(taps.length >= 6, `only ${taps.length} taps in the host script; the guard has gone slack`);
+  for (const label of taps) {
+    assert.ok(actions.has(label), `the host script says to tap *${label}*, which is no host action in copy.js`);
+  }
+});
+
 test('nothing the host is told to say matches SPEC §11\'s Forbidden row (AC-98)', () => {
   const { PQ } = load('copylint');
-  const says = RUNBOOK.split('\n')
-    .filter((l) => l.startsWith('> **Say:**'))
-    .map((l) => l.slice('> **Say:**'.length).trim());
+  // A Say line and any `>` lines that continue it.
+  const says = [];
+  let open = null;
+  for (const l of RUNBOOK.split('\n')) {
+    if (l.startsWith('> **Say:**')) { open = l.slice('> **Say:**'.length); says.push(open); }
+    else if (open !== null && /^>\s*\S/.test(l)) { says[says.length - 1] += ' ' + l.replace(/^>\s*/, ''); }
+    else { open = null; }
+  }
+  says.forEach((s, i) => { says[i] = s.trim(); });
   assert.ok(says.length >= 5, `only ${says.length} "Say:" lines; the guard has gone slack`);
   for (const line of says) {
     // Array.from: the lint runs in a node:vm context, and its arrays carry that
