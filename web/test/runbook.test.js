@@ -74,7 +74,7 @@ test('AC-90: the host script says one question, scheduled last', () => {
 test('every repository path the runbook names exists', () => {
   const { inline } = codeSpans(RUNBOOK);
   const looksLikePath = (s) =>
-    /\.(md|json|py|rs|js|html)$/.test(s) || /^(mvp|docs|room|pipeline|web)\//.test(s);
+    /\.(md|json|py|rs|js|html)$/.test(s) || /^(mvp|docs|room|pipeline|web|bank)\//.test(s);
   const checked = [];
   for (const span of inline) {
     if (/\s|:\/\/|^[/~]/.test(span) || !looksLikePath(span)) continue;

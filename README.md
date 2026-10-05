@@ -101,7 +101,7 @@ A few rules the code holds itself to:
 - **Verification says exactly what ran.** "Miri ran clean" means no undefined
   behavior on the paths that executed, and nothing more.
 
-Hosts sign in with a stand-in credential today. Discord replaces it at T-10.
+Hosts sign in with Discord; the organizer role decides who can create a room.
 
 ## Where things live
 

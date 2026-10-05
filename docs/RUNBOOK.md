@@ -46,10 +46,10 @@ answer's position is drawn from the meetup's date and nothing else, and
 `just schedule` does the drawing. Uneven letters and repeats are correct. Never
 pick a question to even them out (`PHILOSOPHY.md` §2).
 
-### Affirming a question — pending F-52
+### Affirming a question — pending the owner's ruling (F-52)
 
-This section is a placeholder for the owner's ruling on F-52. The ruling
-replaces it.
+This section is a placeholder for the owner's ruling on F-52, which is still
+open. The ruling replaces it.
 
 `just schedule` refuses any question whose review block lacks `affirmed_by`
 or `affirmed_at` (AC-72, G-12). The contract names the review surface as the
@@ -64,10 +64,37 @@ popquiz.schedule: q3 is not affirmed - it has no affirmed_by and no affirmed_at,
 It exits 1 and writes nothing. How the first question gets affirmed is the
 owner's open decision. Until it is made, there is no step here.
 
+### Deploy before the rehearsal
+
+The deployed room is behind `main`. Fly app `rustnyc-popquiz` runs `1263add`
+(2026-09-29), seventeen merges before `de1da5f`. Deploying is the client's
+step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
+
+1. **If a night ran since the last sync, `just sync` first.** A deploy restarts
+   the machine, and the used ledger lives in memory.
+2. Deploy from an up-to-date `main`, from the repository root:
+   `fly deploy --ha=false --remote-only`. One machine, never two.
+3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`,
+   with `POPQUIZ_ORGANIZER_SESSION` in the environment (`room/README.md`,
+   *Smoke*, says where it comes from). It runs all seven
+   phases on `smoke-q3`, a harness id, so no bank question is spent.
+   `smoke-q3` is not a bank record, so `just schedule` cannot push it: push it
+   with the loop in `room/README.md`, *Burst*, under *Scheduling*, first.
+4. `fly apps restart rustnyc-popquiz` after every smoke run. **Never during a
+   night.**
+5. Then `just schedule`. A restart or deploy forgets every scheduled question,
+   so scheduling comes last.
+
+The room runs on a paid Fly org, a card with a spending cap. The machine runs
+until something stops or redeploys it. A restart or a deploy loses every room,
+every scheduled question and the used ledger, which lives in memory. `just sync`
+first pulls that ledger into the bank; the ledger is the only part that can be
+saved.
+
 ### Scheduling
 
 From the repository root, the day of the meetup, after any deploy (*Deploy
-before the rehearsal*, below):
+before the rehearsal*, above):
 
 ```
 POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
@@ -97,30 +124,6 @@ nothing, with no token needed.
 
 The flags come from `just schedule --help` and `just sync --help`.
 
-### Deploy before the rehearsal
-
-The deployed room is behind `main`. Fly app `rustnyc-popquiz` runs `1263add`
-(2026-09-29), seventeen merges before `de1da5f`. Deploying is the client's
-step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
-
-1. **If a night ran since the last sync, `just sync` first.** A deploy restarts
-   the machine, and the used ledger lives in memory.
-2. Deploy from an up-to-date `main`, from the repository root:
-   `fly deploy --ha=false --remote-only`. One machine, never two.
-3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`,
-   with `POPQUIZ_ORGANIZER_SESSION` in the environment. It runs all seven
-   phases on `smoke-q3`, a harness id, so no bank question is spent.
-   `smoke-q3` is not a bank record, so `just schedule` cannot push it: push it
-   with the loop in `room/README.md`, *Burst*, under *Scheduling*, first.
-4. `fly apps restart rustnyc-popquiz` after every smoke run. **Never during a
-   night.**
-5. Then `just schedule`. A restart or deploy forgets every scheduled question,
-   so scheduling comes last.
-
-The room runs on a paid Fly org, a card with a spending cap. The machine runs
-until something stops or redeploys it. A restart or a deploy loses every room
-and every scheduled question, so `just sync` comes first.
-
 ## At the venue
 
 Take three measurements once, ever (AC-100):
@@ -137,6 +140,8 @@ on the practice-run sheet. To see whether the bank fits the room you measured:
 just bank-audit --screen-width-ft <W> --screen-height-ft <H> --back-row-ft <D>
 ```
 
+It prints each check and writes its report to `bank/audit/<YYYY-MM-DD>.json`.
+
 The wall's own numbers are code, in `web/shared/typemodel.js`, and change
 through a pull request, not on the night.
 
@@ -145,9 +150,9 @@ and the host sheet printed.
 
 ## Creating the room
 
-Do this during the last talk, with the wall not yet on the projector. A room
-nobody acts on closes after 30 minutes in `idle` (`SPEC.md` §4.6), so not at
-the start of the night.
+Do this in the last ten to fifteen minutes of the last talk, with the wall not
+yet on the projector. Not earlier: a room nobody acts on closes after 30
+minutes in `idle` (`SPEC.md` §4.6).
 
 1. On the host phone, open `https://rustnyc-popquiz.fly.dev/host?question=<id>`.
 2. Tap *Sign in with Discord*. Discord asks once for your identity and server
@@ -168,8 +173,8 @@ Put the wall on the projector when the last talk ends.
 The Pop Quiz is one question, and it is scheduled last: after the last talk, with nothing after it, and the wrap-up releases the room.
 
 Each block is a phase in the room's order. The action is the button on the
-host phone, exactly as it reads. Five minutes from *Start* to *End Pop Quiz*;
-only the walk-through is worth spending extra time on.
+host phone, exactly as it reads. Five minutes end to end, *Start* to *End Pop
+Quiz* (AC-89); only the walk-through is worth spending extra time on.
 
 ### idle — before the question
 
@@ -236,7 +241,8 @@ the trace lands on the step that prints. Each phone shows **✓ It was ‹Y›.*
 The host phone shows **Read it aloud** and three beats: *What happens*, *Why
 ‹n› of us said ‹X›*, *What to remember*. Read them aloud as written. They are
 written to be read, not paraphrased. When nobody chose another option, the
-middle beat is *Why nobody said anything else* and you read the last beat only.
+middle beat is headed *Why nobody said anything else* and has no text: read
+*What happens*, then *What to remember*.
 
 > **Say:** (the three beats, verbatim)
 
@@ -307,13 +313,14 @@ File the sheets:
 
 | What you see | What to do |
 |---|---|
-| `just schedule` prints `… is not affirmed …` | No question is affirmed yet. See *Affirming a question — pending F-52*. Do not edit the record. |
+| `just schedule` prints `… is not affirmed …` | No question is affirmed yet. See *Affirming a question — pending the owner's ruling (F-52)*. Do not edit the record. |
 | `POPQUIZ_ADMIN_TOKEN is not set in the environment` | Run the command with the `op read` prefix shown above. |
 | `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret. `room/README.md`, *Pipeline channel*, has the rotation. |
 | `… is inside the repository …` | Give `--out` a directory outside it, such as `~/popquiz-<YYYY-MM-DD>`. |
 | `… has already been run; a question is never run twice.` | That machine released this question. Pick another. |
 | `A room is running … it can be replaced once that room is gone.` | A room already holds the question. Do not re-push during a night. |
-| The host page answers `400` | The link ends in `question=` with no id. Put the id in. |
+| *Sign in with Discord* answers `400` | The question id in the link is empty or not an id. An id is 1 to 64 letters, digits, `-` or `_`. Open `/host?question=<id>` with the real id. |
+| Coming back from Discord answers `400` | The sign-in was replayed, expired or lost its cookie. Open `/host?question=<id>` again and tap *Sign in with Discord* once. |
 | `No question is scheduled with that id.` | The push did not land, or the machine restarted since. Run `just schedule` again with the same id and date, and check it prints `scheduled: new`. |
 | `That question has already been run. Pick another.` | This machine has released that question. Pick another. |
 | `That Discord account isn't in the Rust NYC server.` | Sign in with the account that is. |
@@ -321,7 +328,7 @@ File the sheets:
 | *Create a room* fails with `503` | Discord did not answer. Try again in a minute. A room already open does not need Discord. |
 | The host phone dies or is lost | Open the saved host-screen address on another phone. It controls the same room. |
 | Phones show *That room went quiet and closed.* | Nobody acted on the room for 30 minutes (20 after *Start*). Create a new room from `/host?question=<id>`; the question is still unused. |
-| The room cannot be reached | Open `<id>.html` on the laptop and step it with `Space`, `←` `→` and `Esc`. Read from the host sheet. Votes are hands. |
+| The room cannot be reached | Open `<id>.html` on the laptop and step it with `Space`, `←` `→` and `Esc`. Read from the host sheet. Votes are hands. At the reveal the sheet lists every incorrect option by letter with why it tempts; read the one for the option most hands chose. |
 | Code is clipped on the wall | The wall shows a visible edge on the side that lost content. Keep going and write it on the sheet; `just sync` reports the fit afterwards. |
 | The answer, a ✓ or *How we know* shows before *Reveal* | A defect. Write down the phase it appeared in. |
 | The host apologises, improvises or asks for a contribution | The observer writes down the exact words (AC-51, AC-98). |
