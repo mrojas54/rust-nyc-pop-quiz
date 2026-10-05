@@ -643,3 +643,68 @@ def test_sync_refuses_a_same_room_record_that_differs(bank, room, capsys):
     assert sync(bank) == 1
     assert "differs" in capsys.readouterr().err
     assert snapshot(bank) == before
+
+
+# --------------------------------------------------------------------------- #
+# Fix-back round (exact-head review of 19ca530)
+# --------------------------------------------------------------------------- #
+
+
+def test_ac102_a_record_the_fallback_refuses_is_refused_before_any_request(affirmed, room, tmp_path, capsys):
+    """The files are rendered before the push, so a record the fallback cannot
+    build (here, a trace too short to walk) never reaches the room."""
+    path = affirmed / "questions" / "q3.json"
+    data = json.loads(path.read_text())
+    data["trace"]["steps"] = data["trace"]["steps"][-1:]
+    path.write_text(json.dumps(data))
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    assert schedule_q3(affirmed, out) == 1
+    assert "fewer than two steps" in capsys.readouterr().err
+    assert fake.requests == [] and not out.exists()
+
+
+@pytest.mark.parametrize("status", [403, 404])
+def test_ac101_an_unexpected_answer_is_reported_without_the_token(affirmed, bank, room, tmp_path, capsys, status):
+    room((status, b"not for you"))
+    assert schedule_q3(affirmed, tmp_path / "out") == 1
+    pushed = capsys.readouterr()
+    assert f"the room answered {status} to the push" in pushed.err
+    assert sync(bank) == 1
+    pulled = capsys.readouterr()
+    assert f"the room answered {status} to the ledger request" in pulled.err
+    assert PLANT not in pushed.out + pushed.err + pulled.out + pulled.err
+
+
+def test_ac23_the_distractor_shuffle_is_keyed_on_the_date(affirmed):
+    """Nights that share a slot still order the other four differently: the
+    shuffle reads the date, so one night's order says nothing about another's."""
+    q3 = load_question(affirmed, "q3")
+    same_slot, day = [], date(2026, 1, 1)
+    while len(same_slot) < 6:
+        if slot_for_day(day) == 2:
+            same_slot.append(day)
+        day += timedelta(days=1)
+    arranged = [schedule.arrange(q3, d) for d in same_slot]
+    assert {correct_index(a) for a in arranged} == {2}
+    assert len({tuple(o.text for o in a.options) for a in arranged}) > 1
+
+
+def test_ac102_a_write_failure_after_a_push_says_the_room_holds_the_record(affirmed, room, monkeypatch, tmp_path, capsys):
+    room((201, {"scheduled": "new"}))
+
+    def full_disk(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(fallback, "write_fallback", full_disk)
+    assert schedule_q3(affirmed, tmp_path / "out") == 1
+    err = capsys.readouterr().err
+    assert "the room holds the record" in err and "were not written" in err
+    assert "Traceback" not in err and PLANT not in err
+
+
+def test_ac23_the_postcondition_is_a_raise_not_an_assert():
+    tree = ast.parse(Path(schedule.__file__).read_text(encoding="utf-8"))
+    arrange = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "arrange")
+    assert not any(isinstance(n, ast.Assert) for n in ast.walk(arrange)), "-O strips an assert"
+    assert any(isinstance(n, ast.Raise) for n in ast.walk(arrange))

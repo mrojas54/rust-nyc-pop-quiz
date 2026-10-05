@@ -63,8 +63,8 @@ What it does, in order:
    shuffled on the date and the question id. The file in `bank/` is not changed.
 4. **Pushes** the arranged record to `PUT /admin/questions/<id>` and prints
    `scheduled: new` or `scheduled: replaced`. A refusal prints the room's reason.
-   Connection failures and 5xx are retried three times with growing waits; a 4xx
-   is never retried; a redirect is never followed. The room must be `https`, or
+   Connection failures, 5xx, 408 and 429 are retried three times with growing
+   waits; a 4xx other than 408 or 429 is never retried; a redirect is never followed. The room must be `https`, or
    plain `http` to this machine.
 5. **Writes** `<id>.html` (the static fallback) and `<id>.host-sheet.txt` beside
    it, from the same arranged record, so the room and the file agree about where
@@ -86,7 +86,8 @@ prints the ledger report: every record synced, and any room whose wall reported 
 fit other than *fits* — or none at all (`fit` absent). Ids that are not bank
 questions (`smoke-q3`, `burst-q3` from the deployed test runs) are listed and
 skipped. A question the ledger names under a second room is refused for that
-record, and the run exits non-zero. Running it twice changes nothing.
+record, and the run exits non-zero; so is a record already synced from the same
+room whose details differ from the ledger's. Running it twice changes nothing.
 
 **Today no committed question can be scheduled.** Every record in `bank/questions/`
 is unreviewed and unaffirmed, so `schedule` refuses all four until an organizer

@@ -28,7 +28,8 @@ the laptop is the reader that parses what the room wrote (`room/tests/used.rs`).
 environment and nowhere else - no flag, no file - and appears in no line this
 module prints and no exception it raises. Retries are bounded and backed off:
 connection failures and 5xx are retried a fixed small number of times with
-growing waits; a 4xx is the room's answer and is never retried.
+growing waits, as are 408 and 429, which mean *not now*; any other 4xx is the
+room's answer and is never retried.
 """
 
 from __future__ import annotations
@@ -45,14 +46,14 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from popquiz import fallback
-from popquiz.audit import is_accepted, in_reserve
+from popquiz.audit import in_reserve, is_accepted
 from popquiz.bank import (
     BankError,
     Question,
@@ -202,7 +203,8 @@ def arrange(question: Question, day: date) -> Question:
     options = _shuffled(others, "distractors", day.isoformat(), question.id)
     options.insert(slot, question.options[correct])
     arranged = dataclasses.replace(question, options=tuple(options))
-    assert correct_index(arranged) == slot, f"{question.id}: arranged answer is not at the slot"
+    if correct_index(arranged) != slot:
+        raise BankError(f"{question.id}: the arranged answer is not at the slot the date draws")
     return arranged
 
 
@@ -495,7 +497,7 @@ def ledger_report(result: SyncResult) -> list[str]:
         elif r["fit"] != "fits":
             lines.append(f"fit: room {r['room_id']} ({r['question_id']}) - {r['fit']}")
     for qid in result.skipped:
-        lines.append(f"skipped: {qid} is not a bank question (a test harness id)")
+        lines.append(f"skipped: {qid} is not a bank question (not in the bank)")
     return lines
 
 
@@ -533,9 +535,16 @@ def _schedule(args: argparse.Namespace) -> int:
     answer = "not pushed (--no-push)"
     if token is not None:
         answer = f"scheduled: {push(arranged, args.room, token)}"
-    page, sheet = fallback.write_fallback(
-        arranged, Path(args.out) / f"{arranged.id}.html", home_link=args.home_link
-    )
+    try:
+        page, sheet = fallback.write_fallback(
+            arranged, Path(args.out) / f"{arranged.id}.html", home_link=args.home_link
+        )
+    except OSError as e:
+        held = "the room holds the record, but " if token is not None else ""
+        raise ScheduleError(
+            f"{held}the fallback and host sheet were not written to {args.out} "
+            f"({type(e).__name__}: {e.strerror or 'write failed'})"
+        ) from None
     print(f"{arranged.id} for {args.date.isoformat()}")
     print(answer)
     print(page)
