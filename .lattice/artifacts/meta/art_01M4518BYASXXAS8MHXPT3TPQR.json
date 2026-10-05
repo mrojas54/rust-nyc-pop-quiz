@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T03:20:57Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4518BYASXXAS8MHXPT3TPQR",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4518BYASXXAS8MHXPT3TPQR.md",
+    "size_bytes": 4860
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Orchestrator exact-head review (6394b15): FAIL, Major fixed in 40a3366, Minors to the fix-back",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 8,
+  "comment_count": 10,
   "complexity": "low",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -23,10 +23,15 @@
       "id": "art_01M44ZW775V2SHQ0XSPVJTMRRB",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4518BYASXXAS8MHXPT3TPQR",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZSM0EFT468WZSQA2XCC5",
-  "last_event_id": "ev_01M450HHR192YKKBA0QK0A1QXP",
+  "last_event_id": "ev_01M4518C2PP2VZ2R80PW7SJ5QE",
   "last_status_changed_at": "2026-10-05T02:56:55Z",
   "priority": "medium",
   "relationships_out": [
@@ -55,6 +60,6 @@
   ],
   "title": "Organizer runbook",
   "type": "task",
-  "updated_at": "2026-10-05T03:08:29Z",
+  "updated_at": "2026-10-05T03:20:57Z",
   "urgency": null
 }
