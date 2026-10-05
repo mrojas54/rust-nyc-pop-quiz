@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T13:21:51Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M463MMZSHB0ABQBK1SMVQ5Z8",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M463MMZSHB0ABQBK1SMVQ5Z8.md",
+    "size_bytes": 263
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged PR #49 at e239346 (merge commit) on the client's 'merge on green ci'. Exact-head CI green on d576f5b; the exact-head review of fe7b76a PASS-WITH-NITS; the merge-scoped re-read of d576f5b PASS-W",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

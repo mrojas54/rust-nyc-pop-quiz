@@ -1,0 +1,1 @@
+Merged PR #49 at e239346 (merge commit) on the client's 'merge on green ci'. Exact-head CI green on d576f5b; the exact-head review of fe7b76a PASS-WITH-NITS; the merge-scoped re-read of d576f5b PASS-WITH-NITS (one unwrapped line at :246, cosmetic, goes to PQ-50).
