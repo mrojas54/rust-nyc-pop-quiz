@@ -35,6 +35,11 @@ and the two numbers everything about type size rests on are still guesses.
 
 ## Before
 
+**Which room.** The built room if HC-0 **and** T-10's live Discord check have
+both passed (`EVALUATION.md`, HC-1): drive it from `docs/RUNBOOK.md`, and its
+question is spent through the room's ledger and `just sync`, not by hand.
+Otherwise the prototype, as written below.
+
 **Drive `prototypes/C-projector-first.html`, not the MVP deck.** The MVP deck
 predates Story B11 — it has no split phase and no walk-through, and those are
 the two phases the rehearsal exists to watch. All seven phases, in order, from
