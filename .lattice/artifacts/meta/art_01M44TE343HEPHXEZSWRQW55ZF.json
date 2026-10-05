@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T01:21:45Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M44TE343HEPHXEZSWRQW55ZF",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M44TE343HEPHXEZSWRQW55ZF.md",
+    "size_bytes": 1516
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Orchestrator merge-scoped re-read at a796add",
+  "token_usage": null,
+  "type": "note"
+}
