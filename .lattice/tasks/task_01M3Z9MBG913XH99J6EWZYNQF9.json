@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-02T21:51:52Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M3Z9MBG913XH99J6EWZYNQF9",
-  "last_event_id": "ev_01M3Z9MBGBP9X5AD035J9FBVKN",
+  "last_event_id": "ev_01M461KGPBZR21TCBTV7PVWD9A",
   "last_status_changed_at": "2026-10-02T21:51:52Z",
   "priority": "medium",
   "relationships_out": [],
@@ -26,6 +26,6 @@
   ],
   "title": "Copy lint follow-ups: the trace notes, the freeze's blind spots, lint bypasses",
   "type": "task",
-  "updated_at": "2026-10-02T21:51:52Z",
+  "updated_at": "2026-10-05T12:46:17Z",
   "urgency": null
 }

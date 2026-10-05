@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-04T08:50:24Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M431PWKFBY5FJKHPTWMZK4KQ",
-  "last_event_id": "ev_01M431PWKGKT46KZQSEG2DJSQE",
+  "last_event_id": "ev_01M461KGZPCYQYS3BFZFD7F5F3",
   "last_status_changed_at": "2026-10-04T08:50:24Z",
   "priority": "low",
   "relationships_out": [],
@@ -26,6 +26,6 @@
   ],
   "title": "Run just bank-audit in CI",
   "type": "chore",
-  "updated_at": "2026-10-04T08:50:24Z",
+  "updated_at": "2026-10-05T12:46:17Z",
   "urgency": null
 }

@@ -1,0 +1,30 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": null,
+  "created_at": "2026-10-05T12:46:02Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-27** (Cross-cut., Minor, new): Persisted fields with no writer or no production reader\n- Evidence: see the one-writer table\n- What would close it: Delete or wire each, per SPEC 3\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M461K27TNGNBNJZAVSK7PHFQ",
+  "last_event_id": "ev_01M461K27VEJHZAYXDD3X570TH",
+  "last_status_changed_at": "2026-10-05T12:46:02Z",
+  "priority": "low",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-64",
+  "status": "backlog",
+  "tags": [
+    "audit-gap",
+    "held",
+    "cross-cutting"
+  ],
+  "title": "Persisted fields with no writer or no production reader",
+  "type": "chore",
+  "updated_at": "2026-10-05T12:46:02Z",
+  "urgency": null
+}

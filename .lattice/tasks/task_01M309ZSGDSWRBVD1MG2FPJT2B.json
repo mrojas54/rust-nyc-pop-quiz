@@ -1,17 +1,33 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 9,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-23 (M4).\n\n**Guardrail audit** \u2014 an adversarial read of all merged code against G-1\u2026G-12 and the phase invariants; files gap tickets\n\nCriteria: G-1\u2026G-12\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): everything above\nBUILDPLAN notes: The Phase-4 pass, re-run on the built tree\n\nOrchestrator notes: Runs last, on the assembled tree. Files gap tickets; does not fix.\n\nWorkflow mode: sub-agent-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M460HG191GM8FKN1JP2THCSH",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M460KP8Y6N27W3D4WS5140HE",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M460YP872WX97Y1XT0027AAF",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZSGDSWRBVD1MG2FPJT2B",
-  "last_event_id": "ev_01M4560YGZDT8NYYFMB3DD7NXG",
-  "last_status_changed_at": "2026-09-20T21:01:39Z",
+  "last_event_id": "ev_01M461KHDRCCE0S08BEMRRFTJX",
+  "last_status_changed_at": "2026-10-05T12:34:58Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -214,13 +230,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-28",
-  "status": "backlog",
+  "status": "review",
   "tags": [
     "m4",
     "sub-agent-full"
   ],
   "title": "Guardrail audit",
   "type": "task",
-  "updated_at": "2026-10-05T04:44:17Z",
+  "updated_at": "2026-10-05T12:46:18Z",
   "urgency": null
 }

@@ -1,0 +1,30 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": null,
+  "created_at": "2026-10-05T12:46:02Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-25** (G-12, Minor, new): The room accepts a pushed question with no affirmation\n- Evidence: answers.rs:100 (review ignored); admin.rs\n- What would close it: Decide whether the room refuses an unaffirmed bank question or the gate stays client-side and is said so\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M461K23XKW76SHMM0GCZ54NT",
+  "last_event_id": "ev_01M461K23Y9SEX4RRBNABQ9VPC",
+  "last_status_changed_at": "2026-10-05T12:46:02Z",
+  "priority": "low",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-63",
+  "status": "backlog",
+  "tags": [
+    "audit-gap",
+    "held",
+    "g-12"
+  ],
+  "title": "The room accepts a pushed question with no affirmation",
+  "type": "chore",
+  "updated_at": "2026-10-05T12:46:02Z",
+  "urgency": null
+}
