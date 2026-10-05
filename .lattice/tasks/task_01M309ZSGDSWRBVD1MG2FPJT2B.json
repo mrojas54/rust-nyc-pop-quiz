@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "high",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZSGDSWRBVD1MG2FPJT2B",
-  "last_event_id": "ev_01M30A04TGMDAGN7X8B411JAKH",
+  "last_event_id": "ev_01M4560YGZDT8NYYFMB3DD7NXG",
   "last_status_changed_at": "2026-09-20T21:01:39Z",
   "priority": "medium",
   "relationships_out": [
@@ -221,6 +221,6 @@
   ],
   "title": "Guardrail audit",
   "type": "task",
-  "updated_at": "2026-09-20T21:01:51Z",
+  "updated_at": "2026-10-05T04:44:17Z",
   "urgency": null
 }
