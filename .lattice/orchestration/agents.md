@@ -4,14 +4,20 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-10-04 23:4x EDT. **Run paused on the client's word. PR #48 (PQ-29, T-24, the organizer runbook) merged at `0c7d60a` on "stop once merged on green ci"; PQ-29 `done` (37 done / 1 cancelled / 12 backlog); `main` = `0c7d60a`; no PR open; no delegator live (`tab:14` closed from this seat after `done`; worktree `organizer-runbook` @ `2f109c9` kept for the client's cleanup, with `schedule-sync`, `bank-round-two`, `validate-main` and the older ones). Every open ticket is held or client-gated; PQ-28 (T-23, the guardrail audit) is last and dispatches on the client's word. Fly still v11 = `1263add`, eighteen merges behind. The loop is stopped (23:2x: "stop after ticket is done").** Earlier today: the client ruled PQ-45 → Option A at 10:3x; PQ-25 dispatched 10:5x. Phase 2's interim audit stands: 🟡 YELLOW on `0a4b6fb` (55 pass / 15 partial / 2 fail / 11 blocked over 83 pre-merge rows), six held tickets PQ-45…PQ-50, F-48…F-51 upstream. Fly still v11 (`1263add`). c11 tree: `tab:7` (this seat) in `area:1`; the client's `lattice dashboard --port 8799` at `tab:16` in `area:5` (not this seat's); window 1240×872. Worktrees `bank-round-two` and `validate-main` remain for the client's cleanup; the client's local Codex branch `codex/webmcp-session-tour` (four commits, no PR) is external work not yet landed. Refs change on every c11 restart: `c11 tree` first.
+Snapshot: 2026-10-05 09:3x EDT. **The Orchestrator stood down for a fresh session on the client's word ("stand down for refresh session"). The Result Validator (final pass) is still running in `tab:22` on `main` @ `e239346` (detached `validate-final`) and does not depend on this seat. `main` = `e239346` (PR #49, PQ-28, merged 09:2x); board 38 done / 25 backlog (every one held) / 1 cancelled; no PR open; no delegator live. Fly still v11 = `1263add`, twenty merges behind.** c11 tree at stand-down: `tab:7` (this seat) and `tab:22` (validator) in `area:1`; the client's `lattice dashboard --port 8799` at `tab:16` in `area:5`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Tab ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | 23:4x: PR #48 merged at `0c7d60a` on the client's word; PQ-29 `done` (37 done); loop stopped on the client's 23:2x word. On resume: `c11 tree` first; PQ-28 on the client's word; the closeout audit on the client's word. Still the client's: the affirmation decision (F-52), the rulings below, the deploy, the closeout word |
-| Waiting on the client | the unaffirmed bank (every record; q3 is the only one with a trace) · PQ-48 (AC-26's rule, F-48) · PQ-46 (`build_deck.py` ledger write; `mvp/` clearance) · PQ-47 (AC-1 static check) · PQ-49 (`bank-audit` in CI) · PQ-50 (the report's small items) · PQ-41 (`hard_limit`; not PR #41) · PQ-42 (F-47) · PQ-43 (F-46 remedy and the edge ruling; not PR #43) · PQ-23 (F-15) · PQ-30 (F-20) · PQ-21 (H-4) | — | — | all held or gated; PQ-29 → PQ-28 behind PQ-25 |
+| Orchestrator | — | `tab:7` (standing down) | ai-c11-cc/lattice-build | Resume note at the top of `run-state.md`. Next seat: read `validation-report.md` when its status line reads final, route it, then the closeout audit on the client's word |
+| Result Validator | Phase 2 (final) | `tab:22` | detached `e239346` in `…-worktrees/validate-final` | Started 09:28; baseline green (`just test` 17.0 s warm: pipeline 710, web 286, room 0 fail; canary 12/12; bank-audit passed, 1 WARN; a11y 31/31); fanning out buckets A–E; 0 of 83 rows at stand-down. One-shot: it writes `validation-report.md` and stops |
+| Waiting on the client | F-52 (affirmation path; no committed question is schedulable) · F-54…F-57 · PQ-21 (H-4) · PQ-23 (F-15) · PQ-30 · PQ-41…PQ-43 · PQ-46…PQ-50 · the audit's PQ-51…PQ-64 (Majors PQ-51…PQ-57; PQ-52 and PQ-54 matter most before a real meetup) · the Fly deploy · the closeout word | — | — | all held |
 
 ### Archived (run history)
+
+| Actor | Ticket | Outcome | Notes |
+|---|---|---|---|
+| agent:delegator-pq28 | PQ-28 (T-23) | done | `tab:21`, sub-agent-full in one tab. PR #49 merged at `e239346` (fix commits `17cf0f8`, `fe7b76a`, `d576f5b`). 49 mutations (15 survived); 27 gaps → PQ-51…PQ-64 + notes on covered tickets; F-55…F-57. Paused overnight at the 5-hour limit and resumed unattended. One mutation (M6a2) looped for 6.5 h before it was killed; it added a 900 s per-mutation timeout. Tab closed; worktree `guardrail-audit` kept |
+
 
 | Actor | Ticket | Outcome | Notes |
 |---|---|---|---|
