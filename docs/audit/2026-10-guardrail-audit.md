@@ -4,7 +4,9 @@ An adversarial read of the assembled tree against SPEC §2's twelve guardrails a
 SPEC §4's phase invariants. Each guardrail's named enforcement was attacked: a small,
 plausible change that breaks the guardrail was made, the test that should catch it was
 run, and the change was reverted. A mechanism whose mutation survived is a gap. A
-verdict of HOLDS means its mutations were tried and caught.
+verdict of HOLDS means its mutations were tried and caught. Where part of a guardrail
+was checked by reading the code and tests only, with no mutation, the verdict names
+that part.
 
 This audit fixes nothing. Gaps are listed at the end with IDs; the Orchestrator files
 the new ones as held tickets.
@@ -43,7 +45,7 @@ Critical. Two planned mutations were not run (see the mutation table).
 | G-1 answer position from the date | HOLDS-WITH-GAPS | 0 | 2 | 1 | 1 |
 | G-2 no hand-written answer | HOLDS-WITH-GAPS | 0 | 1 | 3 | 0 |
 | G-3 nothing pre-reveal joins options to output | HOLDS-WITH-GAPS | 0 | 2 | 0 | 0 |
-| G-4 nothing per-person kept | HOLDS | 0 | 0 | 0 | 0 |
+| G-4 nothing per-person kept | HOLDS (post-close half by reading; M4c not run) | 0 | 0 | 0 | 0 |
 | G-5 no obligation to speak | HOLDS-WITH-GAPS | 0 | 2 | 2 | 0 |
 | G-6 phase order | HOLDS | 0 | 0 | 0 | 0 |
 | G-7 the receipt claims what was proved | HOLDS-WITH-GAPS | 0 | 1 | 0 | 0 |
@@ -233,10 +235,15 @@ with its hint showing. Reverted.
 Severity, Major: once it happens an attendee does learn the answer, but getting there
 takes a setup the documented procedure rules out. To release room A, its host has to
 take A through all six host actions, A's own reveal included, while B sits before
-reveal. The runbook keeps rehearsal questions away from the night's question
-(`docs/RUNBOOK.md:43-44`), and it sends smoke runs to a harness id
-(`docs/RUNBOOK.md:77-80`). An idle duplicate room leaks nothing until someone walks it
-to release. What is missing is a refusal in code, with a test, for something only the
+reveal. The likelier way to get there is GAP-21:
+- `just smoke` and `just burst` default to `--question q3`.
+- `smoke` pushes nothing. It creates a room on whatever id the room already holds
+  (`smoke.rs:13,369-371`) and walks it to release in seconds.
+- Run without `--question` against the deployed room while the night's room holds
+  q3, it is that second room.
+
+The runbook sends smoke runs to the harness id `smoke-q3` (`docs/RUNBOOK.md:77-80`).
+An idle duplicate room leaks nothing until someone walks it to release. What is missing is a refusal in code, with a test, for something only the
 runbook prevents. GAP-8.
 
 **Reachability.** Every route a phone can reach, from `routes.rs`, `admin.rs` and
@@ -281,9 +288,11 @@ letter, or any socket send but attach.
 
 **Audit demand.** *Schema audit*: met. *`canary` on post-close traffic*: met.
 
-**Verdict: HOLDS.** The auditor noted the post-close check is a denylist for fetch (a
-new path with the letter under another key would pass); this was not shown by a
-mutation and is not filed.
+**Verdict: HOLDS (the post-close half checked by reading only; M4c not run).** The
+storage half rests on M4b and M4a, both caught. The post-close half rests on reading
+`canary_scan/mod.rs:1614-1637`. The auditor noted that check is a denylist for fetch:
+a new path carrying the letter under another key would pass. No mutation showed it,
+so it is not filed.
 
 ## G-5 — no participant-facing string obliges anyone to speak
 
@@ -351,7 +360,13 @@ place copy is authored*: not met for `routes.rs:196,208` (GAP-14).
 **Audit demand.** *State-machine test*: met. *`canary` that `work` carries no ✓,
 receipt or colour*: met.
 
-**Verdict: HOLDS.**
+**Verdict: HOLDS.** M6h survived, and it does not count against G-6. The literal it
+swapped, `pipeline/src/popquiz/fallback.py:90`, drives no transition and no surface.
+Its one use (`fallback.py:264-276`) orders the blocks of the printed host sheet. Each
+block's content is chosen by phase name, so a swap reorders the paper and moves no
+reveal text earlier. G-6 binds the room's machine, and every mutation to that machine
+was caught. The host sheet's order is a phase-invariant question (SPEC §12: one block
+per phase, in the room's order), and it is filed there as GAP-15.
 
 ## G-7 — the receipt claims exactly what verification proved
 
@@ -364,8 +379,9 @@ pipeline `receipt.py:74`, held to nine shared fixtures (`bank/fixtures/receipts/
 and take-it-home print `receipt.lines` verbatim. Claim words are banned
 (`test_no_rendered_line_overstates`).
 
-**The Miri line is unguarded (M7a, M7b).** In both implementations, rendering *✓ Miri
-ran clean* when the record has no `miri` at all passed every test. No fixture has
+**Nothing tests the Miri line's gate (M7a, M7b).** Both implementations filter
+correctly today. But rendering *✓ Miri ran clean* when the record has no `miri` at all
+passed every test, in both twins. No fixture has
 `runs` without `miri`. Such a record is reachable: the room's loader keeps `miri` as an
 `Option` and refuses nothing (`answers.rs:174`), and the build path runs no provenance
 check (GAP-4). A receipt could then claim a Miri run that never happened, which is the
@@ -533,7 +549,7 @@ checks has no writer.
 | Field | Writer | Reader | Finding |
 |---|---|---|---|
 | `review.affirmed_by`, `affirmed_at` | none (T-18 unbuilt) | `schedule`, `audit`, `dedupe` | no writer |
-| `verified.verified_at`, `verifier_version` | `verify` | `check_provenance`, called only by the CI test over committed files | no production reader |
+| `verified.verified_at`, `verifier_version` | `verify` | `check_provenance`, called only by tests: `test_verify.py:419-521` (including the CI check over committed files at :425-428) and `test_migration.py:145` | no production reader |
 | `verified.miri.seeds` | `verify` | none | no reader |
 | `review.reason` | migration | none (its reader is T-16, PQ-21, unbuilt) | no reader |
 | `explains.legacy` | migration | `bank.quoted_outputs`, which nothing calls (T-18) | no production reader |
@@ -562,7 +578,7 @@ Severity is the attendee's (ruling 6). *Covered* means a board ticket already ho
 GAP-1  | G-1        | Major | new | The arrangement is outside every slot lint and simulation | schedule.py:189-208, schedule.py:166 (own _rng); audit.py:357,501,537 read slot.py and slot_for_day calls only; M1c survived | Lint schedule.arrange like the slot path (no bank, used or ledger reads; no draw but slot_for_day) and run the attendee simulation over arrange's output positions
 GAP-2  | G-1, G-12  | Major | new (not PQ-48 or PQ-45) | The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check | fallback.py:27-29,306-333; `python -m popquiz.fallback q3 --bake` exit 0, E = q3's answer; test_fallback.py:288 pins it; room/README.md:595-596 documents it; M12d | Require --date and arrange, apply schedule.refusal, or remove the CLI in favour of `popquiz schedule --no-push`
 GAP-3  | G-1        | Minor | covered by PQ-46 (needs: also retire answer_slots) | build_deck.py balances answer positions in the multi-question deck | build_deck.py:96-109 | Retire answer_slots with slot_for_meetup's write
-GAP-4  | G-2        | Major | new | The provenance check is not on the build path, so an uncommitted or local bank schedules without it | check_provenance (verify.py:577) runs in CI over committed files only (test_verify.py:425-428); schedule.refusal (schedule.py:127) and fallback.bake (fallback.py:105) skip it; the replay covers MIGRATED only (migrate_mvp.py:76); M2a survived | Call check_provenance in refusal and bake, and replay every bank question that has a recording
+GAP-4  | G-2        | Major | new | The provenance check is not on the build path, so an uncommitted or local bank schedules without it | check_provenance (verify.py:577) has two test callers only, test_verify.py:419-521 (the CI check over committed files at :425-428) and test_migration.py:145; schedule.refusal (schedule.py:127) and fallback.bake (fallback.py:105) skip it; the replay covers MIGRATED only (migrate_mvp.py:76); M2a survived | Call check_provenance in refusal and bake, and replay every bank question that has a recording
 GAP-5  | G-2        | Minor | new | Scheduling does not refuse a stale pin | verify.is_stale (verify.py:507) has no caller; SPEC 7.2 | Call is_stale in schedule.refusal for non-legacy records
 GAP-6  | G-2        | Minor | new (CONTRACT NOTE 1) | A self-consistent hand edit to a verified record is undetectable | verify.py:592-596; M2c accepted by check_provenance | Contract: a digest or recording id binding the record to its run
 GAP-7  | G-2        | Minor | new | The MVP deck trusts verified.json's answer with no provenance and no test | mvp/tools/build_deck.py:241,266; mvp/tools/verify.py:166-216 | A provenance check in build_deck, or retire the MVP deck once the room runs
@@ -574,7 +590,7 @@ GAP-12 | G-5        | Major | covered by PQ-42 (sufficient) | trace.steps[].note
 GAP-13 | G-5        | Minor | covered by PQ-42 (sufficient) | Whitespace and Unicode variants bypass the prose patterns | copylint.js:95-97, copylint.py:126-129 | PQ-42 C
 GAP-14 | G-5        | Minor | new | Room-authored reason strings sit outside the copy module and are unlinted | routes.rs:196,208; M5b3 survived | Move them into copy.rs/copy.js or lint room/src string literals
 GAP-15 | Phase inv. | Minor | new | The host sheet's phase order is a third literal no test ties to G-6 | fallback.py:90; M6h survived | Assert fallback.PHASES equals phase.js's order
-GAP-16 | G-7        | Major | new | A receipt can claim a Miri run the record does not hold | answers.rs:347, receipt.py:120-121; answers.rs:174 accepts runs without miri; M7a, M7b survived | A receipt fixture with runs and no miri, asserting no Miri line, in both twins
+GAP-16 | G-7        | Major | new | Nothing tests that a record without miri renders no Miri line, in either twin | answers.rs:347, receipt.py:120-121 filter correctly today; answers.rs:174 accepts runs without miri; no fixture has runs without miri; M7a, M7b survived | A receipt fixture with runs and no miri, asserting no Miri line, in both twins
 GAP-17 | G-9        | Minor | new | The route-table tests read routes.rs only | canary_scan/mod.rs:566-592; admin.rs:292; M9a2 survived | Walk the built Router, or scan every file that calls .route/.nest/.fallback
 GAP-18 | G-9        | NIT   | covered by PQ-50 (sufficient) | HOST_DEV_TOKEN residue | .env.example:39-40; fly.toml | PQ-50 item 7
 GAP-19 | G-9        | Minor | new | Deployed burst keeps an organizer session and the admin token as repo secrets | .github/workflows/deployed-burst.yml:7-11,58-67,100 | Name it in SPEC 8 as a credential path, or pass them as one-run inputs
