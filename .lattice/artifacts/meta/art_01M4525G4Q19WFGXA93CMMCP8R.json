@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T03:36:52Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4525G4Q19WFGXA93CMMCP8R",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4525G4Q19WFGXA93CMMCP8R.md",
+    "size_bytes": 1423
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged as PR #48 at 0c7d60a (parents de1da5f, 2f109c9) on the client's word 'stop once merged on green ci', from the Orchestrator seat with --match-head-commit 2f109c9 after a same-minute re-read of O",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
