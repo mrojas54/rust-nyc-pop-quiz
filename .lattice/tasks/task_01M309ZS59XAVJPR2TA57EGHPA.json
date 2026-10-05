@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 10,
+  "comment_count": 12,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -18,11 +18,21 @@
       "id": "art_01M43SBCCHDV0M0TQMBCSVZD63",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M44RG5YSK1ZA86470ZCHQMNQ",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M44SEWZ6W5A85JMS0ZZ7V5ZW",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M309ZS59XAVJPR2TA57EGHPA",
-  "last_event_id": "ev_01M43SP6TST4KK4MJDQZJVGC2R",
-  "last_status_changed_at": "2026-10-04T15:35:58Z",
+  "last_event_id": "ev_01M44SEX39Z1TT6RSYFW8Y54SR",
+  "last_status_changed_at": "2026-10-05T00:48:08Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -57,13 +67,13 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-25",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m3",
     "inline-full"
   ],
   "title": "Schedule and sync",
   "type": "task",
-  "updated_at": "2026-10-04T15:49:28Z",
+  "updated_at": "2026-10-05T01:04:43Z",
   "urgency": null
 }

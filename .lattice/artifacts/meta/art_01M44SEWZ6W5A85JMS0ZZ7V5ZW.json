@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-05T01:04:42Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M44SEWZ6W5A85JMS0ZZ7V5ZW",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M44SEWZ6W5A85JMS0ZZ7V5ZW.md",
+    "size_bytes": 2668
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Orchestrator exact-head review at 19ca530",
+  "token_usage": null,
+  "type": "note"
+}
