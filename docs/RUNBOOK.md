@@ -117,10 +117,9 @@ step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
 5. Then `just schedule`. A restart or deploy forgets every scheduled question,
    so scheduling comes last.
 
-The Fly org has no payment method today, and Fly stops a trial machine after
-about five minutes. A stopped machine has lost every room and every scheduled
-question. Add a card before a real night (`room/README.md`, *The trial org
-stops the machine*).
+The room runs on a paid Fly org, a card with a spending cap. The machine runs
+until something stops or redeploys it. A restart or a deploy loses every room
+and every scheduled question, so `just sync` comes first.
 
 ## At the venue
 
