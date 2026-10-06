@@ -7,12 +7,12 @@
     {
       "text": "-3 -1 | -3 -1",
       "kind": "output",
-      "why_tempting": "If div_euclid looks like just another name for /, both sides of the pipe come out truncated. It isn't another name — it floors, and the pipe is there to force the comparison."
+      "why_tempting": "If div_euclid looks like just another name for /, both sides of the pipe come out truncated. It floors, and the pipe is there to force the comparison."
     },
     {
       "text": "-4 1 | -4 1",
       "kind": "output",
-      "why_tempting": "Python's // floors toward negative infinity, so -7 // 2 is -4 there. Carry that habit into Rust and / looks floored too — but Rust's / truncates toward zero."
+      "why_tempting": "Python's // floors toward negative infinity, so -7 // 2 is -4 there. Carry that habit into Rust and / looks floored too. Rust's / truncates toward zero."
     },
     {
       "text": "does not compile",
@@ -36,7 +36,71 @@
     "legacy": "Rust's / and % truncate toward zero, so -7 / 2 is -3, and the remainder takes the sign of the dividend: -1. div_euclid and rem_euclid floor instead, giving -4 with a remainder that is always non-negative: 1. Both are correct division -- they satisfy the same identity a == b * q + r -- they just make different choices about which way to round. If you have ever indexed into a ring buffer with a negative offset, you have met this bug."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2,
+          3
+        ],
+        "focus": [
+          1,
+          5
+        ],
+        "note": "Two numbers go in: -7 and 2. Keep an eye on the minus sign.",
+        "values": [
+          {
+            "name": "a",
+            "was": "—",
+            "now": "-7"
+          },
+          {
+            "name": "b",
+            "was": "—",
+            "now": "2"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "One line prints four numbers. The first two come from the operators / and %. The last two come from the methods div_euclid and rem_euclid.",
+        "values": []
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "All four get the same -7 and 2. Only the operation changes.",
+        "values": [],
+        "pivot": true
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          1,
+          5
+        ],
+        "note": "It prints -3 -1 | -4 1.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "-3 -1 | -4 1"
+          }
+        ]
+      }
+    ]
   },
   "verified": {
     "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
