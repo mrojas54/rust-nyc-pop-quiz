@@ -4,12 +4,13 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-10-05 12:1x EDT. **Phase 2 is complete. The final Result Validator's report is in `validation-report.md` (🟡 YELLOW: 60 Pass / 15 Partial / 2 Fail / 6 Blocked on `main` @ `e239346`), routed from this seat; `tab:22` closed. Board 38 done / 25 backlog (every one held) / 1 cancelled; no PR open; no delegator live. Fly still v11 = `1263add`, twenty merges behind.** c11: `tab:7` (this seat) in `area:1`; the client's `lattice dashboard --port 8799` at `tab:16` in `area:5`. Refs change on every c11 restart: `c11 tree` first.
+Snapshot: 2026-10-06 07:3x EDT. **PQ-54 (GAP-8, one room per question) dispatched on the client's word. Board 38 done / 25 backlog (24 held, PQ-54 released) / 1 cancelled; no PR open. Fly still v11 = `1263add`, twenty merges behind.** c11: `tab:6` (this seat) and `tab:22` (PQ-54) in `area:1`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Tab ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `tab:7` | ai-c11-cc/lattice-build | Report routed; idle. Next: the closeout audit, on the client's word only |
-| Waiting on the client | F-52 (affirmation path; no committed question is schedulable) · F-54…F-58 · F-46, F-48 (the report's two Fails) · PQ-21 (H-4) · PQ-23 (F-15) · PQ-30 · PQ-41…PQ-43 · PQ-46…PQ-50 · PQ-51…PQ-64 (before a real meetup: PQ-54, PQ-52, PQ-46) · the Fly deploy · the closeout word | — | — | all held |
+| Orchestrator | — | `tab:6` | ai-c11-cc/lattice-build | Watching PQ-54 |
+| agent:delegator-pq54 (Opus, inline-full) | PQ-54 / GAP-8 one room per question | `tab:22` | ai-c11-cc/one-room-per-question off `e239346` | launched 07:3x; READY pending |
+| Waiting on the client | F-52 (affirmation path; no committed question is schedulable) · F-54…F-58 · F-46, F-48 (the report's two Fails) · PQ-21 (H-4) · PQ-23 (F-15) · PQ-30 · PQ-41…PQ-43 · PQ-46…PQ-50 · PQ-51…PQ-53, PQ-55…PQ-64 (before a real meetup: PQ-52, PQ-46) · the Fly deploy · the closeout word | — | — | all held |
 
 ### Archived (run history)
 

@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K0ZTZ8P8VQ1G03607MWF",
-  "last_event_id": "ev_01M46D3VQQNEMQSCC8W88XY88R",
+  "last_event_id": "ev_01M48FKJ5CFTZY33RHE85ZDR0Y",
   "last_status_changed_at": "2026-10-05T12:46:01Z",
   "priority": "medium",
   "relationships_out": [],
@@ -25,6 +25,6 @@
   ],
   "title": "Two live rooms on one question: releasing one publishes the answer at /last while the other is pre-reveal",
   "type": "bug",
-  "updated_at": "2026-10-05T16:07:27Z",
+  "updated_at": "2026-10-06T11:29:27Z",
   "urgency": null
 }
