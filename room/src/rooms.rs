@@ -501,6 +501,15 @@ impl Room {
         crate::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
     }
 
+    /// GAP-8: whether this room holds `question_id` at `now` against a new
+    /// room — it was created on it, is not released, and has not ended. A
+    /// released room's question is refused by the used ledger instead; a room
+    /// that ended without release can never release, so it can never put its
+    /// answer on `/last` ([`AppState::act`] refuses an ended room).
+    pub fn holds(&self, question_id: &str, now: SystemTime) -> bool {
+        self.question_id == question_id && self.phase() != Phase::Released && self.ended(now).is_none()
+    }
+
     /// T-11: the last host action (§4.6).
     pub fn last_host_action(&self) -> SystemTime {
         self.last_host_action
@@ -797,6 +806,12 @@ impl AppState {
     /// name content that did not run. Otherwise the question is added, or
     /// replaces the unheld one with its id (the organizer's re-push after an
     /// edit). Locks `questions` then `rooms`; nothing takes them the other way.
+    ///
+    /// The hold here is wider than [`AppState::create_for`]'s on purpose: any
+    /// room record, released shells and ended rooms included, until the sweep
+    /// deletes it. A new room needs only that no live room has the question
+    /// (one room per question, GAP-8); a replaced record needs that nothing
+    /// still names it.
     pub fn schedule(&self, question: Scheduled) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
         let mut questions = lock(&self.questions);
@@ -843,22 +858,42 @@ impl AppState {
             .unwrap_or(Err(RoomError::Unavailable))
     }
 
+    /// The one room maker, for *Create a room* and *Run it again*. One room per
+    /// question (GAP-8, the client's ruling of 2026-10-05): refused while
+    /// another room holds the question — not released, and not ended at `now`
+    /// ([`Room::holds`]) — because releasing either of two rooms on one
+    /// question would put its answer on `/last` while the other is still
+    /// before reveal (G-3). Refused, too, if the question has been run (G-10)
+    /// or is not scheduled.
+    ///
+    /// Every check and the insert are one critical section: `questions`, then
+    /// `rooms` (the order [`AppState::schedule`] takes), held until the room
+    /// is in. The used check sits under `rooms` because the release that
+    /// writes `used` happens under `rooms` ([`AppState::act`]), so a release
+    /// cannot land between the check and the insert; `questions` is held so
+    /// `schedule` cannot replace the record the room is built from.
     fn create_for(
         &self,
         organizer: OrganizerId,
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
+        let questions = lock(&self.questions);
+        let mut rooms = lock(&self.rooms);
+        if rooms.values().any(|e| e.room.holds(question_id, now)) {
+            return Err(RoomError::Refused(
+                "That question is open in another room. Pick another.".into(),
+            ));
+        }
         if self.used.contains(question_id) {
             return Err(RoomError::Refused(
                 "That question has already been run. Pick another.".into(),
             ));
         }
-        let question = lock(&self.questions)
+        let question = questions
             .get(question_id)
             .cloned()
             .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
-        let mut rooms = lock(&self.rooms);
         let ended = lock(&self.ended);
         let code = loop {
             let code = new_code();
@@ -882,6 +917,8 @@ impl AppState {
                 sessions: (self.sessions)(),
             },
         );
+        drop(rooms);
+        drop(questions);
         Ok(created)
     }
 
@@ -928,8 +965,10 @@ impl AppState {
     }
 
     /// *Run it again*: a **new** room, for the organizer who created this one,
-    /// on a question that has not been run. This room stays `released`. The
-    /// routes' door, like [`AppState::create_room_checked`].
+    /// on a question that has not been run and no other room holds. This room
+    /// stays `released`, and a released room holds nothing
+    /// ([`Room::holds`]); the refusals are [`AppState::create_for`]'s. The routes' door,
+    /// like [`AppState::create_room_checked`].
     pub async fn run_again_checked(
         &self,
         room_id: &str,
