@@ -14,7 +14,13 @@ Opened 2026-09-20. Phase 0 approved by the client the same day. Phase 0 record:
 - **Still the client's:** F-52; F-46, F-48; F-54…F-58; releasing held tickets; the Fly deploy (v11 = `1263add`, twenty merges behind); worktree cleanup (`guardrail-audit`, `organizer-runbook`, `schedule-sync`, `bank-round-two`, `validate-main`, `validate-final` and older).
 - **Sandbox facts for the next seat:** the c11 socket, `gh`, `git fetch`/`push` over ssh, signed `git commit` (1Password) and writes into `…-worktrees/` all need the per-command bypass. `lattice` and `.lattice/` edits work inside the sandbox; `lattice comment` takes `--actor` as a literal flag (zsh does not word-split an unquoted `$A`). Use `/usr/bin/python3` (pyenv's is x86_64). The `prefer-rg-fd` hook denies `grep`/`head`/`cat`/`sed -n` (use `rg`, the Read tool, or append `# no-search-guard`).
 
-## Current checkpoint — 2026-10-05 12:1x EDT — Phase 2 complete; the final report routed
+## Current checkpoint — 2026-10-06 07:2x EDT — resumed; one ruling found, nothing else moved
+
+**Resumed on the client's `/lattice-orchestrator` in a fresh session at `tab:6` (the only tab in the tree). `origin/main` = `e239346`, no PR open, no new merge. One thing new and uncommitted: the client's ruling on **PQ-54** (GAP-8, the `/last` leak), posted as a comment at 10-05 12:07 EDT: *"no second room. Refuse creating a room on a question while another unreleased room holds it."* That is the audit's own *What would close it*. PQ-54 stays `held` until the client releases it; the ruling fixes its shape, not its dispatch. The uncommitted `.claude/settings.json` hooks and the `CLAUDE.md` block are the client's `codeburn` install, not this seat's; left unstaged.**
+
+- **Next from this seat:** the client's word: dispatch PQ-54, the closeout audit, other rulings, or stand down.
+
+### Previous checkpoint — 2026-10-05 12:1x EDT — Phase 2 complete; the final report routed
 
 **Resumed on the client's `/lattice-orchestrator` at 12:0x in `tab:7`. The final Result Validator finished at 12:03 (report final, plus the client-requested addendum: headless WebKit 26.5 via Playwright from cached binaries moved rows 49, 98 and 102 Partial → Pass). Verdict 🟡 YELLOW, 60 / 15 / 2 / 6. Routed per the resume note: no new tickets; notes on PQ-59, PQ-47 and PQ-50; F-58 logged; `tab:22` closed. Board unchanged at 38 done / 25 backlog (all held) / 1 cancelled; `main` = `e239346`; no PR open; no delegator live.**
 
