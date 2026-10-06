@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-06T12:35:42Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M48KCW8K3EZAGEAASSSX0ZV8",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M48KCW8K3EZAGEAASSSX0ZV8.md",
+    "size_bytes": 1242
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Orchestrator exact-head review",
+  "token_usage": null,
+  "type": "note"
+}
