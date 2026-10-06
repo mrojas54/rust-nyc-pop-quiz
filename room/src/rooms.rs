@@ -245,6 +245,9 @@ pub struct Room {
     answered_live: u32,
     frozen: Option<Frozen>,
     released_at: Option<SystemTime>,
+    // GAP-8: how it ended, once a new room on its question was let in on the
+    // strength of that ending. From then on it stays ended at any `now`.
+    latched_end: Option<Ended>,
     fit: Option<Fit>,
     revision: u64,
     // T-11: §4.6's quiet clock, written by `create` and every host action.
@@ -354,6 +357,7 @@ impl Room {
             answered_live: 0,
             frozen: None,
             released_at: None,
+            latched_end: None,
             fit: None,
             revision: 0,
             last_host_action: now,
@@ -497,8 +501,15 @@ impl Room {
 
     /// T-11: whether this room has ended at `now` — four hours up, or quiet for
     /// §4.6's bound (`lifecycle::verdict`).
+    ///
+    /// Once [`AppState::create_for`] has let a new room in on this room's
+    /// question because it had ended, the ending is latched: a later call with
+    /// an earlier `now` — a wall-clock step back, or a host action whose clock
+    /// reading was taken just before the lock — cannot revive it, so there are
+    /// never two live rooms on one question (GAP-8).
     pub fn ended(&self, now: SystemTime) -> Option<Ended> {
-        crate::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
+        self.latched_end
+            .or_else(|| crate::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now))
     }
 
     /// GAP-8: whether this room holds `question_id` at `now` against a new
@@ -884,6 +895,13 @@ impl AppState {
             return Err(RoomError::Refused(
                 "That question is open in another room. Pick another.".into(),
             ));
+        }
+        // The rooms on this question that ended without release stay ended:
+        // the new room is let in on the strength of it.
+        for entry in rooms.values_mut().filter(|e| e.room.question_id == question_id) {
+            if entry.room.phase() != Phase::Released {
+                entry.room.latched_end = entry.room.ended(now);
+            }
         }
         if self.used.contains(question_id) {
             return Err(RoomError::Refused(

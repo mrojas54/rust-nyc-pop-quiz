@@ -295,7 +295,9 @@ expired holds nothing, even before the sweep deletes it, since it can never
 release. The checks and the insert are one critical section in `create_for`
 (`questions`, then `rooms`, held until the room is in), so two creates cannot
 both pass and a release cannot land between the ledger check and the insert;
-`tests/one_room.rs` covers it. `schedule`'s own hold is wider on purpose: any
+`tests/one_room.rs` guards it (structurally, plus a threaded create). A room
+that ended stays ended once a new room was let in on its question, whatever
+`now` a later action carries. `schedule`'s own hold is wider on purpose: any
 room record until it is deleted.
 
 ### The seams

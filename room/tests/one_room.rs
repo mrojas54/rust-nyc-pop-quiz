@@ -127,6 +127,25 @@ fn gap8_a_room_that_went_quiet_after_start_holds_nothing() {
 }
 
 #[test]
+fn gap8_an_ended_room_stays_ended_once_a_new_room_is_let_in() {
+    // The new room is let in because the quiet one has ended. An action on
+    // the quiet one carrying an earlier clock reading — a wall-clock step
+    // back, or a request that read the clock just before the lock — must not
+    // revive it, or there would be two live rooms on q3.
+    let c = Clocked::new();
+    let quiet = c.create("q3");
+    let before = c.clock.now() + IDLE_QUIET - Duration::from_secs(1);
+    c.advance(IDLE_QUIET);
+    c.create("q3");
+    let revive = Command::Host(HostAction::PutOnScreen);
+    assert_eq!(
+        c.state.act(&quiet.id, Some(&quiet.host_session), revive, before),
+        Err(RoomError::Ended(room::lifecycle::Ended::Inactive))
+    );
+    assert_eq!(c.state.with_room(&quiet.id, |r| r.phase()).unwrap(), Phase::Idle);
+}
+
+#[test]
 fn gap8_an_expired_room_holds_nothing() {
     let c = Clocked::new();
     let old = c.create("q3");
@@ -195,7 +214,9 @@ fn gap8_concurrent_creates_on_one_question_make_one_room() {
     }
 }
 
-/// The lock discipline, by inspection, for the windows no test can schedule:
+/// The lock discipline, by inspection — a tripwire on the source text, not a
+/// proof; a reshaped `create_for` must keep these properties and update it —
+/// for the windows no test can schedule:
 /// a release landing between the used check and the insert, and `schedule`
 /// replacing the record between its lookup and the insert. `create_for` takes
 /// `questions` then `rooms`, checks the hold and the ledger under both, and
@@ -264,7 +285,18 @@ async fn gap8_a_second_create_answers_409_with_the_reason_and_last_stays_empty()
     let (status, last) = call(&app, Method::GET, "/last", None, None).await;
     assert_eq!(status, StatusCode::OK);
     let last = last.as_str().unwrap();
-    assert!(last.contains("<script type=\"application/json\" id=\"take-home\">null</script>"), "/last carries nothing");
+    let empty = "<script type=\"application/json\" id=\"take-home\">null</script>";
+    assert!(last.contains(empty), "/last carries nothing");
+
+    // And the slot does fill at release, so the check above can tell.
+    let host = first["host_session"].as_str();
+    for action in TO_REVEAL[1..].iter().chain([HostAction::ReleaseRoom].iter()) {
+        let uri = format!("/rooms/{}/{}", first["id"].as_str().unwrap(), Command::Host(*action).slug());
+        let (status, body) = call(&app, Method::POST, &uri, host, None).await;
+        assert!(status.is_success(), "{action:?}: {status} {body}");
+    }
+    let (_, last) = call(&app, Method::GET, "/last", None, None).await;
+    assert!(!last.as_str().unwrap().contains(empty), "released: /last carries the question");
 }
 
 #[tokio::test]
