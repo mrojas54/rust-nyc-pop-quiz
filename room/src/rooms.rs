@@ -984,9 +984,9 @@ impl AppState {
 
     /// *Run it again*: a **new** room, for the organizer who created this one,
     /// on a question that has not been run and no other room holds. This room
-    /// stays `released`, and a released room holds nothing
-    /// ([`Room::holds`]); the refusals are [`AppState::create_for`]'s. The routes' door,
-    /// like [`AppState::create_room_checked`].
+    /// stays `released`, and a released room holds nothing ([`Room::holds`]);
+    /// the refusals are [`AppState::create_for`]'s. The routes' door, like
+    /// [`AppState::create_room_checked`].
     pub async fn run_again_checked(
         &self,
         room_id: &str,

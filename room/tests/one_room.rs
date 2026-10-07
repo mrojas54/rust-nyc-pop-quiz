@@ -188,6 +188,10 @@ fn gap8_a_different_question_is_never_blocked() {
 // One critical section: the check and the insert under one lock.
 // --------------------------------------------------------------------------
 
+/// A behavioural smoke check, not a witness for the lock: `questions` is held
+/// across the whole of `create_for`, so creates are serialized even if the
+/// hold check were split from the insert under `rooms`. The guard for the
+/// critical section is [`gap8_create_for_checks_and_inserts_in_one_critical_section`].
 #[test]
 fn gap8_concurrent_creates_on_one_question_make_one_room() {
     const THREADS: usize = 8;
