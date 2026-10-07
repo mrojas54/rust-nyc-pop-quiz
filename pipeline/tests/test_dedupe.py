@@ -595,6 +595,11 @@ SCOPE_NEVER_THE_SAME = [
         "fn count_ones(x: u32) -> u32 { x } fn main(){ let _ = 5u32.count_ones(); count_ones(1); }",
         "fn zzz(x: u32) -> u32 { x } fn main(){ let _ = 5u32.zzz(); zzz(1); }",
     ),
+    (
+        "a closure in an if-let head ends where the block opens",
+        "fn main() { if let f = |drop: i32| drop { drop(f); } }",
+        "fn main() { if let f = |nope: i32| nope { nope(f); } }",
+    ),
 ]
 
 
@@ -646,6 +651,11 @@ SCOPED_THE_SAME = [
         "a free function called by name",
         "fn helper(x: u32) -> u32 { x } fn main() { helper(1); }",
         "fn aid(x: u32) -> u32 { x } fn main() { aid(1); }",
+    ),
+    (
+        "a closure in an if-let head, used in the block",
+        "fn main() { if let f = |a: i32| a { f(1); } }",
+        "fn main() { if let f = |b: i32| b { f(1); } }",
     ),
 ]
 

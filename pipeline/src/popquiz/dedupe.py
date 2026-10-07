@@ -659,6 +659,27 @@ def _closure_opens(s: _Stream, k: int) -> bool:
     return False
 
 
+def _in_condition_head(s: _Stream, k: int) -> bool:
+    """Whether the token at `k` stands in the head of an `if`, `while`, `match` or
+    `for`, at the head's own depth: there the next `{` opens the block, and no
+    expression in the head runs past it."""
+    j = k - 1
+    while j >= 0:
+        t = s.tokens[j]
+        if t.kind == "keyword" and t.text in ("if", "while", "match", "in"):
+            return True
+        if t.kind == "punct":
+            if t.text in _CLOSERS and j in s.partner:
+                j = s.partner[j] - 1
+                continue
+            if t.text in _OPENERS or t.text in (";", "}", ",") or (
+                t.text == ">" and s.fat_arrow(j - 1)
+            ):
+                return False
+        j -= 1
+    return False
+
+
 def _arm_start(s: _Stream, arrow: int) -> int:
     """Where the match arm ending at the `=>` at `arrow` begins.
 
@@ -993,7 +1014,9 @@ class _Collector:
     def closure(self, k: int) -> None:
         """The closure whose parameter list opens at the `|` at `k`: its parameters
         reach its body, which is a block after `-> T`, or else runs to the next `,`
-        or `;` or the end of the group around it."""
+        or `;` or the end of the group around it. In the head of an `if let` or
+        `while let` the body also ends at the `{` that opens the block, so
+        `|x| if x {..}` there is cut short: its `x` is kept rather than renamed."""
         s = self.s
         tokens = s.tokens
         if tokens[k].joint and _is(s.at(k + 1), "|"):
@@ -1006,11 +1029,18 @@ class _Collector:
         if _is(s.at(after), "-") and s.tokens[after].joint and _is(s.at(after + 1), ">"):
             end = self.item_end(after + 2)
         else:
-            if _is(s.at(after), "{") and after in s.partner:
+            block = _is(s.at(after), "{") and after in s.partner
+            if block:
                 self.bodies.add(after)
             end = s.find(
                 after, s.n, lambda j: _is(tokens[j], ",") or _is(tokens[j], ";")
             ) - 1
+            if _in_condition_head(s, k):
+                if block:
+                    end = min(end, s.partner[after])
+                else:
+                    brace = s.find(after, s.n, lambda j: _is(tokens[j], "{"))
+                    end = min(end, brace - 1)
         self.scope(bound, k, end)
 
     def field_positions(self, skip: set[int]) -> dict[int, bool]:
