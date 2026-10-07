@@ -1,5 +1,38 @@
 # Organizer TUI prototype validation
 
+## Ratatui replacement — 2026-10-07
+
+Implementation commit `326b49e`, RED commit `2549b1e`.
+
+From `prototypes/organizer-tui/`:
+
+- `cargo test --locked`: 11 passed (4 unit, 7 integration), no failures.
+- `cargo clippy --locked --all-targets -- -D warnings`: clean.
+- `cargo fmt --check`: clean.
+
+The tests render real Ratatui widgets through TestBackend. They cover source and
+choices, highlighted teaching steps and narration, the explicit resolving-step
+boundary, return from reveal, candidate switching, narrow terminals, incomplete
+traces, suppressing stdout rows before reveal, missing evidence, scroll/resize,
+unchanged bank files, and unknown-candidate CLI errors.
+
+From `pipeline/`, `.venv/bin/python -m pytest --ignore=tests/sandbox`: 710 passed.
+The six obsolete Python preview tests were removed with the curses implementation.
+Warnings: existing q3 copy warning and sandbox-denied pytest cache write; neither
+affected test execution. Rust replaces Python in the preview, so Clippy and the
+compiler are its lint/type checks.
+
+Interactive smoke check in a 100 x 36 pseudo-terminal: opened q3, entered trace,
+used real arrow-key escape sequences to reach step 5 of 6, attempted another
+step without revealing, explicitly revealed step 6, returned to teaching mode,
+switched candidate, and quit with terminal restoration.
+
+Existing answer derivation and receipt rendering are reused from the `room`
+crate. No source in that crate or bank data changed. This is a read-only
+prototype; no new compiler/Miri verification or venue-fit claim is made.
+
+## Earlier Python prototype — superseded
+
 Validated on 2026-10-06 (America/New_York), implementation commit `1516e8e`.
 
 From `pipeline/`, using Python 3.12:
