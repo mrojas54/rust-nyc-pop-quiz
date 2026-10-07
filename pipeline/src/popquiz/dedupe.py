@@ -764,6 +764,12 @@ class _Declared:
     binding or a use (`P { x }`). `macro_scopes` is where a `name!(..)` call may
     mean the program's `macro_rules! name`: from the definition to the end of the
     block or file around it, the textual scope Rust gives it.
+
+    What a path's tail may reach: `generics` are the type and const parameters'
+    spellings, `associated` the names declared inside an `impl` or `trait` and the
+    enum variants, `item_braces` the `{` directly around each other item's
+    declaration (`None` at top level), and `module_bodies` the `{` of each inline
+    module, by its name.
     """
 
     names: frozenset[str]
@@ -773,6 +779,10 @@ class _Declared:
     scopes: dict[str, list[tuple[int, int]]]
     fields_at: dict[int, bool]
     macro_scopes: dict[str, list[tuple[int, int]]]
+    generics: frozenset[str]
+    associated: frozenset[str]
+    item_braces: dict[str, set[int | None]]
+    module_bodies: dict[str, set[int]]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -855,6 +865,9 @@ class _Collector:
         self.fields: set[str] = set()
         self.scopes: dict[str, list[tuple[int, int]]] = {}
         self.macro_scopes: dict[str, list[tuple[int, int]]] = {}
+        self.generic_names: set[str] = set()
+        self.associated: set[str] = set()
+        self.item_braces: dict[str, set[int | None]] = {}
         self.patterns: list[tuple[int, int]] = []
         self.bodies: set[int] = set()
         self.enclosing = _enclosing_braces(s)
@@ -903,11 +916,13 @@ class _Collector:
         name = s.tokens[d].text
         self.names.add(name)
         brace = self.enclosing[d]
+        if brace is not None and _header_words(s, brace) & {"impl", "trait"}:
+            self.scope([name], d, d)
+            self.associated.add(name)
+            return True
+        self.item_braces.setdefault(name, set()).add(brace)
         if brace is None:
             self.scope_outside_modules(name, d, 0, s.n - 1)
-        elif _header_words(s, brace) & {"impl", "trait"}:
-            self.scope([name], d, d)
-            return True
         else:
             self.scope_outside_modules(name, d, brace, s.partner[brace])
         return False
@@ -937,6 +952,7 @@ class _Collector:
         found: set[str] = set()
         gt = _generic_names(self.s, lt, found)
         self.names |= found
+        self.generic_names |= found
         return gt, found
 
     def data_type(self, k: int, kind: str) -> None:
@@ -964,6 +980,7 @@ class _Collector:
             t = s.at(a)
             if a < b and t is not None and t.kind == "ident":
                 self.names.add(t.text)
+                self.associated.add(t.text)
                 self.scope([t.text], a, a)
                 if _is(s.at(a + 1), "{") and (a + 1) in s.partner:
                     declared = _field_names(s, a + 1)
@@ -1215,6 +1232,10 @@ def _declared(s: _Stream) -> _Declared:
         c.scopes,
         c.field_positions(skip),
         c.macro_scopes,
+        frozenset(c.generic_names),
+        frozenset(c.associated),
+        c.item_braces,
+        c.module_bodies,
     )
 
 
@@ -1725,6 +1746,71 @@ def _unscoped_names(
     return protected
 
 
+_PATH_KEYWORDS = frozenset(["Self", "self", "crate", "super"])
+
+
+def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
+    """Whether the path tail at `k` can be the program's own declaration of its
+    name, given the segment before it. Token-level, so it answers no whenever it
+    cannot tell: after a generic parameter (`I::Item`, `T::default()` are the
+    bound trait's), after `Self` unless the name is an associated item, after a
+    module or `crate`/`self`/`super` unless the name is an item declared directly
+    in a module (a `use` re-export of the library's is not), and after a type
+    unless the name is an associated item or a variant."""
+    head = s.at(k - 3)
+    name = s.tokens[k].text
+    if head is None or head.kind not in ("ident", "keyword"):
+        return False
+    if head.text in ("crate", "self", "super"):
+        modules = {b for bodies in declared.module_bodies.values() for b in bodies}
+        return any(
+            b is None or b in modules for b in declared.item_braces.get(name, ())
+        )
+    if head.text == "Self":
+        return name in declared.associated
+    if head.kind != "ident" or head.text in declared.generics:
+        return False
+    if head.text in declared.module_bodies:
+        return bool(
+            declared.module_bodies[head.text] & declared.item_braces.get(name, set())
+        )
+    return name in declared.associated
+
+
+def _unreached_path_tails(
+    s: _Stream, declared: _Declared, protected: set[str]
+) -> set[str]:
+    """Declared spellings to keep because a path tail of that spelling is kept.
+
+    A tail is renamed only when its head is and `_tail_reaches` says the name is
+    the program's. A tail that is kept verbatim after a head the program declares
+    - or after `Self`, `self`, `crate` or `super` - may be the library's name, or
+    the program's reached a way tokens cannot follow; either way, renaming its
+    declaration elsewhere would cut the link between the two and make the
+    program the same tokens as one that names something else."""
+    candidates = declared.names | declared.members | declared.macros
+    renamable = candidates - protected
+    renamed: set[int] = set()
+    found: set[str] = set()
+    for k in range(3, s.n):
+        t = s.tokens[k]
+        if t.kind != "ident" or not s.path_sep[k - 1]:
+            continue
+        head = s.tokens[k - 3]
+        if head.text in _PATH_KEYWORDS:
+            head_declared = head_renamed = True
+        else:
+            head_declared = head.kind == "ident" and head.text in candidates
+            head_renamed = head.text in renamable and (
+                k < 4 or not s.path_sep[k - 4] or (k - 3) in renamed
+            )
+        if head_renamed and t.text in renamable and _tail_reaches(s, declared, k):
+            renamed.add(k)
+        elif head_declared and t.text in renamable:
+            found.add(t.text)
+    return found
+
+
 def _kept_doc_comments(
     tokens: list[Token], docs: list[tuple[int, str]]
 ) -> dict[int, list[str]]:
@@ -1764,6 +1850,10 @@ def _normalize(
     # expanding those macros, alpha-renaming is not evidence of equivalence.
     if any(t.text == "derive" for t in tokens):
         protected |= declared.names | declared.members | declared.macros
+    # A protected head keeps its tails verbatim, which may protect more: repeat
+    # until nothing changes. Each round only grows `protected`.
+    while extra := _unreached_path_tails(s, declared, protected) - protected:
+        protected |= extra
     renamable = (declared.names | declared.members | declared.macros) - protected
     members = declared.members - protected
     bodies = _list_bodies(s)
@@ -1811,12 +1901,13 @@ def _normalize(
                 rename = name in members
             elif k > 0 and s.path_sep[k - 1]:
                 segment = s.at(k - 3)
-                rename = name in renamable and (
-                    (k - 3) in renamed_at
-                    or (
-                        segment is not None
-                        and segment.text in ("Self", "self", "crate", "super")
+                rename = (
+                    name in renamable
+                    and (
+                        (k - 3) in renamed_at
+                        or (segment is not None and segment.text in _PATH_KEYWORDS)
                     )
+                    and _tail_reaches(s, declared, k)
                 )
             elif _is_macro_call(s, k):
                 rename = name in declared.macros and name in renamable

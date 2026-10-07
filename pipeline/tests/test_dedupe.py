@@ -625,6 +625,36 @@ SCOPE_NEVER_THE_SAME = [
         "fn main(){ let xs = [1]; let v: Option<i32> = None; match v { None => for x in xs { let _f: fn(i32) = drop; let _ = x; } Some(_z) => {} } }",
         "fn main(){ let xs = [1]; let v: Option<i32> = None; match v { None => for x in xs { let _f: fn(i32) = nope; let _ = x; } Some(_z) => {} } }",
     ),
+    (
+        "an associated type of a generic is not the program's type",
+        "type Item = u8; fn f<I: Iterator>(mut i: I) -> Option<I::Item> { i.next() } fn main() { let _: Item = 1; f(0..1); }",
+        "type Zz = u8; fn f<I: Iterator>(mut i: I) -> Option<I::Zz> { i.next() } fn main() { let _: Zz = 1; f(0..1); }",
+    ),
+    (
+        "a generic's associated function is not the program's function",
+        "fn default() -> i32 { 0 } fn f<T: Default>() -> T { T::default() } fn main() { default(); f::<i32>(); }",
+        "fn zz() -> i32 { 0 } fn f<T: Default>() -> T { T::zz() } fn main() { zz(); f::<i32>(); }",
+    ),
+    (
+        "a module's re-export of the library's is not a parameter",
+        "mod m { pub use std::mem::drop; } fn f(drop: i32) -> i32 { drop } fn main() { m::drop(f(1)); }",
+        "mod m { pub use std::mem::drop; } fn f(nope: i32) -> i32 { nope } fn main() { m::nope(f(1)); }",
+    ),
+    (
+        "a module's glob re-export is not a top-level function",
+        "fn drop(_: i32) {} mod m { pub use std::mem::*; } fn main() { m::drop(1); drop(2); }",
+        "fn zz(_: i32) {} mod m { pub use std::mem::*; } fn main() { m::zz(1); zz(2); }",
+    ),
+    (
+        "a crate-root import is not a parameter",
+        "use std::mem::drop; fn f(drop: i32) -> i32 { drop } fn main() { f(1); crate::drop(1); }",
+        "use std::mem::drop; fn f(nope: i32) -> i32 { nope } fn main() { f(1); crate::nope(1); }",
+    ),
+    (
+        "Self's library function is not a free function",
+        "fn default() -> i32 { 1 } trait T { fn t() -> Self; } impl T for i32 { fn t() -> i32 { Self::default() } } fn main() { default(); i32::t(); }",
+        "fn zz() -> i32 { 1 } trait T { fn t() -> Self; } impl T for i32 { fn t() -> i32 { Self::zz() } } fn main() { zz(); i32::t(); }",
+    ),
 ]
 
 
@@ -696,6 +726,31 @@ SCOPED_THE_SAME = [
         "a struct pattern after a comma-less arm",
         "struct P { x: i32 } fn main() { match (P { x: 1 }) { P { x: 0 } => while false {} P { x } => { let _ = x; } } }",
         "struct Q { y: i32 } fn main() { match (Q { y: 1 }) { Q { y: 0 } => while false {} Q { y } => { let _ = y; } } }",
+    ),
+    (
+        "a generic parameter as a path's head",
+        "fn f<T: Default>() -> T { T::default() } fn main() { f::<i32>(); }",
+        "fn f<U: Default>() -> U { U::default() } fn main() { f::<i32>(); }",
+    ),
+    (
+        "a module's own function through its path",
+        "mod m { pub fn g() {} } fn main() { m::g(); }",
+        "mod n { pub fn h() {} } fn main() { n::h(); }",
+    ),
+    (
+        "an enum's variant through its path",
+        "enum E { A } fn main() { let _ = E::A; }",
+        "enum F { B } fn main() { let _ = F::B; }",
+    ),
+    (
+        "an associated function through Self",
+        "struct S; impl S { fn make() -> S { S } fn g() -> S { Self::make() } } fn main() { S::g(); }",
+        "struct S; impl S { fn build() -> S { S } fn g() -> S { Self::build() } } fn main() { S::g(); }",
+    ),
+    (
+        "a top-level function through crate",
+        "fn helper() {} fn main() { crate::helper(); }",
+        "fn aid() {} fn main() { crate::aid(); }",
     ),
 ]
 
