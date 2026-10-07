@@ -680,14 +680,41 @@ def _in_condition_head(s: _Stream, k: int) -> bool:
     return False
 
 
+def _pattern_path_before(s: _Stream, brace: int) -> bool:
+    """Whether the `{` at `brace` is named by a path that begins a pattern."""
+    head = brace - 1
+    t = s.at(head)
+    if t is None or not (t.kind == "ident" or _kw(t, "Self")):
+        return False
+    while (
+        head >= 3
+        and s.path_sep[head - 1]
+        and s.path_sep[head - 2]
+        and s.tokens[head - 3].kind in ("ident", "keyword")
+    ):
+        head -= 3
+    before = s.at(head - 1)
+    if before is None:
+        return True
+    if before.kind != "punct":
+        return False
+    if before.text == ">":
+        return s.fat_arrow(head - 2)
+    return before.text in ("{", ",", "}", "@")
+
+
 def _arm_start(s: _Stream, arrow: int) -> int:
     """Where the match arm ending at the `=>` at `arrow` begins.
 
     Walks back over whole bracket groups to the arm's boundary: the match body's
     `{`, a `,`, a previous `=>`, or the `}` that ends a previous arm's block. A
-    `{...}` group is part of the pattern when a path names it (`Point { x, .. }`),
-    and ends a previous arm when a keyword or a `=>` precedes it, or when it is the
-    body of an `if`, `while` or `match` on a single name.
+    `{...}` group is part of the pattern only when a path names it
+    (`Point { x, .. }`) and that path itself starts the pattern: after the match's
+    `{`, a `,`, a `=>`, a `}` or an `@`. Anything else before the path - `==` in
+    `while a == b {..}`, the `.` of `match s.a {..}`, the `in` of a `for` - makes
+    the group a previous arm's comma-less body. An or-pattern's `|` is not taken
+    as a start (`a | b {..}` may be a condition), so `A | P { x }` stops early and
+    leaves its names unbound: kept, not renamed.
     """
     j = arrow - 1
     while j >= 0:
@@ -697,19 +724,8 @@ def _arm_start(s: _Stream, arrow: int) -> int:
                 opener = s.partner.get(j)
                 if opener is None:
                     return j + 1
-                if t.text == "}":
-                    before = s.at(opener - 1)
-                    named_by_path = (
-                        before is not None
-                        and before.kind == "ident"
-                        and not (
-                            s.at(opener - 2) is not None
-                            and s.tokens[opener - 2].kind == "keyword"
-                            and s.tokens[opener - 2].text in ("if", "while", "match")
-                        )
-                    )
-                    if not named_by_path:
-                        return j + 1
+                if t.text == "}" and not _pattern_path_before(s, opener):
+                    return j + 1
                 j = opener - 1
                 continue
             if t.text in _OPENERS or t.text == ",":

@@ -610,6 +610,21 @@ SCOPE_NEVER_THE_SAME = [
         "fn main() { vec![1]; macro_rules! vec { ($($t:tt)*) => { () } } }",
         "fn main() { zz![1]; macro_rules! zz { ($($t:tt)*) => { () } } }",
     ),
+    (
+        "a comma-less while arm is not the next arm's pattern",
+        "fn main(){ let (a,b)=(1,2); let v:Option<i32>=None; match v { None => while a == b { let _f: fn(i32) = drop; break; } Some(_z) => {} } }",
+        "fn main(){ let (a,b)=(1,2); let v:Option<i32>=None; match v { None => while a == b { let _f: fn(i32) = nope; break; } Some(_z) => {} } }",
+    ),
+    (
+        "a comma-less match-on-a-field arm is not the next arm's pattern",
+        "struct S { a: i32 } fn main(){ let s = S { a: 1 }; let v: Option<i32> = None; match v { None => match s.a { _ => { let _f: fn(i32) = drop; } } Some(_z) => {} } }",
+        "struct S { a: i32 } fn main(){ let s = S { a: 1 }; let v: Option<i32> = None; match v { None => match s.a { _ => { let _f: fn(i32) = nope; } } Some(_z) => {} } }",
+    ),
+    (
+        "a comma-less for arm is not the next arm's pattern",
+        "fn main(){ let xs = [1]; let v: Option<i32> = None; match v { None => for x in xs { let _f: fn(i32) = drop; let _ = x; } Some(_z) => {} } }",
+        "fn main(){ let xs = [1]; let v: Option<i32> = None; match v { None => for x in xs { let _f: fn(i32) = nope; let _ = x; } Some(_z) => {} } }",
+    ),
 ]
 
 
@@ -676,6 +691,11 @@ SCOPED_THE_SAME = [
         "a macro called after its macro_rules!",
         "fn main() { macro_rules! m { () => { 1 } } let _ = m!(); }",
         "fn main() { macro_rules! n { () => { 1 } } let _ = n!(); }",
+    ),
+    (
+        "a struct pattern after a comma-less arm",
+        "struct P { x: i32 } fn main() { match (P { x: 1 }) { P { x: 0 } => while false {} P { x } => { let _ = x; } } }",
+        "struct Q { y: i32 } fn main() { match (Q { y: 1 }) { Q { y: 0 } => while false {} Q { y } => { let _ = y; } } }",
     ),
 ]
 
