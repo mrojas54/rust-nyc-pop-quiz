@@ -1,33 +1,34 @@
 # Organizer question and teaching-trace preview
 
-A runnable, read-only terminal prototype for reviewing existing bank candidates.
-It uses Python's standard-library curses interface and the existing bank models;
-it adds no runtime dependencies. It is an exploratory interface, not the generator
-or the complete organizer approval workflow.
+A runnable, read-only Rust terminal prototype for reviewing existing bank candidates.
+Ratatui 0.30.2 renders the interface; Crossterm handles terminal events. Answer
+derivation and receipts reuse the live room's Rust implementation. This replaces
+the earlier Python curses prototype. It is an exploratory interface, not the
+generator or the complete organizer approval workflow.
 
 ## Run
 
-From this checkout's `pipeline/` directory:
+From this checkout's `prototypes/organizer-tui/` directory:
 
 ```sh
-UV_PYTHON=3.12 uv run python -m popquiz.preview_tui --question q3
+cargo run --locked -- --question q3
 ```
 
-Open in an interactive macOS/Linux terminal of at least 36 columns and 12 rows;
-100 columns and 36 rows is more comfortable. Windows requires a curses-compatible
-environment. Use `--bank /absolute/path/to/bank` to inspect another bank directory
+Open in an interactive terminal of at least 40 columns and 14 rows;
+100 columns and 36 rows is more comfortable. The first build fetches dependencies.
+Use `--bank /absolute/path/to/bank` to inspect another bank directory
 with a `questions/` subdirectory. Records are read, never modified.
 
 | Key | Action |
 | --- | --- |
 | `1` | Question and five choices |
 | `t` or Tab | Toggle question / teaching trace |
-| Left / Right | Previous / next teaching step |
+| Left / Right or `<` / `>` | Previous / next teaching step |
 | `r` | Explicit reveal; enter the final resolving step |
 | `[` / `]` | Previous / next candidate; return to question view |
 | Up / Down or `k` / `j` | Scroll the current view |
-| Page Up / Page Down | Scroll a page |
-| `q` or Escape | Exit |
+| Page Up / Page Down | Scroll ten rows |
+| `q`, Escape, or Ctrl-C | Exit and restore the terminal |
 
 Trace mode highlights the authored source lines, respects the focus range, shows
 the host's narration and authored value illustrations, and stops before the
@@ -37,8 +38,8 @@ existing bank function, explanation, distractor rationales, and recorded receipt
 For a non-interactive preview:
 
 ```sh
-UV_PYTHON=3.12 uv run python -m popquiz.preview_tui --question q3 --snapshot question
-UV_PYTHON=3.12 uv run python -m popquiz.preview_tui --question q3 --snapshot trace --step 3
+cargo run --locked -- --question q3 --snapshot question
+cargo run --locked -- --question q3 --snapshot trace
 ```
 
 ## Scope
@@ -52,4 +53,13 @@ UV_PYTHON=3.12 uv run python -m popquiz.preview_tui --question q3 --snapshot tra
   writes, or projector-browser integration in this prototype.
 - q3 is demonstration content; its appearance here makes no claim of unused status.
 
-Validation evidence is in [VALIDATION.md](VALIDATION.md).
+Snapshots render the same Ratatui widgets through TestBackend. For local checks:
+
+```sh
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+cargo fmt --check
+```
+
+Validation evidence is in [VALIDATION.md](VALIDATION.md). The prototype is a
+standalone Cargo package and is not part of the live room's build or deployment.
