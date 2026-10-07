@@ -673,6 +673,11 @@ SCOPE_NEVER_THE_SAME = [
         "trait Tr { type Out; } fn f<T: Tr>(_: T::Out) {} fn main() {}",
         "trait Tr { type Zz; } fn f<T: Tr>(_: T::Out) {} fn main() {}",
     ),
+    (
+        "a generic named like a type does not reach that type's items",
+        "struct T; impl T { fn default() -> u8 { 2 } } fn f<T: Default>() -> T { T::default() } fn main() { let _ = T::default(); let _: u8 = f(); }",
+        "struct T; impl T { fn zz() -> u8 { 2 } } fn f<T: Default>() -> T { T::zz() } fn main() { let _ = T::zz(); let _: u8 = f(); }",
+    ),
     # PQ-30, eighth class (client ruling 2026-10-07).
     (
         "an item in a library trait's impl keeps the trait's name",
