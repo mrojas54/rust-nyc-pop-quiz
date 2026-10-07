@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-07T05:47:50Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4AEERQTZJZ3V89DGPSFAKS6",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4AEERQTZJZ3V89DGPSFAKS6.md",
+    "size_bytes": 653
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged as PR #50 (merge commit 2877149679cb5ccfa56806b43401dae65cd33fc0, merge-commit strategy, client's word 2026-10-07). PR head e170a69 CI green (just test, just test-full); main CI at 2877149 gree",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

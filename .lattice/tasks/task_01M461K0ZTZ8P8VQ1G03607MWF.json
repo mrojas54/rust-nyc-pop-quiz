@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 8,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-8** (G-3, Major, new): Two live rooms on one question: releasing one publishes the answer at /last while the other is pre-reveal\n- Evidence: rooms.rs:846-886 (create_for checks used only), rooms.rs:925 (global take_home), routes.rs:639; probe test\n- What would close it: Refuse create_for while another unreleased room holds the question, with a test\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
+  "done_at": "2026-10-07T05:47:50Z",
   "evidence_refs": [
     {
       "id": "art_01M48JQWVPS9A4YQVR6DWGYNKT",
@@ -23,17 +23,32 @@
       "id": "art_01M48KCW8K3EZAGEAASSSX0ZV8",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4ADWH2TDS30RQ4ZW0ZBYPJ3",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M4AEERQTZJZ3V89DGPSFAKS7",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M4AEERQTZJZ3V89DGPSFAKS6",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M461K0ZTZ8P8VQ1G03607MWF",
-  "last_event_id": "ev_01M48KD4RPP3QRZ77NRJT75RS4",
-  "last_status_changed_at": "2026-10-06T12:23:04Z",
+  "last_event_id": "ev_01M4AEERQTZJZ3V89DGPSFAKS9",
+  "last_status_changed_at": "2026-10-07T05:47:50Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-54",
-  "status": "in_progress",
+  "status": "done",
   "tags": [
     "audit-gap",
     "held",
@@ -41,6 +56,6 @@
   ],
   "title": "Two live rooms on one question: releasing one publishes the answer at /last while the other is pre-reveal",
   "type": "bug",
-  "updated_at": "2026-10-06T12:35:51Z",
+  "updated_at": "2026-10-07T05:47:50Z",
   "urgency": null
 }
