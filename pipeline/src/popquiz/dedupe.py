@@ -720,7 +720,7 @@ class _Declared:
     """The names the program itself declares, and where each one reaches.
 
     `names` are renamed wherever they stand on their own; `members` - fields and
-    functions - are also renamed after a `.`; `macros` are renamed before `!(`.
+    `impl` or `trait` functions - are also renamed after a `.`; `macros` are renamed before `!(`.
     `fields` are the declared field names. `scopes` holds, per spelling, the token
     ranges (inclusive) where a bare use of it may mean one of its declarations;
     `fields_at` marks the tokens that name a field, true where the name is also a
@@ -841,9 +841,10 @@ class _Collector:
             return s.partner[end]
         return min(end, s.n - 1)
 
-    def item(self, d: int) -> None:
+    def item(self, d: int) -> bool:
         """The item named at `d`: reached throughout its module or block, and by
-        its bare name nowhere else."""
+        its bare name nowhere else. True when it is an associated item - inside an
+        `impl` or `trait` - which only a path or a `.` reaches."""
         s = self.s
         name = s.tokens[d].text
         self.names.add(name)
@@ -852,8 +853,10 @@ class _Collector:
             self.scope([name], 0, s.n - 1)
         elif _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
+            return True
         else:
             self.scope([name], brace, s.partner[brace])
+        return False
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
@@ -894,10 +897,12 @@ class _Collector:
                     self.fields |= declared
 
     def function(self, k: int) -> None:
-        """A `fn` named at `k + 1`: its parameters and generics reach its body."""
+        """A `fn` named at `k + 1`: its parameters and generics reach its body.
+        Only a method or associated function is a member: a `.name()` call never
+        reaches a free `fn name`, and may well be the library's method."""
         s = self.s
-        self.item(k + 1)
-        self.members.add(s.tokens[k + 1].text)
+        if self.item(k + 1):
+            self.members.add(s.tokens[k + 1].text)
         j = k + 2
         found: set[str] = set()
         if _is(s.at(j), "<"):
