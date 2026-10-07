@@ -74,9 +74,10 @@ Where tokens cannot tell, the scoping above keeps a name rather than rename it:
 a closure in an `if`/`while` head cut short at the block, a `#[macro_use]`
 module's macro used after the module, a struct pattern after an or-pattern's `|`,
 an item used inside a nested module through `use super::*`, and every spelling
-that a kept path tail shares (`T::default()` keeps a program's own `default`). Each of those is two token streams, so the check says
-"not a normalized duplicate" and the near-duplicate check - which sees them as very
-similar - sends the pair to an organizer. A miss costs a person a look; a false
+that a kept path tail shares (`T::default()` keeps a program's own `default`).
+Each of those is two token streams, so the check says "not a normalized
+duplicate" and the near-duplicate check - which sees them as very similar - sends
+the pair to an organizer. A miss costs a person a look; a false
 match would cost a question silently. The approximation is built to fail in the
 first direction.
 
@@ -765,7 +766,8 @@ class _Declared:
     """The names the program itself declares, and where each one reaches.
 
     `names` are renamed wherever they stand on their own; `members` - fields and
-    `impl` or `trait` functions - are also renamed after a `.`; `macros` are renamed before `!(`.
+    `impl` or `trait` functions - are also renamed after a `.`; `macros` are
+    renamed before `!(`.
     `fields` are the declared field names. `scopes` holds, per spelling, the token
     ranges (inclusive) where a bare use of it may mean one of its declarations;
     `fields_at` marks the tokens that name a field, true where the name is also a

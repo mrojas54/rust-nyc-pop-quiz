@@ -595,7 +595,8 @@ SCOPE_NEVER_THE_SAME = [
         "a binding named like a library field, in that struct's pattern",
         "fn main() { let std::ops::Range { start, end: _ } = 0..1; let _ = start; }",
         "fn main() { let std::ops::Range { begin, end: _ } = 0..1; let _ = begin; }",
-    ),    # PQ-30. The pairs below were each probed with rustc 1.96.1 (`--edition 2021
+    ),
+    # PQ-30. The pairs below were each probed with rustc 1.96.1 (`--edition 2021
     # --crate-type bin`): the first program exits 0, the second 1.
     (
         "a free function is not a member a method call reaches",
@@ -714,7 +715,8 @@ SCOPED_THE_SAME = [
         "a renamed lifetime",
         "fn f<'a>(x: &'a i32) -> &'a i32 { x } fn main() {}",
         "fn f<'b>(x: &'b i32) -> &'b i32 { x } fn main() {}",
-    ),    (
+    ),
+    (
         "a method called after a dot",
         "struct S; impl S { fn get_n(&self) -> u8 { 1 } } fn main() { S.get_n(); }",
         "struct S; impl S { fn fetch_n(&self) -> u8 { 1 } } fn main() { S.fetch_n(); }",
