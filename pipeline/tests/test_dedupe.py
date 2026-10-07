@@ -600,6 +600,11 @@ SCOPE_NEVER_THE_SAME = [
         "fn main() { if let f = |drop: i32| drop { drop(f); } }",
         "fn main() { if let f = |nope: i32| nope { nope(f); } }",
     ),
+    (
+        "a top-level function does not reach into a nested module",
+        "fn drop(_: i32) {} mod m { pub fn g() { drop(1); } } fn main() { m::g(); }",
+        "fn nope(_: i32) {} mod m { pub fn g() { nope(1); } } fn main() { m::g(); }",
+    ),
 ]
 
 
@@ -656,6 +661,11 @@ SCOPED_THE_SAME = [
         "a closure in an if-let head, used in the block",
         "fn main() { if let f = |a: i32| a { f(1); } }",
         "fn main() { if let f = |b: i32| b { f(1); } }",
+    ),
+    (
+        "a top-level function reached from a module through super",
+        "fn helper(_: i32) {} mod m { pub fn g() { super::helper(1); } } fn main() { m::g(); helper(2); }",
+        "fn aid(_: i32) {} mod m { pub fn g() { super::aid(1); } } fn main() { m::g(); aid(2); }",
     ),
 ]
 

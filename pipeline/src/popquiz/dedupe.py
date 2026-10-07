@@ -838,6 +838,19 @@ class _Collector:
         self.patterns: list[tuple[int, int]] = []
         self.bodies: set[int] = set()
         self.enclosing = _enclosing_braces(s)
+        # The `{` of every inline `mod NAME { .. }`, by name. A module is its own
+        # namespace: the items around it do not reach inside by their bare names.
+        self.module_bodies: dict[str, set[int]] = {}
+        for k, t in enumerate(s.tokens):
+            name = s.at(k + 1)
+            if (
+                _kw(t, "mod")
+                and name is not None
+                and name.kind == "ident"
+                and _is(s.at(k + 2), "{")
+                and (k + 2) in s.partner
+            ):
+                self.module_bodies.setdefault(name.text, set()).add(k + 2)
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -871,13 +884,33 @@ class _Collector:
         self.names.add(name)
         brace = self.enclosing[d]
         if brace is None:
-            self.scope([name], 0, s.n - 1)
+            self.scope_outside_modules(name, d, 0, s.n - 1)
         elif _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
             return True
         else:
-            self.scope([name], brace, s.partner[brace])
+            self.scope_outside_modules(name, d, brace, s.partner[brace])
         return False
+
+    def scope_outside_modules(self, name: str, d: int, lo: int, hi: int) -> None:
+        """`name`, declared at `d`, reaches `[lo, hi]` except the bodies of the
+        modules nested in it: inside one, the bare name means that module's own
+        item or the library's, never this one."""
+        holes = sorted(
+            (b, self.s.partner[b])
+            for bodies in self.module_bodies.values()
+            for b in bodies
+            if lo < b and self.s.partner[b] <= hi and not b <= d <= self.s.partner[b]
+        )
+        a = lo
+        for b, e in holes:
+            if b < a:
+                continue  # inside a hole already cut
+            if a <= b - 1:
+                self.scope([name], a, b - 1)
+            a = e + 1
+        if a <= hi:
+            self.scope([name], a, hi)
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
