@@ -605,6 +605,11 @@ SCOPE_NEVER_THE_SAME = [
         "fn drop(_: i32) {} mod m { pub fn g() { drop(1); } } fn main() { m::g(); }",
         "fn nope(_: i32) {} mod m { pub fn g() { nope(1); } } fn main() { m::g(); }",
     ),
+    (
+        "a macro call before its macro_rules! is the library's",
+        "fn main() { vec![1]; macro_rules! vec { ($($t:tt)*) => { () } } }",
+        "fn main() { zz![1]; macro_rules! zz { ($($t:tt)*) => { () } } }",
+    ),
 ]
 
 
@@ -666,6 +671,11 @@ SCOPED_THE_SAME = [
         "a top-level function reached from a module through super",
         "fn helper(_: i32) {} mod m { pub fn g() { super::helper(1); } } fn main() { m::g(); helper(2); }",
         "fn aid(_: i32) {} mod m { pub fn g() { super::aid(1); } } fn main() { m::g(); aid(2); }",
+    ),
+    (
+        "a macro called after its macro_rules!",
+        "fn main() { macro_rules! m { () => { 1 } } let _ = m!(); }",
+        "fn main() { macro_rules! n { () => { 1 } } let _ = n!(); }",
     ),
 ]
 

@@ -745,7 +745,9 @@ class _Declared:
     `fields` are the declared field names. `scopes` holds, per spelling, the token
     ranges (inclusive) where a bare use of it may mean one of its declarations;
     `fields_at` marks the tokens that name a field, true where the name is also a
-    binding or a use (`P { x }`).
+    binding or a use (`P { x }`). `macro_scopes` is where a `name!(..)` call may
+    mean the program's `macro_rules! name`: from the definition to the end of the
+    block or file around it, the textual scope Rust gives it.
     """
 
     names: frozenset[str]
@@ -754,6 +756,7 @@ class _Declared:
     fields: frozenset[str]
     scopes: dict[str, list[tuple[int, int]]]
     fields_at: dict[int, bool]
+    macro_scopes: dict[str, list[tuple[int, int]]]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -835,6 +838,7 @@ class _Collector:
         self.macros: set[str] = set()
         self.fields: set[str] = set()
         self.scopes: dict[str, list[tuple[int, int]]] = {}
+        self.macro_scopes: dict[str, list[tuple[int, int]]] = {}
         self.patterns: list[tuple[int, int]] = []
         self.bodies: set[int] = set()
         self.enclosing = _enclosing_braces(s)
@@ -1176,6 +1180,11 @@ def _declared(s: _Stream) -> _Declared:
                 if name is not None and name.kind == "ident":
                     c.macros.add(name.text)
                     c.scope([name.text], k + 2, k + 2)
+                    # Textual scope: a call before the definition, or outside the
+                    # block that holds it, is someone else's macro.
+                    block = c.enclosing[k]
+                    end = s.partner[block] - 1 if block is not None else s.n - 1
+                    c.macro_scopes.setdefault(name.text, []).append((k + 2, end))
         elif t.kind == "punct":
             if s.fat_arrow(k):
                 c.match_arm(k)
@@ -1189,6 +1198,7 @@ def _declared(s: _Stream) -> _Declared:
         frozenset(c.fields),
         c.scopes,
         c.field_positions(skip),
+        c.macro_scopes,
     )
 
 
@@ -1659,7 +1669,8 @@ def _unscoped_names(
     `drop`, a field of the library's `Range` - so renaming the spelling would make
     that use the same token as any other name, resolved or not. This declines the
     rename instead of resolving the name. A use after `.`, after `::` or before `!`
-    is left to the member, path and macro rules. A field position needs a declared
+    is left to the member and path rules; a macro call outside the textual scope of
+    every `macro_rules!` of its name protects the name. A field position needs a declared
     field of that spelling, and, in `P { x }`, a declaration in reach as well.
     """
     candidates = declared.names | declared.members | declared.macros
@@ -1678,7 +1689,15 @@ def _unscoped_names(
             continue
         if _is(s.at(k - 1), ".") and not s.range_dot(k - 1):
             continue
-        if (k > 0 and s.path_sep[k - 1]) or _is_macro_call(s, k):
+        if k > 0 and s.path_sep[k - 1]:
+            continue
+        if _is_macro_call(s, k):
+            # Only a `macro_rules!` of this spelling can be meant, and only where
+            # its textual scope reaches.
+            if t.text in declared.macros and not any(
+                lo <= k <= hi for lo, hi in declared.macro_scopes.get(t.text, ())
+            ):
+                protected.add(t.text)
             continue
         shorthand = declared.fields_at.get(k)
         if shorthand is None:
@@ -1784,7 +1803,7 @@ def _normalize(
                     )
                 )
             elif _is_macro_call(s, k):
-                rename = name in declared.macros
+                rename = name in declared.macros and name in renamable
             else:
                 rename = name in renamable
             if rename:
