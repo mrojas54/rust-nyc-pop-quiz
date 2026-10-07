@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 4,
   "complexity": "medium",
   "created_at": "2026-10-02T20:51:45Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M3Z668YQK95E1WP0BKKN9E9A",
-  "last_event_id": "ev_01M461KGTKSWB2KF89XTSNV07T",
+  "last_event_id": "ev_01M4AEVWYVHG3TKZW1N5FRV76T",
   "last_status_changed_at": "2026-10-02T20:51:45Z",
   "priority": "high",
   "relationships_out": [],
@@ -26,6 +26,6 @@
   ],
   "title": "Burst and smoke follow-ups: the connection cap, the q3 default, verdicts that cannot mislead",
   "type": "bug",
-  "updated_at": "2026-10-05T12:46:17Z",
+  "updated_at": "2026-10-07T05:55:01Z",
   "urgency": null
 }
