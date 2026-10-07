@@ -53,20 +53,28 @@ range of its declarations - `fn f(drop: i32) {}` beside a call to the library's
 `drop(1)` - is kept verbatim everywhere, as is a spelling that names a field no
 struct in the program declares (`Range { start, end }`). The aim is ranges no
 wider than Rust's, so the error is a missed rename rather than a merge. **That aim
-is not met yet.** Review round 3 (FAIL) found false matches, each confirmed with
-rustc: a closure's range running into an `if let` block after it; a top-level item
-reaching into a nested `mod`; `macro_rules!` names renamed at every call; a
-comma-less arm body read as the next arm's pattern; a path's tail renamed with its
-head (`I::Item`); a lifetime `'a` and a name `a` sharing a placeholder; and a free
-`fn` renamed after a `.` where a library method of that name is called. The rule
-above is a requirement, not a property this approximation has established.
+is not met yet.** The seven false matches review round 3 found are closed (PQ-30):
+a closure in an `if let` head ends at its block, items stop at nested `mod`
+bodies, a `macro_rules!` name reaches only its textual scope, a comma-less arm
+body is not the next arm's pattern, a path's tail is renamed only where tokens
+show it is the program's, a lifetime keeps its quote (`'$1`), and only `impl` and
+`trait` functions are reached after a `.`. One known risk remains: a declared
+associated item named like a library one off the `_STD_MEMBERS` list - `type Item`
+in an `impl Iterator`, or `S::name` where another type declares `name` and `S`
+takes the library's - is renamed with it. The rule above is a requirement, not a
+property this approximation has established.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
 rewritten into an equivalent one (`x + x` for `2 * x`), a struct built with field
 shorthand in one program and `field: binding` in the other, a trailing comma in
 a tuple, a declared member renamed to or from a library name, names preserved
-for names used out of scope or derives, and anything a `macro_rules!` body does. Each of those is two token streams, so the check says
+for names used out of scope or derives, and anything a `macro_rules!` body does.
+Where tokens cannot tell, the scoping above keeps a name rather than rename it:
+a closure in an `if`/`while` head cut short at the block, a `#[macro_use]`
+module's macro used after the module, a struct pattern after an or-pattern's `|`,
+an item used inside a nested module through `use super::*`, and every spelling
+that a kept path tail shares (`T::default()` keeps a program's own `default`). Each of those is two token streams, so the check says
 "not a normalized duplicate" and the near-duplicate check - which sees them as very
 similar - sends the pair to an organizer. A miss costs a person a look; a false
 match would cost a question silently. The approximation is built to fail in the

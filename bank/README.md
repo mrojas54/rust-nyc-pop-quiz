@@ -284,13 +284,19 @@ apart from it. A binding named like a field of a library struct
 (`Range { start, end }`) is kept for the same reason. This is scoping by token
 ranges, not Rust's name resolution. The aim is ranges no wider than Rust's, so
 the error is a missed rename rather than a merge, and **that aim is not met yet**.
-Review round 3 (FAIL) found false matches, each confirmed with rustc, and they are
-open. A closure's range can run into an `if let` block after it. A top-level item
-reaches into nested `mod`s. `macro_rules!` names are renamed at every call. A
-comma-less arm body can be read as the next arm's pattern. A path's tail is
-renamed along with its head (`I::Item`). A lifetime `'a` and a name `a` share a
-placeholder. A free `fn` is renamed after a `.` where a library method of the
-same name is called.
+The seven false matches review round 3 found, each confirmed with rustc, are
+closed (PQ-30). A closure in an `if let` head ends at its block. Items stop at
+nested `mod` bodies. A `macro_rules!` name reaches only its textual scope. A
+comma-less arm body is not read as the next arm's pattern. A path's tail is
+renamed only where the tokens show it is the program's (`I::Item` after a generic
+is kept). A lifetime keeps its quote, so `'a` and `a` never share a placeholder.
+Only `impl` and `trait` functions are renamed after a `.`. One known risk is
+open: a declared associated item named like a library one that is not on the
+keep-list (`type Item` in an `impl Iterator`) is renamed with it. Where tokens
+cannot tell, the scoping keeps a name instead of renaming it: a closure in an
+`if` or `while` head, a `#[macro_use]` module's macro, a struct pattern after an
+or-pattern's `|`, an item reached through `use super::*`, and any spelling a kept
+path tail shares. Each of those is a missed rename, which a person sees.
 
 The rule behind every step is that **no normalization may make two different
 programs equal**, including a program that compiles and one that does not.
