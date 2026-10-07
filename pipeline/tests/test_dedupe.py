@@ -476,6 +476,13 @@ NEVER_THE_SAME = [
         "fn f<'a>(x: &'a i32) {} fn main() {}",
         "fn f<a>(x: &a i32) {} fn main() {}",
     ),
+    # Both compile; they call different macros. A derive keeps every declared
+    # name, so a call to a kept macro must be kept too, or `m!` and `k!` merge.
+    (
+        "a kept macro's calls are kept",
+        '#[derive(Clone)] struct S; macro_rules! m { () => { 1 } } macro_rules! k { () => { 2 } } fn main() { let _ = S; println!("{}", m!()); }',
+        '#[derive(Clone)] struct S; macro_rules! m { () => { 1 } } macro_rules! k { () => { 2 } } fn main() { let _ = S; println!("{}", k!()); }',
+    ),
 ]
 
 
@@ -654,6 +661,16 @@ SCOPE_NEVER_THE_SAME = [
         "Self's library function is not a free function",
         "fn default() -> i32 { 1 } trait T { fn t() -> Self; } impl T for i32 { fn t() -> i32 { Self::default() } } fn main() { default(); i32::t(); }",
         "fn zz() -> i32 { 1 } trait T { fn t() -> Self; } impl T for i32 { fn t() -> i32 { Self::zz() } } fn main() { zz(); i32::t(); }",
+    ),
+    (
+        "a generic's associated function is not tied to one impl of its trait",
+        "struct S; impl Default for S { fn default() -> S { S } } fn f<T: Default>() -> T { T::default() } fn main() { let _: S = f(); }",
+        "struct S; impl Default for S { fn zz() -> S { S } } fn f<T: Default>() -> T { T::zz() } fn main() { let _: S = f(); }",
+    ),
+    (
+        "a kept path tail keeps its declaration",
+        "trait Tr { type Out; } fn f<T: Tr>(_: T::Out) {} fn main() {}",
+        "trait Tr { type Zz; } fn f<T: Tr>(_: T::Out) {} fn main() {}",
     ),
 ]
 
