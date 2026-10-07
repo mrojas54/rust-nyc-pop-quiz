@@ -52,3 +52,30 @@ fn narrow_terminal_still_has_navigation() {
     assert!(screen.contains("q Quit"));
     assert!(screen.contains("Question"));
 }
+
+#[test]
+fn preview_leaves_all_bank_files_unchanged() {
+    let paths: Vec<_> = std::fs::read_dir(organizer_preview::default_bank().join("questions"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    let before: Vec<_> = paths
+        .iter()
+        .map(|path| std::fs::read(path).unwrap())
+        .collect();
+    snapshot(&['t', '>', 'r', ']', '[', '1'], 100, 36);
+    for (path, expected) in paths.iter().zip(before) {
+        assert_eq!(std::fs::read(path).unwrap(), expected);
+    }
+}
+
+#[test]
+fn cli_reports_an_unknown_candidate_without_entering_terminal_mode() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_organizer-preview"))
+        .args(["--question", "missing-candidate", "--snapshot", "trace"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("was not found"));
+    assert!(!output.stdout.contains(&0x1b));
+}
