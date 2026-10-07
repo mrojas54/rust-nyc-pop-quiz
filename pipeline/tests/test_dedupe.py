@@ -469,6 +469,13 @@ NEVER_THE_SAME = [
         "struct S { items: Vec<u8> }\nimpl S { fn len(&self) -> usize { self.items.len() } }",
         "struct S { items: Vec<u8> }\nimpl S { fn size(&self) -> usize { self.items.size() } }",
     ),
+    # PQ-30 C6. The ticket's pair has no `main` and does not compile as a binary
+    # (E0601), so `fn main() {}` is added: A exits 0, B 1 (a syntax error).
+    (
+        "a lifetime and a name do not share a placeholder",
+        "fn f<'a>(x: &'a i32) {} fn main() {}",
+        "fn f<a>(x: &a i32) {} fn main() {}",
+    ),
 ]
 
 
@@ -619,6 +626,11 @@ SCOPED_THE_SAME = [
         "a struct with its fields, built and destructured",
         "struct P { x: i32 } fn main() { let p = P { x: 1 }; let P { x } = p; let _ = x; }",
         "struct Q { y: i32 } fn main() { let p = Q { y: 1 }; let Q { y } = p; let _ = y; }",
+    ),
+    (
+        "a renamed lifetime",
+        "fn f<'a>(x: &'a i32) -> &'a i32 { x } fn main() {}",
+        "fn f<'b>(x: &'b i32) -> &'b i32 { x } fn main() {}",
     ),
 ]
 

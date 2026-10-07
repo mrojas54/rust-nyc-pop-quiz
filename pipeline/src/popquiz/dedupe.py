@@ -1689,7 +1689,10 @@ def _normalize(
             k += length
             continue
         if t.kind == "lifetime":
-            out.append(t.text if t.text in ("'static", "'_") else placeholder(t.text))
+            # A lifetime keeps its quote, so `'a` and a name `a` never share text.
+            out.append(
+                t.text if t.text in ("'static", "'_") else "'" + placeholder(t.text)
+            )
         elif t.kind == "string" and k in format_strings:
             out.append(
                 _rename_inline_arguments(
