@@ -285,6 +285,21 @@ it*). Nothing per person survives release, and nothing that outlives the room
 ledger holds (*That question has already been run. Pick another.*). A room that
 expires or goes quiet before release records nothing.
 
+**One room per question (GAP-8).** `create_room` and `run_again` also refuse a
+question another room holds (*That question is open in another room. Pick
+another.*). A room holds its question while it is not released and has not
+ended (`Room::holds`): releasing either of two rooms on one question would put
+the answer on `/last` while the other is still before its reveal. A released
+room's question is the ledger's refusal instead; a room that went quiet or
+expired holds nothing, even before the sweep deletes it, since it can never
+release. The checks and the insert are one critical section in `create_for`
+(`questions`, then `rooms`, held until the room is in), so two creates cannot
+both pass and a release cannot land between the ledger check and the insert;
+`tests/one_room.rs` guards it by inspecting `create_for`'s lock order. A room
+that ended stays ended once a new room was let in on its question, whatever
+`now` a later action carries. `schedule`'s own hold is wider on purpose: any
+room record until it is deleted.
+
 ### The seams
 
 | Seam | For | Shape |

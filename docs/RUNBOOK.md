@@ -323,6 +323,7 @@ File the sheets:
 | Coming back from Discord answers `400` | The sign-in was replayed, expired or lost its cookie. Open `/host?question=<id>` again and tap *Sign in with Discord* once. |
 | `No question is scheduled with that id.` | The push did not land, or the machine restarted since. Run `just schedule` again with the same id and date, and check it prints `scheduled: new`. |
 | `That question has already been run. Pick another.` | This machine has released that question. Pick another. |
+| `That question is open in another room. Pick another.` | Another room on this machine has that question and has not been released. Open that room's saved host-screen address instead, or pick another question. The other room stops holding the question once it goes quiet: 30 minutes with no host action while it waits to start, 20 minutes once started, and 4 hours after it was created at most. Only host actions reset the clock; phones joining or answering do not. If the saved host-screen address is lost, wait for that room to go quiet and create the room again, or pick another question. |
 | `That Discord account isn't in the Rust NYC server.` | Sign in with the account that is. |
 | `That Discord account doesn't have the organizer role.` | Sign in with an account that holds the organizer role. |
 | *Create a room* fails with `503` | Discord did not answer. Try again in a minute. A room already open does not need Discord. |
