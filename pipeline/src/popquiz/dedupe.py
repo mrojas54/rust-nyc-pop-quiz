@@ -911,9 +911,13 @@ def _impl_owner(s: _Stream, brace: int) -> str | None:
                 depth -= 1
             elif t.text in ("(", "[") and k in s.partner:
                 k = s.partner[k]
+            elif depth == 0 and (t.text == "+" or (t.text == "-" and t.joint)):
+                return None  # `fn() -> S`, `A + Send`: not a named type
         elif depth == 0:
             if _kw(t, "where"):
                 break
+            if _kw(t, "dyn"):
+                return None  # a trait object owns nothing the tokens can name
             if _kw(t, "for"):
                 owner = None
             elif t.kind == "ident":
