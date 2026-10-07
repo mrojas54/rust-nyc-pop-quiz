@@ -779,7 +779,8 @@ class _Declared:
     spellings, `associated` the names declared inside an `impl` or `trait` and the
     enum variants, `item_braces` the `{` directly around each other item's
     declaration (`None` at top level), and `module_bodies` the `{` of each inline
-    module, by its name.
+    module, by its name. `library_impl_items` are the names declared inside an
+    `impl` of a trait the program does not declare, which the library fixes.
     """
 
     names: frozenset[str]
@@ -793,6 +794,7 @@ class _Declared:
     associated: frozenset[str]
     item_braces: dict[str, set[int | None]]
     module_bodies: dict[str, set[int]]
+    library_impl_items: frozenset[str]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -852,6 +854,49 @@ def _header_words(s: _Stream, brace: int) -> set[str]:
     return words
 
 
+def _impl_trait(s: _Stream, brace: int) -> str | None:
+    """The trait an `impl Trait for Type {` names, by the last identifier of its
+    path, for the `{` at `brace`; `None` for an inherent `impl` or any other brace."""
+    impl = None
+    j = brace - 1
+    while j >= 0:
+        t = s.tokens[j]
+        if t.kind == "punct":
+            if t.text in (")", "]") and j in s.partner:
+                j = s.partner[j] - 1
+                continue
+            if t.text in _OPENERS or t.text in (";", "}", ")", "]"):
+                break
+        elif _kw(t, "impl"):
+            impl = j
+        j -= 1
+    if impl is None:
+        return None
+    k = impl + 1
+    if _is(s.at(k), "<"):
+        k = _generic_names(s, k, set()) + 1
+    depth = 0
+    last: str | None = None
+    while k < brace:
+        t = s.tokens[k]
+        if t.kind == "punct":
+            if t.text == "<":
+                depth += 1
+            elif t.text == ">" and not (
+                _is(s.at(k - 1), "-") and s.tokens[k - 1].joint
+            ):
+                depth -= 1
+            elif t.text in ("(", "[") and k in s.partner:
+                k = s.partner[k]
+        elif depth == 0:
+            if _kw(t, "for"):
+                return last
+            if t.kind == "ident":
+                last = t.text
+        k += 1
+    return None
+
+
 class _Collector:
     """Gathers declarations, and for each the range where its bare name reaches.
 
@@ -877,6 +922,13 @@ class _Collector:
         self.macro_scopes: dict[str, list[tuple[int, int]]] = {}
         self.generic_names: set[str] = set()
         self.associated: set[str] = set()
+        # Names declared inside an `impl` of a trait the program does not declare.
+        self.library_impl_items: set[str] = set()
+        self.user_traits: set[str] = set()
+        for k, t in enumerate(s.tokens):
+            after = s.at(k + 1)
+            if _kw(t, "trait") and after is not None and after.kind == "ident":
+                self.user_traits.add(after.text)
         self.item_braces: dict[str, set[int | None]] = {}
         self.patterns: list[tuple[int, int]] = []
         self.bodies: set[int] = set()
@@ -929,6 +981,9 @@ class _Collector:
         if brace is not None and _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
             self.associated.add(name)
+            trait = _impl_trait(s, brace)
+            if trait is not None and trait not in self.user_traits:
+                self.library_impl_items.add(name)
             return True
         self.item_braces.setdefault(name, set()).add(brace)
         if brace is None:
@@ -1246,6 +1301,7 @@ def _declared(s: _Stream) -> _Declared:
         frozenset(c.associated),
         c.item_braces,
         c.module_bodies,
+        frozenset(c.library_impl_items),
     )
 
 
@@ -1860,6 +1916,8 @@ def _normalize(
     # expanding those macros, alpha-renaming is not evidence of equivalence.
     if any(t.text == "derive" for t in tokens):
         protected |= declared.names | declared.members | declared.macros
+    # A library trait fixes the names declared in its `impl`.
+    protected |= declared.library_impl_items
     # A protected head keeps its tails verbatim, which may protect more: repeat
     # until nothing changes. Each round only grows `protected`.
     while extra := _unreached_path_tails(s, declared, protected) - protected:

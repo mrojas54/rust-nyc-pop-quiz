@@ -673,6 +673,12 @@ SCOPE_NEVER_THE_SAME = [
         "trait Tr { type Out; } fn f<T: Tr>(_: T::Out) {} fn main() {}",
         "trait Tr { type Zz; } fn f<T: Tr>(_: T::Out) {} fn main() {}",
     ),
+    # PQ-30, eighth class (client ruling 2026-10-07).
+    (
+        "an item in a library trait's impl keeps the trait's name",
+        "struct S; impl Iterator for S { type Item = u8; fn next(&mut self) -> Option<Self::Item> { None } } fn main() { let _ = S.next(); }",
+        "struct S; impl Iterator for S { type Zz = u8; fn next(&mut self) -> Option<Self::Zz> { None } } fn main() { let _ = S.next(); }",
+    ),
 ]
 
 
@@ -770,6 +776,11 @@ SCOPED_THE_SAME = [
         "a top-level function through crate",
         "fn helper() {} fn main() { crate::helper(); }",
         "fn aid() {} fn main() { crate::aid(); }",
+    ),
+    (
+        "an item in a program trait's impl",
+        "trait Tr { fn go(&self); } struct S; impl Tr for S { fn go(&self) {} } fn main() { S.go(); }",
+        "trait Tr { fn run(&self); } struct S; impl Tr for S { fn run(&self) {} } fn main() { S.run(); }",
     ),
 ]
 
