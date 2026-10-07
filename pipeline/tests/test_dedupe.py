@@ -679,6 +679,16 @@ SCOPE_NEVER_THE_SAME = [
         "struct S; impl Iterator for S { type Item = u8; fn next(&mut self) -> Option<Self::Item> { None } } fn main() { let _ = S.next(); }",
         "struct S; impl Iterator for S { type Zz = u8; fn next(&mut self) -> Option<Self::Zz> { None } } fn main() { let _ = S.next(); }",
     ),
+    (
+        "a type's path does not reach another type's associated function",
+        "struct A; impl A { fn try_from(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { B } } fn main() { A::try_from(1); let _ = B::try_from(1u8); }",
+        "struct A; impl A { fn zz(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { B } } fn main() { A::zz(1); let _ = B::zz(1u8); }",
+    ),
+    (
+        "Self does not reach another type's associated function",
+        "struct A; impl A { fn try_from(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { let _ = Self::try_from(1u8); B } } fn main() { A::try_from(1); let _ = B::from(1); }",
+        "struct A; impl A { fn zz(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { let _ = Self::zz(1u8); B } } fn main() { A::zz(1); let _ = B::from(1); }",
+    ),
 ]
 
 
@@ -781,6 +791,11 @@ SCOPED_THE_SAME = [
         "an item in a program trait's impl",
         "trait Tr { fn go(&self); } struct S; impl Tr for S { fn go(&self) {} } fn main() { S.go(); }",
         "trait Tr { fn run(&self); } struct S; impl Tr for S { fn run(&self) {} } fn main() { S.run(); }",
+    ),
+    (
+        "each type's own associated functions through its path and Self",
+        "struct A; struct B; impl A { fn f() -> u8 { 1 } } impl B { fn g() -> u8 { Self::h() } fn h() -> u8 { 2 } } fn main() { A::f(); B::g(); }",
+        "struct A; struct B; impl A { fn p() -> u8 { 1 } } impl B { fn q() -> u8 { Self::r() } fn r() -> u8 { 2 } } fn main() { A::p(); B::q(); }",
     ),
 ]
 

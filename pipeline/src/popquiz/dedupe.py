@@ -781,6 +781,9 @@ class _Declared:
     declaration (`None` at top level), and `module_bodies` the `{` of each inline
     module, by its name. `library_impl_items` are the names declared inside an
     `impl` of a trait the program does not declare, which the library fixes.
+    `assoc_owners` maps each associated name to the spellings of the types and
+    traits that declare it. `impl_owner` maps the `{` of each `impl` or `trait` to
+    its owner's spelling, so `Self` can be followed to the type around it.
     """
 
     names: frozenset[str]
@@ -795,6 +798,9 @@ class _Declared:
     item_braces: dict[str, set[int | None]]
     module_bodies: dict[str, set[int]]
     library_impl_items: frozenset[str]
+    assoc_owners: dict[str, set[str]]
+    impl_owner: dict[int, str]
+    enclosing: list[int | None]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -854,10 +860,10 @@ def _header_words(s: _Stream, brace: int) -> set[str]:
     return words
 
 
-def _impl_trait(s: _Stream, brace: int) -> str | None:
-    """The trait an `impl Trait for Type {` names, by the last identifier of its
-    path, for the `{` at `brace`; `None` for an inherent `impl` or any other brace."""
-    impl = None
+def _header_keyword(s: _Stream, brace: int, word: str) -> int | None:
+    """The index of the first `word` keyword in the header of the `{` at `brace`
+    (back to the start of its statement or item), or `None`."""
+    found = None
     j = brace - 1
     while j >= 0:
         t = s.tokens[j]
@@ -867,9 +873,55 @@ def _impl_trait(s: _Stream, brace: int) -> str | None:
                 continue
             if t.text in _OPENERS or t.text in (";", "}", ")", "]"):
                 break
-        elif _kw(t, "impl"):
-            impl = j
+        elif _kw(t, word):
+            found = j
         j -= 1
+    return found
+
+
+def _impl_owner(s: _Stream, brace: int) -> str | None:
+    """The type an `impl` (or the name of a `trait`) owns the items in the `{` at
+    `brace`: for `impl<..> Trait for Type<..> where .. {` the last identifier of
+    `Type`'s path, for `trait NAME {` NAME. `None` when tokens do not show it, and
+    for any other brace."""
+    trait = _header_keyword(s, brace, "trait")
+    if trait is not None:
+        name = s.at(trait + 1)
+        return name.text if name is not None and name.kind == "ident" else None
+    impl = _header_keyword(s, brace, "impl")
+    if impl is None:
+        return None
+    k = impl + 1
+    if _is(s.at(k), "<"):
+        k = _generic_names(s, k, set()) + 1
+    depth = 0
+    owner: str | None = None
+    while k < brace:
+        t = s.tokens[k]
+        if t.kind == "punct":
+            if t.text == "<":
+                depth += 1
+            elif t.text == ">" and not (
+                _is(s.at(k - 1), "-") and s.tokens[k - 1].joint
+            ):
+                depth -= 1
+            elif t.text in ("(", "[") and k in s.partner:
+                k = s.partner[k]
+        elif depth == 0:
+            if _kw(t, "where"):
+                break
+            if _kw(t, "for"):
+                owner = None
+            elif t.kind == "ident":
+                owner = t.text
+        k += 1
+    return owner
+
+
+def _impl_trait(s: _Stream, brace: int) -> str | None:
+    """The trait an `impl Trait for Type {` names, by the last identifier of its
+    path, for the `{` at `brace`; `None` for an inherent `impl` or any other brace."""
+    impl = _header_keyword(s, brace, "impl")
     if impl is None:
         return None
     k = impl + 1
@@ -922,6 +974,8 @@ class _Collector:
         self.macro_scopes: dict[str, list[tuple[int, int]]] = {}
         self.generic_names: set[str] = set()
         self.associated: set[str] = set()
+        self.assoc_owners: dict[str, set[str]] = {}
+        self.impl_owner: dict[int, str] = {}
         # Names declared inside an `impl` of a trait the program does not declare.
         self.library_impl_items: set[str] = set()
         self.user_traits: set[str] = set()
@@ -981,6 +1035,10 @@ class _Collector:
         if brace is not None and _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
             self.associated.add(name)
+            owner = _impl_owner(s, brace)
+            if owner is not None:
+                self.assoc_owners.setdefault(name, set()).add(owner)
+                self.impl_owner[brace] = owner
             trait = _impl_trait(s, brace)
             if trait is not None and trait not in self.user_traits:
                 self.library_impl_items.add(name)
@@ -1046,6 +1104,7 @@ class _Collector:
             if a < b and t is not None and t.kind == "ident":
                 self.names.add(t.text)
                 self.associated.add(t.text)
+                self.assoc_owners.setdefault(t.text, set()).add(s.tokens[k].text)
                 self.scope([t.text], a, a)
                 if _is(s.at(a + 1), "{") and (a + 1) in s.partner:
                     declared = _field_names(s, a + 1)
@@ -1302,6 +1361,9 @@ def _declared(s: _Stream) -> _Declared:
         c.item_braces,
         c.module_bodies,
         frozenset(c.library_impl_items),
+        c.assoc_owners,
+        c.impl_owner,
+        c.enclosing,
     )
 
 
@@ -1822,7 +1884,7 @@ def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
     bound trait's), after `Self` unless the name is an associated item, after a
     module or `crate`/`self`/`super` unless the name is an item declared directly
     in a module (a `use` re-export of the library's is not), and after a type
-    unless the name is an associated item or a variant."""
+    unless the name is an associated item or a variant of that very type."""
     head = s.at(k - 3)
     name = s.tokens[k].text
     if head is None or head.kind not in ("ident", "keyword"):
@@ -1833,14 +1895,20 @@ def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
             b is None or b in modules for b in declared.item_braces.get(name, ())
         )
     if head.text == "Self":
-        return name in declared.associated
+        brace = declared.enclosing[k]
+        while brace is not None and brace not in declared.impl_owner:
+            brace = declared.enclosing[brace]
+        return (
+            brace is not None
+            and declared.impl_owner[brace] in declared.assoc_owners.get(name, set())
+        )
     if head.kind != "ident" or head.text in declared.generics:
         return False
     if head.text in declared.module_bodies:
         return bool(
             declared.module_bodies[head.text] & declared.item_braces.get(name, set())
         )
-    return name in declared.associated
+    return head.text in declared.assoc_owners.get(name, set())
 
 
 def _unreached_path_tails(
