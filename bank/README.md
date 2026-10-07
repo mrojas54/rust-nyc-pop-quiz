@@ -283,20 +283,25 @@ everywhere. So `fn f(drop: i32) {}` beside a call to the library's `drop(1)` kee
 apart from it. A binding named like a field of a library struct
 (`Range { start, end }`) is kept for the same reason. This is scoping by token
 ranges, not Rust's name resolution. The aim is ranges no wider than Rust's, so
-the error is a missed rename rather than a merge, and **that aim is not met yet**.
+the error is a missed rename rather than a merge, and **that aim is not established**.
 The seven false matches review round 3 found, each confirmed with rustc, are
 closed (PQ-30). A closure in an `if let` head ends at its block. Items stop at
 nested `mod` bodies. A `macro_rules!` name reaches only its textual scope. A
 comma-less arm body is not read as the next arm's pattern. A path's tail is
 renamed only where the tokens show it is the program's (`I::Item` after a generic
 is kept). A lifetime keeps its quote, so `'a` and `a` never share a placeholder.
-Only `impl` and `trait` functions are renamed after a `.`. One known risk is
-open: a declared associated item named like a library one that is not on the
-keep-list (`type Item` in an `impl Iterator`) is renamed with it. Where tokens
+Only `impl` and `trait` functions are renamed after a `.`. The eighth class
+found while closing them is closed too: a name declared in an `impl` of a library
+trait (`type Item` in an `impl Iterator`) is kept, and `B::name` or `Self::name`
+is renamed only when `B`'s own `impl`, trait or enum declares `name`. No false
+match found so far is open; that is not proof that none exists. Where tokens
 cannot tell, the scoping keeps a name instead of renaming it: a closure in an
 `if` or `while` head, a `#[macro_use]` module's macro, a struct pattern after an
-or-pattern's `|`, an item reached through `use super::*`, and any spelling a kept
-path tail shares. Each of those is a missed rename, which a person sees.
+or-pattern's `|`, an item reached through `use super::*`, any spelling a kept
+path tail shares, the names in an `impl` of a library trait, and a path the
+tokens cannot tie to its type (a trait's default method through an implementing
+type, an `impl` for `[u8; 4]`). Each of those is a missed rename, which a person
+sees.
 
 The rule behind every step is that **no normalization may make two different
 programs equal**, including a program that compiles and one that does not.

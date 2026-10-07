@@ -53,16 +53,17 @@ range of its declarations - `fn f(drop: i32) {}` beside a call to the library's
 `drop(1)` - is kept verbatim everywhere, as is a spelling that names a field no
 struct in the program declares (`Range { start, end }`). The aim is ranges no
 wider than Rust's, so the error is a missed rename rather than a merge. **That aim
-is not met yet.** The seven false matches review round 3 found are closed (PQ-30):
+is not established.** The seven false matches review round 3 found are closed (PQ-30):
 a closure in an `if let` head ends at its block, items stop at nested `mod`
 bodies, a `macro_rules!` name reaches only its textual scope, a comma-less arm
 body is not the next arm's pattern, a path's tail is renamed only where tokens
 show it is the program's, a lifetime keeps its quote (`'$1`), and only `impl` and
-`trait` functions are reached after a `.`. One known risk remains: a declared
-associated item named like a library one off the `_STD_MEMBERS` list - `type Item`
-in an `impl Iterator`, or `S::name` where another type declares `name` and `S`
-takes the library's - is renamed with it. The rule above is a requirement, not a
-property this approximation has established.
+`trait` functions are reached after a `.`. The eighth class found while closing
+them is closed too: a name declared in an `impl` of a library trait (`type Item`
+in an `impl Iterator`) is kept, and a tail after a type or `Self` is renamed only
+when that type, its trait or its enum declares it. No false match found so far is
+open, which is not the same as none existing: the rule above is a requirement,
+not a property this approximation has established.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
@@ -74,7 +75,10 @@ Where tokens cannot tell, the scoping above keeps a name rather than rename it:
 a closure in an `if`/`while` head cut short at the block, a `#[macro_use]`
 module's macro used after the module, a struct pattern after an or-pattern's `|`,
 an item used inside a nested module through `use super::*`, and every spelling
-that a kept path tail shares (`T::default()` keeps a program's own `default`).
+that a kept path tail shares (`T::default()` keeps a program's own `default`),
+every name declared in an `impl` of a library trait, and a tail the tokens cannot
+tie to its type (a trait's default method called through an implementing type,
+an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`).
 Each of those is two token streams, so the check says "not a normalized
 duplicate" and the near-duplicate check - which sees them as very similar - sends
 the pair to an organizer. A miss costs a person a look; a false
