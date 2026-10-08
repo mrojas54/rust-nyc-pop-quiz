@@ -44,33 +44,64 @@ this quiz a program that does not compile is as good a question as one that does
 comma would throw away a question. Documentation comments outside recognized
 item positions are kept as markers, including comments before parameters.
 
-**A declared name is renamed only where it is in scope.** Every declaration
-reaches a token range no wider than its Rust scope: parameters and generics their
-function, closure parameters their closure, `let` / `if let` / `while let` / `for` /
-match-arm bindings their block or arm, items their module or block (and, inside an
-`impl` or `trait`, only their own name). A spelling with any bare use outside every
-range of its declarations - `fn f(drop: i32) {}` beside a call to the library's
-`drop(1)` - is kept verbatim everywhere, as is a spelling that names a field no
-struct in the program declares (`Range { start, end }`). The aim is ranges no
-wider than Rust's, so the error is a missed rename rather than a merge. **That aim
-is not met yet.** Review round 3 (FAIL) found false matches, each confirmed with
-rustc: a closure's range running into an `if let` block after it; a top-level item
-reaching into a nested `mod`; `macro_rules!` names renamed at every call; a
-comma-less arm body read as the next arm's pattern; a path's tail renamed with its
-head (`I::Item`); a lifetime `'a` and a name `a` sharing a placeholder; and a free
-`fn` renamed after a `.` where a library method of that name is called. The rule
-above is a requirement, not a property this approximation has established.
+**A declared name is renamed only where the tokens place it in scope.** Each
+declaration reaches a token range that approximates its Rust scope: parameters and
+generics their function, closure parameters their closure, `let` / `if let` /
+`while let` / `for` / match-arm bindings their block or arm, items their module or
+block (and, inside an `impl` or `trait`, only their own name). A spelling with any
+bare use outside every range of its declarations - `fn f(drop: i32) {}` beside a
+call to the library's `drop(1)` - is kept verbatim everywhere, as is a spelling
+that names a field no struct in the program declares (`Range { start, end }`). The
+aim is ranges no wider than Rust's, so the error is a missed rename rather than a
+merge. **That aim is not established.** The seven false matches review round 3
+found are closed (PQ-30): a closure in an `if let` head ends at its block, items
+stop at nested `mod` bodies, a `macro_rules!` name reaches only its textual scope, a
+comma-less arm body is not the next arm's pattern, a path's tail is renamed only
+where tokens show it is the program's, a lifetime keeps its quote (`'$1`), and only
+`impl` and `trait` functions are reached after a `.`. The eighth class found while
+closing them is closed too: a name declared in an `impl` of a library trait
+(`type Item` in an `impl Iterator`) is kept, and a tail after a type or `Self` is
+renamed only when that type, its trait or its enum declares it.
+
+Known open: these shapes still make a program that compiles normalize equal to
+one that does not (PQ-66).
+
+1. A `let` binding or parameter reaches into a `mod` nested in its function body,
+   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
+2. A block-level `use` shadows an item of the same name
+   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
+3. A library method name missing from `_STD_MEMBERS` that the program also
+   declares (`fn count_ones` beside `3u32.count_ones()`).
+4. An `if let` binding's range starts at the first `{` after the pattern, which can
+   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+
+That is a bounded list of the shapes known so far, not proof that no other exists.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
 rewritten into an equivalent one (`x + x` for `2 * x`), a struct built with field
 shorthand in one program and `field: binding` in the other, a trailing comma in
 a tuple, a declared member renamed to or from a library name, names preserved
-for names used out of scope or derives, and anything a `macro_rules!` body does. Each of those is two token streams, so the check says
-"not a normalized duplicate" and the near-duplicate check - which sees them as very
-similar - sends the pair to an organizer. A miss costs a person a look; a false
-match would cost a question silently. The approximation is built to fail in the
-first direction.
+for names used out of scope or derives, and anything a `macro_rules!` body does.
+Where tokens cannot tell, the scoping above keeps a name rather than rename it:
+a closure in an `if`/`while` head cut short at the block, a `#[macro_use]`
+module's macro used after the module, a struct pattern after an or-pattern's `|`,
+an item used inside a nested module through `use super::*`, and every spelling
+that a kept path tail shares (`T::default()` keeps a program's own `default`),
+every name declared in an `impl` of a library trait, and a tail the tokens cannot
+tie to its type (a trait's default method called through an implementing type,
+an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`).
+The scoping also misses two renames Rust would allow: a program trait's function
+called through a generic (`T::go()` in `fn f<T: Tr>`) and a path through a type
+alias (`type A = S; A::mk()`). Each of those is two token streams, so the check
+says "not a normalized duplicate" and the near-duplicate check - which sees them
+as very similar - sends the pair to an organizer. A miss costs a person a look; a
+false match would cost a question silently. The approximation is built to fail in
+the first direction, though the known-open list above shows it does not always.
+`scope_outside_modules` checks every item against every module, so time grows
+quadratically on very large programs (PQ-30's exact-head review timed the largest
+bank question at 0.5 ms). The missed renames and the time are recall and speed
+costs, not safety gaps.
 
 The near-duplicate bigrams abstract every renamed name to the same placeholder,
 where the fingerprint keeps them numbered. Numbered placeholders shift by one the
@@ -659,14 +690,62 @@ def _closure_opens(s: _Stream, k: int) -> bool:
     return False
 
 
+def _in_condition_head(s: _Stream, k: int) -> bool:
+    """Whether the token at `k` stands in the head of an `if`, `while`, `match` or
+    `for`, at the head's own depth: there the next `{` opens the block, and no
+    expression in the head runs past it."""
+    j = k - 1
+    while j >= 0:
+        t = s.tokens[j]
+        if t.kind == "keyword" and t.text in ("if", "while", "match", "in"):
+            return True
+        if t.kind == "punct":
+            if t.text in _CLOSERS and j in s.partner:
+                j = s.partner[j] - 1
+                continue
+            if t.text in _OPENERS or t.text in (";", "}", ",") or (
+                t.text == ">" and s.fat_arrow(j - 1)
+            ):
+                return False
+        j -= 1
+    return False
+
+
+def _pattern_path_before(s: _Stream, brace: int) -> bool:
+    """Whether the `{` at `brace` is named by a path that begins a pattern."""
+    head = brace - 1
+    t = s.at(head)
+    if t is None or not (t.kind == "ident" or _kw(t, "Self")):
+        return False
+    while (
+        head >= 3
+        and s.path_sep[head - 1]
+        and s.path_sep[head - 2]
+        and s.tokens[head - 3].kind in ("ident", "keyword")
+    ):
+        head -= 3
+    before = s.at(head - 1)
+    if before is None:
+        return True
+    if before.kind != "punct":
+        return False
+    if before.text == ">":
+        return s.fat_arrow(head - 2)
+    return before.text in ("{", ",", "}", "@")
+
+
 def _arm_start(s: _Stream, arrow: int) -> int:
     """Where the match arm ending at the `=>` at `arrow` begins.
 
     Walks back over whole bracket groups to the arm's boundary: the match body's
     `{`, a `,`, a previous `=>`, or the `}` that ends a previous arm's block. A
-    `{...}` group is part of the pattern when a path names it (`Point { x, .. }`),
-    and ends a previous arm when a keyword or a `=>` precedes it, or when it is the
-    body of an `if`, `while` or `match` on a single name.
+    `{...}` group is part of the pattern only when a path names it
+    (`Point { x, .. }`) and that path itself starts the pattern: after the match's
+    `{`, a `,`, a `=>`, a `}` or an `@`. Anything else before the path - `==` in
+    `while a == b {..}`, the `.` of `match s.a {..}`, the `in` of a `for` - makes
+    the group a previous arm's comma-less body. An or-pattern's `|` is not taken
+    as a start (`a | b {..}` may be a condition), so `A | P { x }` stops early and
+    leaves its names unbound: kept, not renamed.
     """
     j = arrow - 1
     while j >= 0:
@@ -676,19 +755,8 @@ def _arm_start(s: _Stream, arrow: int) -> int:
                 opener = s.partner.get(j)
                 if opener is None:
                     return j + 1
-                if t.text == "}":
-                    before = s.at(opener - 1)
-                    named_by_path = (
-                        before is not None
-                        and before.kind == "ident"
-                        and not (
-                            s.at(opener - 2) is not None
-                            and s.tokens[opener - 2].kind == "keyword"
-                            and s.tokens[opener - 2].text in ("if", "while", "match")
-                        )
-                    )
-                    if not named_by_path:
-                        return j + 1
+                if t.text == "}" and not _pattern_path_before(s, opener):
+                    return j + 1
                 j = opener - 1
                 continue
             if t.text in _OPENERS or t.text == ",":
@@ -720,11 +788,24 @@ class _Declared:
     """The names the program itself declares, and where each one reaches.
 
     `names` are renamed wherever they stand on their own; `members` - fields and
-    functions - are also renamed after a `.`; `macros` are renamed before `!(`.
+    `impl` or `trait` functions - are also renamed after a `.`; `macros` are
+    renamed before `!(`.
     `fields` are the declared field names. `scopes` holds, per spelling, the token
     ranges (inclusive) where a bare use of it may mean one of its declarations;
     `fields_at` marks the tokens that name a field, true where the name is also a
-    binding or a use (`P { x }`).
+    binding or a use (`P { x }`). `macro_scopes` is where a `name!(..)` call may
+    mean the program's `macro_rules! name`: from the definition to the end of the
+    block or file around it, the textual scope Rust gives it.
+
+    What a path's tail may reach: `generics` are the type and const parameters'
+    spellings, `associated` the names declared inside an `impl` or `trait` and the
+    enum variants, `item_braces` the `{` directly around each other item's
+    declaration (`None` at top level), and `module_bodies` the `{` of each inline
+    module, by its name. `library_impl_items` are the names declared inside an
+    `impl` of a trait the program does not declare, which the library fixes.
+    `assoc_owners` maps each associated name to the spellings of the types and
+    traits that declare it. `impl_owner` maps the `{` of each `impl` or `trait` to
+    its owner's spelling, so `Self` can be followed to the type around it.
     """
 
     names: frozenset[str]
@@ -733,6 +814,15 @@ class _Declared:
     fields: frozenset[str]
     scopes: dict[str, list[tuple[int, int]]]
     fields_at: dict[int, bool]
+    macro_scopes: dict[str, list[tuple[int, int]]]
+    generics: frozenset[str]
+    associated: frozenset[str]
+    item_braces: dict[str, set[int | None]]
+    module_bodies: dict[str, set[int]]
+    library_impl_items: frozenset[str]
+    assoc_owners: dict[str, set[str]]
+    impl_owner: dict[int, str]
+    enclosing: list[int | None]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -792,6 +882,99 @@ def _header_words(s: _Stream, brace: int) -> set[str]:
     return words
 
 
+def _header_keyword(s: _Stream, brace: int, word: str) -> int | None:
+    """The index of the first `word` keyword in the header of the `{` at `brace`
+    (back to the start of its statement or item), or `None`."""
+    found = None
+    j = brace - 1
+    while j >= 0:
+        t = s.tokens[j]
+        if t.kind == "punct":
+            if t.text in (")", "]") and j in s.partner:
+                j = s.partner[j] - 1
+                continue
+            if t.text in _OPENERS or t.text in (";", "}", ")", "]"):
+                break
+        elif _kw(t, word):
+            found = j
+        j -= 1
+    return found
+
+
+def _impl_owner(s: _Stream, brace: int) -> str | None:
+    """The type an `impl` (or the name of a `trait`) owns the items in the `{` at
+    `brace`: for `impl<..> Trait for Type<..> where .. {` the last identifier of
+    `Type`'s path, for `trait NAME {` NAME. `None` when tokens do not show it, and
+    for any other brace."""
+    trait = _header_keyword(s, brace, "trait")
+    if trait is not None:
+        name = s.at(trait + 1)
+        return name.text if name is not None and name.kind == "ident" else None
+    impl = _header_keyword(s, brace, "impl")
+    if impl is None:
+        return None
+    k = impl + 1
+    if _is(s.at(k), "<"):
+        k = _generic_names(s, k, set()) + 1
+    depth = 0
+    owner: str | None = None
+    while k < brace:
+        t = s.tokens[k]
+        if t.kind == "punct":
+            if t.text == "<":
+                depth += 1
+            elif t.text == ">" and not (
+                _is(s.at(k - 1), "-") and s.tokens[k - 1].joint
+            ):
+                depth -= 1
+            elif t.text in ("(", "[") and k in s.partner:
+                k = s.partner[k]
+            elif depth == 0 and (t.text == "+" or (t.text == "-" and t.joint)):
+                return None  # `fn() -> S`, `A + Send`: not a named type
+        elif depth == 0:
+            if _kw(t, "where"):
+                break
+            if _kw(t, "dyn"):
+                return None  # a trait object owns nothing the tokens can name
+            if _kw(t, "for"):
+                owner = None
+            elif t.kind == "ident":
+                owner = t.text
+        k += 1
+    return owner
+
+
+def _impl_trait(s: _Stream, brace: int) -> str | None:
+    """The trait an `impl Trait for Type {` names, by the last identifier of its
+    path, for the `{` at `brace`; `None` for an inherent `impl` or any other brace."""
+    impl = _header_keyword(s, brace, "impl")
+    if impl is None:
+        return None
+    k = impl + 1
+    if _is(s.at(k), "<"):
+        k = _generic_names(s, k, set()) + 1
+    depth = 0
+    last: str | None = None
+    while k < brace:
+        t = s.tokens[k]
+        if t.kind == "punct":
+            if t.text == "<":
+                depth += 1
+            elif t.text == ">" and not (
+                _is(s.at(k - 1), "-") and s.tokens[k - 1].joint
+            ):
+                depth -= 1
+            elif t.text in ("(", "[") and k in s.partner:
+                k = s.partner[k]
+        elif depth == 0:
+            if _kw(t, "for"):
+                return last
+            if t.kind == "ident":
+                last = t.text
+        k += 1
+    return None
+
+
 class _Collector:
     """Gathers declarations, and for each the range where its bare name reaches.
 
@@ -814,9 +997,35 @@ class _Collector:
         self.macros: set[str] = set()
         self.fields: set[str] = set()
         self.scopes: dict[str, list[tuple[int, int]]] = {}
+        self.macro_scopes: dict[str, list[tuple[int, int]]] = {}
+        self.generic_names: set[str] = set()
+        self.associated: set[str] = set()
+        self.assoc_owners: dict[str, set[str]] = {}
+        self.impl_owner: dict[int, str] = {}
+        # Names declared inside an `impl` of a trait the program does not declare.
+        self.library_impl_items: set[str] = set()
+        self.user_traits: set[str] = set()
+        for k, t in enumerate(s.tokens):
+            after = s.at(k + 1)
+            if _kw(t, "trait") and after is not None and after.kind == "ident":
+                self.user_traits.add(after.text)
+        self.item_braces: dict[str, set[int | None]] = {}
         self.patterns: list[tuple[int, int]] = []
         self.bodies: set[int] = set()
         self.enclosing = _enclosing_braces(s)
+        # The `{` of every inline `mod NAME { .. }`, by name. A module is its own
+        # namespace: the items around it do not reach inside by their bare names.
+        self.module_bodies: dict[str, set[int]] = {}
+        for k, t in enumerate(s.tokens):
+            name = s.at(k + 1)
+            if (
+                _kw(t, "mod")
+                and name is not None
+                and name.kind == "ident"
+                and _is(s.at(k + 2), "{")
+                and (k + 2) in s.partner
+            ):
+                self.module_bodies.setdefault(name.text, set()).add(k + 2)
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -841,25 +1050,58 @@ class _Collector:
             return s.partner[end]
         return min(end, s.n - 1)
 
-    def item(self, d: int) -> None:
+    def item(self, d: int) -> bool:
         """The item named at `d`: reached throughout its module or block, and by
-        its bare name nowhere else."""
+        its bare name nowhere else. True when it is an associated item - inside an
+        `impl` or `trait` - which only a path or a `.` reaches."""
         s = self.s
         name = s.tokens[d].text
         self.names.add(name)
         brace = self.enclosing[d]
-        if brace is None:
-            self.scope([name], 0, s.n - 1)
-        elif _header_words(s, brace) & {"impl", "trait"}:
+        if brace is not None and _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
+            self.associated.add(name)
+            owner = _impl_owner(s, brace)
+            if owner is not None:
+                self.assoc_owners.setdefault(name, set()).add(owner)
+                self.impl_owner[brace] = owner
+            trait = _impl_trait(s, brace)
+            if trait is not None and trait not in self.user_traits:
+                self.library_impl_items.add(name)
+            return True
+        self.item_braces.setdefault(name, set()).add(brace)
+        if brace is None:
+            self.scope_outside_modules(name, d, 0, s.n - 1)
         else:
-            self.scope([name], brace, s.partner[brace])
+            self.scope_outside_modules(name, d, brace, s.partner[brace])
+        return False
+
+    def scope_outside_modules(self, name: str, d: int, lo: int, hi: int) -> None:
+        """`name`, declared at `d`, reaches `[lo, hi]` except the bodies of the
+        modules nested in it: inside one, the bare name means that module's own
+        item or the library's, never this one."""
+        holes = sorted(
+            (b, self.s.partner[b])
+            for bodies in self.module_bodies.values()
+            for b in bodies
+            if lo < b and self.s.partner[b] <= hi and not b <= d <= self.s.partner[b]
+        )
+        a = lo
+        for b, e in holes:
+            if b < a:
+                continue  # inside a hole already cut
+            if a <= b - 1:
+                self.scope([name], a, b - 1)
+            a = e + 1
+        if a <= hi:
+            self.scope([name], a, hi)
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
         found: set[str] = set()
         gt = _generic_names(self.s, lt, found)
         self.names |= found
+        self.generic_names |= found
         return gt, found
 
     def data_type(self, k: int, kind: str) -> None:
@@ -887,6 +1129,8 @@ class _Collector:
             t = s.at(a)
             if a < b and t is not None and t.kind == "ident":
                 self.names.add(t.text)
+                self.associated.add(t.text)
+                self.assoc_owners.setdefault(t.text, set()).add(s.tokens[k].text)
                 self.scope([t.text], a, a)
                 if _is(s.at(a + 1), "{") and (a + 1) in s.partner:
                     declared = _field_names(s, a + 1)
@@ -894,10 +1138,12 @@ class _Collector:
                     self.fields |= declared
 
     def function(self, k: int) -> None:
-        """A `fn` named at `k + 1`: its parameters and generics reach its body."""
+        """A `fn` named at `k + 1`: its parameters and generics reach its body.
+        Only a method or associated function is a member: a `.name()` call never
+        reaches a free `fn name`, and may well be the library's method."""
         s = self.s
-        self.item(k + 1)
-        self.members.add(s.tokens[k + 1].text)
+        if self.item(k + 1):
+            self.members.add(s.tokens[k + 1].text)
         j = k + 2
         found: set[str] = set()
         if _is(s.at(j), "<"):
@@ -988,7 +1234,9 @@ class _Collector:
     def closure(self, k: int) -> None:
         """The closure whose parameter list opens at the `|` at `k`: its parameters
         reach its body, which is a block after `-> T`, or else runs to the next `,`
-        or `;` or the end of the group around it."""
+        or `;` or the end of the group around it. In the head of an `if let` or
+        `while let` the body also ends at the `{` that opens the block, so
+        `|x| if x {..}` there is cut short: its `x` is kept rather than renamed."""
         s = self.s
         tokens = s.tokens
         if tokens[k].joint and _is(s.at(k + 1), "|"):
@@ -1001,11 +1249,18 @@ class _Collector:
         if _is(s.at(after), "-") and s.tokens[after].joint and _is(s.at(after + 1), ">"):
             end = self.item_end(after + 2)
         else:
-            if _is(s.at(after), "{") and after in s.partner:
+            block = _is(s.at(after), "{") and after in s.partner
+            if block:
                 self.bodies.add(after)
             end = s.find(
                 after, s.n, lambda j: _is(tokens[j], ",") or _is(tokens[j], ";")
             ) - 1
+            if _in_condition_head(s, k):
+                if block:
+                    end = min(end, s.partner[after])
+                else:
+                    brace = s.find(after, s.n, lambda j: _is(tokens[j], "{"))
+                    end = min(end, brace - 1)
         self.scope(bound, k, end)
 
     def field_positions(self, skip: set[int]) -> dict[int, bool]:
@@ -1108,6 +1363,11 @@ def _declared(s: _Stream) -> _Declared:
                 if name is not None and name.kind == "ident":
                     c.macros.add(name.text)
                     c.scope([name.text], k + 2, k + 2)
+                    # Textual scope: a call before the definition, or outside the
+                    # block that holds it, is someone else's macro.
+                    block = c.enclosing[k]
+                    end = s.partner[block] - 1 if block is not None else s.n - 1
+                    c.macro_scopes.setdefault(name.text, []).append((k + 2, end))
         elif t.kind == "punct":
             if s.fat_arrow(k):
                 c.match_arm(k)
@@ -1121,6 +1381,15 @@ def _declared(s: _Stream) -> _Declared:
         frozenset(c.fields),
         c.scopes,
         c.field_positions(skip),
+        c.macro_scopes,
+        frozenset(c.generic_names),
+        frozenset(c.associated),
+        c.item_braces,
+        c.module_bodies,
+        frozenset(c.library_impl_items),
+        c.assoc_owners,
+        c.impl_owner,
+        c.enclosing,
     )
 
 
@@ -1591,7 +1860,8 @@ def _unscoped_names(
     `drop`, a field of the library's `Range` - so renaming the spelling would make
     that use the same token as any other name, resolved or not. This declines the
     rename instead of resolving the name. A use after `.`, after `::` or before `!`
-    is left to the member, path and macro rules. A field position needs a declared
+    is left to the member and path rules; a macro call outside the textual scope of
+    every `macro_rules!` of its name protects the name. A field position needs a declared
     field of that spelling, and, in `P { x }`, a declaration in reach as well.
     """
     candidates = declared.names | declared.members | declared.macros
@@ -1610,7 +1880,15 @@ def _unscoped_names(
             continue
         if _is(s.at(k - 1), ".") and not s.range_dot(k - 1):
             continue
-        if (k > 0 and s.path_sep[k - 1]) or _is_macro_call(s, k):
+        if k > 0 and s.path_sep[k - 1]:
+            continue
+        if _is_macro_call(s, k):
+            # Only a `macro_rules!` of this spelling can be meant, and only where
+            # its textual scope reaches.
+            if t.text in declared.macros and not any(
+                lo <= k <= hi for lo, hi in declared.macro_scopes.get(t.text, ())
+            ):
+                protected.add(t.text)
             continue
         shorthand = declared.fields_at.get(k)
         if shorthand is None:
@@ -1620,6 +1898,77 @@ def _unscoped_names(
         if not fine:
             protected.add(t.text)
     return protected
+
+
+_PATH_KEYWORDS = frozenset(["Self", "self", "crate", "super"])
+
+
+def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
+    """Whether the path tail at `k` can be the program's own declaration of its
+    name, given the segment before it. Token-level, so it answers no whenever it
+    cannot tell: after a generic parameter (`I::Item`, `T::default()` are the
+    bound trait's), after `Self` unless the name is an associated item, after a
+    module or `crate`/`self`/`super` unless the name is an item declared directly
+    in a module (a `use` re-export of the library's is not), and after a type
+    unless the name is an associated item or a variant of that very type."""
+    head = s.at(k - 3)
+    name = s.tokens[k].text
+    if head is None or head.kind not in ("ident", "keyword"):
+        return False
+    if head.text in ("crate", "self", "super"):
+        modules = {b for bodies in declared.module_bodies.values() for b in bodies}
+        return any(
+            b is None or b in modules for b in declared.item_braces.get(name, ())
+        )
+    if head.text == "Self":
+        brace = declared.enclosing[k]
+        while brace is not None and brace not in declared.impl_owner:
+            brace = declared.enclosing[brace]
+        return (
+            brace is not None
+            and declared.impl_owner[brace] in declared.assoc_owners.get(name, set())
+        )
+    if head.kind != "ident" or head.text in declared.generics:
+        return False
+    if head.text in declared.module_bodies:
+        return bool(
+            declared.module_bodies[head.text] & declared.item_braces.get(name, set())
+        )
+    return head.text in declared.assoc_owners.get(name, set())
+
+
+def _unreached_path_tails(
+    s: _Stream, declared: _Declared, protected: set[str]
+) -> set[str]:
+    """Declared spellings to keep because a path tail of that spelling is kept.
+
+    A tail is renamed only when its head is and `_tail_reaches` says the name is
+    the program's. A tail that is kept verbatim after a head the program declares
+    - or after `Self`, `self`, `crate` or `super` - may be the library's name, or
+    the program's reached a way tokens cannot follow; either way, renaming its
+    declaration elsewhere would cut the link between the two and make the
+    program the same tokens as one that names something else."""
+    candidates = declared.names | declared.members | declared.macros
+    renamable = candidates - protected
+    renamed: set[int] = set()
+    found: set[str] = set()
+    for k in range(3, s.n):
+        t = s.tokens[k]
+        if t.kind != "ident" or not s.path_sep[k - 1]:
+            continue
+        head = s.tokens[k - 3]
+        if head.text in _PATH_KEYWORDS:
+            head_declared = head_renamed = True
+        else:
+            head_declared = head.kind == "ident" and head.text in candidates
+            head_renamed = head.text in renamable and (
+                k < 4 or not s.path_sep[k - 4] or (k - 3) in renamed
+            )
+        if head_renamed and t.text in renamable and _tail_reaches(s, declared, k):
+            renamed.add(k)
+        elif head_declared and t.text in renamable:
+            found.add(t.text)
+    return found
 
 
 def _kept_doc_comments(
@@ -1661,6 +2010,12 @@ def _normalize(
     # expanding those macros, alpha-renaming is not evidence of equivalence.
     if any(t.text == "derive" for t in tokens):
         protected |= declared.names | declared.members | declared.macros
+    # A library trait fixes the names declared in its `impl`.
+    protected |= declared.library_impl_items
+    # A protected head keeps its tails verbatim, which may protect more: repeat
+    # until nothing changes. Each round only grows `protected`.
+    while extra := _unreached_path_tails(s, declared, protected) - protected:
+        protected |= extra
     renamable = (declared.names | declared.members | declared.macros) - protected
     members = declared.members - protected
     bodies = _list_bodies(s)
@@ -1689,7 +2044,10 @@ def _normalize(
             k += length
             continue
         if t.kind == "lifetime":
-            out.append(t.text if t.text in ("'static", "'_") else placeholder(t.text))
+            # A lifetime keeps its quote, so `'a` and a name `a` never share text.
+            out.append(
+                t.text if t.text in ("'static", "'_") else "'" + placeholder(t.text)
+            )
         elif t.kind == "string" and k in format_strings:
             out.append(
                 _rename_inline_arguments(
@@ -1705,15 +2063,16 @@ def _normalize(
                 rename = name in members
             elif k > 0 and s.path_sep[k - 1]:
                 segment = s.at(k - 3)
-                rename = name in renamable and (
-                    (k - 3) in renamed_at
-                    or (
-                        segment is not None
-                        and segment.text in ("Self", "self", "crate", "super")
+                rename = (
+                    name in renamable
+                    and (
+                        (k - 3) in renamed_at
+                        or (segment is not None and segment.text in _PATH_KEYWORDS)
                     )
+                    and _tail_reaches(s, declared, k)
                 )
             elif _is_macro_call(s, k):
-                rename = name in declared.macros
+                rename = name in declared.macros and name in renamable
             else:
                 rename = name in renamable
             if rename:
