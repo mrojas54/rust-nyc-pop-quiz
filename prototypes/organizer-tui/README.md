@@ -5,6 +5,12 @@ Read the code and choices, step through the explanation, then reveal the answer.
 
 The preview reads questions from the bank without changing them.
 
+![Question preview, teaching trace, and answer reveal](recordings/organizer-preview.gif)
+
+The recording walks through `q3`, reveals the answer, and scrolls to the
+verification receipt. [Download the terminal recording](recordings/organizer-preview.cast)
+to replay it with `asciinema play recordings/organizer-preview.cast`.
+
 ## Run
 
 From the repository root:
