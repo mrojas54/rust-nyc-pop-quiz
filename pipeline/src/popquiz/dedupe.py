@@ -44,26 +44,38 @@ this quiz a program that does not compile is as good a question as one that does
 comma would throw away a question. Documentation comments outside recognized
 item positions are kept as markers, including comments before parameters.
 
-**A declared name is renamed only where it is in scope.** Every declaration
-reaches a token range no wider than its Rust scope: parameters and generics their
-function, closure parameters their closure, `let` / `if let` / `while let` / `for` /
-match-arm bindings their block or arm, items their module or block (and, inside an
-`impl` or `trait`, only their own name). A spelling with any bare use outside every
-range of its declarations - `fn f(drop: i32) {}` beside a call to the library's
-`drop(1)` - is kept verbatim everywhere, as is a spelling that names a field no
-struct in the program declares (`Range { start, end }`). The aim is ranges no
-wider than Rust's, so the error is a missed rename rather than a merge. **That aim
-is not established.** The seven false matches review round 3 found are closed (PQ-30):
-a closure in an `if let` head ends at its block, items stop at nested `mod`
-bodies, a `macro_rules!` name reaches only its textual scope, a comma-less arm
-body is not the next arm's pattern, a path's tail is renamed only where tokens
-show it is the program's, a lifetime keeps its quote (`'$1`), and only `impl` and
-`trait` functions are reached after a `.`. The eighth class found while closing
-them is closed too: a name declared in an `impl` of a library trait (`type Item`
-in an `impl Iterator`) is kept, and a tail after a type or `Self` is renamed only
-when that type, its trait or its enum declares it. No false match found so far is
-open, which is not the same as none existing: the rule above is a requirement,
-not a property this approximation has established.
+**A declared name is renamed only where the tokens place it in scope.** Each
+declaration reaches a token range that approximates its Rust scope: parameters and
+generics their function, closure parameters their closure, `let` / `if let` /
+`while let` / `for` / match-arm bindings their block or arm, items their module or
+block (and, inside an `impl` or `trait`, only their own name). A spelling with any
+bare use outside every range of its declarations - `fn f(drop: i32) {}` beside a
+call to the library's `drop(1)` - is kept verbatim everywhere, as is a spelling
+that names a field no struct in the program declares (`Range { start, end }`). The
+aim is ranges no wider than Rust's, so the error is a missed rename rather than a
+merge. **That aim is not established.** The seven false matches review round 3
+found are closed (PQ-30): a closure in an `if let` head ends at its block, items
+stop at nested `mod` bodies, a `macro_rules!` name reaches only its textual scope, a
+comma-less arm body is not the next arm's pattern, a path's tail is renamed only
+where tokens show it is the program's, a lifetime keeps its quote (`'$1`), and only
+`impl` and `trait` functions are reached after a `.`. The eighth class found while
+closing them is closed too: a name declared in an `impl` of a library trait
+(`type Item` in an `impl Iterator`) is kept, and a tail after a type or `Self` is
+renamed only when that type, its trait or its enum declares it.
+
+Known open: these shapes still make a program that compiles normalize equal to
+one that does not (PQ-66).
+
+1. A `let` binding or parameter reaches into a `mod` nested in its function body,
+   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
+2. A block-level `use` shadows an item of the same name
+   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
+3. A library method name missing from `_STD_MEMBERS` that the program also
+   declares (`fn count_ones` beside `3u32.count_ones()`).
+4. An `if let` binding's range starts at the first `{` after the pattern, which can
+   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+
+That is a bounded list of the shapes known so far, not proof that no other exists.
 
 What the approximation misses, and what happens instead: statements or items in a
 different order, operands swapped around a commutative operator, an expression
@@ -79,11 +91,17 @@ that a kept path tail shares (`T::default()` keeps a program's own `default`),
 every name declared in an `impl` of a library trait, and a tail the tokens cannot
 tie to its type (a trait's default method called through an implementing type,
 an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`).
-Each of those is two token streams, so the check says "not a normalized
-duplicate" and the near-duplicate check - which sees them as very similar - sends
-the pair to an organizer. A miss costs a person a look; a false
-match would cost a question silently. The approximation is built to fail in the
-first direction.
+The scoping also misses two renames Rust would allow: a program trait's function
+called through a generic (`T::go()` in `fn f<T: Tr>`) and a path through a type
+alias (`type A = S; A::mk()`). Each of those is two token streams, so the check
+says "not a normalized duplicate" and the near-duplicate check - which sees them
+as very similar - sends the pair to an organizer. A miss costs a person a look; a
+false match would cost a question silently. The approximation is built to fail in
+the first direction, though the known-open list above shows it does not always.
+`scope_outside_modules` checks every item against every module, so time grows
+quadratically on very large programs (PQ-30's exact-head review timed the largest
+bank question at 0.5 ms). The missed renames and the time are recall and speed
+costs, not safety gaps.
 
 The near-duplicate bigrams abstract every renamed name to the same placeholder,
 where the fingerprint keeps them numbered. Numbered placeholders shift by one the

@@ -272,8 +272,8 @@ lifetimes) to numbered placeholders in order of first use. Every name the progra
 uses but did not declare is kept, whether it comes from `std`, the prelude or a
 macro.
 
-**A declared name is renamed only inside its scope.** Each declaration reaches a
-token range no wider than Rust's: parameters and generics their function, closure
+**A declared name is renamed only where the tokens place it in scope.** Each
+declaration reaches a token range that approximates its Rust scope: parameters and generics their function, closure
 parameters their closure, `let`, `if let`, `while let`, `for` and match-arm
 bindings their block or arm, items their module or block, and a method or
 associated item only its own name (a bare name never reaches it). If a spelling is
@@ -293,15 +293,34 @@ is kept). A lifetime keeps its quote, so `'a` and `a` never share a placeholder.
 Only `impl` and `trait` functions are renamed after a `.`. The eighth class
 found while closing them is closed too: a name declared in an `impl` of a library
 trait (`type Item` in an `impl Iterator`) is kept, and `B::name` or `Self::name`
-is renamed only when `B`'s own `impl`, trait or enum declares `name`. No false
-match found so far is open; that is not proof that none exists. Where tokens
-cannot tell, the scoping keeps a name instead of renaming it: a closure in an
-`if` or `while` head, a `#[macro_use]` module's macro, a struct pattern after an
-or-pattern's `|`, an item reached through `use super::*`, any spelling a kept
-path tail shares, the names in an `impl` of a library trait, and a path the
-tokens cannot tie to its type (a trait's default method through an implementing
-type, an `impl` for `[u8; 4]`). Each of those is a missed rename, which a person
-sees.
+is renamed only when `B`'s own `impl`, trait or enum declares `name`.
+
+Known open: these shapes still make a program that compiles normalize equal to
+one that does not (PQ-66).
+
+1. A `let` binding or parameter reaches into a `mod` nested in its function body,
+   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
+2. A block-level `use` shadows an item of the same name
+   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
+3. A library method name missing from `_STD_MEMBERS` that the program also
+   declares (`fn count_ones` beside `3u32.count_ones()`).
+4. An `if let` binding's range starts at the first `{` after the pattern, which can
+   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+
+That is a bounded list of the shapes known so far, not proof that no other exists.
+
+Where tokens cannot tell, the scoping keeps a name instead of renaming it: a
+closure in an `if` or `while` head, a `#[macro_use]` module's macro, a struct
+pattern after an or-pattern's `|`, an item reached through `use super::*`, any
+spelling a kept path tail shares, the names in an `impl` of a library trait, and a
+path the tokens cannot tie to its type (a trait's default method through an
+implementing type, an `impl` for `[u8; 4]`). It also misses two renames Rust
+would allow: a program trait's function called through a generic (`T::go()` in
+`fn f<T: Tr>`) and a path through a type alias (`type A = S; A::mk()`). Each of
+those is a missed rename, which a person sees. The module-scoping step checks every
+item against every module, so time grows quadratically on very large programs
+(PQ-30's exact-head review timed the largest bank question at 0.5 ms). The missed
+renames and the time are recall and speed costs, not safety gaps.
 
 The rule behind every step is that **no normalization may make two different
 programs equal**, including a program that compiles and one that does not.
