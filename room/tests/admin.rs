@@ -186,17 +186,26 @@ async fn ac101_the_right_token_schedules_and_reads_the_used_ledger() {
     assert_eq!(entries.len(), 1, "{ledger}");
     let entry = &entries[0];
     let keys = |v: &Value| v.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
-    assert_eq!(keys(entry), ["question_id", "used"]);
+    assert_eq!(keys(entry), ["club", "question_id", "used"]);
+    assert_eq!(entry["club"], "nyc");
     // bank.py's `Used`: meetup_date, room_id, released_at, fit.
     assert_eq!(keys(&entry["used"]), ["fit", "meetup_date", "released_at", "room_id"]);
     assert_eq!(entry["question_id"], "q3");
     assert_eq!(entry["used"]["room_id"], room.id.as_str());
     assert_eq!(entry["used"]["fit"], Value::Null, "no wall reported a fit, so none is written (G-2)");
 
-    // G-10: never twice.
+    // G-10, per club (D-26): the released room's record still names q3, so it
+    // cannot be replaced yet ...
     let (status, body) = push(&a, "q3", &q3_json()).await;
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert!(body["reason"].as_str().unwrap().contains("already been run"), "{body}");
+    assert!(body["reason"].as_str().unwrap().contains("A room is running q3"), "{body}");
+    // ... and the club that ran it may not run it again, while another may.
+    let body = |club: &str| json!({"question_id": "q3", "club": club});
+    let (status, refused) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("nyc"))).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{refused}");
+    assert!(refused["reason"].as_str().unwrap().contains("already been run"), "{refused}");
+    let (status, other) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("la"))).await;
+    assert_eq!(status, StatusCode::CREATED, "{other}");
 }
 
 #[tokio::test]

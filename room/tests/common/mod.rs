@@ -12,12 +12,16 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use room::answers::{self, Scheduled};
+use room::club::ClubSlug;
 use room::auth::{decided, CreateCheck, CreateRefusal, HostAuth, OrganizerId};
 use room::rooms::{CloseSnapshot, Sessions, Totals};
 use serde_json::Value;
 
 pub const ORGANIZER: &str = "test-organizer-credential";
 pub const OTHER_ORGANIZER: &str = "another-organizer-credential";
+/// Hosts the `nyc` club only / the `la` club only (D-26, AC-103).
+pub const NYC_ONLY: &str = "nyc-only-credential";
+pub const LA_ONLY: &str = "la-only-credential";
 
 /// The test implementation of the auth seam. It exists only here: the crate
 /// ships `DenyAll` and Discord's check, and nothing else that accepts a
@@ -26,10 +30,14 @@ pub const OTHER_ORGANIZER: &str = "another-organizer-credential";
 pub struct TestAuth;
 
 impl HostAuth for TestAuth {
-    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>) -> CreateCheck<'a> {
+    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>, club: &'a ClubSlug) -> CreateCheck<'a> {
         decided(match bearer {
             Some(ORGANIZER) => Ok(OrganizerId("organizer-1".into())),
             Some(OTHER_ORGANIZER) => Ok(OrganizerId("organizer-2".into())),
+            // D-26: a credential that holds one club's role only.
+            Some(NYC_ONLY) if club.as_str() == "nyc" => Ok(OrganizerId("organizer-nyc".into())),
+            Some(LA_ONLY) if club.as_str() == "la" => Ok(OrganizerId("organizer-la".into())),
+            Some(NYC_ONLY) | Some(LA_ONLY) => Err(CreateRefusal::WrongRole),
             _ => Err(CreateRefusal::Denied),
         })
     }

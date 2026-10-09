@@ -254,7 +254,21 @@ pub struct HostPayload {
 pub fn wall(room: &Room, urls: &Urls) -> WallPayload {
     match room.open() {
         Some(opened) => revealed::wall(room.public(), &opened),
-        None => sealed::wall(room.public(), urls),
+        None => sealed::wall(room.public(), &club_urls(room, urls)),
+    }
+}
+
+/// D-26: a club other than the default links to its own take-it-home page,
+/// `/last/{club}`, never to another club's.
+fn club_urls(room: &Room, urls: &Urls) -> Urls {
+    let club = room.club();
+    if club.as_str() == crate::club::DEFAULT_CLUB {
+        urls.clone()
+    } else {
+        Urls {
+            base: urls.base.clone(),
+            home: format!("{}/{club}", urls.home),
+        }
     }
 }
 

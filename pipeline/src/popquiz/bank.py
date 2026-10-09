@@ -206,9 +206,21 @@ class Review:
         return bool(self.affirmed_by) and bool(self.affirmed_at)
 
 
+#: The club a record or request that names none belongs to (D-26); the room's
+#: `DEFAULT_CLUB` (room/src/club.rs).
+DEFAULT_CLUB = "nyc"
+
+#: A club's short name, as the room validates it (room/src/club.rs).
+CLUB_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,23}")
+
+
 @dataclass(frozen=True)
 class Used:
-    """Written once, by the release transition and nothing else (SPEC 3.1, G-10).
+    """Written once per club, by the release transition and nothing else (SPEC 3.1, G-10).
+
+    A question is used *for a club* when that club's room is released (D-26,
+    AC-105): the bank keeps one `Used` per club that has run it, and another
+    club's use of a question does not retire it for this one.
 
     Not by a deck build. `build_deck.py` wrote a ledger line at *build* time, which
     retired questions for meetups that then did not happen; that is a defect the
@@ -223,6 +235,7 @@ class Used:
     room_id: str
     released_at: str
     fit: Fit | None = None
+    club: str = DEFAULT_CLUB
 
 
 # --------------------------------------------------------------------------- #
@@ -321,7 +334,11 @@ class Question:
     trace: Trace = field(default_factory=Trace)
     verified: Verified | None = None
     review: Review | None = None
-    used: Used | None = None
+    used: tuple[Used, ...] = ()
+
+    def used_by(self, club: str = DEFAULT_CLUB) -> Used | None:
+        """This club's use of the question, or `None`: a question is used per club (D-26)."""
+        return next((u for u in self.used if u.club == club), None)
 
 
 # --------------------------------------------------------------------------- #
@@ -604,6 +621,9 @@ def _dump(value: Any) -> Any:
             # complete record would make the exceptional case harder to spot.
             if f.name == "legacy" and attr is False:
                 continue
+            # An unused question has no `used` at all, as before clubs (D-26).
+            if f.name == "used" and attr == ():
+                continue
             out[f.name] = _dump(attr)
         return out
     if isinstance(value, tuple):
@@ -717,9 +737,25 @@ def question_from_dict(data: dict[str, Any]) -> Question:
     review_raw = data.get("review")
     if review_raw is not None:
         _require_keys(review_raw, _field_names(Review), f"{where}.review")
+    # `used` is a list, one record per club (D-26). A bare object is what the
+    # bank wrote before clubs: it is the default club's.
     used_raw = data.get("used")
-    if used_raw is not None:
-        _require_keys(used_raw, _field_names(Used), f"{where}.used")
+    if used_raw is None:
+        used_raw = []
+    elif isinstance(used_raw, dict):
+        used_raw = [used_raw]
+    elif not isinstance(used_raw, list):
+        raise BankError(f"{where}.used: expected a list of records, one per club")
+    for n, raw in enumerate(used_raw):
+        if not isinstance(raw, dict):
+            raise BankError(f"{where}.used[{n}]: expected a record")
+        _require_keys(raw, _field_names(Used), f"{where}.used[{n}]")
+        club = raw.get("club", DEFAULT_CLUB)
+        if not isinstance(club, str) or not CLUB_SLUG.fullmatch(club):
+            raise BankError(f"{where}.used[{n}].club: not a club slug (a-z, 0-9, -, 1 to 24)")
+    clubs = [raw.get("club", DEFAULT_CLUB) for raw in used_raw]
+    if len(set(clubs)) != len(clubs):
+        raise BankError(f"{where}.used: one club appears twice; a question is never run twice for a club (G-10)")
     verified_raw = data.get("verified")
 
     question = Question(
@@ -751,13 +787,15 @@ def question_from_dict(data: dict[str, Any]) -> Question:
             affirmed_at=review_raw.get("affirmed_at"),
             near_duplicate_of=review_raw.get("near_duplicate_of"),
         ),
-        used=None
-        if used_raw is None
-        else Used(
-            meetup_date=used_raw["meetup_date"],
-            room_id=used_raw["room_id"],
-            released_at=used_raw["released_at"],
-            fit=used_raw.get("fit"),
+        used=tuple(
+            Used(
+                meetup_date=raw["meetup_date"],
+                room_id=raw["room_id"],
+                released_at=raw["released_at"],
+                fit=raw.get("fit"),
+                club=raw.get("club", DEFAULT_CLUB),
+            )
+            for raw in used_raw
         ),
     )
     validate_question(question)

@@ -2522,7 +2522,7 @@ def _require_fresh(
         if qid in seen:
             raise DedupeError(f"{qid}: appears twice in this run")
         seen.add(qid)
-        if candidate.used is not None:
+        if candidate.used:
             raise DedupeError(
                 f"{qid}: a candidate cannot carry `used` - only the release transition "
                 "writes it (G-10)"

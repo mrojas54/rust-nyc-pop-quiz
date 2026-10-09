@@ -26,6 +26,7 @@ use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
+use crate::club::ClubSlug;
 use crate::phase::{Command, HostAction};
 use crate::rooms::{AppState, RoomError};
 use crate::view::{self, Viewer};
@@ -43,6 +44,19 @@ pub fn host_routes() -> Vec<(Command, String)> {
 #[derive(Deserialize)]
 struct QuestionBody {
     question_id: String,
+    /// D-26: the club the room is for. Absent means the default club, so a
+    /// host page from before clubs keeps working.
+    #[serde(default)]
+    club: Option<String>,
+}
+
+/// The club a request names. A name that is not a club slug at all is refused
+/// as a club without the role is (AC-103): the same answer as an unknown club.
+fn club_of(named: Option<&str>) -> Result<ClubSlug, RoomError> {
+    match named {
+        None => Ok(ClubSlug::default_club()),
+        Some(raw) => ClubSlug::parse(raw).ok_or(RoomError::WrongRole),
+    }
 }
 
 fn bearer(headers: &HeaderMap) -> Option<&str> {
@@ -88,7 +102,14 @@ async fn create(
     headers: HeaderMap,
     Json(body): Json<QuestionBody>,
 ) -> Response {
-    match state.create_room_checked(bearer(&headers), &body.question_id, state.now()).await {
+    let club = match club_of(body.club.as_deref()) {
+        Ok(club) => club,
+        Err(e) => return failure(e),
+    };
+    match state
+        .create_room_checked_for(bearer(&headers), &club, &body.question_id, state.now())
+        .await
+    {
         Ok(created) => (StatusCode::CREATED, Json(created)).into_response(),
         Err(e) => failure(e),
     }
@@ -428,7 +449,10 @@ async fn sign_in(
     let Some(discord) = state.discord() else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    match discord.begin(q.get("question").map(String::as_str).unwrap_or("")) {
+    let Ok(club) = club_of(q.get("club").map(String::as_str)) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    match discord.begin(q.get("question").map(String::as_str).unwrap_or(""), &club) {
         Some((token, url)) => see_other(
             &url,
             Some(format!(
@@ -439,6 +463,16 @@ async fn sign_in(
             )),
         ),
         None => StatusCode::BAD_REQUEST.into_response(),
+    }
+}
+
+/// `&club=<slug>` for a club that is not the default; nothing for the default,
+/// so every pre-D-26 link keeps its shape (D-26).
+fn club_param(club: &ClubSlug) -> String {
+    if club.as_str() == crate::club::DEFAULT_CLUB {
+        String::new()
+    } else {
+        format!("&club={club}")
     }
 }
 
@@ -459,8 +493,10 @@ async fn signed_in(
     match finish {
         Finish::Refused => StatusCode::BAD_REQUEST.into_response(),
         Finish::Unavailable => StatusCode::SERVICE_UNAVAILABLE.into_response(),
-        Finish::Declined { question } => see_other(&format!("/host?question={question}"), spent),
-        Finish::SignedIn { question, session } => see_other(&format!("/host?question={question}#{session}"), spent),
+        Finish::Declined { question, club } => see_other(&format!("/host?question={question}{}", club_param(&club)), spent),
+        Finish::SignedIn { question, club, session } => {
+            see_other(&format!("/host?question={question}{}#{session}", club_param(&club)), spent)
+        }
     }
 }
 
@@ -637,9 +673,18 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
                 .into_response()
         }
         async fn last(State(state): State<Arc<AppState>>) -> Response {
+            last_of(state, Some(ClubSlug::default_club()))
+        }
+        // D-26: each club's own last released question. An unknown or
+        // malformed club is the page with nothing on it, as before a first
+        // release: it says nothing about which clubs exist.
+        async fn last_club(State(state): State<Arc<AppState>>, Path(club): Path<String>) -> Response {
+            last_of(state, ClubSlug::parse(&club))
+        }
+        fn last_of(state: Arc<AppState>, club: Option<ClubSlug>) -> Response {
             let slot = format!(
                 "<script type=\"application/json\" id=\"take-home\">{}</script>",
-                script_json(&state.take_home())
+                script_json(&club.and_then(|c| state.take_home_of(&c)))
             );
             (
                 [
@@ -653,6 +698,7 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
         assert!(HOME_HTML.contains(SNAPSHOT_SLOT), "web/home/index.html lost its snapshot slot");
         router = router
             .route("/last", get(last))
+            .route("/last/{club}", get(last_club))
             .route("/home/home.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../web/home/home.js")) }))
             .route("/home/home.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/home/home.css")) }));
     }

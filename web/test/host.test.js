@@ -210,9 +210,20 @@ test('AC-50: the resume link is the room screen\'s own address', () => {
 
 test('T-10: the create screen reads the organizer session from the fragment and the question from the query', () => {
   assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host', search: '?question=q3', hash: '#0a1b2c' }) },
-    { mode: 'create', token: '0a1b2c', question: 'q3' });
+    { mode: 'create', token: '0a1b2c', question: 'q3', club: null });
   assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host/', search: '', hash: '' }) },
-    { mode: 'create', token: null, question: null });
+    { mode: 'create', token: null, question: null, club: null });
+});
+
+test('D-26: the create screen reads the club from the query, and every link and body carries it', () => {
+  assert.deepEqual({ ...PQ.host.parseLocation({ pathname: '/host', search: '?question=q3&club=la', hash: '#0a1b2c' }) },
+    { mode: 'create', token: '0a1b2c', question: 'q3', club: 'la' });
+  assert.equal(PQ.host.signInHref('q3', 'la'), '/auth/discord?question=q3&club=la');
+  assert.equal(PQ.host.signInHref('q3'), '/auth/discord?question=q3', 'no club, the link keeps its old shape');
+  assert.equal(PQ.host.signInHref('q3', 'a&b'), '/auth/discord?question=q3&club=a%26b');
+  assert.ok(PQ.host.renderSignIn({}, 'q3', 'la').includes('href="/auth/discord?question=q3&amp;club=la"'));
+  assert.deepEqual({ ...PQ.host.roomBody('q3', 'la') }, { question_id: 'q3', club: 'la' });
+  assert.deepEqual({ ...PQ.host.roomBody('q3', null) }, { question_id: 'q3' }, 'no club: the body is the one it always was');
 });
 
 test('reconnect backs off 0.5 s doubling to 8 s, and stops on a refused credential or a gone room', () => {

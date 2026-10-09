@@ -22,11 +22,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
+use crate::club::{ClubSlug, Zone};
 use crate::question::{Letter, TraceStep};
 use crate::rooms::{Fit, Opened, PublicView};
 
-/// The zone a meetup's date is read in: Rust NYC meets in New York. A
-/// constant here until configuration grows a place for it (T-09 / T-20).
+/// The zone the default club's meetup date is read in: Rust NYC meets in New
+/// York. Another club's is its own ([`crate::club::Club::zone`], D-26).
 pub const MEETUP_ZONE: &str = "America/New_York";
 
 /// The pipeline's `Used`, exactly: these four fields, these names.
@@ -43,10 +44,12 @@ pub struct UsedRecord {
     pub fit: Option<Fit>,
 }
 
-/// One ledger line: which question, and its `used` record. The pipeline keeps
-/// `used` on the question, so the question id is the key it syncs by.
+/// One ledger line: which club, which question, and its `used` record. The
+/// pipeline keeps `used` on the question, per club (D-26), so `(club,
+/// question_id)` is the key it syncs by.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct UsedEntry {
+    pub club: ClubSlug,
     pub question_id: String,
     pub used: UsedRecord,
 }
@@ -54,7 +57,7 @@ pub struct UsedEntry {
 // AC-57, at compile time, as `sessions.rs` does for `Session`: these patterns
 // name every field and have no `..`, so a new field stops the crate compiling.
 const _: fn(UsedRecord) = |UsedRecord { meetup_date: _, room_id: _, released_at: _, fit: _ }| {};
-const _: fn(UsedEntry) = |UsedEntry { question_id: _, used: _ }| {};
+const _: fn(UsedEntry) = |UsedEntry { club: _, question_id: _, used: _ }| {};
 
 /// The used-question ledger. In memory, append-only; its only writer is the
 /// release transition in `rooms.rs` (G-10), which `tests/used.rs` checks by
@@ -74,13 +77,14 @@ impl UsedLedger {
         self.entries.lock().unwrap_or_else(|p| p.into_inner()).clone()
     }
 
-    /// Whether a question has been run: *never twice* (G-10).
-    pub fn contains(&self, question_id: &str) -> bool {
+    /// Whether `club` has run a question: *never twice for one club* (G-10,
+    /// AC-105). Another club's use of it counts for nothing here.
+    pub fn contains(&self, club: &ClubSlug, question_id: &str) -> bool {
         self.entries
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .iter()
-            .any(|e| e.question_id == question_id)
+            .any(|e| &e.club == club && e.question_id == question_id)
     }
 }
 
@@ -297,23 +301,31 @@ fn epoch_secs(t: SystemTime) -> i64 {
     }
 }
 
-/// New York's offset from UTC at instant `secs`, in seconds.
-fn eastern_offset(secs: i64) -> i64 {
+/// `zone`'s offset from UTC at instant `secs`, in seconds. The US rule: 02:00
+/// local standard time is `2 + behind` hours UTC, and 02:00 local daylight time
+/// one hour earlier (Eastern: 07:00 and 06:00 UTC, as it always was).
+fn zone_offset(zone: Zone, secs: i64) -> i64 {
+    let behind = zone.standard_hours_behind();
     let (y, _, _) = civil_from_days(secs.div_euclid(86_400));
-    // 02:00 EST is 07:00 UTC; 02:00 EDT is 06:00 UTC.
-    let start = nth_sunday(y, 3, 2) * 86_400 + 7 * 3600;
-    let end = nth_sunday(y, 11, 1) * 86_400 + 6 * 3600;
+    let start = nth_sunday(y, 3, 2) * 86_400 + (2 + behind) * 3600;
+    let end = nth_sunday(y, 11, 1) * 86_400 + (1 + behind) * 3600;
     if (start..end).contains(&secs) {
-        -4 * 3600
+        -(behind - 1) * 3600
     } else {
-        -5 * 3600
+        -behind * 3600
     }
 }
 
-/// The meetup's date: `t`'s civil date in [`MEETUP_ZONE`], `YYYY-MM-DD`.
+/// The default club's meetup date: `t`'s civil date in [`MEETUP_ZONE`],
+/// `YYYY-MM-DD`.
 pub fn meetup_date(t: SystemTime) -> String {
+    meetup_date_in(t, Zone::NewYork)
+}
+
+/// A club's meetup date: `t`'s civil date in the club's zone, `YYYY-MM-DD`.
+pub fn meetup_date_in(t: SystemTime, zone: Zone) -> String {
     let secs = epoch_secs(t);
-    let (y, m, d) = civil_from_days((secs + eastern_offset(secs)).div_euclid(86_400));
+    let (y, m, d) = civil_from_days((secs + zone_offset(zone, secs)).div_euclid(86_400));
     format!("{y:04}-{m:02}-{d:02}")
 }
 
@@ -351,6 +363,19 @@ mod tests {
     }
 
     #[test]
+    fn a_pacific_meetup_keeps_its_own_date() {
+        // 9 pm PDT on 14 October is 04:00 UTC on the 15th: still the 14th in
+        // Los Angeles, and (06:00 UTC at the latest) the 14th in New York too.
+        assert_eq!(meetup_date_in(at(2026, 10, 15, 4, 0), Zone::LosAngeles), "2026-10-14");
+        assert_eq!(meetup_date_in(at(2026, 10, 15, 8, 0), Zone::LosAngeles), "2026-10-15");
+        // 02:00 UTC on 15 October is 10 pm in New York and 7 pm in Los Angeles.
+        assert_eq!(meetup_date_in(at(2026, 10, 15, 2, 0), Zone::NewYork), "2026-10-14");
+        // Standard time in January: PST is eight hours behind.
+        assert_eq!(meetup_date_in(at(2026, 1, 15, 7, 59), Zone::LosAngeles), "2026-01-14");
+        assert_eq!(meetup_date_in(at(2026, 1, 15, 8, 0), Zone::LosAngeles), "2026-01-15");
+    }
+
+    #[test]
     fn the_meetup_date_is_new_yorks() {
         // 21:00 EDT on 14 Oct is 01:00 UTC on 15 Oct.
         assert_eq!(meetup_date(at(2026, 10, 15, 1, 0)), "2026-10-14");
@@ -358,9 +383,9 @@ mod tests {
         assert_eq!(meetup_date(at(2026, 1, 15, 2, 0)), "2026-01-14");
         assert_eq!(meetup_date(at(2026, 1, 15, 5, 0)), "2026-01-15");
         // DST 2026: 8 March 07:00 UTC to 1 November 06:00 UTC.
-        assert_eq!(eastern_offset(epoch_secs(at(2026, 3, 8, 6, 59))), -5 * 3600);
-        assert_eq!(eastern_offset(epoch_secs(at(2026, 3, 8, 7, 0))), -4 * 3600);
-        assert_eq!(eastern_offset(epoch_secs(at(2026, 11, 1, 5, 59))), -4 * 3600);
-        assert_eq!(eastern_offset(epoch_secs(at(2026, 11, 1, 6, 0))), -5 * 3600);
+        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 3, 8, 6, 59))), -5 * 3600);
+        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 3, 8, 7, 0))), -4 * 3600);
+        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 11, 1, 5, 59))), -4 * 3600);
+        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 11, 1, 6, 0))), -5 * 3600);
     }
 }

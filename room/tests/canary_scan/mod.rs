@@ -545,6 +545,7 @@ pub const DRIVEN: &[(&str, &str)] = &[
     ("GET", "/{code}"),
     // T-12: take it home (SPEC §13).
     ("GET", "/last"),
+    ("GET", "/last/{club}"),
     ("GET", "/home/home.js"),
     ("GET", "/home/home.css"),
     // T-25: the admin channel, every method, at every stop (`admin_probe`).
@@ -1277,6 +1278,12 @@ impl<'s> Walk<'s> {
         let last = self.server.get("/last").await;
         assert_eq!(last.status, 200, "{}", at("/last"));
         let body = last.text();
+        // D-26: `/last/nyc` is `/last`, and a club that has released nothing
+        // (here `la`) carries nothing of this room, at any stop.
+        let by_club = self.server.get("/last/nyc").await;
+        assert_eq!(by_club.text(), body, "{}", at("/last/nyc is not /last"));
+        let other = self.server.get("/last/la").await;
+        assert_eq!(last_question(&other.text()), None, "{}", at("/last/la carries another club's release"));
         let before = self.last_before.get_or_insert_with(|| body.clone()).clone();
         if phase == Phase::Released {
             // This room's release rebuilt it, as a question it did not hold before.

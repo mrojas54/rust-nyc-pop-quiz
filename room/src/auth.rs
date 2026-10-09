@@ -19,6 +19,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::club::ClubSlug;
 use crate::rooms::Room;
 
 /// Who created a room. Only that organizer controls it (AC-68). For the
@@ -41,7 +42,8 @@ pub enum CreateRefusal {
     Denied,
     /// Discord says this account is not a member of the configured guild.
     WrongServer,
-    /// A member of the guild whose `roles` lacks the configured role ID.
+    /// A member of the guild whose `roles` lacks the role ID of the club named
+    /// (or the club is not one this server runs: the same answer, AC-103).
     WrongRole,
     /// Discord did not give a verdict within the retry budget. The plain server
     /// error — an outage is never reported as a denial.
@@ -59,7 +61,10 @@ pub fn decided(answer: Result<OrganizerId, CreateRefusal>) -> CreateCheck<'stati
 pub trait HostAuth: Send + Sync + 'static {
     /// *Create a room* (and *Run it again*, which creates one). The one create
     /// check (G-9).
-    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>) -> CreateCheck<'a>;
+    ///
+    /// `club` is the club the organizer is creating the room for: hosting
+    /// needs *that* club's role (AC-103, D-26).
+    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>, club: &'a ClubSlug) -> CreateCheck<'a>;
 
     /// Every other host command, and the host's view of the room.
     fn authorize_host(&self, room: &Room, bearer: Option<&str>) -> Result<(), Denied> {
@@ -74,7 +79,7 @@ pub trait HostAuth: Send + Sync + 'static {
 pub struct DenyAll;
 
 impl HostAuth for DenyAll {
-    fn authorize_create<'a>(&'a self, _bearer: Option<&'a str>) -> CreateCheck<'a> {
+    fn authorize_create<'a>(&'a self, _bearer: Option<&'a str>, _club: &'a ClubSlug) -> CreateCheck<'a> {
         decided(Err(CreateRefusal::Denied))
     }
 }

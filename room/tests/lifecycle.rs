@@ -435,7 +435,7 @@ fn ac57_nothing_crosses_rooms_but_the_question() {
     let mut names: Vec<&str> = keys.into_iter().map(|(k, _)| k).collect();
     names.sort_unstable();
     names.dedup();
-    assert_eq!(names, ["fit", "meetup_date", "question_id", "released_at", "room_id", "used"]);
+    assert_eq!(names, ["club", "fit", "meetup_date", "question_id", "released_at", "room_id", "used"]);
 }
 
 // --------------------------------------------------------------------------

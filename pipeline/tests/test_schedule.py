@@ -394,7 +394,7 @@ def test_ac92_schedule_writes_nothing_under_the_bank(affirmed, room, tmp_path):
     assert schedule_q3(affirmed, tmp_path / "out") == 0
     assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", tmp_path / "o2", "--bank", affirmed) == 0
     assert snapshot(affirmed) == before
-    assert load_question(affirmed, "q3").used is None
+    assert load_question(affirmed, "q3").used == ()
 
 
 # --------------------------------------------------------------------------- #
@@ -413,15 +413,81 @@ def sync(bank):
     return run("sync", "--room", "https://room.test", "--bank", bank)
 
 
+def club_ledger(*entries):
+    """Ledger lines that name their club, as the room writes them (D-26)."""
+    return [{"club": club, **line} for club, line in zip((e[0] for e in entries), ledger(*(e[1:] for e in entries)))]
+
+
+# --------------------------------------------------------------------------- #
+# D-26, AC-105: never twice is per club
+# --------------------------------------------------------------------------- #
+
+
+def test_ac105_two_clubs_may_each_run_a_question_once(bank, room, capsys):
+    room((200, club_ledger(("nyc", "q3", "2026-10-14", "room-a", "fits"), ("la", "q3", "2026-10-15", "room-l", None))))
+    assert sync(bank) == 0
+    q3 = load_question(bank, "q3")
+    assert (q3.used_by("nyc").room_id, q3.used_by("la").room_id) == ("room-a", "room-l")
+    assert q3.used_by("sf") is None
+    out = capsys.readouterr().out
+    assert "used: q3 by nyc on 2026-10-14, room room-a" in out
+    assert "used: q3 by la on 2026-10-15, room room-l" in out
+
+
+def test_ac105_a_second_room_for_one_club_is_refused_and_the_other_club_is_untouched(bank, room, capsys):
+    room((200, club_ledger(("nyc", "q3", "2026-10-14", "room-a", "fits"), ("la", "q3", "2026-10-15", "room-l", "fits"))))
+    assert sync(bank) == 0
+    before = (bank / "questions" / "q3.json").read_bytes()
+    room((200, club_ledger(("la", "q3", "2026-11-12", "room-m", "fits"))))
+    assert sync(bank) == 1
+    err = capsys.readouterr().err
+    assert "used by la" in err and "never run twice for a club" in err
+    assert (bank / "questions" / "q3.json").read_bytes() == before
+
+
+def test_ac105_sync_twice_with_two_clubs_changes_no_file(bank, room):
+    room((200, club_ledger(("nyc", "q3", "2026-10-14", "room-a", "fits"), ("la", "q3", "2026-10-15", "room-l", "fits"))))
+    assert sync(bank) == 0
+    after_first = snapshot(bank)
+    assert sync(bank) == 0
+    assert snapshot(bank) == after_first
+
+
+def test_ac105_the_gate_and_the_reserve_are_per_club(affirmed, room, tmp_path, capsys):
+    room((200, club_ledger(("nyc", "q3", "2026-10-14", "room-a", "fits"))))
+    assert sync(affirmed) == 0
+    question = load_question(affirmed, "q3")
+    assert "never run twice for a club" in schedule.refusal(question, "nyc")
+    assert schedule.refusal(question, "la") is None
+    assert audit.in_reserve(question, "la") and not audit.in_reserve(question, "nyc")
+    lines = schedule.reserve_lines(schedule.load_bank(affirmed), today=NIGHT, club="la")
+    assert lines[0].startswith("reserve (la):")
+    # And the command takes the club: la may schedule what nyc has run.
+    room((201, {"scheduled": "new"}))
+    assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", tmp_path / "o", "--bank", affirmed, "--club", "la") == 0
+    assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", tmp_path / "o3", "--bank", affirmed) == 1
+
+
+def test_a_legacy_bare_used_object_reads_as_the_default_clubs(affirmed):
+    path = affirmed / "questions" / "q3.json"
+    data = json.loads(path.read_text())
+    data["used"] = {"meetup_date": "2026-09-09", "room_id": "r-1", "released_at": "2026-09-10T01:40:00Z"}
+    path.write_text(json.dumps(data))
+    q3 = load_question(affirmed, "q3")
+    assert q3.used_by("nyc").room_id == "r-1" and q3.used_by("la") is None
+
+
 def test_sync_writes_used_from_the_ledger_and_a_null_fit_is_an_absent_key(bank, room, capsys):
     room((200, ledger(("q3", "2026-10-14", "room-a", None), ("q4", "2026-10-15", "room-b", "clipped_x"))))
     assert sync(bank) == 0
     q3 = json.loads((bank / "questions" / "q3.json").read_text())
-    assert q3["used"] == {"meetup_date": "2026-10-14", "room_id": "room-a", "released_at": "2026-10-14T01:40:00Z"}
-    assert load_question(bank, "q3").used.fit is None
-    assert load_question(bank, "q4").used.fit == "clipped_x"
+    assert q3["used"] == [
+        {"meetup_date": "2026-10-14", "room_id": "room-a", "released_at": "2026-10-14T01:40:00Z", "club": "nyc"}
+    ]
+    assert load_question(bank, "q3").used_by().fit is None
+    assert load_question(bank, "q4").used_by().fit == "clipped_x"
     out = capsys.readouterr().out
-    assert "used: q3 on 2026-10-14, room room-a" in out
+    assert "used: q3 by nyc on 2026-10-14, room room-a" in out
     assert "fit: room room-a (q3) - the wall never reported a verdict" in out
     assert "fit: room room-b (q4) - clipped_x" in out
 
@@ -451,7 +517,7 @@ def test_sync_refuses_a_second_room_for_one_question_and_carries_on(bank, room, 
     assert sync(bank) == 1
     assert "never run twice" in capsys.readouterr().err
     assert (bank / "questions" / "q3.json").read_bytes() == q3_before
-    assert load_question(bank, "q4").used.room_id == "room-y"
+    assert load_question(bank, "q4").used_by().room_id == "room-y"
 
 
 def test_sync_refuses_one_question_released_by_two_rooms_in_one_ledger(bank, room, capsys):
@@ -486,7 +552,7 @@ def test_ac75_the_count_is_what_in_reserve_admits(bank):
     questions = schedule.load_bank(bank)
     expected = sum(1 for q in questions if audit.in_reserve(q))
     assert expected == 2
-    assert schedule.reserve_lines(questions, today=NIGHT)[0].startswith(f"reserve: {expected} ready")
+    assert schedule.reserve_lines(questions, today=NIGHT)[0].startswith(f"reserve (nyc): {expected} ready")
 
 
 def test_ac75_the_reserve_and_trend_are_the_first_lines_of_every_command(affirmed, room, tmp_path, capsys):

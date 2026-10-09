@@ -55,6 +55,7 @@ from zoneinfo import ZoneInfo
 from popquiz import fallback
 from popquiz.audit import in_reserve, is_accepted
 from popquiz.bank import (
+    DEFAULT_CLUB,
     BankError,
     Question,
     correct_index,
@@ -124,7 +125,7 @@ class ScheduleError(Exception):
 # --------------------------------------------------------------------------- #
 
 
-def refusal(question: Question) -> str | None:
+def refusal(question: Question, club: str = DEFAULT_CLUB) -> str | None:
     """Why this question cannot be scheduled, or `None` when it can.
 
     A hard error, never a warning: scheduling takes a question from the reserve
@@ -138,10 +139,11 @@ def refusal(question: Question) -> str | None:
     qid = question.id
     if question.verified is None:
         return f"{qid} has no verified record, so it cannot be scheduled"
-    if question.used is not None:
+    used = question.used_by(club)
+    if used is not None:
         return (
-            f"{qid} was already used on {question.used.meetup_date} (room "
-            f"{question.used.room_id}); a question is never run twice"
+            f"{qid} was already used by {club} on {used.meetup_date} (room "
+            f"{used.room_id}); a question is never run twice for a club"
         )
     review = question.review
     missing = [name for name in ("affirmed_by", "affirmed_at") if not getattr(review, name, None)]
@@ -153,7 +155,7 @@ def refusal(question: Question) -> str | None:
         )
     if not is_accepted(question):
         return f"{qid} is affirmed but has not been accepted at review, so it cannot be scheduled"
-    if not in_reserve(question):  # the checks above are in_reserve, spelled out
+    if not in_reserve(question, club):  # the checks above are in_reserve, spelled out
         return f"{qid} is not in the reserve, so it cannot be scheduled"
     return None
 
@@ -320,7 +322,7 @@ def push(arranged: Question, room: str, token: str) -> str:
 
 
 def pull_used(room: str, token: str) -> list[dict[str, Any]]:
-    """`GET {room}/admin/used`: `[{question_id, used: {...}}]`."""
+    """`GET {room}/admin/used`: `[{club, question_id, used: {...}}]`."""
     url = room_url(room, "/admin/used")
     status, payload = _call("GET", url, token)
     if status == 401:
@@ -335,7 +337,7 @@ def pull_used(room: str, token: str) -> list[dict[str, Any]]:
         isinstance(e, dict) and isinstance(e.get("question_id"), str) and isinstance(e.get("used"), dict)
         for e in entries
     ):
-        raise ScheduleError("the room's ledger is not a list of {question_id, used} entries")
+        raise ScheduleError("the room's ledger is not a list of {club, question_id, used} entries")
     return entries
 
 
@@ -354,6 +356,7 @@ def reserve_lines(
     lead_time: int = DEFAULT_LEAD_TIME,
     threshold: int | None = None,
     today: date | None = None,
+    club: str = DEFAULT_CLUB,
 ) -> list[str]:
     """The reserve count, its trend, and the warning when it is low.
 
@@ -367,21 +370,22 @@ def reserve_lines(
     questions = list(questions)
     today = today or today_in_new_york()
     threshold = lead_time * QUESTIONS_PER_MEETUP if threshold is None else threshold
-    ready = sum(1 for q in questions if in_reserve(q))
-    awaiting = sum(1 for q in questions if q.used is None and is_accepted(q) and not in_reserve(q))
-    unreviewed = sum(1 for q in questions if q.used is None and (q.review is None or q.review.status is None))
+    ready = sum(1 for q in questions if in_reserve(q, club))
+    awaiting = sum(1 for q in questions if q.used_by(club) is None and is_accepted(q) and not in_reserve(q, club))
+    unreviewed = sum(1 for q in questions if q.used_by(club) is None and (q.review is None or q.review.status is None))
     since = today - timedelta(days=TREND_DAYS)
     used_recently = 0
     for q in questions:
-        if q.used is not None:
+        used = q.used_by(club)
+        if used is not None:
             try:
-                if date.fromisoformat(q.used.meetup_date) >= since:
+                if date.fromisoformat(used.meetup_date) >= since:
                     used_recently += 1
             except ValueError:
                 pass
     runway = ready // QUESTIONS_PER_MEETUP
     lines = [
-        f"reserve: {ready} ready (accepted, affirmed, unused) - "
+        f"reserve ({club}): {ready} ready (accepted, affirmed, unused) - "
         f"{runway} meetup{'s' if runway != 1 else ''} of runway at one question a meetup",
         f"trend: +{awaiting} accepted awaiting affirmation, +{unreviewed} not yet reviewed, "
         f"-{used_recently} used in the last {TREND_DAYS} days",
@@ -409,72 +413,80 @@ class SyncResult:
 
 
 def merge_used(bank_dir: Path, entries: Sequence[dict[str, Any]]) -> SyncResult:
-    """Write each ledger entry's `used` onto its bank record.
+    """Write each ledger entry's `used` onto its bank record, under its club.
 
-    Idempotent: a record already holding `used` from the same room is left as it
-    is. A record the ledger names with a different room - or the ledger naming one
-    question under two rooms - is *never twice* broken: it is refused, nothing is
-    written to it, and the rest carry on. Ids not in the bank (the CI harness's
-    `smoke-q3`, `burst-q3`) are listed and skipped.
+    A question is used *per club* (D-26, AC-105): the key is `(club, question)`.
+    Idempotent: a record already holding `used` for that club from the same room
+    is left as it is. A club's record the ledger names with a different room - or
+    the ledger naming one question under two rooms for one club - is *never twice*
+    broken: it is refused, nothing is written to it, and the rest carry on. Another
+    club's record is never touched. Ids not in the bank (the CI harness's
+    `smoke-q3`, `burst-q3`) are listed and skipped. An entry from a room that
+    predates clubs names none, and is the default club's.
 
     The record is merged at the dict level and read back through
     `bank.question_from_dict`, so the room's JSON is parsed by the bank's one
     reader and this module builds no `used` record of its own.
     """
     result = SyncResult()
-    by_id: dict[str, list[dict[str, Any]]] = {}
+    by_key: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for entry in entries:
-        by_id.setdefault(entry["question_id"], []).append(entry["used"])
+        club = entry.get("club", DEFAULT_CLUB)
+        by_key.setdefault((club, entry["question_id"]), []).append(entry["used"])
 
     known = {q.id: q for q in load_bank(bank_dir)}
-    for qid, records in by_id.items():
+    for (club, qid), records in by_key.items():
         question = known.get(qid)
         if question is None:
-            result.skipped.append(qid)
+            if qid not in result.skipped:
+                result.skipped.append(qid)
             continue
         rooms = sorted({str(r.get("room_id")) for r in records})
         if len(rooms) > 1:
             result.refused.append(
-                f"{qid}: the room's ledger has it released by {len(rooms)} rooms "
-                f"({', '.join(rooms)}); a question is never run twice, so nothing was written"
+                f"{qid}: the room's ledger has it released by {len(rooms)} rooms for {club} "
+                f"({', '.join(rooms)}); a question is never run twice for a club, so nothing was written"
             )
             continue
-        incoming = records[0]
-        if question.used is not None:
-            if question.used.room_id == incoming.get("room_id"):
-                stored = question_to_dict(question)["used"]
+        incoming = {**records[0], "club": club}
+        held = question.used_by(club)
+        if held is not None:
+            if held.room_id == incoming.get("room_id"):
+                stored = next(u for u in question_to_dict(question)["used"] if u["club"] == club)
                 if stored != {k: v for k, v in incoming.items() if v is not None}:
                     result.refused.append(
-                        f"{qid}: the bank's used record for room {question.used.room_id} differs "
+                        f"{qid}: the bank's used record for {club}, room {held.room_id}, differs "
                         "from the room's ledger for the same room; the record is written once, "
                         "so nothing was changed"
                     )
                     continue
                 result.unchanged.append(qid)
-                result.report.append(_report_row(question))
+                result.report.append(_report_row(question, club))
                 continue
             result.refused.append(
-                f"{qid}: the bank already records it used by room {question.used.room_id} on "
-                f"{question.used.meetup_date}, and the room's ledger says room "
-                f"{incoming.get('room_id')}; a question is never run twice, so nothing was written"
+                f"{qid}: the bank already records it used by {club} in room {held.room_id} on "
+                f"{held.meetup_date}, and the room's ledger says room "
+                f"{incoming.get('room_id')}; a question is never run twice for a club, so nothing was written"
             )
             continue
         data = question_to_dict(question)
-        data["used"] = incoming
+        data["used"] = [*data.get("used", []), incoming]
         try:
             merged = question_from_dict(data)
         except (BankError, KeyError, TypeError) as e:
             result.refused.append(f"{qid}: the room's used record does not read as one ({e})")
             continue
         save_question(bank_dir, merged)
+        known[qid] = merged
         result.written.append(qid)
-        result.report.append(_report_row(merged))
+        result.report.append(_report_row(merged, club))
     return result
 
 
-def _report_row(question: Question) -> dict[str, Any]:
-    used = question.used
+def _report_row(question: Question, club: str) -> dict[str, Any]:
+    used = question.used_by(club)
     return {
+        "club": club,
         "question_id": question.id,
         "meetup_date": used.meetup_date,
         "room_id": used.room_id,
@@ -488,7 +500,7 @@ def ledger_report(result: SyncResult) -> list[str]:
     if not result.report:
         lines.append("ledger: the room has released no bank question since it last started")
     for r in result.report:
-        lines.append(f"used: {r['question_id']} on {r['meetup_date']}, room {r['room_id']}")
+        lines.append(f"used: {r['question_id']} by {r['club']} on {r['meetup_date']}, room {r['room_id']}")
     for r in result.report:
         if r["fit"] is None:
             lines.append(
@@ -507,13 +519,13 @@ def ledger_report(result: SyncResult) -> list[str]:
 
 
 def _print_reserve(bank_dir: Path, args: argparse.Namespace) -> None:
-    for line in reserve_lines(load_bank(bank_dir), lead_time=args.lead_time, threshold=args.threshold):
+    for line in reserve_lines(load_bank(bank_dir), lead_time=args.lead_time, threshold=args.threshold, club=args.club):
         print(line)
 
 
 def _schedule(args: argparse.Namespace) -> int:
     question = load_question(args.bank, args.question_id)
-    why = refusal(question)
+    why = refusal(question, args.club)
     if why:
         raise ScheduleError(why)
     out = Path(args.out).resolve()
@@ -580,6 +592,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     def common(p: argparse.ArgumentParser) -> None:
         p.add_argument("--bank", type=Path, default=DEFAULT_BANK, help="the bank directory")
+        p.add_argument("--club", default=DEFAULT_CLUB,
+                       help="the club the question is for (default nyc): never twice is per club (D-26)")
         p.add_argument("--lead-time", type=int, default=DEFAULT_LEAD_TIME,
                        help="meetups of warning before the reserve runs out (default 2)")
         p.add_argument("--threshold", type=int, default=None,

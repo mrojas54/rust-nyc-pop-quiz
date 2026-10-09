@@ -21,6 +21,8 @@ fn new_room() -> Room {
     Room::create(
         Arc::new(common::q3()),
         OrganizerId("organizer-1".into()),
+        room::club::ClubSlug::default_club(),
+        room::club::Zone::NewYork,
         "ABC234".into(),
         &Urls::default(),
         t0(),

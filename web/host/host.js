@@ -6,6 +6,9 @@
      /host?question=<id>                the first screen, signed out: *Sign in
                                         with Discord*, a link to
                                         /auth/discord?question=<id> (T-10).
+                                        &club=<slug> names the club the room
+                                        is for (D-26); absent, the default
+                                        club (nyc), so older links work.
      /host?question=<id>#<organizer     the first screen, signed in: Discord's
       session>                          callback lands here. *Create a room*
                                         presents the organizer session as a
@@ -81,7 +84,8 @@
     var m = /^\/host\/([^\/]+)$/.exec(path);
     if (m) return { mode: "room", roomId: decode(m[1]), session: secret };
     var q = /(?:^\?|&)question=([^&]*)/.exec(String(loc.search || ""));
-    return { mode: "create", token: secret, question: q ? decode(q[1]) : null };
+    var c = /(?:^\?|&)club=([^&]*)/.exec(String(loc.search || ""));
+    return { mode: "create", token: secret, question: q ? decode(q[1]) : null, club: c ? decode(c[1]) : null };
   }
 
   /* Reconnect delay in ms after `attempt` failures: 500, 1000, 2000, 4000,
@@ -184,14 +188,27 @@
   /* The first screen signed out (T-10): one way on, to Discord's consent
      screen through the room's /auth/discord, carrying the question. A link,
      not a button: it is a navigation, and it works with no script after this. */
-  function signInHref(question) {
-    return "/auth/discord?question=" + encodeURIComponent(question || "");
+  function signInHref(question, club) {
+    return "/auth/discord?question=" + encodeURIComponent(question || "") + clubQuery(club);
   }
 
-  function renderSignIn(ui, question) {
+  /* `&club=<slug>` when a club is named; nothing otherwise (D-26). */
+  function clubQuery(club) {
+    return club ? "&club=" + encodeURIComponent(club) : "";
+  }
+
+  /* The body of *Create a room* and *Run it again*: the question, and the club
+     when one is named. */
+  function roomBody(question, club) {
+    var body = { question_id: question || "" };
+    if (club) body.club = club;
+    return body;
+  }
+
+  function renderSignIn(ui, question, club) {
     return titleHtml("idle") +
       '<div class="stack"><a class="btn btn-primary host-primary" data-sign-in href="' +
-      PQ.escapeAttr(signInHref(question)) + '">' + esc(PQ.t("host_action_sign_in")) + "</a>" +
+      PQ.escapeAttr(signInHref(question, club)) + '">' + esc(PQ.t("host_action_sign_in")) + "</a>" +
       statusHtml(ui) + "</div>";
   }
 
@@ -295,22 +312,22 @@
 
     if (where.mode === "create") {
       var paintCreate = function () {
-        repaint(where.token ? renderCreate(ui) : renderSignIn(ui, where.question));
+        repaint(where.token ? renderCreate(ui) : renderSignIn(ui, where.question, where.club));
       };
       el.addEventListener("click", function (ev) {
         var b = ev.target.closest && ev.target.closest("[data-primary]");
         if (!b || ui.busy) return;
         ui.busy = true; ui.status = null; paintCreate();
-        post("/rooms", where.token, { question_id: where.question || "" }).then(function (r) {
+        post("/rooms", where.token, roomBody(where.question, where.club)).then(function (r) {
           if (r.res.status === 201 && r.body) {
-            storeSet(win, { token: where.token, question: where.question });
+            storeSet(win, { token: where.token, question: where.question, club: where.club });
             win.location.replace(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
             return;
           }
           if (r.res.status === 401) {
             // The organizer session is unknown or expired (T-10): sign in again.
             where.token = null;
-            win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || ""));
+            win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
             ui.busy = false; ui.status = null; paintCreate();
             return;
           }
@@ -354,14 +371,14 @@
       if (slug === "run-it-again") {
         var stored = storeGet(win);
         if (!stored || !stored.token) { win.location.assign("/host"); return; }
-        post("/rooms/" + encodeURIComponent(id) + "/run-it-again", stored.token, { question_id: stored.question || "" })
+        post("/rooms/" + encodeURIComponent(id) + "/run-it-again", stored.token, roomBody(stored.question, stored.club))
           .then(function (r) {
             if (r.res.status === 201 && r.body) {
               win.location.assign(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
               return;
             }
             // T-10: the organizer session lapsed; sign in again, then create.
-            if (r.res.status === 401) { win.location.assign(signInHref(stored.question)); return; }
+            if (r.res.status === 401) { win.location.assign(signInHref(stored.question, stored.club)); return; }
             done(statusLine(r.res, r.body));
           }, function (e) { done(String(e && e.message || e)); });
         return;
@@ -433,6 +450,7 @@
     renderCreate: renderCreate,
     renderSignIn: renderSignIn,
     signInHref: signInHref,
+    roomBody: roomBody,
     boot: boot
   };
 })(typeof window !== "undefined" ? window : globalThis);

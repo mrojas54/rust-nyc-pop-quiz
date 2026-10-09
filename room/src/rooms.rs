@@ -74,6 +74,7 @@ use subtle::ConstantTimeEq;
 
 use crate::answers::{Middle, Revealed, Scheduled, Verdict};
 use crate::auth::{CreateRefusal, Denied, HostAuth, OrganizerId};
+use crate::club::{ClubSlug, Clubs, Zone};
 use crate::copy;
 use crate::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
 use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
@@ -233,6 +234,9 @@ pub struct Room {
     id: String,
     code: String,
     join_url: String,
+    // D-26: which club's room this is, and the zone its meetup date is read in.
+    club: ClubSlug,
+    zone: Zone,
     question_id: String,
     question: Arc<Scheduled>,
     machine: Machine,
@@ -330,6 +334,8 @@ impl Room {
     pub fn create(
         question: Arc<Scheduled>,
         organizer: OrganizerId,
+        club: ClubSlug,
+        zone: Zone,
         code: String,
         urls: &Urls,
         now: SystemTime,
@@ -344,6 +350,8 @@ impl Room {
         Ok(Room {
             join_url: format!("{}/{code}", urls.base),
             host_resume_url: format!("{}/host/{id}#{host_session}", urls.base),
+            club,
+            zone,
             question_id: question.public().id().to_string(),
             question,
             machine,
@@ -375,6 +383,11 @@ impl Room {
 
     pub fn question_id(&self) -> &str {
         &self.question_id
+    }
+
+    /// The club this room belongs to (D-26).
+    pub fn club(&self) -> &ClubSlug {
+        &self.club
     }
 
     /// The one phase field. The wall, buzzer and host projections all read it
@@ -476,7 +489,7 @@ impl Room {
                 // and the verdict stay on the shell and expire with it at four
                 // hours — AC-56 read literally, the Orchestrator's ruling.
                 Phase::Released => {
-                    let meetup_date = crate::used::meetup_date(self.created_at);
+                    let meetup_date = crate::used::meetup_date_in(self.created_at, self.zone);
                     let take_home = {
                         let opened = self.open().expect("release is entered only from reveal");
                         crate::used::take_home(&self.question_id, meetup_date.clone(), &self.public(), &opened)
@@ -517,8 +530,8 @@ impl Room {
     /// released room's question is refused by the used ledger instead; a room
     /// that ended without release can never release, so it can never put its
     /// answer on `/last` ([`AppState::act`] refuses an ended room).
-    pub fn holds(&self, question_id: &str, now: SystemTime) -> bool {
-        self.question_id == question_id && self.phase() != Phase::Released && self.ended(now).is_none()
+    pub fn holds(&self, club: &ClubSlug, question_id: &str, now: SystemTime) -> bool {
+        &self.club == club && self.question_id == question_id && self.phase() != Phase::Released && self.ended(now).is_none()
     }
 
     /// T-11: the last host action (§4.6).
@@ -637,7 +650,11 @@ pub struct AppState {
     // release transition (G-10), and the take-it-home snapshot, replaced at
     // every release (§13).
     used: UsedLedger,
-    take_home: Mutex<Option<TakeHome>>,
+    // D-26: one snapshot per club, so one club's release never shows on
+    // another's take-it-home page (AC-104).
+    take_home: Mutex<HashMap<ClubSlug, TakeHome>>,
+    // D-26: the clubs this server runs (zones, for the meetup date).
+    clubs: Clubs,
     // T-11: rooms that expired or went quiet, by id: their code and why, for
     // `ENDED_MEMORY`, so a late join is told what happened (AC-29).
     ended: Mutex<HashMap<String, Tombstone>>,
@@ -700,7 +717,8 @@ impl AppState {
                     .collect(),
             ),
             used: UsedLedger::default(),
-            take_home: Mutex::new(None),
+            take_home: Mutex::new(HashMap::new()),
+            clubs: Clubs::only_default(String::new()),
             ended: Mutex::new(HashMap::new()),
             clock: Arc::new(SystemClock),
             auth,
@@ -767,7 +785,23 @@ impl AppState {
     /// The last released question, for T-12's `/last`. `None` until a room
     /// has been released on this machine.
     pub fn take_home(&self) -> Option<TakeHome> {
-        lock(&self.take_home).clone()
+        self.take_home_of(&ClubSlug::default_club())
+    }
+
+    /// `club`'s last released question (D-26): `None` until that club has
+    /// released a room on this machine.
+    pub fn take_home_of(&self, club: &ClubSlug) -> Option<TakeHome> {
+        lock(&self.take_home).get(club).cloned()
+    }
+
+    /// The clubs this server runs (D-26). Until set, the default club alone.
+    pub fn with_clubs(mut self, clubs: Clubs) -> AppState {
+        self.clubs = clubs;
+        self
+    }
+
+    pub fn clubs(&self) -> &Clubs {
+        &self.clubs
     }
 
     /// How many room records exist, released shells included (AC-56, by
@@ -827,9 +861,9 @@ impl AppState {
         let id = question.public().id().to_string();
         let mut questions = lock(&self.questions);
         let rooms = lock(&self.rooms);
-        if self.used.contains(&id) {
-            return Err(RoomError::Refused(format!("{id} has already been run; a question is never run twice.")));
-        }
+        // D-26: whether a question has been run is a fact about a club, so the
+        // refusal lives in `create_for`, where the club is known. A question one
+        // club has run is still scheduled for the others.
         if rooms.values().any(|e| e.room.question_id() == id) {
             return Err(RoomError::Refused(format!(
                 "A room is running {id}; it can be replaced once that room is gone."
@@ -850,8 +884,20 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        let organizer = self.auth.authorize_create(bearer).await?;
-        self.create_for(organizer, question_id, now)
+        self.create_room_checked_for(bearer, &ClubSlug::default_club(), question_id, now).await
+    }
+
+    /// [`AppState::create_room_checked`] for `club`: the check tests *that*
+    /// club's role (AC-103), and the room is that club's.
+    pub async fn create_room_checked_for(
+        &self,
+        bearer: Option<&str>,
+        club: &ClubSlug,
+        question_id: &str,
+        now: SystemTime,
+    ) -> Result<Created, RoomError> {
+        let organizer = self.auth.authorize_create(bearer, club).await?;
+        self.create_for(organizer, club, question_id, now)
     }
 
     /// [`AppState::create_room_checked`] for a backend that decides without
@@ -886,24 +932,25 @@ impl AppState {
     fn create_for(
         &self,
         organizer: OrganizerId,
+        club: &ClubSlug,
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
         let questions = lock(&self.questions);
         let mut rooms = lock(&self.rooms);
-        if rooms.values().any(|e| e.room.holds(question_id, now)) {
+        if rooms.values().any(|e| e.room.holds(club, question_id, now)) {
             return Err(RoomError::Refused(
                 "That question is open in another room. Pick another.".into(),
             ));
         }
         // The rooms on this question that ended without release stay ended:
         // the new room is let in on the strength of it.
-        for entry in rooms.values_mut().filter(|e| e.room.question_id == question_id) {
+        for entry in rooms.values_mut().filter(|e| &e.room.club == club && e.room.question_id == question_id) {
             if entry.room.phase() != Phase::Released {
                 entry.room.latched_end = entry.room.ended(now);
             }
         }
-        if self.used.contains(question_id) {
+        if self.used.contains(club, question_id) {
             return Err(RoomError::Refused(
                 "That question has already been run. Pick another.".into(),
             ));
@@ -920,7 +967,7 @@ impl AppState {
             }
         };
         drop(ended);
-        let room = Room::create(question, organizer, code, &self.urls, now)?;
+        let room = Room::create(question, organizer, club.clone(), self.clubs.zone_of(club), code, &self.urls, now)?;
         let created = Created {
             id: room.id.clone(),
             code: room.code.clone(),
@@ -969,6 +1016,7 @@ impl AppState {
         if let Some(parting) = room.take_parting() {
             sessions.release();
             self.used.append(UsedEntry {
+                club: room.club.clone(),
                 question_id: room.question_id.clone(),
                 used: UsedRecord {
                     meetup_date: parting.meetup_date,
@@ -977,7 +1025,7 @@ impl AppState {
                     fit: parting.fit,
                 },
             });
-            *lock(&self.take_home) = Some(parting.take_home);
+            lock(&self.take_home).insert(room.club.clone(), parting.take_home);
         }
         Ok(())
     }
@@ -994,7 +1042,13 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        let organizer = self.auth.authorize_create(bearer).await?;
+        // The new room is the old room's club's, whichever the caller names
+        // (D-26): *Run it again* never moves a room to another club.
+        let club = {
+            let rooms = lock(&self.rooms);
+            rooms.get(room_id).ok_or(RoomError::NotFound)?.room.club.clone()
+        };
+        let organizer = self.auth.authorize_create(bearer, &club).await?;
         self.run_again_for(organizer, room_id, question_id, now)
     }
 
@@ -1020,7 +1074,7 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        {
+        let club = {
             let mut rooms = lock(&self.rooms);
             let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
             if entry.room.organizer != organizer {
@@ -1035,8 +1089,9 @@ impl AppState {
                 Acted::NewRoomRequested => {}
                 Acted::Changed => unreachable!("Run it again never moves this room"),
             }
-        }
-        self.create_for(organizer, question_id, now)
+            entry.room.club.clone()
+        };
+        self.create_for(organizer, &club, question_id, now)
     }
 
     /// T-04b's writer for the live counts.

@@ -12,9 +12,12 @@
 //!   address the room binds.
 //! - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`,
 //!   `DISCORD_ROLE_ID` — the Discord application and the guild and role that
-//!   may host (SPEC §8, T-10). All four required and non-empty; the three ids
+//!   may host the default club `nyc` (SPEC §8, T-10). All four required and non-empty; the three ids
 //!   are Discord snowflakes (digits). The OAuth redirect URI is not a
 //!   variable: it is `POPQUIZ_PUBLIC_URL` + [`crate::discord::CALLBACK_PATH`].
+//! - `POPQUIZ_CLUBS` — optional (D-26): more clubs on this server, each with
+//!   its own host role, comma-separated `slug=roleid:Zone`, e.g.
+//!   `la=123456789012345678:America/Los_Angeles`. See [`crate::club`].
 //! - [`crate::admin::VAR`] — the pipeline channel's token (SPEC §8.3, T-25),
 //!   required in **every** build: missing or empty, the room does not start.
 
@@ -57,6 +60,8 @@ pub enum ConfigError {
     MissingDiscord(&'static str),
     /// A Discord id variable is not a snowflake (digits). Named, never echoed.
     DiscordId(&'static str),
+    /// `POPQUIZ_CLUBS` does not parse (D-26). Names the entry, never a role id.
+    Clubs(crate::club::ClubsError),
     // end T-10 --------------------------------------------------------------
 }
 
@@ -76,6 +81,7 @@ impl fmt::Display for ConfigError {
             // T-10
             ConfigError::MissingDiscord(var) => write!(f, "{var} must be set and non-empty (the Discord application, SPEC 8)"),
             ConfigError::DiscordId(var) => write!(f, "{var} must be a Discord id: digits only"),
+            ConfigError::Clubs(e) => write!(f, "POPQUIZ_CLUBS: {e}"),
         }
     }
 }
@@ -139,6 +145,9 @@ fn public_base(raw: &str) -> Option<String> {
 
 // T-10 ----------------------------------------------------------------------
 
+/// The optional variable that adds clubs beyond the default one (D-26).
+pub const CLUBS_VAR: &str = "POPQUIZ_CLUBS";
+
 /// The four Discord variables, in the order they are checked.
 pub const DISCORD_VARS: [&str; 4] = ["DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_GUILD_ID", "DISCORD_ROLE_ID"];
 
@@ -158,11 +167,16 @@ fn discord_settings(var: &impl Fn(&str) -> Option<String>, base: &str) -> Result
         }
     };
     let [client_id, client_secret, guild_id, role_id] = DISCORD_VARS;
+    let client_id = id(client_id)?;
+    let client_secret = crate::discord::Secret::new(required(client_secret)?);
+    let guild_id = id(guild_id)?;
+    let role_id = id(role_id)?;
+    let clubs = crate::club::Clubs::parse(role_id, var(CLUBS_VAR).as_deref()).map_err(ConfigError::Clubs)?;
     Ok(crate::discord::Settings {
-        client_id: id(client_id)?,
-        client_secret: crate::discord::Secret::new(required(client_secret)?),
-        guild_id: id(guild_id)?,
-        role_id: id(role_id)?,
+        client_id,
+        client_secret,
+        guild_id,
+        clubs,
         redirect_uri: format!("{base}{}", crate::discord::CALLBACK_PATH),
     })
 }
