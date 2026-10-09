@@ -853,6 +853,17 @@ The room runs on Fly.io as the app **`rustnyc-popquiz`**, at
 is the root's `fly.toml`, written by hand. `.dockerignore` is an allowlist: the
 crate and `web/`.
 
+**flyctl in cloud sessions.** `.claude/hooks/install-flyctl.sh` (a `SessionStart`
+hook, remote sessions only) installs flyctl into `~/.fly` and puts it on `PATH`,
+so `fly deploy --ha=false --remote-only` works from a Claude Code cloud session.
+It needs `fly.io` and `github.com` (release assets) in the environment's allowed
+domains, and `api.fly.io` and `rustnyc-popquiz.fly.dev` for the deploy itself.
+If the network blocks the install, the hook prints one line saying so and the
+session starts normally. The hook installs the binary only: `FLY_API_TOKEN` is a
+separate environment secret (a deploy token for `rustnyc-popquiz`), never
+committed. The environment's setup script is the alternative place for the same
+install line.
+
 **One machine, never two.** The room is one state in memory (SPEC §9). A second
 machine would be a second room that phones could land in. `fly deploy` adds a
 second machine "for high availability" whatever `fly.toml` says, so every
