@@ -55,6 +55,7 @@ from zoneinfo import ZoneInfo
 from popquiz import fallback
 from popquiz.audit import in_reserve, is_accepted
 from popquiz.bank import (
+    CLUB_SLUG,
     DEFAULT_CLUB,
     BankError,
     Question,
@@ -302,10 +303,14 @@ def _refused_token(status: int) -> ScheduleError:
     )
 
 
-def push(arranged: Question, room: str, token: str) -> str:
-    """`PUT {room}/admin/questions/{id}` with the arranged record. Returns `new` or
+def push(arranged: Question, room: str, token: str, club: str = DEFAULT_CLUB) -> str:
+    """`PUT` the arranged record to the room, for `club`: `/admin/questions/{id}`
+    for the default club, `/admin/clubs/{club}/questions/{id}` for another (D-26).
+    The record is the question arranged for that club's meetup date, so it is kept
+    per club and one club's push never replaces another's. Returns `new` or
     `replaced`; raises `ScheduleError` with the room's reason on a refusal."""
-    url = room_url(room, f"/admin/questions/{arranged.id}")
+    path = f"/admin/questions/{arranged.id}" if club == DEFAULT_CLUB else f"/admin/clubs/{club}/questions/{arranged.id}"
+    url = room_url(room, path)
     body = json.dumps(question_to_dict(arranged), ensure_ascii=False).encode("utf-8")
     status, payload = _call("PUT", url, token, body)
     if status in (200, 201):
@@ -523,7 +528,18 @@ def _print_reserve(bank_dir: Path, args: argparse.Namespace) -> None:
         print(line)
 
 
+def home_link_for(club: str, explicit: str | None = None) -> str:
+    """The take-it-home link a club's fallback shows: its own page, `/last/{club}`;
+    the default club's is `/last`. An explicit `--home-link` wins (D-26)."""
+    if explicit:
+        return explicit
+    return fallback.DEFAULT_HOME_LINK if club == DEFAULT_CLUB else f"{fallback.DEFAULT_HOME_LINK}/{club}"
+
+
 def _schedule(args: argparse.Namespace) -> int:
+    if not CLUB_SLUG.fullmatch(args.club):
+        raise ScheduleError(f"{args.club!r} is not a club name (a-z, 0-9 and -, 1 to 24)")
+    home_link = home_link_for(args.club, args.home_link)
     question = load_question(args.bank, args.question_id)
     why = refusal(question, args.club)
     if why:
@@ -541,15 +557,15 @@ def _schedule(args: argparse.Namespace) -> int:
     arranged = arrange(question, args.date)
     # Render both files before anything is sent, so a record the fallback refuses
     # is refused before the room ever sees it.
-    fallback.build_html(arranged, home_link=args.home_link)
+    fallback.build_html(arranged, home_link=home_link)
     fallback.host_sheet(arranged)
 
     answer = "not pushed (--no-push)"
     if token is not None:
-        answer = f"scheduled: {push(arranged, args.room, token)}"
+        answer = f"scheduled: {push(arranged, args.room, token, args.club)}"
     try:
         page, sheet = fallback.write_fallback(
-            arranged, Path(args.out) / f"{arranged.id}.html", home_link=args.home_link
+            arranged, Path(args.out) / f"{arranged.id}.html", home_link=home_link
         )
     except OSError as e:
         held = "the room holds the record, but " if token is not None else ""
@@ -607,7 +623,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     where.add_argument("--no-push", action="store_true",
                        help="write the fallback and host sheet only, for a night the room cannot be reached")
     s.add_argument("--out", type=Path, required=True, help="the directory the fallback and sheet go in")
-    s.add_argument("--home-link", default=fallback.DEFAULT_HOME_LINK, help="the take-it-home link")
+    s.add_argument("--home-link", default=None,
+                   help="the take-it-home link (default: the club's own page, /last for nyc, /last/<club> otherwise)")
     common(s)
 
     y = sub.add_parser("sync", help="pull the room's used ledger into the bank")

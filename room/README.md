@@ -147,8 +147,13 @@ club, an unknown club and a malformed one are all `403 wrong_role` (AC-103).
   that has released nothing, or one that does not exist, gets the empty page.
   A released LA wall links to `/last/la`.
 - **Run it again** stays in the old room's club, whatever the request names.
-- **Scheduling stays club-less.** `PUT /admin/questions/{id}` puts a question in
-  the shared bank; whether a club has run it is checked when its room is made.
+- **Scheduling is per club.** What the laptop pushes is the question *arranged
+  for one meetup date* (the answer slot moves with the date), so the room keeps
+  it per club: `PUT /admin/clubs/{club}/questions/{id}`, and the old
+  `PUT /admin/questions/{id}` is the `nyc` spelling. A club's room is built from
+  that club's record only; a club with nothing scheduled is refused, never
+  handed another club's arrangement (AC-23). Whether a club has run a question
+  is checked when its room is made.
 - A restart empties the questions *and* the ledger, for every club.
 
 ### Routes
@@ -177,7 +182,7 @@ routes, one credential. T-20 builds the laptop side (`popquiz schedule` and
 
 | Route | What | Answers |
 |---|---|---|
-| `PUT /admin/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes. It goes through `answers::load` into the sealed module and nowhere else (AC-61). | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load or its `id` is not `{id}`. `409 {reason}` if the question has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
+| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes. It goes through `answers::load` into the sealed module and nowhere else (AC-61). | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load or its `id` is not `{id}`. `409 {reason}` if the question has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
 | `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). | `200` |
 
 **The credential.** `Authorization: Bearer <token>`. The token is the value of

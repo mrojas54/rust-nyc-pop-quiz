@@ -255,3 +255,71 @@ fn config_a_bad_club_stops_the_room_and_never_echoes_a_role() {
     assert!(config_with(Some("nyc=222:America/New_York")).is_err(), "nyc is taken by DISCORD_ROLE_ID");
     assert!(config_with(Some("la=222:Mars/Olympus")).is_err());
 }
+
+// --------------------------------------------------------------------------
+// Review of PR #52, P1: a scheduled arrangement belongs to one club.
+// --------------------------------------------------------------------------
+
+/// `q3` with its four wrong options rotated: the same question, arranged for a
+/// different meetup date (the pipeline's `arrange` moves the answer slot and
+/// reshuffles the others).
+fn q3_arranged(rotate: usize) -> room::answers::Scheduled {
+    let mut v = common::q3_json();
+    let options = v["options"].as_array_mut().unwrap();
+    options.rotate_left(rotate);
+    common::load(&v)
+}
+
+fn options_of(rig: &Rig, room: &str) -> Vec<String> {
+    rig.state.with_room(room, |r| r.public().question.options().to_vec()).unwrap()
+}
+
+#[tokio::test]
+async fn p1_each_club_keeps_its_own_arrangement_of_one_question() {
+    let rig = Rig::start().await;
+    let (session, _) = rig.sign_in(both(&rig)).await;
+    let nyc = room::club::ClubSlug::parse("nyc").unwrap();
+    let la = room::club::ClubSlug::parse("la").unwrap();
+    // NYC is scheduled for one date, then LA for another, before either room.
+    rig.state.schedule_for(&nyc, q3_arranged(1)).unwrap();
+    rig.state.schedule_for(&la, q3_arranged(2)).unwrap();
+
+    let (a, b) = (
+        rig.create_for(Some(&session), "nyc", "q3").await,
+        rig.create_for(Some(&session), "la", "q3").await,
+    );
+    assert_eq!((a.0, b.0), (StatusCode::CREATED, StatusCode::CREATED), "{} {}", a.1, b.1);
+    let (nyc_room, la_room) = (options_of(&rig, a.1["id"].as_str().unwrap()), options_of(&rig, b.1["id"].as_str().unwrap()));
+    assert_eq!(nyc_room, q3_arranged(1).public().options().to_vec(), "NYC's room has NYC's order");
+    assert_eq!(la_room, q3_arranged(2).public().options().to_vec(), "LA's room has LA's order");
+    assert_ne!(nyc_room, la_room);
+}
+
+#[tokio::test]
+async fn p1_a_club_with_nothing_scheduled_gets_no_room_even_if_another_has_it() {
+    let rig = Rig::start().await;
+    let (session, _) = rig.sign_in(both(&rig)).await;
+    let nyc = room::club::ClubSlug::parse("nyc").unwrap();
+    // The rig schedules its fixtures for both clubs; this id is NYC's alone.
+    let mut v = common::q3_json();
+    v["id"] = "q3-nyc-only".into();
+    rig.state.schedule_for(&nyc, common::load(&v)).unwrap();
+    assert_eq!(rig.create_for(Some(&session), "nyc", "q3-nyc-only").await.0, StatusCode::CREATED);
+    let (status, body) = rig.create_for(Some(&session), "la", "q3-nyc-only").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert!(body["reason"].as_str().unwrap().contains("No question is scheduled"), "{body}");
+}
+
+#[tokio::test]
+async fn p1_a_running_room_blocks_only_its_own_clubs_repush() {
+    let rig = Rig::start().await;
+    let (session, _) = rig.sign_in(both(&rig)).await;
+    let (nyc, la) = (room::club::ClubSlug::parse("nyc").unwrap(), room::club::ClubSlug::parse("la").unwrap());
+    rig.state.schedule_for(&la, q3_arranged(2)).unwrap();
+    assert_eq!(rig.create_for(Some(&session), "la", "q3").await.0, StatusCode::CREATED);
+    // LA's room holds LA's record, so LA cannot replace it ...
+    assert!(rig.state.schedule_for(&la, q3_arranged(3)).is_err());
+    // ... and that says nothing about NYC's.
+    assert!(rig.state.schedule_for(&nyc, q3_arranged(1)).is_ok());
+    assert!(rig.state.schedule_for(&nyc, q3_arranged(4)).is_ok(), "NYC may still re-push its own");
+}

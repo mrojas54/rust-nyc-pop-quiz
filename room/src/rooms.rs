@@ -645,7 +645,10 @@ pub enum Scheduling {
 /// only (T-10 deleted the M1 stand-in's seed).
 pub struct AppState {
     rooms: Mutex<HashMap<String, Entry>>,
-    questions: Mutex<HashMap<String, Arc<Scheduled>>>,
+    // D-26: a scheduled record is the question *arranged for one club's
+    // meetup date* (the pipeline moves the answer slot by date), so it is kept
+    // per club. One club's push never replaces another's.
+    questions: Mutex<HashMap<(ClubSlug, String), Arc<Scheduled>>>,
     // T-11: what outlives a room — the used ledger, whose only writer is the
     // release transition (G-10), and the take-it-home snapshot, replaced at
     // every release (§13).
@@ -713,7 +716,7 @@ impl AppState {
             questions: Mutex::new(
                 questions
                     .into_iter()
-                    .map(|q| (q.public().id().to_string(), Arc::new(q)))
+                    .map(|q| ((ClubSlug::default_club(), q.public().id().to_string()), Arc::new(q)))
                     .collect(),
             ),
             used: UsedLedger::default(),
@@ -858,19 +861,26 @@ impl AppState {
     /// (one room per question, GAP-8); a replaced record needs that nothing
     /// still names it.
     pub fn schedule(&self, question: Scheduled) -> Result<Scheduling, RoomError> {
+        self.schedule_for(&ClubSlug::default_club(), question)
+    }
+
+    /// [`AppState::schedule`] for `club` (D-26). The record is the question as
+    /// arranged for that club's meetup, and only that club's room can hold it:
+    /// another club's push of the same id is a different record.
+    pub fn schedule_for(&self, club: &ClubSlug, question: Scheduled) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
         let mut questions = lock(&self.questions);
         let rooms = lock(&self.rooms);
-        // D-26: whether a question has been run is a fact about a club, so the
-        // refusal lives in `create_for`, where the club is known. A question one
-        // club has run is still scheduled for the others.
-        if rooms.values().any(|e| e.room.question_id() == id) {
+        // Whether a question has been run is a fact about a club too, so that
+        // refusal lives in `create_for`; a question one club has run is still
+        // scheduled for the others.
+        if rooms.values().any(|e| &e.room.club == club && e.room.question_id() == id) {
             return Err(RoomError::Refused(format!(
                 "A room is running {id}; it can be replaced once that room is gone."
             )));
         }
         drop(rooms);
-        Ok(match questions.insert(id, Arc::new(question)) {
+        Ok(match questions.insert((club.clone(), id), Arc::new(question)) {
             None => Scheduling::New,
             Some(_) => Scheduling::Replaced,
         })
@@ -955,8 +965,9 @@ impl AppState {
                 "That question has already been run. Pick another.".into(),
             ));
         }
+        // No fallback to another club's record: it was arranged for another date.
         let question = questions
-            .get(question_id)
+            .get(&(club.clone(), question_id.to_string()))
             .cloned()
             .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
         let ended = lock(&self.ended);

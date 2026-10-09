@@ -3,7 +3,8 @@
 //!
 //! | Route | What |
 //! |---|---|
-//! | `PUT /admin/questions/{id}` | `popquiz schedule`: the question record, answer included, into the sealed [`crate::answers`] module |
+//! | `PUT /admin/questions/{id}` | `popquiz schedule`: the question record, answer included, into the sealed [`crate::answers`] module, for the default club |
+//! | `PUT /admin/clubs/{club}/questions/{id}` | the same, for `club` (D-26): the record is the question arranged for that club's meetup date |
 //! | `GET /admin/used` | `popquiz sync`: the used-question ledger |
 //!
 //! Both require `Authorization: Bearer ‹token›`, the token being the value of
@@ -38,6 +39,7 @@ use subtle::ConstantTimeEq;
 
 use crate::answers;
 use crate::auth::Denied;
+use crate::club::ClubSlug;
 use crate::config::ConfigError;
 use crate::rooms::{AppState, RoomError, Scheduling};
 
@@ -119,9 +121,20 @@ pub async fn serve(State(admin): State<Arc<Admin>>, request: Request) -> Respons
     let rest = path.strip_prefix("/admin").unwrap_or(path);
     let segments: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
     match (segments.as_slice(), &parts.method) {
-        (["questions", id], &Method::PUT) => put_question(&admin.rooms, id, body).await,
+        (["questions", id], &Method::PUT) => {
+            put_question(&admin.rooms, &ClubSlug::default_club(), id, body).await
+        }
+        // D-26: a scheduled record is the question arranged for one club's
+        // meetup date, so it is pushed to that club. A name that is not a club
+        // slug gets the same answer as any record the room refuses.
+        (["clubs", club, "questions", id], &Method::PUT) => match ClubSlug::parse(club) {
+            Some(club) => put_question(&admin.rooms, &club, id, body).await,
+            None => refused(StatusCode::BAD_REQUEST, "That is not a club name."),
+        },
         (["used"], &Method::GET) => Json(admin.rooms.used().all()).into_response(),
-        (["questions", _], _) | (["used"], _) => StatusCode::METHOD_NOT_ALLOWED.into_response(),
+        (["questions", _], _) | (["clubs", _, "questions", _], _) | (["used"], _) => {
+            StatusCode::METHOD_NOT_ALLOWED.into_response()
+        }
         _ => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -130,7 +143,7 @@ fn refused(status: StatusCode, reason: impl Into<String>) -> Response {
     (status, Json(serde_json::json!({ "reason": reason.into() }))).into_response()
 }
 
-async fn put_question(rooms: &AppState, id: &str, body: Body) -> Response {
+async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -> Response {
     let Ok(bytes) = axum::body::to_bytes(body, MAX_RECORD_BYTES).await else {
         return refused(StatusCode::PAYLOAD_TOO_LARGE, "The record is larger than a question record can be.");
     };
@@ -147,7 +160,7 @@ async fn put_question(rooms: &AppState, id: &str, body: Body) -> Response {
             format!("The path names {id}; the record is {}.", question.public().id()),
         );
     }
-    match rooms.schedule(question) {
+    match rooms.schedule_for(club, question) {
         Ok(Scheduling::New) => (
             StatusCode::CREATED,
             Json(serde_json::json!({ "id": id, "scheduled": "new" })),

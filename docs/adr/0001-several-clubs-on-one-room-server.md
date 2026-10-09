@@ -40,9 +40,16 @@ A **club** is `{slug, role id, zone}`. One server, one guild, one question bank.
   sign-in carries it to Discord and back. No club means `nyc`, so old links work.
 - **Take it home is per club:** `/last/{club}`; `/last` is `nyc`'s. A released
   wall links to its own club's page.
-- **The bank is shared.** `PUT /admin/questions/{id}` stays club-less; "already
-  run" is checked when a room is made, where the club is known. *Run it again*
-  stays in the old room's club.
+- **The bank is shared; a scheduled record is not.** What `popquiz schedule`
+  pushes is the question *arranged for one meetup date* (the answer slot and the
+  other options move with the date), so the room keeps it per club:
+  `PUT /admin/clubs/{club}/questions/{id}`, with the old `PUT
+  /admin/questions/{id}` as the `nyc` spelling. A club's room is built from that
+  club's record only. "Already run" is checked when a room is made, where the
+  club is known. *Run it again* stays in the old room's club. (First draft kept
+  the PUT club-less; review found NYC's room would get LA's option order, AC-23.)
+- **The fallback links to the club's own page:** `/last` for `nyc`, `/last/{club}`
+  otherwise, unless `--home-link` says otherwise.
 - **Meetup date** is read in the club's zone (four US zones, one daylight rule).
 - **Pipeline:** `Question.used` is one record per club. `schedule`, `sync` and
   `reserve` take `--club`.
@@ -57,8 +64,8 @@ flowchart LR
     pq --- bank
   end
   subgraph fly["Fly.io: one machine, one process"]
-    admin["Admin channel<br/>PUT /admin/questions/id<br/>GET /admin/used"]
-    state["AppState<br/>questions: shared<br/>rooms: club, question<br/>used ledger: club + question<br/>take-home: one per club"]
+    admin["Admin channel<br/>PUT /admin/clubs/club/questions/id<br/>GET /admin/used"]
+    state["AppState<br/>questions: per club, as arranged<br/>rooms: club, question<br/>used ledger: club + question<br/>take-home: one per club"]
     cfg["Clubs config<br/>nyc: DISCORD_ROLE_ID<br/>la: POPQUIZ_CLUBS"]
     pages["Pages<br/>/host  /join  /wall<br/>/last  /last/club"]
     admin --> state
@@ -92,7 +99,7 @@ sequenceDiagram
   H->>R: POST /rooms {question_id: q3, club: la}
   R->>D: member of the guild? roles?
   alt roles contain LA's role id
-    R->>R: create_for(la, q3): hold, then used (la, q3), then store
+    R->>R: create_for(la, q3): hold, then used (la, q3), then la's scheduled record
     R-->>H: 201 room, code, host session
   else no role, another club's role, or unknown club
     R-->>H: 403 wrong_role

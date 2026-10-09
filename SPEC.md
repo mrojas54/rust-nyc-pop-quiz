@@ -558,9 +558,12 @@ criterion and gates **HC-1**, never HC-0.
 
 ### 8.3 The pipeline channel (D-20, AC-101)
 
-The laptop reaches the room server through exactly two admin routes:
-`PUT /admin/questions/{id}` (`popquiz schedule` — the question record, answer
-included, into the sealed `answers` module, AC-61) and `GET /admin/used`
+The laptop reaches the room server through exactly two admin routes
+(`PUT` has two spellings, D-26): `PUT /admin/questions/{id}`, or
+`PUT /admin/clubs/{club}/questions/{id}` for a club other than the default
+(`popquiz schedule` — the question record **as arranged for that club's meetup
+date**, answer included, into the sealed `answers` module, AC-61; kept per club,
+so one club's push never replaces another's)  and `GET /admin/used`
 (`popquiz sync` — the used-question record). Both require
 `Authorization: Bearer ‹POPQUIZ_ADMIN_TOKEN›`, a Fly secret that the organizer's
 local pipeline configuration also holds and that is **never in the repository**

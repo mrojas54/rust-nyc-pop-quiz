@@ -410,6 +410,12 @@ impl Rig {
                 .with_clock(clock.clone())
                 .with_discord(discord.clone()),
         );
+        // D-26: the fixtures are scheduled for the second club too, as a push
+        // to /admin/clubs/la/questions/{id} would.
+        let la = room::club::ClubSlug::parse("la").unwrap();
+        for q in [super::q3(), super::q3_again()] {
+            state.schedule_for(&la, q).expect("the fixtures schedule for la");
+        }
         let app = room::router_with(state.clone());
         Rig {
             mock,

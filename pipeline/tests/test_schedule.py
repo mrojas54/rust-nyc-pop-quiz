@@ -774,3 +774,49 @@ def test_ac23_the_postcondition_is_a_raise_not_an_assert():
     arrange = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "arrange")
     assert not any(isinstance(n, ast.Assert) for n in ast.walk(arrange)), "-O strips an assert"
     assert any(isinstance(n, ast.Raise) for n in ast.walk(arrange))
+
+
+# --------------------------------------------------------------------------- #
+# Review of PR #52: P1 (the push is per club) and P2 (the fallback link is too)
+# --------------------------------------------------------------------------- #
+
+
+def test_p1_a_push_for_another_club_goes_to_that_clubs_path(affirmed, room, tmp_path):
+    fake = room((201, {"scheduled": "new"}))
+    args = ("schedule", "q3", "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", tmp_path / "o", "--bank", affirmed)
+    assert run(*args, "--club", "la") == 0
+    assert fake.requests[-1].full_url.endswith("/admin/clubs/la/questions/q3")
+    assert run(*args) == 0
+    assert fake.requests[-1].full_url.endswith("/admin/questions/q3"), "the default club keeps its old path"
+
+
+def test_p1_a_club_that_is_not_a_slug_is_refused_before_anything_is_sent(affirmed, room, tmp_path, capsys):
+    fake = room((201, {"scheduled": "new"}))
+    for bad in ("LA", "la/../nyc", "", "a b"):
+        out = tmp_path / ("o" + str(abs(hash(bad))))
+        code = run("schedule", "q3", "--date", NIGHT.isoformat(), "--room", "https://room.test",
+                   "--out", out, "--bank", affirmed, "--club", bad)
+        assert code == 1, bad
+        assert "club" in capsys.readouterr().err
+    assert fake.requests == []
+
+
+def _baked_home_link(out):
+    import re
+    html = (out / "q3.html").read_text()
+    return re.search(r'"home_link":\s*"([^"]+)"', html).group(1)
+
+
+def test_p2_the_fallback_links_to_the_selected_clubs_page(affirmed, tmp_path):
+    base = "https://popquiz.rustnyc.org/last"
+    for extra, want in ((["--club", "la"], base + "/la"), (["--club", "nyc"], base), ([], base)):
+        out = tmp_path / ("o" + "".join(extra).replace("-", ""))
+        assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", out, "--bank", affirmed, *extra) == 0
+        assert _baked_home_link(out) == want, extra
+
+
+def test_p2_an_explicit_home_link_wins(affirmed, tmp_path):
+    out = tmp_path / "o"
+    assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", out, "--bank", affirmed,
+               "--club", "la", "--home-link", "https://example.test/mine") == 0
+    assert _baked_home_link(out) == "https://example.test/mine"
