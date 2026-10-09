@@ -79,6 +79,8 @@ pub struct MockState {
     pub client_secret: String,
     pub guild_id: String,
     pub role_id: String,
+    /// D-26: a second club's host role, on the same server.
+    pub la_role_id: String,
     pub redirect_uri: String,
     books: Mutex<Books>,
 }
@@ -96,6 +98,7 @@ impl Mock {
             client_secret: canary("CANARY-CLIENT-SECRET"),
             guild_id: snowflake(),
             role_id: snowflake(),
+            la_role_id: snowflake(),
             redirect_uri: redirect_uri.to_string(),
             books: Mutex::new(Books {
                 expires_in: 604_800,
@@ -397,7 +400,8 @@ impl Rig {
             client_id: m.client_id.clone(),
             client_secret: Secret::new(m.client_secret.clone()),
             guild_id: guild.unwrap_or_else(|| m.guild_id.clone()),
-            role_id: m.role_id.clone(),
+            clubs: room::club::Clubs::parse(m.role_id.clone(), Some(&format!("la={}:America/Los_Angeles", m.la_role_id)))
+                .expect("the mock's clubs"),
             redirect_uri,
         };
         let discord = Arc::new(Discord::new(settings, Endpoints::at(&mock.base), retry, clock.clone(), log.clone()));
@@ -406,6 +410,12 @@ impl Rig {
                 .with_clock(clock.clone())
                 .with_discord(discord.clone()),
         );
+        // D-26: the fixtures are scheduled for the second club too, as a push
+        // to /admin/clubs/la/questions/{id} would.
+        let la = room::club::ClubSlug::parse("la").unwrap();
+        for q in [super::q3(), super::q3_again()] {
+            state.schedule_for(&la, q).expect("the fixtures schedule for la");
+        }
         let app = room::router_with(state.clone());
         Rig {
             mock,
@@ -421,6 +431,19 @@ impl Rig {
     /// The host role's id.
     pub fn role(&self) -> String {
         self.mock.state.role_id.clone()
+    }
+
+    /// The second club's (`la`) host role id.
+    pub fn la_role(&self) -> String {
+        self.mock.state.la_role_id.clone()
+    }
+
+    /// A member with the second club's host role and not the first's.
+    pub fn la_host(&self) -> Membership {
+        Membership::Member {
+            roles: vec![snowflake(), self.la_role()],
+            admin: false,
+        }
     }
 
     /// A member with the host role.
@@ -498,6 +521,11 @@ impl Rig {
     /// *Create a room* with this bearer.
     pub async fn create(&self, bearer: Option<&str>, question: &str) -> (StatusCode, Value) {
         self.call(Method::POST, "/rooms", bearer, Some(json!({ "question_id": question }))).await
+    }
+
+    /// *Create a room* for a named club (D-26).
+    pub async fn create_for(&self, bearer: Option<&str>, club: &str, question: &str) -> (StatusCode, Value) {
+        self.call(Method::POST, "/rooms", bearer, Some(json!({ "question_id": question, "club": club }))).await
     }
 }
 

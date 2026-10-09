@@ -45,6 +45,7 @@ use axum::Router;
 pub mod admin;
 pub mod answers;
 pub mod auth;
+pub mod club;
 pub mod config;
 pub mod copy;
 pub mod discord;
@@ -65,8 +66,11 @@ pub use routes::host_routes;
 /// which also signs organizers in, and nothing scheduled — questions arrive
 /// over the pipeline channel (T-25).
 pub fn serving_state(config: config::Config) -> rooms::AppState {
+    let clubs = config.discord.clubs.clone();
     let discord = Arc::new(discord::Discord::serving(config.discord));
-    rooms::AppState::new(discord.clone(), Vec::new(), config.urls).with_discord(discord)
+    rooms::AppState::new(discord.clone(), Vec::new(), config.urls)
+        .with_clubs(clubs)
+        .with_discord(discord)
 }
 
 /// What the binary serves: [`serving_state`] behind the room's routes, and

@@ -87,6 +87,11 @@ async fn push(a: &Admin, id: &str, record: &Value) -> (StatusCode, Value) {
     http(&a.app, Method::PUT, &format!("/admin/questions/{id}"), Some(&a.token), Some(record.clone())).await
 }
 
+/// `PUT /admin/clubs/{club}/questions/{id}` (D-26).
+async fn push_club(a: &Admin, club: &str, id: &str, record: &Value) -> (StatusCode, Value) {
+    http(&a.app, Method::PUT, &format!("/admin/clubs/{club}/questions/{id}"), Some(&a.token), Some(record.clone())).await
+}
+
 async fn used(a: &Admin) -> Value {
     let (status, body) = http(&a.app, Method::GET, "/admin/used", Some(&a.token), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -186,17 +191,33 @@ async fn ac101_the_right_token_schedules_and_reads_the_used_ledger() {
     assert_eq!(entries.len(), 1, "{ledger}");
     let entry = &entries[0];
     let keys = |v: &Value| v.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
-    assert_eq!(keys(entry), ["question_id", "used"]);
+    assert_eq!(keys(entry), ["club", "question_id", "used"]);
+    assert_eq!(entry["club"], "nyc");
     // bank.py's `Used`: meetup_date, room_id, released_at, fit.
     assert_eq!(keys(&entry["used"]), ["fit", "meetup_date", "released_at", "room_id"]);
     assert_eq!(entry["question_id"], "q3");
     assert_eq!(entry["used"]["room_id"], room.id.as_str());
     assert_eq!(entry["used"]["fit"], Value::Null, "no wall reported a fit, so none is written (G-2)");
 
-    // G-10: never twice.
+    // G-10, per club (D-26): the released room's record still names q3, so it
+    // cannot be replaced yet ...
     let (status, body) = push(&a, "q3", &q3_json()).await;
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert!(body["reason"].as_str().unwrap().contains("already been run"), "{body}");
+    assert!(body["reason"].as_str().unwrap().contains("A room is running q3"), "{body}");
+    // ... and the club that ran it may not run it again, while another may.
+    let body = |club: &str| json!({"question_id": "q3", "club": club});
+    // LA has not been pushed anything yet: nothing is scheduled for it, though
+    // NYC's q3 is. Its record is its own (arranged for its own date).
+    let (status, none) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("la"))).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{none}");
+    assert!(none["reason"].as_str().unwrap().contains("No question is scheduled"), "{none}");
+    let (status, pushed) = push_club(&a, "la", "q3", &q3_json()).await;
+    assert_eq!((status, pushed), (StatusCode::CREATED, json!({"id": "q3", "scheduled": "new"})));
+    let (status, refused) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("nyc"))).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{refused}");
+    assert!(refused["reason"].as_str().unwrap().contains("already been run"), "{refused}");
+    let (status, other) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("la"))).await;
+    assert_eq!(status, StatusCode::CREATED, "{other}");
 }
 
 #[tokio::test]
@@ -569,4 +590,32 @@ fn ac101_the_repository_scan_catches_a_plant() {
     ] {
         assert!(token_findings(&fine, None).is_empty(), "flagged: {fine}");
     }
+}
+
+// --------------------------------------------------------------------------
+// D-26 / review of PR #52 (P1): a scheduled record belongs to one club.
+// --------------------------------------------------------------------------
+
+#[tokio::test]
+async fn d26_the_club_route_and_the_old_route_are_two_records() {
+    let a = admin();
+    // The old path is the default club's; a club's path is that club's own.
+    assert_eq!(push(&a, "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "new"}));
+    assert_eq!(push_club(&a, "la", "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "new"}));
+    assert_eq!(push_club(&a, "la", "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "replaced"}));
+    assert_eq!(push_club(&a, "nyc", "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "replaced"}), "the old path is nyc's");
+}
+
+#[tokio::test]
+async fn d26_the_club_route_is_behind_the_token_and_refuses_a_bad_club_name() {
+    let a = admin();
+    for uri in ["/admin/clubs/la/questions/q3", "/admin/clubs/NOPE/questions/q3"] {
+        let (status, body) = http(&a.app, Method::PUT, uri, None, Some(q3_json())).await;
+        assert_eq!((status, body), (StatusCode::UNAUTHORIZED, Value::Null), "{uri}: nothing is said before the check");
+    }
+    let (status, body) = push_club(&a, "NOPE", "q3", &q3_json()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(!body.to_string().contains("nyc"), "the answer names no club: {body}");
+    let (status, _) = http(&a.app, Method::GET, "/admin/clubs/la/questions/q3", Some(&a.token), None).await;
+    assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
 }

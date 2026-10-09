@@ -41,6 +41,7 @@ fn ac92_used_is_written_at_release() {
     assert_eq!(
         serde_json::to_value(&all[0]).unwrap(),
         json!({
+            "club": "nyc",
             "question_id": "q3",
             "used": {
                 "meetup_date": MEETUP_DATE,
@@ -50,7 +51,7 @@ fn ac92_used_is_written_at_release() {
             }
         })
     );
-    assert!(c.state.used().contains("q3"));
+    assert!(c.state.used().contains(&room::club::ClubSlug::default_club(), "q3"));
     // A fit reported after release changes nothing: the record is written.
     c.state.record_fit(&room.id, Fit::ClippedXy).unwrap();
     assert_eq!(c.state.used().all()[0].used.fit, Some(Fit::ClippedY));
@@ -74,7 +75,7 @@ fn ac92_nothing_is_written_before_release() {
     for action in TO_REVEAL {
         c.walk(&room, &[action]);
         assert!(c.state.used().all().is_empty(), "{action:?}");
-        assert!(!c.state.used().contains("q3"), "{action:?}");
+        assert!(!c.state.used().contains(&room::club::ClubSlug::default_club(), "q3"), "{action:?}");
         assert!(c.state.take_home().is_none(), "{action:?}: the snapshot is built at release only");
     }
     assert_eq!(c.state.with_room(&room.id, |r| r.phase()).unwrap(), Phase::Reveal);
@@ -173,7 +174,7 @@ fn ac92_the_pipeline_makes_a_used_record_only_when_reading_the_bank() {
             }
         }
     }
-    assert_eq!(found, [("bank.py".to_string(), "else Used(".to_string())]);
+    assert_eq!(found, [("bank.py".to_string(), "Used(".to_string())]);
 }
 
 #[test]
@@ -191,7 +192,9 @@ fn ac92_the_record_has_the_pipelines_shape() {
         })
         .collect();
     fields.sort();
-    assert_eq!(fields, ["fit", "meetup_date", "released_at", "room_id"], "bank.py's Used changed");
+    // `club` is the ledger line's (`UsedEntry.club`), beside the record (D-26).
+    assert_eq!(fields, ["club", "fit", "meetup_date", "released_at", "room_id"], "bank.py's Used changed");
+    fields.retain(|f| f != "club");
 
     let c = Clocked::new();
     let room = c.create("q3");

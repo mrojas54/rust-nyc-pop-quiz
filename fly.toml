@@ -19,6 +19,11 @@ primary_region = "ewr"
   # not in place (H-2), so this is Fly's own hostname. When DNS lands:
   # `fly certs add popquiz.rustnyc.org`, change this line, deploy.
   POPQUIZ_PUBLIC_URL = "https://rustnyc-popquiz.fly.dev"
+  # More clubs on this server (D-26): `slug=roleid:Zone`, comma-separated. Each
+  # club hosts with its own Discord role in the one guild; the role ids are not
+  # secret. DISCORD_ROLE_ID (a Fly secret) is the default club, `nyc`. Add LA:
+  #   POPQUIZ_CLUBS = "la=<LA host role id>:America/Los_Angeles"
+  # then `fly deploy --ha=false`. Hosts open /host?question=<id>&club=la.
   # HOST_DEV_TOKEN is a Fly secret (`fly secrets set`), never a line here.
 
 [http_service]

@@ -48,7 +48,7 @@ from typing import Any, Literal
 
 from popquiz import bank
 from popquiz import slot as _slot_module
-from popquiz.bank import Question
+from popquiz.bank import DEFAULT_CLUB, Question
 from popquiz.slot import slot_for_day
 
 __all__ = [
@@ -1082,9 +1082,10 @@ def is_accepted(question: Question) -> bool:
     return question.review is not None and question.review.status in ACCEPTED
 
 
-def in_reserve(question: Question) -> bool:
-    """SPEC 3.3: accepted, affirmed and unused - what scheduling can pick tonight."""
-    return is_accepted(question) and question.review.affirmed() and question.used is None
+def in_reserve(question: Question, club: str = DEFAULT_CLUB) -> bool:
+    """SPEC 3.3: accepted, affirmed and unused *by this club* (D-26) - what
+    scheduling can pick tonight for it."""
+    return is_accepted(question) and question.review.affirmed() and question.used_by(club) is None
 
 
 def answer_is_ub(question: Question) -> bool:

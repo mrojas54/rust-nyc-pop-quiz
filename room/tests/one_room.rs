@@ -233,8 +233,8 @@ fn gap8_create_for_checks_and_inserts_in_one_critical_section() {
     let at = |needle: &str| body.find(needle).unwrap_or_else(|| panic!("create_for lost `{needle}`"));
     let questions = at("lock(&self.questions)");
     let rooms = at("lock(&self.rooms)");
-    let hold = at(".holds(question_id, now)");
-    let ledger = at("self.used.contains(question_id)");
+    let hold = at(".holds(club, question_id, now)");
+    let ledger = at("self.used.contains(club, question_id)");
     let insert = at("rooms.insert(");
     assert!(questions < rooms, "questions, then rooms (the order schedule takes)");
     assert!(rooms < hold && rooms < ledger, "both checks under the rooms lock");

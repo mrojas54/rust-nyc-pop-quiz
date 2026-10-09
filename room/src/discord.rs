@@ -58,6 +58,7 @@ use serde::Deserialize;
 use subtle::ConstantTimeEq;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
+use crate::club::ClubSlug;
 use crate::auth::{decided, CreateCheck, CreateRefusal, HostAuth, OrganizerId};
 use crate::lifecycle::{Clock, SystemClock};
 
@@ -112,7 +113,8 @@ pub struct Settings {
     pub client_id: String,
     pub client_secret: Secret,
     pub guild_id: String,
-    pub role_id: String,
+    /// The clubs this server runs and each one's host role (D-26).
+    pub clubs: crate::club::Clubs,
     /// `{POPQUIZ_PUBLIC_URL}{CALLBACK_PATH}`.
     pub redirect_uri: String,
 }
@@ -206,6 +208,7 @@ struct Session {
 struct Pending {
     state: Secret,
     question: String,
+    club: ClubSlug,
     started_at: SystemTime,
 }
 
@@ -259,11 +262,11 @@ pub enum Finish {
     /// A wrong, replayed, expired or cookieless `state`: refused, nothing said.
     Refused,
     /// The organizer declined at Discord. Back to the sign-in screen.
-    Declined { question: String },
+    Declined { question: String, club: ClubSlug },
     /// Discord did not complete the exchange.
     Unavailable,
     /// Signed in: land on the host page with this session in the fragment.
-    SignedIn { question: String, session: String },
+    SignedIn { question: String, club: ClubSlug, session: String },
 }
 
 impl Discord {
@@ -290,7 +293,7 @@ impl Discord {
 
     /// Start a sign-in for `question`: the `state` (for the cookie) and the
     /// URL of Discord's consent screen. `None` if `question` is not an id.
-    pub fn begin(&self, question: &str) -> Option<(String, String)> {
+    pub fn begin(&self, question: &str, club: &ClubSlug) -> Option<(String, String)> {
         if !is_question_id(question) {
             return None;
         }
@@ -306,6 +309,7 @@ impl Discord {
             store.pending.push(Pending {
                 state: Secret::new(state.clone()),
                 question: question.to_string(),
+                club: club.clone(),
                 started_at: now,
             });
         }
@@ -328,7 +332,7 @@ impl Discord {
         let inner = &self.inner;
         let Some(state) = state else { return Finish::Refused };
         let now = inner.clock.now();
-        let question = {
+        let (question, club) = {
             let mut store = lock(&inner.store);
             let Some(i) = store.pending.iter().position(|p| p.state.matches(state)) else {
                 return Finish::Refused;
@@ -338,10 +342,10 @@ impl Discord {
             if !bound || now >= pending.started_at + SIGN_IN_WINDOW {
                 return Finish::Refused;
             }
-            pending.question
+            (pending.question, pending.club)
         };
         if declined {
-            return Finish::Declined { question };
+            return Finish::Declined { question, club };
         }
         let Some(code) = code.filter(|c| !c.is_empty()) else {
             return Finish::Refused;
@@ -389,7 +393,7 @@ impl Discord {
             discord_user_id: user.id,
             issued_at: now,
         });
-        Finish::SignedIn { question, session }
+        Finish::SignedIn { question, club, session }
     }
 
     /// How many organizers are signed in on this machine.
@@ -399,17 +403,18 @@ impl Discord {
 }
 
 impl HostAuth for Discord {
-    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>) -> CreateCheck<'a> {
+    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>, club: &'a ClubSlug) -> CreateCheck<'a> {
         // Resolving the session needs no I/O: a bearer that names no organizer
         // is refused here, before any task or any call to Discord.
         let Some(user) = bearer.and_then(|b| self.inner.session_user(b)) else {
             return decided(Err(CreateRefusal::Denied));
         };
         let inner = self.inner.clone();
+        let club = club.clone();
         Box::pin(async move {
             // Its own task: see "Refresh-token rotation" above.
             match tokio::runtime::Handle::try_current() {
-                Ok(rt) => rt.spawn(inner.check(user)).await.unwrap_or(Err(CreateRefusal::Unavailable)),
+                Ok(rt) => rt.spawn(inner.check(user, club)).await.unwrap_or(Err(CreateRefusal::Unavailable)),
                 Err(_) => Err(CreateRefusal::Unavailable),
             }
         })
@@ -487,7 +492,7 @@ impl Inner {
         ))
     }
 
-    async fn check(self: Arc<Self>, user: String) -> Result<OrganizerId, CreateRefusal> {
+    async fn check(self: Arc<Self>, user: String, club: ClubSlug) -> Result<OrganizerId, CreateRefusal> {
         let deadline = Instant::now() + self.retry.deadline;
         let refresh = self.refresh_lock(&user);
         let mut refreshed = false;
@@ -512,7 +517,11 @@ impl Inner {
             match r.status {
                 200 => {
                     let member = r.json::<Member>().ok_or(CreateRefusal::Unavailable)?;
-                    return if member.roles.iter().any(|role| *role == self.settings.role_id) {
+                    // The named club's role, by ID (AC-65, AC-103). A club this
+                    // server does not run has no role, and is refused as a
+                    // missing one is, so the answer does not say which exist.
+                    let wanted = self.settings.clubs.get(&club).map(|c| c.role_id.as_str());
+                    return if wanted.is_some_and(|want| member.roles.iter().any(|role| role == want)) {
                         Ok(organizer)
                     } else {
                         Err(CreateRefusal::WrongRole)

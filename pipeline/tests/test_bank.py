@@ -431,7 +431,7 @@ def test_a_record_round_trips_through_json() -> None:
             )
         ),
         review=Review(status="accepted", difficulty_judged=2, affirmed_by="m", affirmed_at="t"),
-        used=Used(meetup_date="2026-08-12", room_id="r", released_at="t", fit="fits"),
+        used=(Used(meetup_date="2026-08-12", room_id="r", released_at="t", fit="fits"),),
     )
     assert question_from_dict(json.loads(json.dumps(question_to_dict(q)))) == q
 
@@ -443,14 +443,16 @@ def test_a_null_fit_from_the_room_is_an_absent_key_and_reads_back_as_none() -> N
     data = question_to_dict(_question())
     data["used"] = {"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "fit": None}
     q = question_from_dict(data)
-    assert q.used.fit is None
+    assert q.used_by().fit is None
     written = question_to_dict(q)
-    assert written["used"] == {"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t"}
+    # Written as a list, one record per club; the bare object read above is the
+    # form the bank wrote before clubs, and reads as the default club's.
+    assert written["used"] == [{"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "club": "nyc"}]
     assert question_from_dict(json.loads(json.dumps(written))) == q
     # The published contract agrees: what was written has every required key and
     # nothing the schema does not name.
     schema = _schema()["$defs"]["Used"]
-    assert set(schema["required"]) <= set(written["used"]) <= set(schema["properties"])
+    assert set(schema["required"]) <= set(written["used"][0]) <= set(schema["properties"])
     assert "fit" not in schema["required"]
 
 

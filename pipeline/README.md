@@ -64,7 +64,9 @@ What it does, in order:
 3. **Arranges** the options for that night: the correct one at
    `slot_for_day(date)` — the date and nothing else (AC-23) — and the other four
    shuffled on the date and the question id. The file in `bank/` is not changed.
-4. **Pushes** the arranged record to `PUT /admin/questions/<id>` and prints
+4. **Pushes** the arranged record to `PUT /admin/questions/<id>` (or
+   `/admin/clubs/<club>/questions/<id>` with `--club`, D-26: the record is per
+   club, because it is arranged for that club's date) and prints
    `scheduled: new` or `scheduled: replaced`. A refusal prints the room's reason.
    Connection failures, 5xx, 408 and 429 are retried three times with growing
    waits; a 4xx other than 408 or 429 is never retried; a redirect is never followed. The room must be `https`, or

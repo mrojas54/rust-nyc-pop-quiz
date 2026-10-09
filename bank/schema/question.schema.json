@@ -43,7 +43,11 @@
       "description": "Absent until the verifier has run. Written by the verifier and never edited."
     },
     "review": { "$ref": "#/$defs/Review" },
-    "used": { "$ref": "#/$defs/Used" }
+    "used": {
+      "type": "array",
+      "description": "One record per club that has run the question (D-26, AC-105). A bare object, which is what the bank wrote before clubs, is read as the default club's; the bank always writes a list.",
+      "items": { "$ref": "#/$defs/Used" }
+    }
   },
   "$defs": {
     "Option": {
@@ -242,6 +246,11 @@
         "meetup_date": { "type": "string" },
         "room_id": { "type": "string" },
         "released_at": { "type": "string" },
+        "club": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,23}$",
+          "description": "The club whose room released the question (D-26); absent reads as the default club, nyc. A question is never run twice for one club; another club may still run it."
+        },
         "fit": {
           "enum": ["fits", "clipped_x", "clipped_y", "clipped_xy"],
           "description": "The wall's measured verdict at reveal, the last refit of the night (AC-100). Absent when the wall never reported a verdict before release: the room sends null, and absent is absent (F-30). Absent is not fits."
