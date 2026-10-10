@@ -87,7 +87,8 @@ async fn burst_on_loopback_at_200() {
         burst::numbers::Exit::Pass => assert!(notes.last().unwrap().starts_with("all four criteria pass as measured"), "{notes:?}"),
         burst::numbers::Exit::Invalid => assert!(
             notes.iter().all(|n| n.starts_with("RUN INVALID: client send lag")),
-            "invalid for a reason other than send lag: {notes:?}"
+            "invalid for a reason other than send lag: {notes:?}; first errors: {}",
+            r["diagnostics"]["first_errors"]
         ),
         other => panic!("burst on loopback: {other:?} {notes:?}"),
     }
