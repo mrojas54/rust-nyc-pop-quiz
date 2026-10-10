@@ -548,6 +548,10 @@ pub const DRIVEN: &[(&str, &str)] = &[
     ("GET", "/last/{club}"),
     ("GET", "/home/home.js"),
     ("GET", "/home/home.css"),
+    // The front door: static, no room state.
+    ("GET", "/"),
+    ("GET", "/landing/landing.js"),
+    ("GET", "/landing/landing.css"),
     // T-25: the admin channel, every method, at every stop (`admin_probe`).
     ("ANY", "/admin"),
     ("ANY", "/admin/"),
@@ -1261,6 +1265,9 @@ impl<'s> Walk<'s> {
             "/join/buzzer.css".into(),
             "/home/home.js".into(),
             "/home/home.css".into(),
+            "/".into(),
+            "/landing/landing.js".into(),
+            "/landing/landing.css".into(),
         ];
         pages.extend(served_files("shared").into_iter().map(|f| format!("/shared/{f}")));
         for page in &pages {

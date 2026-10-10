@@ -703,6 +703,28 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             .route("/home/home.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/home/home.css")) }));
     }
     // end T-12 pages -------------------------------------------------------
+    // The front door ------------------------------------------------------
+    // `GET /`: a headline and two links (`/join`, `/last`), drawn by
+    // `landing.js` from the copy module. Embedded at compile time like the
+    // other pages; it carries no room state, so there is nothing to render
+    // per request and nothing for a participant count to see.
+    {
+        fn asset(content_type: &'static str, body: &'static str) -> Response {
+            (
+                [
+                    (header::CONTENT_TYPE, content_type),
+                    (header::CACHE_CONTROL, "no-cache"),
+                ],
+                body,
+            )
+                .into_response()
+        }
+        router = router
+            .route("/", get(|| async { asset("text/html; charset=utf-8", include_str!("../../web/landing/index.html")) }))
+            .route("/landing/landing.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../web/landing/landing.js")) }))
+            .route("/landing/landing.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/landing/landing.css")) }));
+    }
+    // end front door -------------------------------------------------------
     router = discord_routes(router); // T-10 routes
     // T-04c routes ----------------------------------------------------------
     // The three sockets, and the two layers the transport needs. KEEP THIS

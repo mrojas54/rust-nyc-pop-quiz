@@ -24,6 +24,7 @@ const SURFACES = {
   buzzer: 'T-06 — join, answer, the private hint, the released line',
   host: 'T-07 — one screen per phase, one primary action',
   home: 'T-12 — take it home, rebuilt at release',
+  landing: 'the front door at GET / — a headline and two links, no room state',
 };
 
 test('every surface has a directory for the ticket that fills it', () => {

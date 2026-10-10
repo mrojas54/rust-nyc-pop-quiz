@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rust NYC Pop Quiz</title>
+<link rel="stylesheet" href="/shared/tokens.css">
+<link rel="stylesheet" href="/shared/components.css">
+<link rel="stylesheet" href="/landing/landing.css">
+</head>
+<body class="landing-page">
+<!-- The front door (GET /). Everything on it is drawn by landing.js from
+     web/shared/copy.js; this page types no string of its own (SPEC §11).
+     It carries no room state and makes no request of its own: the two ways
+     out are plain links, /join for a room and /last for the last question. -->
+<main id="landing" class="landing"></main>
+<script src="/shared/copy.js"></script>
+<script src="/landing/landing.js"></script>
+</body>
+</html>

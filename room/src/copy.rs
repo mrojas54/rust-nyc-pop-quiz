@@ -109,6 +109,9 @@ pub const RECEIPT_ERROR_CODES: &str = "✓ Error ‹codes›";
 pub const RECEIPT_NOTHING_RAN: &str = "✓ Nothing ran";
 pub const HOME_MACHINE_ONLY: &str = "The machine checked the answer only. An organizer approved the explanation.";
 pub const HOME_NOT_RECORDED: &str = "not recorded";
+pub const LANDING_LEDE: &str = "One Rust program, at the end of the night. Read it, pick what it prints, then walk through it together.";
+pub const LANDING_JOIN: &str = "Join a room";
+pub const LANDING_LAST: &str = "Last meetup's question";
 
 // PROPOSED-§11: strings the pages already showed that §11 does not author yet,
 // moved into `copy.js` words unchanged by T-22 (F-34, F-38, and three more).
@@ -227,6 +230,9 @@ pub const ALL: &[(&str, &str)] = &[
     ("receipt_nothing_ran", RECEIPT_NOTHING_RAN),
     ("home_machine_only", HOME_MACHINE_ONLY),
     ("home_not_recorded", HOME_NOT_RECORDED),
+    ("landing_lede", LANDING_LEDE),
+    ("landing_join", LANDING_JOIN),
+    ("landing_last", LANDING_LAST),
     ("proposed_home_nothing_yet", PROPOSED_HOME_NOTHING_YET),
     ("proposed_home_miri_separately", PROPOSED_HOME_MIRI_SEPARATELY),
     ("proposed_home_row_compiler", PROPOSED_HOME_ROW_COMPILER),

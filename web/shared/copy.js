@@ -210,6 +210,11 @@
     home_machine_only: "The machine checked the answer only. An organizer approved the explanation.",
     home_not_recorded: "not recorded",
 
+    /* --- Landing page (GET /) ------------------------------------------- */
+    landing_lede: "One Rust program, at the end of the night. Read it, pick what it prints, then walk through it together.",
+    landing_join: "Join a room",
+    landing_last: "Last meetup's question",
+
     /* === PROPOSED-§11 ====================================================
        Strings a page already shows that SPEC §11 does not author. They were
        literals in the pages; T-22 moved them here WORDS UNCHANGED so that
@@ -293,6 +298,7 @@
     "Receipt (§7.5)": ["receipt_heading", "receipt_compiled", "receipt_ran_n_times",
                        "receipt_output_never_varied", "receipt_miri_clean", "receipt_miri_ub",
                        "receipt_compiler_refused", "receipt_error_codes", "receipt_nothing_ran"],
+    "Landing page (GET /)": ["landing_lede", "landing_join", "landing_last"],
     "Take it home (§13, AC-71, AC-87)": ["home_machine_only", "home_not_recorded"],
     /* Not a §11 row: the block above that is waiting for one. */
     "PROPOSED-§11 (not yet in SPEC)": ["proposed_home_nothing_yet", "proposed_home_miri_separately",

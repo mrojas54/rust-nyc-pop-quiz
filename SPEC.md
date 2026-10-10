@@ -637,6 +637,7 @@ same homes.
 | Title — every host and buzzer screen's heading: the wordmark with the surface's role beneath; the wall's, top-left in every phase and in the static fallback: the wordmark alone; page titles `Rust NYC Pop Quiz · Host` / `Rust NYC Pop Quiz · Guest` / `Rust NYC Pop Quiz` (wall) | **Rust NYC Pop Quiz** · **Host** (host phone) · **Guest** (buzzer, join form included) · the wordmark alone (wall) |
 | Host + wall, count (AC-46) | Host, one line per screen: `Joined: ‹n›` before `live` (present) · `Answered: ‹n›` from `live` on. Wall join strip: `Joined: ‹n›` in `idle`; `Joined: ‹n›` · `Answered: ‹n›` in `live`; neither after, nor in the static fallback |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
+| Landing page (`GET /`) | **Time for a pop quiz.** (the wall's idle line) · One Rust program, at the end of the night. Read it, pick what it prints, then walk through it together. · **Join a room** (to `/join`) · **Last meetup's question** (to `/last`) · the wordmark above, as the title |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
 | Uniqueness (organizer-facing, AC-18) | *no exact or normalized duplicate found* — never *original* |
 | Receipt | §7.5 — a step list headed *How we know*: four lines for a record that ran, three for a does-not-compile record. No sentences. |
