@@ -14,7 +14,9 @@ program printed. Their `stdout` values are placeholders in the style
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
+import inspect
 import json
 import math
 import pathlib
@@ -454,8 +456,14 @@ def face(
     unsafe: bool = False,
     lines: int = 5,
     topic: str | None = None,
+    walls: tuple[tuple[tuple[str, ...], int], ...] | None = None,
 ) -> Face:
-    return Face(f"f{n}", unsafe, lines, topic or f"topic {n}", kinds, lengths, correct)
+    """A synthetic face. Its walls default to one night of the stored order: an
+    arrangement stand-in that shows the bank's order as it is, so a planted
+    position tell in `kinds`/`correct` is what the position tell sees."""
+    if walls is None:
+        walls = ((kinds, correct),)
+    return Face(f"f{n}", unsafe, lines, topic or f"topic {n}", kinds, lengths, correct, walls)
 
 
 def with_dnc_at(position: int) -> tuple[str, ...]:
@@ -547,11 +555,126 @@ def test_does_not_compile_being_the_answer_too_often_is_a_tell() -> None:
     assert verdicts(faces)["answer category"] == "fail"
 
 
-def test_the_answer_written_last_warns_at_four_and_fails_at_five() -> None:
-    """Every migrated record puts its correct option at bank index 4 (C1 in the plan):
-    a WARN at the bank's present size, a FAIL the day a fifth arrives that way."""
-    assert verdicts([face(n, 4) for n in range(4)])["option position"] == "warn"
-    assert verdicts([face(n, 4) for n in range(5)])["option position"] == "fail"
+def test_an_arrangement_that_ignores_the_date_warns_at_four_and_fails_at_five() -> None:
+    """A planted tell, through a stand-in: an arrangement that shows the stored order
+    every night, on a bank that stores every answer at E. One trial per question
+    however many nights it is shown: three nights each is still 0.2 ** 4 = 0.0016 at
+    four questions (a WARN, the bound being 0.001 at m = 10) and 0.2 ** 5 at five (a
+    FAIL). Counting nights as trials would fail it at four."""
+
+    def stored(n: int) -> Face:
+        kinds = ("output", "output", "output", DNC, "output")
+        return face(n, 4, kinds=kinds, walls=((kinds, 4),) * 3)
+
+    at_four = {t.tell: t for t in audit.measure_tells([stored(n) for n in range(4)])}["option position"]
+    assert at_four.verdict == "warn"
+    assert at_four.worst.rule == "index E" and at_four.worst.fired == 4
+    assert at_four.worst.tail == pytest.approx(0.2**4)
+    assert verdicts([stored(n) for n in range(5)])["option position"] == "fail"
+
+
+def test_a_near_perfect_pin_rounds_down() -> None:
+    """Rates are summed and rounded down before the tail, so a pin that holds on
+    19 nights in 20 is 5.7 hits of six - tail P(at least 5) = 0.0016, a WARN - and
+    fails at seven (6.65, P(at least 6) = 0.00037). Rounding up would fail it at six."""
+    kinds = ("output", "output", "output", DNC, "output")
+
+    def pinned(n: int) -> Face:
+        return face(n, 4, kinds=kinds, walls=((kinds, 4),) * 19 + ((kinds, 0),))
+
+    six = {t.tell: t for t in audit.measure_tells([pinned(n) for n in range(6)])}["option position"]
+    assert six.verdict == "warn" and six.worst.hits == pytest.approx(5.7)
+    assert six.worst.tail == pytest.approx(audit.poisson_binomial_tail([0.2] * 6, 5))
+    assert verdicts([pinned(n) for n in range(7)])["option position"] == "fail"
+
+
+def test_an_arrangement_that_pins_the_answer_is_a_tell() -> None:
+    """A stand-in arrangement, injected here and nowhere else, that puts the correct
+    option at C whatever the date: the position tell fails on it, reading real
+    records through `tell_pool`."""
+
+    def pin_at_c(q: Question, day: datetime.date) -> Question:
+        correct = audit.answer_index(q)
+        others = [o for i, o in enumerate(q.options) if i != correct]
+        others.insert(2, q.options[correct])
+        return dataclasses.replace(q, options=tuple(others))
+
+    faces, _ = audit.tell_pool([question(f"p{n}") for n in range(10)], arrange=pin_at_c)
+    tell = {t.tell: t for t in audit.measure_tells(faces)}["option position"]
+    assert tell.verdict == "fail" and tell.worst.rule == "index C"
+
+
+def answer_last(qid: str) -> Question:
+    """A synthetic record storing its answer at E, as every migrated record does."""
+    q = question(qid)
+    return dataclasses.replace(q, options=q.options[1:] + q.options[:1])
+
+
+def test_a_bank_storing_every_answer_last_is_not_a_position_tell() -> None:
+    """Ruling "A + arranged position": the tell reads the wall's order, which
+    `schedule.arrange` draws from the date, so a bank whose answers are all stored at
+    E reads at chance - while the same bank in its stored order fails."""
+    questions = [answer_last(f"e{n}") for n in range(6)]
+    assert all(audit.answer_index(q) == 4 for q in questions)
+    faces, left_out = audit.tell_pool(questions)
+    assert left_out == [] and all(len(f.walls) == audit.POSITION_NIGHTS for f in faces)
+    tell = {t.tell: t for t in audit.measure_tells(faces)}["option position"]
+    assert tell.verdict == "pass"
+    assert all(s.ratio < audit.TELL_MARGIN for s in tell.rules if s.fired)
+
+    stored, _ = audit.tell_pool(questions, arrange=lambda q, day: q)
+    assert verdicts(stored)["option position"] == "fail"
+
+
+def test_the_command_line_measures_the_real_arrangement(tmp_path: pathlib.Path) -> None:
+    """The bank-audit path passes no stand-in. Five real records, every one storing
+    its answer at E - a FAIL in stored order - read at chance through `run_audit`."""
+    repo = copy_bank(tmp_path)
+    questions = repo / "bank" / "questions"
+    record = json.loads((questions / "q3.json").read_text(encoding="utf-8"))
+    record["id"] = "q9"
+    (questions / "q9.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    loaded = bank.load_bank(repo / "bank")
+    assert len(loaded) == 5 and all(audit.answer_index(q) == 4 for q in loaded)
+
+    checks = {c["name"]: c for c in audit.run_audit(repo)["checks"]}
+    position = checks["tell: option position"]
+    assert position["verdict"] == "pass", position["summary"]
+    assert "synthetic nights" in position["summary"] and position["detail"]["unarranged"] == []
+
+
+def test_the_position_nights_are_synthetic_and_fixed() -> None:
+    """Made-up consecutive dates from the generator audit's start - never a real
+    meetup, `used`, the ledger or the report - and the pool takes no date at all."""
+    assert audit.position_nights() == audit.synthetic_nights(audit.GENERATOR_START, audit.POSITION_NIGHTS)
+    assert audit.POSITION_NIGHTS == 1_000
+    assert list(inspect.signature(audit.tell_pool).parameters) == ["questions", "arrange"]
+
+
+def dnc_answer(qid: str) -> Question:
+    """A synthetic does-not-compile record: nothing ran, so there is no output."""
+    q = question(qid)
+    return dataclasses.replace(
+        q, verified=Verified(rustc=LEGACY_RUSTC, edition="2021", legacy=True, compile_error_code=("E0382",))
+    )
+
+
+def test_under_the_arrangement_the_dnc_rules_carry_the_answer_category() -> None:
+    """Arranged by the date, 'does not compile' sits at the slot when it is the
+    answer and elsewhere when it is not, so each 'does-not-compile at j' rule finds
+    exactly the questions 'pick does_not_compile' finds: two of four is a WARN in
+    both lines, never a FAIL from the position tell alone."""
+    questions = [dnc_answer("d0"), dnc_answer("d1"), question("o0"), question("o1")]
+    assert [audit.answer_index(q) for q in questions] == [4, 4, 0, 0]
+    faces, _ = audit.tell_pool(questions)
+    tells = {t.tell: t for t in audit.measure_tells(faces)}
+    category = next(s for s in tells["answer category"].rules if s.rule == "pick does_not_compile")
+    for s in tells["option position"].rules:
+        if s.rule.startswith("does-not-compile at"):
+            assert (s.fired, s.hits, s.expected, s.tail) == pytest.approx(
+                (category.fired, category.hits, category.expected, category.tail)
+            )
+    assert tells["option position"].verdict == "warn" and tells["answer category"].verdict == "warn"
 
 
 def test_a_small_bank_does_not_fail_on_luck() -> None:

@@ -7,8 +7,10 @@ G-1 and G-11. Run it as `just bank-audit`; every check also runs in `just test`.
 position.** The answer's letter is `slot_for_day(date)`, which lives in
 `popquiz.slot`, takes the date and nothing else, and never imports this module.
 What this module does with the slot is call it on *synthetic* nights and measure
-what comes out. It never reads a real night, never reads the used-question record,
-and never hands anything it computes to anything that places an answer. PHILOSOPHY.md
+what comes out, and the same for `schedule.arrange`, which the position tell runs
+on synthetic nights to see the wall's order. It never reads a real night, never
+reads the used-question record, and never hands anything it computes to anything
+that places an answer. PHILOSOPHY.md
 section 2 says why this is the rule above the others: *a fairness mechanism that
 shapes output is an oracle*. If a check could change what tonight's answer is, an
 attendee could run the same check. That guardrail has regressed four times, once
@@ -37,6 +39,7 @@ import ast
 import datetime
 import hashlib
 import json
+import math
 import random
 import re
 import sys
@@ -785,25 +788,67 @@ def bank_audit_references(repo: Path) -> list[str]:
 # there is no randomness and the bank is fixed - and it is not vacuous: 4 hits in 4
 # on a one-rule tell has a tail of 0.0016 and fails.
 #
-# Why none of this can become an input to the slot: it reads the bank and returns
-# a verdict and a report under bank/audit/. `popquiz.slot` cannot import this
-# module or read that directory (the slot-path lint), and a failing tell is fixed
-# by re-authoring a question - there is no position state anywhere to adjust.
+# The position tell reads the wall's order, not the bank's: `schedule.arrange`
+# over POSITION_NIGHTS synthetic nights. One question is one trial however many
+# nights it is arranged on - every question's answer sits at the same slot on a
+# given night, so nights are not independent trials - and its hit is its hit
+# *rate* across those nights (`score_across_nights`). The tail is taken over the
+# questions at the rounded-down sum of the rates. When every rate is 1 - an
+# arrangement that pins the answer - the arithmetic is the stored order's: at
+# m = 10 the bound is 0.001 and the tail is 0.2 ** n, so the position tell can
+# only WARN below five questions. Rounding down never makes a FAIL easier; a
+# near-perfect pin (rates of 0.95) warns up to six questions and fails at seven.
+#
+# What the arranged measure can and cannot see. Under the real arrangement the
+# answer sits at slot_for_day(night) for every question alike, so each index
+# rule's rate is the same number for the whole bank - the share of the nights at
+# that letter - and its ratio says nothing about the bank's stored order. That is
+# the point (the stored order never reaches a wall), and it is also why that
+# rate's tail is not a calibrated p-value: the questions' rates are one shared
+# draw. The margin is what holds there; over these 1,000 nights the shares run
+# from 0.169 to 0.228, at most 1.14x. The generator itself is AC-23a/AC-23b's.
+# What the index rules catch is an arrangement that lets the question decide the
+# letter. The does-not-compile rules, under the arrangement, fire when it sits at
+# j and hit exactly when it is the answer, so they carry the answer-category
+# tell's 'pick does_not_compile' evidence (same hits, expected and tail; every
+# question has one such option, AC-24) against a smaller bound, 0.001 against
+# 0.0025: they can never FAIL where the answer category passes the bound.
+#
+# Why none of this can become an input to the slot: it reads the bank, arranges it
+# on made-up nights, and returns a verdict and a report under bank/audit/.
+# `popquiz.slot` cannot import this module or read that directory (the slot-path
+# lint), the arrangement is called and never handed anything, and a failing tell
+# is fixed by re-authoring a question - there is no position state anywhere to
+# adjust.
 
 TELL_MARGIN = 1.5
 TELL_ALPHA = 0.01
 UNSAFE = re.compile(r"\bunsafe\b")
 DOES_NOT_COMPILE = "does_not_compile"
+# The position tell's synthetic nights: consecutive dates from the generator
+# audit's start, like its 20,000 and the attendee simulation's 10,000, and never a
+# real meetup. At chance a question's hit rate over 1,000 nights has a standard
+# error of sqrt(0.16 / 1000) = 0.013, 0.06 in ratio terms, so the 1.5x margin is
+# some eight standard errors from a sound arrangement and no one evening decides it.
+POSITION_NIGHTS = 1_000
+
+# One night's wall: the option kinds in the order the room shows them, and where
+# the correct option sits in that order.
+Wall = tuple[tuple[str, ...], int]
+Arrangement = Callable[[Question, datetime.date], Question]
 
 
 @dataclass(frozen=True)
 class Face:
     """What an attendee can see of one question, plus its answer for scoring.
 
-    `kinds` and `lengths` are in bank order. Bank order is not meant to be the
-    wall's order, but EVALUATION's canary row sends pre-reveal options "in bank
-    order", so until the room's arrangement exists and is proven to re-draw it the
-    position tell treats bank order as visible.
+    `kinds`, `lengths` and `correct` are in the bank's stored order, which the
+    order-free tells read: unsafe, source length and topic look at the question
+    and its answer's kind, option length at which length is correct, the answer
+    category at kinds - none of them changes under a permutation. The stored order
+    is not what a room shows: `popquiz schedule` pushes `schedule.arrange`'s
+    order. So the position tell reads `walls` and nothing else: that arrangement,
+    one wall per synthetic night (`position_nights`).
     """
 
     id: str
@@ -813,6 +858,7 @@ class Face:
     kinds: tuple[str, ...]
     lengths: tuple[int, ...]
     correct: int
+    walls: tuple[Wall, ...] = ()
 
 
 Rule = Callable[[Face, Sequence[Face]], "frozenset[int] | None"]
@@ -822,7 +868,9 @@ Rule = Callable[[Face, Sequence[Face]], "frozenset[int] | None"]
 class RuleScore:
     rule: str
     fired: int
-    hits: int
+    # A whole number of questions, except on the position tell, where each
+    # question adds its hit rate across the nights (`score_across_nights`).
+    hits: float
     expected: float
     ratio: float | None
     tail: float | None
@@ -860,7 +908,26 @@ def answer_index(question: Question) -> int | None:
     return None
 
 
-def face_of(question: Question) -> Face | None:
+def position_nights() -> list[datetime.date]:
+    """The nights the position tell arranges each question on: made up, fixed here,
+    the same for every bank and every run."""
+    return synthetic_nights(GENERATOR_START, POSITION_NIGHTS)
+
+
+def walls_of(question: Question, arrange: Arrangement, nights: Sequence[datetime.date]) -> tuple[Wall, ...]:
+    """The question as the wall shows it on each night. Raises `bank.BankError`
+    when the arrangement refuses the question."""
+    walls = []
+    for night in nights:
+        shown = arrange(question, night)
+        correct = answer_index(shown)
+        if correct is None:
+            raise bank.BankError(f"{question.id}: no answer derives from the arranged record")
+        walls.append((tuple(o.kind for o in shown.options), correct))
+    return tuple(walls)
+
+
+def face_of(question: Question, walls: tuple[Wall, ...] = ()) -> Face | None:
     correct = answer_index(question)
     if correct is None:
         return None
@@ -873,21 +940,38 @@ def face_of(question: Question) -> Face | None:
         kinds=tuple(o.kind for o in question.options),
         lengths=tuple(js_length(o.text) for o in question.options),
         correct=correct,
+        walls=walls,
     )
 
 
-def tell_pool(questions: Iterable[Question]) -> tuple[list[Face], list[str]]:
+def tell_pool(questions: Iterable[Question], arrange: Arrangement | None = None) -> tuple[list[Face], list[str]]:
     """The faces the tells measure - every question not rejected whose answer
-    derives - and the ids left out, so the report can name them."""
+    derives - and the ids left out, so the report can name them.
+
+    Each face carries its walls: the question through `arrange` on every one of
+    `position_nights()`. `arrange` is injectable so tests can hand it a stand-in;
+    left as `None` it is the real `schedule.arrange`, looked up at call time, and
+    the command line never passes anything else. A question the arrangement
+    refuses stays in the other tells with no walls, so the position tell
+    abstains on it; `run_audit` names it there (`unarranged`).
+    """
+    if arrange is None:
+        # Imported here, not at the top: schedule imports this module (for the
+        # reserve, schedule.py:56), so a module-level import would be circular.
+        from popquiz.schedule import arrange
+    nights = position_nights()
     faces, left_out = [], []
     for q in questions:
         if q.review is not None and q.review.status == "rejected":
             continue
-        face = face_of(q)
-        if face is None:
+        if answer_index(q) is None:
             left_out.append(q.id)
-        else:
-            faces.append(face)
+            continue
+        try:
+            walls = walls_of(q, arrange, nights)
+        except bank.BankError:
+            walls = ()
+        faces.append(face_of(q, walls))
     return faces, left_out
 
 
@@ -1008,9 +1092,12 @@ TELLS: tuple[tuple[str, str, tuple[tuple[str, Rule], ...]], ...] = (
     ),
     (
         "option position",
-        "pick bank index j; pick 'does not compile' when it sits at bank index j. Bank "
-        "order is measured as if visible (EVALUATION's canary row). The wall's own "
-        "answer position is slot_for_day(date), audited by AC-23a/AC-23b",
+        "pick letter j; pick 'does not compile' when it sits at letter j - in the "
+        f"wall's order, schedule.arrange on {POSITION_NIGHTS} synthetic nights, not the "
+        "bank's stored order. One trial per question, its hit rate across the nights. "
+        "Under the arrangement the index rules read the date's slot, the same for every "
+        "question (the slot itself is audited by AC-23a/AC-23b), and the does-not-compile "
+        "rules carry the answer category's evidence",
         tuple((f"index {LETTERS[j]}", _at_index(j)) for j in range(OPTION_COUNT))
         + tuple((f"does-not-compile at {LETTERS[j]}", _dnc_at_index(j)) for j in range(OPTION_COUNT)),
     ),
@@ -1044,8 +1131,51 @@ def score_rule(name: str, rule: Rule, faces: Sequence[Face]) -> RuleScore:
     return RuleScore(name, len(ps), hits, expected, hits / expected, poisson_binomial_tail(ps, hits))
 
 
-def measure_tell(name: str, statistic: str, rules: Sequence[tuple[str, Rule]], faces: Sequence[Face]) -> TellResult:
-    scores = tuple(score_rule(rule_name, rule, faces) for rule_name, rule in rules)
+def score_across_nights(name: str, rule: Rule, faces: Sequence[Face]) -> RuleScore:
+    """A rule over each face's walls, one trial per question (the position tell).
+
+    For each question the rule is applied to every night's wall; the question
+    abstains if it never fires. Its hit is its hit rate over the nights it fires,
+    its chance the mean |S| / 5 over the same nights. The ratio is the sum of the
+    rates over the sum of the chances. The tail is the exact Poisson-binomial over
+    those chances at the rounded-down sum of the rates: a trial in [0, 1] with
+    mean p is never more spread out than a coin with p, and rounding down never
+    makes a FAIL easier. Counting nights as trials instead would treat one draw of
+    the slot, shared by every question that night, as many independent ones.
+    """
+    rates, ps = [], []
+    for face in faces:
+        fired = hit = 0
+        chance = 0.0
+        for kinds, correct in face.walls:
+            shown = Face(face.id, face.unsafe, face.lines, face.topic, kinds, face.lengths, correct)
+            chosen = rule(shown, ())
+            if not chosen:
+                continue
+            fired += 1
+            chance += len(chosen) / len(kinds)
+            hit += correct in chosen
+        if fired:
+            rates.append(hit / fired)
+            ps.append(chance / fired)
+    if not ps:
+        return RuleScore(name, 0, 0, 0.0, None, None)
+    hits, expected = sum(rates), sum(ps)
+    whole = math.floor(hits + 1e-9)
+    return RuleScore(name, len(ps), hits, expected, hits / expected, poisson_binomial_tail(ps, whole))
+
+
+Scorer = Callable[[str, Rule, Sequence[Face]], RuleScore]
+
+
+def measure_tell(
+    name: str,
+    statistic: str,
+    rules: Sequence[tuple[str, Rule]],
+    faces: Sequence[Face],
+    score: Scorer = score_rule,
+) -> TellResult:
+    scores = tuple(score(rule_name, rule, faces) for rule_name, rule in rules)
     fired = [s for s in scores if s.fired]
     if not fired:
         return TellResult(name, statistic, "n/a", scores, None)
@@ -1064,7 +1194,14 @@ def measure_tell(name: str, statistic: str, rules: Sequence[tuple[str, Rule]], f
 
 def measure_tells(faces: Sequence[Face]) -> list[TellResult]:
     """AC-26: every enumerated tell, plus the answer-category base rate."""
-    return [measure_tell(name, statistic, rules, faces) for name, statistic, rules in TELLS]
+    return [
+        measure_tell(name, statistic, rules, faces, ACROSS_NIGHTS.get(name, score_rule))
+        for name, statistic, rules in TELLS
+    ]
+
+
+# The tells scored over the walls rather than the stored order.
+ACROSS_NIGHTS: Mapping[str, Scorer] = {"option position": score_across_nights}
 
 
 # --------------------------------------------------------------------------- #
@@ -1362,29 +1499,29 @@ def run_audit(repo: Path, room: Room = Room()) -> dict[str, Any]:
     )
 
     faces, left_out = tell_pool(questions)
+    unarranged = [f.id for f in faces if not f.walls]
     for tell in measure_tells(faces):
         worst = tell.worst
+        across = tell.tell in ACROSS_NIGHTS
         if worst is None:
             summary = "no rule fired on this bank"
         else:
+            hits = f"{worst.hits:.2f}" if across else f"{worst.hits:g}"
             summary = (
-                f"worst rule '{worst.rule}': {worst.hits} hit(s) vs {worst.expected:.2f} by chance "
+                f"worst rule '{worst.rule}': {hits} hit(s) vs {worst.expected:.2f} by chance "
                 f"= {worst.ratio:.2f}x over {worst.fired} question(s), tail p={worst.tail:.4f}"
             )
-        checks.append(
-            Check(
-                f"tell: {tell.tell}",
-                ("AC-26",),
-                tell.verdict,
-                summary,
-                {
-                    "statistic": tell.statistic,
-                    "pool": len(faces),
-                    "left_out": left_out,
-                    "rules": [asdict(s) for s in tell.rules],
-                },
-            )
-        )
+            if across:
+                summary += f" (the wall's order over {POSITION_NIGHTS} synthetic nights)"
+        detail: dict[str, Any] = {
+            "statistic": tell.statistic,
+            "pool": len(faces),
+            "left_out": left_out,
+            "rules": [asdict(s) for s in tell.rules],
+        }
+        if across:
+            detail["unarranged"] = unarranged
+        checks.append(Check(f"tell: {tell.tell}", ("AC-26",), tell.verdict, summary, detail))
 
     checks.append(check_unsafe_parity(questions))
     drift = difficulty_drift(questions)
