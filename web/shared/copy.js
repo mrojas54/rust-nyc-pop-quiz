@@ -214,6 +214,10 @@
     landing_join: "Join a room",
     landing_last: "Last meetup's question",
     landing_host: "Are you a host? Click here",
+    /* TODO: regenerate this koan automatically (a fresh one on a schedule or
+       per release) instead of hand-picking it. Whatever writes it must go
+       through SPEC §11 and both lints (copylint.test.js) like any other
+       string here. */
     landing_koan: "What is the sound of one value dropping?",
 
     /* === PROPOSED-§11 ====================================================

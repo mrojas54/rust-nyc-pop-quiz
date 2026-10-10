@@ -23,6 +23,7 @@
         '<a class="land-btn" href="/join">' + t("landing_join") + "</a>" +
         '<a class="land-last" href="/last">' + t("landing_last") + "</a>" +
         "</nav>",
+      /* TODO: regenerate the koan automatically (see landing_koan in copy.js). */
       koan: t("landing_koan"),
       foot: '<a href="/host">' + t("landing_host") + "</a>"
     };
