@@ -864,6 +864,34 @@ separate environment secret (a deploy token for `rustnyc-popquiz`), never
 committed. The environment's setup script is the alternative place for the same
 install line.
 
+**just in cloud sessions.** `.claude/hooks/install-just.sh` (the second
+`SessionStart` hook, remote sessions only) downloads the pinned `just` release
+tarball from `github.com`, checks its SHA-256, and puts the binary in `~/.just/bin`
+and on `PATH`, so `just test` runs. It is idempotent, bounded to 60 s, and on a
+blocked network prints one line and lets the session start. `just test` needs
+`just setup` once first (it fetches dependencies; `test` itself is offline).
+`just test-full` also needs a running Docker daemon for `sandbox-build`; a cloud
+session has the `docker` client and `dockerd` but no daemon until `dockerd &`.
+Fixtures: `bash .claude/hooks/install-just.test.sh`.
+
+Known cloud-session limits for the Rust crates and containers (found 2026-10-10):
+
+- **Crates work on the host.** Outbound HTTPS goes through a proxy that
+  re-terminates TLS; the session sets `CARGO_HTTP_CAINFO` (and the other CA
+  variables) to its bundle, so `just setup` (`cargo fetch --locked`) and
+  `just test` run. A cold `just test` took 64 s, over its 60 s budget; warm runs
+  are faster.
+- **Containers do not trust the proxy CA.** `rustup` or `cargo` run *inside* a
+  Docker build see the proxy's certificate and fail with `UnknownIssuer`. That
+  breaks `just sandbox-build` (the nightly Miri toolchain download), so
+  `just test-full` cannot finish in a cloud session. The same cause stops
+  `fly deploy` builds there. Run `just test-full` on a machine with a normal
+  network, or pass the CA into the build.
+- **GitHub's `latest` release lookup and API are blocked** for repos outside the
+  session's scope, which is why the `just` version is pinned.
+- Harmless noise: a `UV_NATIVE_TLS` deprecation warning from `uv`, and unused
+  import warnings in `room/tests/host_page.rs`.
+
 **One machine, never two.** The room is one state in memory (SPEC §9). A second
 machine would be a second room that phones could land in. `fly deploy` adds a
 second machine "for high availability" whatever `fly.toml` says, so every
