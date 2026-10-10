@@ -1,6 +1,49 @@
 use organizer_preview::snapshot;
 
 #[test]
+fn selecting_a_step_waits_for_enter_before_changing_the_trace() {
+    let screen = snapshot(&['t', 'j'], 120, 40);
+    assert!(screen.contains("Steps / FOCUS"));
+    assert!(screen.contains("> 2 Compare neighbours"));
+    assert!(screen.contains("Step 1 of 6"));
+    let jumped = snapshot(&['t', 'j', '\n'], 120, 40);
+    assert!(jumped.contains("Step 2 of 6"));
+    assert!(jumped.contains("Only neighbours"));
+}
+
+#[test]
+fn tab_changes_pane_and_escape_goes_back_without_quitting() {
+    let screen = snapshot(&['t', '\t'], 120, 40);
+    assert!(screen.contains("Source (Rust) / FOCUS"));
+    let screen = snapshot(&['t', '\t', '\u{1b}'], 120, 40);
+    assert!(screen.contains("Steps / FOCUS"));
+    let screen = snapshot(&['t', '\u{1b}'], 120, 40);
+    assert!(screen.contains("What happens when this program runs?"));
+    assert!(!screen.contains("Step 1 of 6"));
+}
+
+#[test]
+fn list_navigation_cannot_enter_reveal() {
+    let mut keys = vec!['t'];
+    keys.extend(std::iter::repeat_n('j', 40));
+    keys.push('\n');
+    let screen = snapshot(&keys, 120, 40);
+    assert!(screen.contains("Step 5 of 6"));
+    assert!(screen.contains("6 Reveal / press r"));
+    assert!(!screen.contains("Correct answer"));
+}
+
+#[test]
+fn help_is_dismissible_and_does_not_navigate_underneath() {
+    let screen = snapshot(&['t', '?', 'r'], 120, 40);
+    assert!(screen.contains("Keyboard help"));
+    assert!(!screen.contains("Correct answer"));
+    let screen = snapshot(&['t', '?', '\u{1b}'], 120, 40);
+    assert!(!screen.contains("Keyboard help"));
+    assert!(screen.contains("Steps / FOCUS"));
+}
+
+#[test]
 fn question_has_source_and_five_choices_without_reveal() {
     let screen = snapshot(&[], 100, 36);
     assert!(screen.contains("fn main()"));
