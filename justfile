@@ -274,7 +274,7 @@ smoke URL *ARGS:
 # connections). Against https it is the deployed substrate; `test-full` runs
 # it on loopback (harness-full). Never during a meetup.
 #
-#   just burst https://rustnyc-popquiz.fly.dev --connection-cap 400 [--out PATH]   (--help for the rest)
+#   just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 [--out PATH]   (--help for the rest)
 #
 # AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION in the environment).
 burst URL *ARGS:

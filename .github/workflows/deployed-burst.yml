@@ -20,7 +20,7 @@ name: deployed-burst
 # yourself afterwards (the job summary says so).
 #
 # Never during a meetup. The run holds 2n+3 connections, and fly.toml's
-# hard_limit (400) is every connection the proxy routes to the one machine:
+# hard_limit (500) is every connection the proxy routes to the one machine:
 # past it, phones are refused too, and the room cannot tell them from the
 # harness. The restart afterwards wipes every in-memory room. The `confirm`
 # input says so in the operator's own words before anything starts.

@@ -88,9 +88,9 @@ step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
 **Never run the deployed burst during a meetup.** The `deployed-burst`
 workflow, or `just burst` / `just smoke` against the deployed room, shares the
 one machine with every phone in the room. Fly's proxy lets at most
-`hard_limit` connections (400, in `fly.toml`) reach that machine and refuses
+`hard_limit` connections (500, in `fly.toml`) reach that machine and refuses
 the rest, and cannot tell the harness from a phone; a 200-participant burst
-holds 403 on its own. The restart that follows every such run wipes every room
+holds 403 on its own, leaving under 100 for anyone else. The restart that follows every such run wipes every room
 in memory. The workflow asks you to type *no meetup is running and the restart
 wipes every room* before it starts; `room/README.md`, *Burst*, has the rest.
 

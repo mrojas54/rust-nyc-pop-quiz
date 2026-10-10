@@ -999,7 +999,7 @@ a write on a fresh connection, so such a close reads as a miss — read
 one.
 
 **The connection cap (`hard_limit`).** Fly's proxy routes at most `hard_limit`
-simultaneous connections (`fly.toml`, `[http_service.concurrency]`, 400 today)
+simultaneous connections (`fly.toml`, `[http_service.concurrency]`, 500 today)
 to the one room machine, and refuses new ones past it; it starts preferring
 other machines at `soft_limit` (350), and there are none. It cannot tell a
 harness from a phone. burst holds **2n + 3** connections at its peak: each
@@ -1008,10 +1008,11 @@ the host's sockets, and the host's HTTP connection (smoke holds the same). So
 burst needs `--connection-cap` off loopback, prints `expected peak connections
 N vs cap M`, and a run over the cap is **invalid** — "over the room's
 connection cap; the proxy would refuse some participants" — never a pass. **At
-the default 200 participants that is 403 against 400**: the deployed
-200-participant run cannot earn AC-53's pass until the cap is raised or the
-harness holds fewer connections. That is the client's decision (2026-10-09:
-keep `hard_limit` at 400); nothing here lowers the 200 default to dodge it. The spike's "more than one Fly machine"
+the default 200 participants that is 403**: against the old cap of 400 the
+deployed 200-participant run could not count, so the client raised
+`hard_limit` to 500 (2026-10-10). That leaves 97 connections for anything else
+on the machine — another reason never to run it during a meetup. Up to 248
+participants fit. The spike's "more than one Fly machine"
 check is gone — the room exposes no machine id, and `fly.toml` runs one; a
 machine lost mid-run shows as `404`s and is reported as the room gone.
 
@@ -1046,7 +1047,7 @@ and handed to curl on stdin, never on its command line:
 one trial window (*The trial org stops the machine*, above):
 
     export POPQUIZ_ORGANIZER_SESSION=…   # what follows the # after signing in at /host
-    just burst https://rustnyc-popquiz.fly.dev --connection-cap 400 --out burst.json   # 400: fly.toml's hard_limit
+    just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 --out burst.json   # 500: fly.toml's hard_limit
     just smoke https://rustnyc-popquiz.fly.dev --participants 200
     unset POPQUIZ_ORGANIZER_SESSION
 
@@ -1063,8 +1064,7 @@ read a secret. Then the job runs in the `deployed-burst` environment (a
 reviewer approves it in the Actions tab). It reads `hard_limit` from `fly.toml`
 (a read; it prints the commit it read) and passes it as `--connection-cap`;
 if 2n + 3 is over it the job stops there, before anything reaches the room —
-so the `participants` default of 200 stops at 403 vs 400 until `hard_limit`
-is raised, and 198 is the most that fits today. Otherwise it builds both clients, schedules the two ids, runs burst (one isolated burst per
+so the `participants` default of 200 (403) fits under today's 500. Otherwise it builds both clients, schedules the two ids, runs burst (one isolated burst per
 shape, a 10 s churn) and smoke back to back, and uploads both JSON reports as
 an artifact; the job summary lists `n`, the connections against the cap, the
 exit code and each criterion. There is no Fly token in CI.
