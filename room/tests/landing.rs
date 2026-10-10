@@ -39,4 +39,5 @@ async fn the_root_is_the_landing_page_not_a_404() {
     // Its exits.
     assert_eq!(get(&app, "/join").await.0, StatusCode::OK);
     assert_eq!(get(&app, "/last").await.0, StatusCode::OK);
+    assert_eq!(get(&app, "/host").await.0, StatusCode::OK);
 }

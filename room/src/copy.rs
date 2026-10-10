@@ -112,6 +112,7 @@ pub const HOME_NOT_RECORDED: &str = "not recorded";
 pub const LANDING_LEDE: &str = "One Rust program, at the end of the night. Read it, pick what it prints, then walk through it together.";
 pub const LANDING_JOIN: &str = "Join a room";
 pub const LANDING_LAST: &str = "Last meetup's question";
+pub const LANDING_HOST: &str = "Are you a host? Click here";
 
 // PROPOSED-§11: strings the pages already showed that §11 does not author yet,
 // moved into `copy.js` words unchanged by T-22 (F-34, F-38, and three more).
@@ -233,6 +234,7 @@ pub const ALL: &[(&str, &str)] = &[
     ("landing_lede", LANDING_LEDE),
     ("landing_join", LANDING_JOIN),
     ("landing_last", LANDING_LAST),
+    ("landing_host", LANDING_HOST),
     ("proposed_home_nothing_yet", PROPOSED_HOME_NOTHING_YET),
     ("proposed_home_miri_separately", PROPOSED_HOME_MIRI_SEPARATELY),
     ("proposed_home_row_compiler", PROPOSED_HOME_ROW_COMPILER),

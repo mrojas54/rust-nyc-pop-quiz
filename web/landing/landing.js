@@ -25,7 +25,8 @@
       '<nav class="land-go">' +
       '<a class="land-btn" href="/join">' + t("landing_join") + "</a>" +
       '<a class="land-last" href="/last">' + t("landing_last") + "</a>" +
-      "</nav>"
+      "</nav>" +
+      '<p class="land-foot"><a href="/host">' + t("landing_host") + "</a></p>"
     );
   }
 

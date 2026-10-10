@@ -52,7 +52,13 @@ html, body { background: var(--bg-primary); }
   text-decoration: underline; text-underline-offset: 3px;
 }
 .land-last:hover { color: var(--accent-hover); }
-.land-btn:focus-visible, .land-last:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+/* The host's way in, at the bottom: quiet, but a full-height tap target. */
+.land-foot { margin: var(--space-6) 0 0; padding-top: var(--space-4);
+             border-top: var(--border-w) solid var(--border-default); font-size: var(--text-xs); }
+.land-foot a { display: inline-flex; align-items: center; min-height: var(--touch-target);
+               color: var(--text-secondary); text-underline-offset: 3px; }
+.land-foot a:hover { color: var(--accent-hover); }
+.land-btn:focus-visible, .land-last:focus-visible, .land-foot a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 
 @media (min-width: 640px) {
   .land-title { font-size: 64px; }
