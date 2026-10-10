@@ -643,6 +643,22 @@ def test_the_command_line_measures_the_real_arrangement(tmp_path: pathlib.Path) 
     assert "synthetic nights" in position["summary"] and position["detail"]["unarranged"] == []
 
 
+def test_a_question_the_arrangement_refuses_is_named_not_guessed() -> None:
+    """It stays in the order-free tells, abstains from the position tell, and
+    `run_audit` names it under the position line's `unarranged`."""
+
+    def refuses_r1(q: Question, day: datetime.date) -> Question:
+        if q.id == "r1":
+            raise bank.BankError("r1: refused")
+        return q
+
+    faces, left_out = audit.tell_pool([question("r0"), question("r1")], arrange=refuses_r1)
+    assert left_out == [] and [f.id for f in faces] == ["r0", "r1"]
+    assert faces[1].walls == () and len(faces[0].walls) == audit.POSITION_NIGHTS
+    position = {t.tell: t for t in audit.measure_tells(faces)}["option position"]
+    assert all(s.fired <= 1 for s in position.rules)
+
+
 def test_the_position_nights_are_synthetic_and_fixed() -> None:
     """Made-up consecutive dates from the generator audit's start - never a real
     meetup, `used`, the ledger or the report - and the pool takes no date at all."""

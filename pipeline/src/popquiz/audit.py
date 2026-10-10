@@ -796,7 +796,7 @@ def bank_audit_references(repo: Path) -> list[str]:
 # questions at the rounded-down sum of the rates. When every rate is 1 - an
 # arrangement that pins the answer - the arithmetic is the stored order's: at
 # m = 10 the bound is 0.001 and the tail is 0.2 ** n, so the position tell can
-# only WARN below five questions. Rounding down never makes a FAIL easier; a
+# only WARN below five questions. Rounding down only ever makes a FAIL harder; a
 # near-perfect pin (rates of 0.95) warns up to six questions and fails at seven.
 #
 # What the arranged measure can and cannot see. Under the real arrangement the
@@ -1139,8 +1139,9 @@ def score_across_nights(name: str, rule: Rule, faces: Sequence[Face]) -> RuleSco
     its chance the mean |S| / 5 over the same nights. The ratio is the sum of the
     rates over the sum of the chances. The tail is the exact Poisson-binomial over
     those chances at the rounded-down sum of the rates: a trial in [0, 1] with
-    mean p is never more spread out than a coin with p, and rounding down never
-    makes a FAIL easier. Counting nights as trials instead would treat one draw of
+    mean p has no more variance than a coin with p, and rounding down only ever
+    makes a FAIL harder (where the rates are one shared draw - the index rules
+    under the real arrangement - the margin is what holds, see above). Counting nights as trials instead would treat one draw of
     the slot, shared by every question that night, as many independent ones.
     """
     rates, ps = [], []
@@ -1148,7 +1149,10 @@ def score_across_nights(name: str, rule: Rule, faces: Sequence[Face]) -> RuleSco
         fired = hit = 0
         chance = 0.0
         for kinds, correct in face.walls:
-            shown = Face(face.id, face.unsafe, face.lines, face.topic, kinds, face.lengths, correct)
+            shown = Face(
+                id=face.id, unsafe=face.unsafe, lines=face.lines, topic=face.topic,
+                kinds=kinds, lengths=face.lengths, correct=correct,
+            )
             chosen = rule(shown, ())
             if not chosen:
                 continue
