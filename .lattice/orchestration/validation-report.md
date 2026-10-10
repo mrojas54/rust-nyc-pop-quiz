@@ -244,6 +244,27 @@ This deviates from the plan in one way: the plan names the c11 browser. The engi
 
 Result: rows 49, 98 and 102 move Partial → Pass. The totals are now **60 Pass, 15 Partial, 2 Fail, 6 Blocked**. The verdict stays 🟡 YELLOW for the reasons in the Summary.
 
+## Addendum — deployed burst for rows 66, 79, 80, 81 (client request, 2026-10-10; Orchestrator seat, not the Result Validator)
+
+The four burst rows were post-merge-smoke rows open at the time of this report. PQ-41 (PR #54, merged `8819b67`) made the harness safe to point at the deployed room, and the client ran it. This addendum records the evidence; the validator did not re-run it and the Pass/Partial totals above are unchanged (smoke rows are not in them).
+
+**Run.** GitHub Actions `deployed-burst` run `38036365964` (https://github.com/mrojas54/rust-nyc-pop-quiz/actions/runs/38036365964), 2026-10-10 08:00Z, commit `8819b67`, against `https://rustnyc-popquiz.fly.dev`, 200 of 200 participants, deployed substrate. Reports `burst.json` and `smoke.json` are the run's artifact. It was the fifth dispatch of that morning; the four before it failed before any room was created (an admin token that was not the app's, including one stored as a literal string by a mistyped command, then an organizer session wiped by the restart that rotating the token caused), which is how the setup order in `validation-plan.md` came about.
+
+| Row | Criterion | Measure | Value | Threshold | Result |
+|---|---|---|---|---|---|
+| 66 | AC-41 reveal fan-out | `runs.segment.reveal.p95_ms` | 94.98 ms | ≤ 2000 ms | pass |
+| 79 | AC-52 200 sessions counted once | `runs.segment.reconcile.match` and burst-only | exact | exact | pass |
+| 80 | AC-53 write p95 | `runs.segment.writes.p95_ms` | 160.53 ms | < 500 ms | pass |
+| 81 | AC-54 deadline burst | `runs.burst_only.headline_p95_ms` | 166.85 ms | < 500 ms | pass |
+
+Verdict line: `burst: all four criteria pass as measured`, `n=200 of 200`, exit 0. Expected peak connections 403 against the cap of 500 (`fly.toml` `hard_limit`, raised from 400 by the client on 2026-10-10 and live after the deploy of `8819b67`); not over the cap. Smoke on `smoke-q3`: SMOKE PASS, answer writes n=267 p50 85.9 ms p95 167.4 ms, reveal reaching all 200 buzzers p95 89.4 ms.
+
+**What this does and does not establish.**
+- AC-53's deployed clause (the PQ-41 note above) is evidenced by one run at 200 participants from the Actions runner (4 CPUs, `ulimit -n` 4096). One run is not a distribution; the figures are well inside the thresholds, not marginal (`marginal: false` on all four).
+- The client's own connection (phones, venue wifi) is not in these numbers: AC-31 and AC-55 (rows 55, 82) remain HC-1/HC-4.
+- The harness holds about 403 connections of the 500 the proxy routes to one machine; 500 is a routing limit, not a measured capacity of the VM. The first real meetup is the next test.
+- Superseded findings in *Drift* above: the repo-level secrets for the workflow (GAP-19, now environment secrets behind a required reviewer on `main`) and the real-q3 default (GAP-21, now harness ids; bank ids are refused off loopback) are closed by PR #54.
+
 ## Handoff and run state at exit
 
 - **This validator is done and exits.** It is one-shot: it fixed nothing, opened and edited no tickets, merged and pushed nothing, and never changed HEAD. `run-state.md` is the Orchestrator's file and was not touched; this report is the handoff.

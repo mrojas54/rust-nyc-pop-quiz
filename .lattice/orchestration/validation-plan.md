@@ -149,3 +149,54 @@ may drive the c11 browser against a local server started from the PR head; if th
 approval is not given, they become smoke rows. Rows 66, 79–81 for T-03 are smoke rows
 because the spike measures on Fly; T-03's PR carries the numbers as an artifact and the
 validator reads them.
+
+## Setup for the deployed burst rows (66, 79, 80, 81; added 2026-10-10 after PQ-41)
+
+Run in this order. The order matters: a restart or deploy wipes every in-memory room **and
+every host session**, so the sign-in comes last. `room/README.md` (*Burst*) is the long form;
+this is the checklist.
+
+1. **No meetup is running.** The workflow's first job makes you attest it; a burst holds about 403 of the 500 connections Fly will route
+   (`fly.toml` `hard_limit`, live after the deploy of `8819b67`), and the README's restart
+   step wipes rooms. Never during a meetup.
+2. **The environment exists** (once): repository Settings → Environments → `deployed-burst`,
+   Required reviewers = the client, Deployment branches = Selected → `main`. Check:
+   `gh secret list --env deployed-burst` lists both secrets below.
+3. **The admin token matches the app's.** The one source is the 1Password item
+   `Rust NYC - POPQUIZ_ADMIN_TOKEN` (vault Personal). Set the environment secret from it with
+   the value never shown, and note `$( … )` must run `op read`:
+   `printf %s "$(op read 'op://Personal/Rust NYC - POPQUIZ_ADMIN_TOKEN/password')" | gh secret set POPQUIZ_ADMIN_TOKEN --env deployed-burst`.
+   Expect: a read-only `GET /admin/used` with the token answers 200 and without it 401. If
+   the app's value is unknown or stale, rotate (1Password item, then `fly secrets import`,
+   then this secret); the restart costs the session in step 5, so rotate before it.
+4. **A clean machine for the harness ids.** If `smoke-q3` / `burst-q3` already ran on this
+   machine the schedule step answers `409`; run `fly apps restart rustnyc-popquiz` **now**,
+   not later, and wait for the check to pass (`fly status -a rustnyc-popquiz`).
+5. **Sign in last.** Open the room's `/host` URL (the host token's, `room/README.md`), sign in,
+   and set the session: `gh secret set POPQUIZ_ORGANIZER_SESSION --env deployed-burst`
+   (pasted at the prompt, never on the command line). Then go straight to step 6; anything
+   that restarts the machine in between voids it.
+6. **Dispatch and approve.** `gh workflow run deployed-burst --ref main -f url=https://rustnyc-popquiz.fly.dev -f participants=200 -f confirm='no meetup is running and the restart wipes every room'`,
+   then approve at the reviewer gate. Participants below 200, a window above 2000 ms or one
+   shape cannot print "all four criteria pass" (rows 66, 79–81 need the full run).
+7. **Read the run.** Passing steps in order: confirm, inputs and both secrets, the cap read
+   (`hard_limit` read from `fly.toml`; 403 at 200 participants is under 500), schedule `smoke-q3` / `burst-q3` (200 or 201), burst,
+   smoke, reports kept, summary. Failures name themselves:
+
+   | Message | Cause | Fix |
+   |---|---|---|
+   | `401: POPQUIZ_ADMIN_TOKEN is not the app's secret` (schedule step) | environment secret differs from Fly's | step 3 |
+   | `create with POPQUIZ_ORGANIZER_SESSION: 401 … unknown or expired` | session wiped by a restart or deploy, or never valid | steps 4 (if restarted), 5, 6 |
+   | `409: … has run on this machine already` | harness ids already used since the last restart | step 4, then 5 and 6 |
+   | `set the POPQUIZ_ADMIN_TOKEN secret … first` (exit 2) | environment secret missing | step 3 |
+   | over the cap / `INVALID` verdict | more connections than `hard_limit` allows | lower participants or raise the cap; not a pass |
+
+8. **After.** Attach the two reports and the summary to the validation report; delete both
+   environment secrets (`gh secret delete POPQUIZ_ORGANIZER_SESSION --env deployed-burst`,
+   `gh secret delete POPQUIZ_ADMIN_TOKEN --env deployed-burst`) so a later branch cannot read them.
+   The harness ids carry q3's record under `smoke-q3` / `burst-q3`, so a run retires those
+   two ids only, never q3 in `/admin/used`.
+
+First run of this procedure (2026-10-10): steps 3 and 5 each failed once (a literal string
+stored instead of the token; then the session wiped by the rotation's restart), which is why
+the order above puts rotation before the sign-in.
