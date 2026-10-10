@@ -853,6 +853,13 @@ The room runs on Fly.io as the app **`rustnyc-popquiz`**, at
 is the root's `fly.toml`, written by hand. `.dockerignore` is an allowlist: the
 crate and `web/`.
 
+**From GitHub Actions.** `.github/workflows/deploy.yml` runs `flyctl deploy
+--remote-only --ha=false` on every push to main, and when started by hand
+(Actions, *deploy*, Run workflow).
+It needs one repository secret, `FLY_API_TOKEN`, from
+`fly tokens create deploy -a rustnyc-popquiz`. This route works where a cloud
+session's does not, since the runner has no proxy in front of the builder.
+
 **flyctl in cloud sessions.** `.claude/hooks/install-flyctl.sh` (a `SessionStart`
 hook, remote sessions only) installs flyctl into `~/.fly` and puts it on `PATH`,
 so `fly deploy --ha=false --remote-only` works from a Claude Code cloud session.
