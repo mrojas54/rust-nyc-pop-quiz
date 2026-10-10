@@ -1,0 +1,194 @@
+{
+  "id": "q10",
+  "source": "fn main() {\n    let mut m = std::collections::HashMap::new();\n    for w in [\"a\", \"b\", \"a\", \"c\", \"a\"] {\n        *m.entry(w).or_insert(0) += 1;\n    }\n    println!(\"{} {} {}\", m[\"a\"], m[\"c\"], m.len());\n}",
+  "topic": "Maps",
+  "difficulty_requested": 2,
+  "options": [
+    {
+      "text": "3 1 3",
+      "kind": "output"
+    },
+    {
+      "text": "1 1 3",
+      "kind": "output",
+      "why_tempting": "If or_insert reads like insert, every a overwrites the last one and the count never climbs past 1. or_insert only fills a missing entry; the += 1 then lands on whatever is there."
+    },
+    {
+      "text": "3 1 5",
+      "kind": "output",
+      "why_tempting": "len on a map counts keys, not insertions. Five words went through the loop, but only three distinct ones were ever stored."
+    },
+    {
+      "text": "2 0 3",
+      "kind": "output",
+      "why_tempting": "A new entry starts at 0, which makes it feel like the first sighting does not count. The += 1 runs on the first sighting too, so every word is counted from its first appearance."
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile",
+      "why_tempting": "Square brackets on a HashMap feel like they belong to Vec. HashMap does implement Index for a key lookup, and the &str literal borrows as the key type."
+    }
+  ],
+  "hint": "Follow the entry for \"a\" through the loop. What does the line inside the loop do to it each time?",
+  "explains": {
+    "what": "entry(w) finds the slot for that word, or creates an empty one. or_insert(0) fills an empty slot with 0 and hands back a mutable reference to the slot either way, and the += 1 goes through that reference. So a is counted three times, c once, and the map holds three keys.",
+    "takeaway": "This is the standard word-count shape in Rust. The map is hashed, so its iteration order changes from run to run, which is why this program reads values by key instead of printing the whole map."
+  },
+  "trace": {
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          4
+        ],
+        "note": "The map starts empty. Each distinct word will have one entry holding its count.",
+        "values": [
+          {
+            "name": "m",
+            "was": "—",
+            "now": "{}"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The first word is a. Its entry is vacant, so or_insert puts in 0 and returns a mutable reference to it. The += 1 immediately raises that count to 1.",
+        "values": [
+          {
+            "name": "w",
+            "was": "—",
+            "now": "\"a\""
+          },
+          {
+            "name": "m[\"a\"]",
+            "was": "absent",
+            "now": "0 → 1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The next word is b. This is another vacant entry: insert 0, then increment it to 1.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"a\"",
+            "now": "\"b\""
+          },
+          {
+            "name": "m[\"b\"]",
+            "was": "absent",
+            "now": "0 → 1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "Now a appears again. Its entry already holds 1, so or_insert keeps that count and returns a mutable reference to it. The increment raises it to 2.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"b\"",
+            "now": "\"a\""
+          },
+          {
+            "name": "m[\"a\"]",
+            "was": "1",
+            "now": "2"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The word c gets its own entry. Its first appearance counts too: 0 becomes 1.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"a\"",
+            "now": "\"c\""
+          },
+          {
+            "name": "m[\"c\"]",
+            "was": "absent",
+            "now": "0 → 1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The last word is a. Its existing count rises from 2 to 3. The loop has seen five words and stored three distinct keys.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"c\"",
+            "now": "\"a\""
+          },
+          {
+            "name": "m[\"a\"]",
+            "was": "2",
+            "now": "3"
+          }
+        ]
+      },
+      {
+        "lines": [
+          6
+        ],
+        "focus": [
+          2,
+          6
+        ],
+        "note": "The print looks up a and c, then asks for the number of keys. These key lookups do not depend on the map's iteration order.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "3 1 3"
+          }
+        ]
+      }
+    ]
+  },
+  "review": {
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q10.json --expect ran` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
+  }
+}

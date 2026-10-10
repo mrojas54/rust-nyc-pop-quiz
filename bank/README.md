@@ -8,6 +8,7 @@ diffable, with no server in front of it (BUILDPLAN D-C).
 | `questions/<id>.json` | one question — `SPEC.md` §3.1, with its §3.2 `verified` record | the pipeline; **T-14** migrated the four that are here |
 | `schema/question.schema.json` | the published shape of that file | by hand, kept in step with the types by a test — see below |
 | `history.json` | dedupe's memory across runs: exact hashes, normalized-AST fingerprints, token-bigram sets (§3.3) | **T-17**. The three stores are empty; T-14 fixed the shape |
+| `candidates/<id>.json` | drafted questions waiting on the pinned verifier; not part of the bank until `just verify` writes a record and they move to `questions/` | by hand, then the verifier |
 | `fixtures/receipts/*.json` | the receipt's cases, with the lines each must render | by hand from `SPEC.md` §7.5 |
 | `audit/` | `bank-audit`'s run reports, organizer-only and gitignored — see [below](#what-bank-audit-checks-and-why-it-can-never-touch-a-real-night) | **T-19** |
 
