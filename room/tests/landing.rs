@@ -27,7 +27,7 @@ async fn the_root_is_the_landing_page_not_a_404() {
     let (status, kind, page) = get(&app, "/").await;
     assert_eq!(status, StatusCode::OK);
     assert!(kind.starts_with("text/html"), "{kind}");
-    assert!(page.contains(r#"id="landing""#));
+    assert!(page.contains(r#"id="landing-copy""#));
 
     for (path, want) in [("/landing/landing.js", "text/javascript"), ("/landing/landing.css", "text/css")] {
         let (status, kind, body) = get(&app, path).await;

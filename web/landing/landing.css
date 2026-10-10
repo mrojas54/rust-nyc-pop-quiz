@@ -1,12 +1,12 @@
 /* ===========================================================================
    The front door (GET /). House tokens only: Cascadia Mono for the body,
-   Instrument Serif for the headline and the letters (24px and above), one
+   Instrument Serif for the headline (24px and above), one
    amber accent, one radius, 1px borders. Light, no gradients, no motion.
 
    One column, centred, 375px at the narrowest. Every control is at least
    44px (AC-85). Nothing here sets a width wider than the viewport, and long
    words wrap, so the page never scrolls sideways (AC-33). Colour is never
-   the only signal (AC-40): the buttons are labelled and the letters are
+   the only signal (AC-40): the buttons are labelled and Ferris is
    decoration. No red or error token.
    =========================================================================== */
 html, body { background: var(--bg-primary); }
@@ -19,22 +19,15 @@ html, body { background: var(--bg-primary); }
   overflow-wrap: anywhere;
 }
 
+.land-copy { display: flex; flex-direction: column; gap: var(--space-6); }
 .land-mark { margin: 0; font-size: var(--text-xs); letter-spacing: var(--tracking-caps);
              text-transform: uppercase; color: var(--text-secondary); }
 
 .land-title { margin: 0; font-size: 48px; line-height: var(--leading-tight); }
 
-/* Five letters, the buzzer's own, as a quiet row. All five alike: no letter
-   is lit, so the row can never read as a hint (PHILOSOPHY §2). */
-.land-letters { display: flex; gap: var(--space-2); }
-.land-letters span {
-  box-sizing: border-box; flex: 1; min-width: 0; max-width: 64px; display: grid; place-items: center; height: 56px;
-  border: 2px solid var(--border-default); border-radius: var(--radius); background: var(--white);
-  font-family: var(--font-heading); font-size: 30px; line-height: 1; color: var(--text-primary);
-}
+/* Ferris, in the harbour pose. Scales with the column, never past it. */
+.land-ferris { display: block; width: 100%; max-width: 240px; height: auto; }
 
-.land-lede { margin: 0; font-size: var(--text-sm); line-height: var(--leading-body);
-             color: var(--text-secondary); max-width: 44ch; }
 
 .land-go { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-6); }
 .land-btn {

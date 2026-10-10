@@ -109,7 +109,6 @@ pub const RECEIPT_ERROR_CODES: &str = "✓ Error ‹codes›";
 pub const RECEIPT_NOTHING_RAN: &str = "✓ Nothing ran";
 pub const HOME_MACHINE_ONLY: &str = "The machine checked the answer only. An organizer approved the explanation.";
 pub const HOME_NOT_RECORDED: &str = "not recorded";
-pub const LANDING_LEDE: &str = "One Rust program, at the end of the night. Read it, pick what it prints, then walk through it together.";
 pub const LANDING_JOIN: &str = "Join a room";
 pub const LANDING_LAST: &str = "Last meetup's question";
 pub const LANDING_HOST: &str = "Are you a host? Click here";
@@ -231,7 +230,6 @@ pub const ALL: &[(&str, &str)] = &[
     ("receipt_nothing_ran", RECEIPT_NOTHING_RAN),
     ("home_machine_only", HOME_MACHINE_ONLY),
     ("home_not_recorded", HOME_NOT_RECORDED),
-    ("landing_lede", LANDING_LEDE),
     ("landing_join", LANDING_JOIN),
     ("landing_last", LANDING_LAST),
     ("landing_host", LANDING_HOST),
