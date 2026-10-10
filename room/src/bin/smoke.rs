@@ -10,11 +10,14 @@
 //! sign in at `<url>/host?question=q3`, and it is everything after the `#` in
 //! the address the page lands on. It is one person's, it lasts 12 hours, and
 //! every room it creates passes Discord's live role check (SPEC §8) — smoke
-//! holds no shared secret that creates rooms. q3 must be scheduled first, over
-//! the pipeline channel (SPEC §8.3) — under its own id, or (`--question`) under
-//! a harness id such as `smoke-q3` so that the run's release never retires a
-//! bank question (room/README.md, *Burst*). Whatever the id, the record must be
-//! q3's: the secrecy scan reads its secrets from q3.
+//! holds no shared secret that creates rooms. q3's record must be scheduled
+//! first, over the pipeline channel (SPEC §8.3), under the id the run uses:
+//! `smoke-q3` by default, a harness id no bank question has, so the run's
+//! release never retires a bank question (room/README.md, *Burst*). Off
+//! loopback a bank id (anything not `smoke-…`/`burst-…`) is refused unless
+//! `--spend-bank-question` is given; on loopback (`test-full`) it is allowed.
+//! Whatever the id, the record must be q3's: the secrecy scan reads its
+//! secrets from q3. Plain http is refused for a host that is not this machine.
 //!
 //! Against `<url>` (https/wss through the Fly edge, or plain http/ws on
 //! loopback), in order:
@@ -53,8 +56,9 @@
 //! `--out` also writes the result as JSON, for CI to keep.
 //!
 //! Exit: `0` every check passed; `1` a check failed; `2` it could not run
-//! (arguments, no session, the room unreachable, q3 not scheduled or already
-//! run, the organizer refused by Discord).
+//! (arguments, no session, the room unreachable, the create refused — the
+//! room's reason is printed verbatim with what to do about it — or the
+//! organizer refused by Discord).
 
 #[path = "room_client.rs"]
 mod client;
@@ -64,7 +68,10 @@ use std::time::{Duration, Instant, SystemTime};
 
 use serde_json::{json, Value};
 
-use client::{all_reach, millis, open_ws, wait_for_room, watch, Http, OnFrame, Rng, Target, Watcher, LETTERS, MAX_PARTICIPANTS};
+use client::{
+    all_reach, create_refused, millis, open_ws, question_allowed, wait_for_room, watch, Http, OnFrame, Rng, Target, Watcher, LETTERS,
+    MAX_PARTICIPANTS, SPEND_BANK_FLAG,
+};
 
 /// The HC-0 question, as the verifier wrote it — where the secrets come from.
 const Q3: &str = include_str!("../../../bank/questions/q3.json");
@@ -86,15 +93,18 @@ pub struct Args {
     /// The id q3's record is scheduled under on the room.
     pub question: String,
     pub out: Option<String>,
+    /// `--spend-bank-question`: a bank id off loopback, on purpose.
+    pub spend_bank: bool,
 }
 
-const USAGE: &str = "usage: smoke --url <http(s)://host[:port]> [--participants N] [--question ID] [--out PATH]   (POPQUIZ_ORGANIZER_SESSION in the environment)";
+const USAGE: &str = "usage: smoke --url <https://host | http://loopback:port> [--participants N] [--question ID (default smoke-q3)] [--spend-bank-question] [--out PATH]   (POPQUIZ_ORGANIZER_SESSION in the environment)";
 
 pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
     let mut url = None;
     let mut participants = DEFAULT_PARTICIPANTS;
-    let mut question = "q3".to_string();
+    let mut question = "smoke-q3".to_string();
     let mut out = None;
+    let mut spend_bank = false;
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -109,16 +119,28 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String
             }
             "--question" => question = it.next().filter(|q| !q.is_empty()).ok_or("--question needs an id")?,
             "--out" => out = Some(it.next().ok_or("--out needs a path")?),
+            f if f == SPEND_BANK_FLAG => spend_bank = true,
             "-h" | "--help" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other:?}\n{USAGE}")),
         }
     }
-    Ok(Args {
+    let a = Args {
         url: url.ok_or(USAGE)?,
         participants,
         question,
         out,
-    })
+        spend_bank,
+    };
+    guard(&a)?;
+    Ok(a)
+}
+
+/// What a run must not do whatever built its arguments: talk plain http
+/// across a network, or spend a bank question off loopback by default.
+pub fn guard(a: &Args) -> Result<Target, String> {
+    let target = Target::parse(&a.url)?;
+    question_allowed(&target, &a.question, a.spend_bank)?;
+    Ok(target)
 }
 
 // --------------------------------------------------------------------------
@@ -331,7 +353,7 @@ impl Outcome {
 /// `token`. `Err` is "could not run" (exit 2); an `Outcome` with failures is a
 /// failed check (exit 1).
 pub async fn run(args: &Args, token: &str) -> Result<Outcome, String> {
-    let target = Arc::new(Target::parse(&args.url)?);
+    let target = Arc::new(guard(args)?);
     let tls = target.tls_connector();
     let q3: Value = serde_json::from_str(Q3).map_err(|e| format!("q3.json: {e}"))?;
     let ctx = Ctx {
@@ -366,12 +388,7 @@ pub async fn run(args: &Args, token: &str) -> Result<Outcome, String> {
         201 => {}
         401 => return Err("create with POPQUIZ_ORGANIZER_SESSION: 401 — the session is unknown or expired; sign in again at /host".into()),
         403 => return Err(format!("create: 403 {} — Discord says this organizer may not host", created["reason"])),
-        409 => {
-            return Err(format!(
-                "create: 409 {} — schedule q3's record as {q} over the pipeline channel first; if it has already been run on this machine, restart it (fly apps restart) and schedule it again",
-                created["reason"]
-            ))
-        }
+        409 => return Err(create_refused(created["reason"].as_str().unwrap_or_default(), q)),
         s => return Err(format!("create: {s} {created}")),
     }
     scan(f, &ctx.secrets, "idle", "POST /rooms", &created);
@@ -657,7 +674,7 @@ mod tests {
     fn arguments() {
         assert_eq!(
             args("--url https://x.fly.dev").unwrap(),
-            Args { url: "https://x.fly.dev".into(), participants: 20, question: "q3".into(), out: None }
+            Args { url: "https://x.fly.dev".into(), participants: 20, question: "smoke-q3".into(), out: None, spend_bank: false }
         );
         let a = args("--url http://127.0.0.1:3000 --participants 200 --question smoke-q3 --out r.json").unwrap();
         assert_eq!((a.participants, a.question.as_str(), a.out.as_deref()), (200, "smoke-q3", Some("r.json")));
