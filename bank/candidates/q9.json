@@ -32,12 +32,12 @@
   "hint": "Both methods change a. Track what a holds after each call, and which value each call hands back.",
   "explains": {
     "what": "take moves the value out of the Option and leaves None in its place, so b gets Some(3) and a is now None. replace puts a new value in and returns what was there before. What was there was None, so c is None and a ends up Some(7).",
-    "takeaway": "Both methods exist so you can move a value out of something you only have a mutable borrow of. std::mem::take and std::mem::replace do the same job for any type, and they are how you get an owned field out of &mut self without cloning."
+    "takeaway": "Both methods exist so you can move a value out of something you only have a mutable borrow of. std::mem::replace works for any type, because you hand it the replacement. std::mem::take needs the type to implement Default, since Default::default() is what it leaves behind. Between them they are how you get an owned field out of &mut self without cloning."
   },
   "trace": {
     "steps": []
   },
   "review": {
-    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/questions/q9.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q9.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
   }
 }
