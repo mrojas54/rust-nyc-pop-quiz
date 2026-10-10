@@ -1,9 +1,11 @@
 """`popquiz schedule` and `popquiz sync` (T-20): the gate, the date's arrangement,
 the push, the fallback beside it, the used ledger pulled back, and the reserve.
 
-Every test runs on a temporary copy of the committed bank. The committed records
-are unaffirmed, so the happy path affirms q3 - the one record with a trace - in the
-copy, never in `bank/questions/`. The room is a fake `urlopen` that records what it
+Every test runs on a temporary copy of the committed bank. A test that needs a
+question in a given review state puts it there in the copy - the happy path affirms
+q3, the one record with a trace, and a refusal resets a record to its draft - so
+nothing here depends on which committed records an organizer has affirmed (q3 was,
+by F-52), and nothing writes to `bank/questions/`. The room is a fake `urlopen` that records what it
 was sent; nothing here reaches a network.
 """
 
@@ -43,6 +45,15 @@ def affirm(bank_dir: Path, qid: str, **review) -> None:
     fields = {"status": "accepted", "affirmed_by": "fixture-organizer", "affirmed_at": "2026-10-04T15:00:00Z"}
     fields.update(review)
     data["review"] = {k: v for k, v in {**data.get("review", {}), **fields}.items() if v is not None}
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def as_drafted(bank_dir: Path, qid: str) -> None:
+    """Back to what a draft holds: no judgement, no affirmation, never used."""
+    path = bank_dir / "questions" / f"{qid}.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.pop("used", None)
+    data["review"] = {k: v for k, v in data.get("review", {}).items() if k not in ("status", "affirmed_by", "affirmed_at")}
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -207,9 +218,11 @@ def assert_refused(code, capsys, fake, out, needle):
 
 
 def test_ac72_an_unaffirmed_question_is_refused_and_nothing_is_sent_or_written(bank, room, tmp_path, capsys):
+    as_drafted(bank, "q4")
     fake = room((201, {"scheduled": "new"}))
     out = tmp_path / "out"
-    assert_refused(schedule_q3(bank, out), capsys, fake, out, "unaffirmed question cannot be scheduled")
+    code = run("schedule", "q4", "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
+    assert_refused(code, capsys, fake, out, "unaffirmed question cannot be scheduled")
 
 
 def test_ac72_affirmed_by_without_affirmed_at_is_refused(bank, room, tmp_path, capsys):
@@ -253,15 +266,22 @@ def test_g12_a_question_with_no_verified_record_is_refused(affirmed, room, tmp_p
     assert_refused(schedule_q3(affirmed, out), capsys, fake, out, "no verified record")
 
 
-def test_ac72_every_committed_record_is_refused_today(room, tmp_path, capsys):
-    """The committed bank holds no affirmed question yet. The day one is affirmed
-    this test fails, and that is the news it exists to carry."""
-    fake = room((201, {"scheduled": "new"}))
-    for qid in ("q3", "q4", "q7", "q8"):
-        out = tmp_path / qid
-        code = run("schedule", qid, "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", BANK)
-        assert_refused(code, capsys, fake, out, "unaffirmed question cannot be scheduled")
-    assert [q.id for q in schedule.load_bank(BANK) if schedule.refusal(q) is None] == []
+def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_path, capsys):
+    """Read from the committed records, not typed: each one an organizer has not
+    affirmed is refused with nothing sent or written, and q3, affirmed by F-52,
+    schedules. The next affirmation moves a record from one side to the other
+    without touching this test."""
+    for q in schedule.load_bank(bank):
+        out = tmp_path / q.id
+        fake = room((201, {"id": q.id, "scheduled": "new"}))
+        code = run("schedule", q.id, "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
+        if q.review is None or not q.review.affirmed():
+            assert_refused(code, capsys, fake, out, "unaffirmed question cannot be scheduled")
+        else:
+            capsys.readouterr()
+            assert code == 0, q.id
+            assert len(fake.requests) == 1 and out.exists(), q.id
+    assert schedule.refusal(load_question(BANK, "q3")) is None
 
 
 def test_g12_the_gate_agrees_with_the_reserve(affirmed):
@@ -569,13 +589,22 @@ def test_ac75_the_reserve_and_trend_are_the_first_lines_of_every_command(affirme
 
 
 def test_ac75_the_trend_counts_what_comes_in_and_what_went_out(bank):
+    """Every record is put back to its draft first, so the counts follow from the
+    states set here and the size of the bank, not from which records an organizer
+    has affirmed since."""
+    drafts = [q.id for q in schedule.load_bank(bank)]
+    for qid in drafts:
+        as_drafted(bank, qid)
+    affirm(bank, "q3")  # in the reserve: neither coming in nor gone out
     affirm(bank, "q4", affirmed_by=None, affirmed_at=None)  # accepted, awaiting affirmation
     path = bank / "questions" / "q7.json"
     data = json.loads(path.read_text())
     data["used"] = {"meetup_date": "2026-09-09", "room_id": "r", "released_at": "2026-09-10T01:00:00Z"}
     path.write_text(json.dumps(data))
-    trend = schedule.reserve_lines(schedule.load_bank(bank), today=NIGHT)[1]
-    assert trend == "trend: +1 accepted awaiting affirmation, +2 not yet reviewed, -1 used in the last 90 days"
+    reserve, trend = schedule.reserve_lines(schedule.load_bank(bank), today=NIGHT)[:2]
+    assert reserve.startswith("reserve (nyc): 1 ready")
+    unreviewed = len(drafts) - 3
+    assert trend == f"trend: +1 accepted awaiting affirmation, +{unreviewed} not yet reviewed, -1 used in the last 90 days"
 
 
 def test_ac76_the_warning_fires_below_the_threshold_and_not_at_it(bank):

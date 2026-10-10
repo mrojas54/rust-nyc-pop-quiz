@@ -14,8 +14,9 @@ PR #36 re-authored q4, q7 and q8 for the wall's 29-character rule (D-15): q4's a
 q7's programs changed, and the pinned verifier wrote their new records (D-16); q8
 kept its program and changed only options, and the pinned verifier has since
 replaced its legacy record whole too. So q3 is checked byte for byte against a
-fresh run, and q4, q7 and q8 against the verifier and the pin, with q8's error
-codes still the ones the migration carried.
+fresh run - all but what an organizer wrote in its `review` block, which is the
+review surface's to write, not the migration's (F-52) - and q4, q7 and q8 against
+the verifier and the pin, with q8's error codes still the ones the migration carried.
 """
 
 from __future__ import annotations
@@ -84,6 +85,10 @@ NEVER_BACK_FILLED = (
 # one line, so a legacy record's compiler string must carry none of them.
 VV_ONLY = ("host:", "release:", "commit-hash:", "commit-date:", "LLVM version:")
 
+# What an organizer may write in a record's `review` block (SPEC 7.4: written by the
+# review surface). The migration drafts `reason`; an organizer may replace it.
+ORGANIZER_WRITES = frozenset({"status", "affirmed_by", "affirmed_at", "difficulty_judged", "reason"})
+
 
 @pytest.fixture(scope="module")
 def committed() -> dict[str, object]:
@@ -95,24 +100,75 @@ def committed() -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 
 
+def _drafted(review: dict) -> dict:
+    return {k: v for k, v in review.items() if k not in ORGANIZER_WRITES}
+
+
+def _is_the_migrations_but_for_the_organizer(fresh: str, landed: str) -> bool:
+    """Whether `landed` is `fresh` byte for byte once the organizer's part of
+    `review` is taken as written.
+
+    The rest of `review` must match as drafted; then the fresh record, carrying the
+    landed `review`, is written the way the bank writes a record and compared with
+    the file. So every other field is still compared, and so is the formatting."""
+    fresh_data, landed_data = json.loads(fresh), json.loads(landed)
+    if _drafted(fresh_data.get("review", {})) != _drafted(landed_data.get("review", {})):
+        return False
+    if "review" in landed_data:
+        fresh_data["review"] = landed_data["review"]
+    return json.dumps(fresh_data, indent=2, ensure_ascii=False) + "\n" == landed
+
+
 def test_the_committed_record_is_what_a_fresh_run_writes(
     tmp_path: pathlib.Path,
 ) -> None:
-    """q3, the one question nobody has touched since, reproduces byte for byte.
+    """q3, the one question whose program and beats nobody has touched since,
+    reproduces byte for byte, but for what an organizer wrote in its review.
 
     Which makes it reviewable: a reader can regenerate it rather than take it on
     trust, and a later edit to its authored beats cannot land in the module without
-    the file beside it changing too.
+    the file beside it changing too. Its affirmation (F-52) is the organizer's, not
+    the migration's, so it is the one part a fresh run is not asked to reproduce.
     """
     migrate(MVP, tmp_path)
     fresh = (tmp_path / "questions" / "q3.json").read_text(encoding="utf-8")
     landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
-    assert fresh == landed, "q3.json on disk is not what the migration writes"
+    assert _is_the_migrations_but_for_the_organizer(fresh, landed), (
+        "q3.json on disk is not what the migration writes"
+    )
     # The shape, not the contents: dedupe grows the committed history (AC-17).
     fresh_history = json.loads((tmp_path / "history.json").read_text(encoding="utf-8"))
     landed_history = json.loads((BANK / "history.json").read_text(encoding="utf-8"))
     assert landed_history.keys() == fresh_history.keys()
     assert landed_history["version"] == fresh_history["version"]
+
+
+def test_the_compare_lets_through_only_what_an_organizer_writes(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The golden compare above ignores the organizer's part of `review` and
+    nothing else: a change to any other field, at the top level or inside `review`,
+    is caught, and so is a change of formatting alone."""
+    migrate(MVP, tmp_path)
+    fresh = (tmp_path / "questions" / "q3.json").read_text(encoding="utf-8")
+    data = json.loads(fresh)
+
+    def written(record: dict) -> str:
+        return json.dumps(record, indent=2, ensure_ascii=False) + "\n"
+
+    organizer = dict(data["review"], status="accepted", affirmed_by="o", affirmed_at="t")
+    organizer.update(difficulty_judged=3, reason="replaced by an organizer")
+    assert _is_the_migrations_but_for_the_organizer(fresh, written(dict(data, review=organizer)))
+
+    for field in data:
+        if field != "review":
+            assert not _is_the_migrations_but_for_the_organizer(
+                fresh, written(dict(data, **{field: "changed"}))
+            ), field
+    for field in ("near_duplicate_of", "something_new"):
+        changed = dict(data, review=dict(data["review"], **{field: "q1"}))
+        assert not _is_the_migrations_but_for_the_organizer(fresh, written(changed)), field
+    assert not _is_the_migrations_but_for_the_organizer(fresh, json.dumps(data, indent=4) + "\n")
 
 
 def test_q8_was_re_verified_and_its_record_replaced_whole(tmp_path: pathlib.Path) -> None:
@@ -178,7 +234,9 @@ def test_a_rerun_over_a_partial_bank_writes_only_what_is_missing(
     tmp_path: pathlib.Path,
 ) -> None:
     """One question file gone: the migration writes that one, and nothing else
-    changes - not the other questions, and not the grown history."""
+    changes - not the other questions, and not the grown history. What it writes
+    is its own draft: the committed record but for the organizer's review, and
+    unaffirmed, because a migration never affirms (G-12)."""
     bank_dir = _bank_with_a_grown_history(tmp_path)
     missing = question_path(bank_dir, "q3")
     missing.unlink()
@@ -186,8 +244,22 @@ def test_a_rerun_over_a_partial_bank_writes_only_what_is_missing(
 
     assert migrate(MVP, bank_dir) == [missing]
     after = {p: p.read_bytes() for p in bank_dir.rglob("*.json")}
-    assert after.pop(missing) == (BANK / "questions" / "q3.json").read_bytes()
+    rewritten = after.pop(missing).decode("utf-8")
+    landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
+    assert _is_the_migrations_but_for_the_organizer(rewritten, landed)
+    assert not load_question(bank_dir, "q3").review.affirmed()
     assert after == before
+
+
+def test_a_rerun_keeps_what_an_organizer_wrote(tmp_path: pathlib.Path) -> None:
+    """F-52: q3 was affirmed by an organizer's documented edit of its review block.
+    A rerun over the committed bank must leave every organizer's review as it was
+    written, so q3 stays affirmed and in the reserve."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    migrate(MVP, bank_dir)
+    for qid in MIGRATED:
+        assert load_question(bank_dir, qid).review == load_question(BANK, qid).review, qid
+    assert load_question(bank_dir, "q3").review.affirmed()
 
 
 def test_a_rerun_refuses_a_bank_file_it_cannot_read(tmp_path: pathlib.Path) -> None:
@@ -565,11 +637,20 @@ def test_the_prototypes_stage_two_field_names_did_not_survive() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.fixture(scope="module")
+def migrated_fresh(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
+    out = tmp_path_factory.mktemp("fresh")
+    migrate(MVP, out)
+    return out
+
+
 @pytest.mark.parametrize("qid", MIGRATED)
-def test_nothing_migrated_is_affirmed(qid: str, committed: dict) -> None:
+def test_nothing_migrated_is_affirmed(qid: str, migrated_fresh: pathlib.Path) -> None:
     """G-12, AC-72: affirmation is a human act. A migration drafts; it never affirms,
-    so none of these can reach a deck until an organizer has read it."""
-    review = committed[qid].review
+    so none of these can reach a deck until an organizer has read it. This reads
+    what a fresh run writes, not the committed bank, where an organizer may since
+    have affirmed one (q3, F-52)."""
+    review = load_question(migrated_fresh, qid).review
     assert review is not None
     assert review.status is None
     assert review.affirmed() is False
