@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axum::http::{Method, StatusCode};
-use common::{http, q3, TestAuth, ORGANIZER};
+use common::{http, load, q3, q3_json, TestAuth, ORGANIZER};
 use futures_util::{SinkExt, StreamExt};
 use room::requestlog;
 use room::rooms::{AppState, Urls};
@@ -142,4 +142,90 @@ async fn ac55_drops_are_counted_ordinary_refusals_are_not_and_release_summarizes
             assert!(!["A", "B", "C", "D", "E"].contains(&v.as_str().unwrap_or("")), "an answer in {text}");
         }
     }
+}
+
+/// A server with the night's question and q3's record under a harness id, and
+/// its address.
+async fn two_question_server() -> (std::net::SocketAddr, axum::Router) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let mut harness = q3_json();
+    harness["id"] = "burst-q3".into();
+    let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3(), load(&harness)], Urls::default()));
+    let app = room::router_with(state);
+    tokio::spawn(room::ws::serve(listener, app.clone()));
+    (addr, app)
+}
+
+/// Create a room on `question`; its id, code and host session.
+async fn create(app: &axum::Router, question: &str) -> (String, String, String) {
+    let (status, created) = http(app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({ "question_id": question }))).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let f = |k: &str| created[k].as_str().unwrap().to_string();
+    (f("id"), f("code"), f("host_session"))
+}
+
+async fn join(app: &axum::Router, code: &str) -> String {
+    let (status, joined) = http(app, Method::POST, "/join", None, Some(json!({ "code": code }))).await;
+    assert_eq!(status, StatusCode::CREATED, "{joined}");
+    joined["token"].as_str().unwrap().to_string()
+}
+
+/// ws.rs's attach guard: a buzzer that attaches to a released room is not a
+/// participant request. The real map drops sessions at release, so the room
+/// refuses that socket anyway; a session map that still resolves the token
+/// (`TestTokens`) is what reaches the guard — the race a release can win
+/// between a phone's resolve and its count.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_buzzer_attaching_after_release_reopens_no_counter() {
+    requestlog::start_capture();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()));
+    let tokens = Arc::new(common::TestTokens::default());
+    tokens.add("a-phone", 1, None);
+    let transport = room::ws::Transport::new(state.clone(), tokens);
+    let app = room::router_with(state).layer(axum::Extension(transport));
+    tokio::spawn(room::ws::serve(listener, app.clone()));
+    let (room, _, host) = create(&app, "q3").await;
+    for slug in ["put-on-screen", "close-answers", "show-split", "walk-it", "reveal", "release"] {
+        assert_eq!(http(&app, Method::POST, &format!("/rooms/{room}/{slug}"), Some(&host), None).await.0, StatusCode::OK, "{slug}");
+    }
+    lines_until(&room, |l| l.iter().any(|v| v["event"] == "participant_requests")).await;
+    let socket = attach(addr, &room, "a-phone").await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(requestlog::counts_for(&room), requestlog::Counts::default(), "an attach after release reopened the counters");
+    drop(socket);
+}
+
+/// What an aborted harness run leaves behind (room/README.md, *After a
+/// meetup*): its room open, and one `socket_dropped` line per buzzer whose
+/// socket it abandoned — every one carrying the harness room's id, none of
+/// them on the night's room's lines or counters.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_aborted_harness_run_leaves_its_drops_on_its_own_room() {
+    requestlog::start_capture();
+    let (addr, app) = two_question_server().await;
+    let (night, night_code, _) = create(&app, "q3").await;
+    let phone = join(&app, &night_code).await;
+    let _phone_socket = attach(addr, &night, &phone).await;
+
+    let (harness, code, host) = create(&app, "burst-q3").await;
+    let mut sockets = Vec::new();
+    for _ in 0..4 {
+        let token = join(&app, &code).await;
+        sockets.push(attach(addr, &harness, &token).await);
+    }
+    assert_eq!(http(&app, Method::POST, &format!("/rooms/{harness}/put-on-screen"), Some(&host), None).await.0, StatusCode::OK);
+    // The process dies: every socket goes without a close frame.
+    drop(sockets);
+    let lines = lines_until(&harness, |l| l.iter().filter(|v| v["kind"] == "socket_dropped").count() == 4).await;
+    assert_eq!(lines.iter().filter(|v| v["kind"] == "socket_dropped").count(), 4, "{lines:?}");
+    assert_eq!(requestlog::counts_for(&harness).failed, 4);
+    // The night's room: one join, one attach, nothing failed.
+    assert!(requestlog::captured(&night).is_empty(), "{:?}", requestlog::captured(&night));
+    assert_eq!(requestlog::counts_for(&night), requestlog::Counts { failed: 0, total: 2 });
+    // And the harness room is still open, holding only its harness id.
+    let (status, again) = http(&app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({ "question_id": "burst-q3" }))).await;
+    assert_eq!((status, again["reason"].as_str()), (StatusCode::CONFLICT, Some("That question is open in another room. Pick another.")));
 }
