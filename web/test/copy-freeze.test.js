@@ -395,6 +395,7 @@ test('the page shells\' own text is §11\'s title row, composed from the keys', 
     'buzzer/index.html': `${C.title_wordmark} · ${C.buzzer_title_role}`,
     'host/index.html': `${C.title_wordmark} · ${C.host_title_role}`,
     'home/index.html': C.title_wordmark,
+    'landing/index.html': C.title_wordmark,
   };
   for (const [file, title] of Object.entries(want)) {
     const html = read(file);
@@ -413,7 +414,7 @@ test('no surface retypes a §11 string as a literal of its own', () => {
   // is also an identifier's worth of text and is left to the render test.
   const values = new Set(Object.values(REAL.COPY).filter((v) => (v.match(WORD) || []).length >= 2));
   const files = [...fs.readdirSync(SHARED).filter((f) => f.endsWith('.js') && f !== 'copy.js').map((f) => `shared/${f}`),
-    'wall/wall.js', 'wall/fallback/static.js', 'buzzer/buzzer.js', 'host/host.js', 'home/home.js'];
+    'wall/wall.js', 'wall/fallback/static.js', 'buzzer/buzzer.js', 'host/host.js', 'home/home.js', 'landing/landing.js'];
   const found = [];
   for (const f of files) {
     const code = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

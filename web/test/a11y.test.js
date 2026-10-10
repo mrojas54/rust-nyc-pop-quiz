@@ -48,6 +48,10 @@ const SURFACES = {
     sheets: ['shared/tokens.css', 'shared/components.css', 'host/host.css'],
     chain: [{ tag: 'body', attrs: {} }, { tag: 'main', attrs: { class: 'host-phone', id: 'host' } }],
   },
+  landing: {
+    sheets: ['shared/tokens.css', 'shared/components.css', 'landing/landing.css'],
+    chain: [{ tag: 'body', attrs: {} }],
+  },
   home: {
     sheets: ['shared/tokens.css', 'shared/components.css', 'home/home.css'],
     chain: [{ tag: 'body', attrs: { class: 'home-page' } }, { tag: 'main', attrs: { class: 'home-app', id: 'home' } }],
@@ -57,7 +61,8 @@ for (const s of Object.values(SURFACES)) s.css = D.sheets(s.sheets);
 
 // The pages link these; the suite reads the same list so the two cannot drift.
 test('the suite reads each surface\'s stylesheets in the order its page links them', () => {
-  const pages = { wall: 'wall/index.html', buzzer: 'buzzer/index.html', host: 'host/index.html', home: 'home/index.html' };
+  const pages = { wall: 'wall/index.html', buzzer: 'buzzer/index.html', host: 'host/index.html', home: 'home/index.html',
+    landing: 'landing/index.html' };
   for (const [name, file] of Object.entries(pages)) {
     const linked = [...read(file).matchAll(/<link rel="stylesheet" href="\/([^"]+)"/g)]
       .map((m) => m[1].replace(/^join\//, 'buzzer/'))
@@ -84,6 +89,7 @@ const hostEnv = loadAll(['host/host.js']);
 const H = hostEnv.PQ.host;
 const homeEnv = loadAll(['home/home.js']);
 const HOME = homeEnv.PQ.Home;
+const LAND = loadAll(['landing/landing.js'], { noMount: true }).PQ.Landing;
 
 // §11's ten live-region strings, and the host's seven phase labels.
 const LIVE = ['live_question_on_screen', 'live_saving', 'live_saved', 'live_save_failed', 'live_answers_closed',
@@ -220,7 +226,19 @@ function homeScreens() {
   return out;
 }
 
-const SCREENS = { wall: wallScreens(), buzzer: buzzerScreens(), host: hostScreens(), home: homeScreens() };
+// The front door is one screen: the page's own markup, its four mount points
+// filled by the renderer the page runs.
+function landingScreens() {
+  const P = LAND.parts();
+  const shell = read('landing/index.html');
+  const body = shell.slice(shell.indexOf('<div class="landing">'), shell.indexOf('<script'));
+  const fill = (id, html) => (h) => h.replace(new RegExp(`(id="${id}"[^>]*>)(</\\w+>)`), `$1${html}$2`);
+  const html = [fill('land-head', P.head), fill('land-copy', P.copy), fill('land-koan', P.koan), fill('land-foot', P.foot)]
+    .reduce((h, f) => f(h), body);
+  return [{ name: 'front door', phase: null, html }];
+}
+
+const SCREENS = { wall: wallScreens(), buzzer: buzzerScreens(), host: hostScreens(), home: homeScreens(), landing: landingScreens() };
 
 // --- The matrix ---------------------------------------------------------------
 
@@ -332,6 +350,11 @@ test('ac82_wall: no control on any phase or step (AC-79); the reading region is 
 
 test('ac82_buzzer: every control native, named, in the Tab order, and ringed at 3:1 on every screen', () => ac82('buzzer'));
 test('ac82_host: every control native, named, in the Tab order, and ringed at 3:1 on every screen', () => ac82('host'));
+test('ac82_landing: the join, last-meetup and host links are native, named, and ringed at 3:1', () => {
+  ac82('landing');
+  const doc = D.page(SCREENS.landing[0].html, SURFACES.landing.chain);
+  assert.equal([...doc.root.walk()].filter(isControl).length, 3, 'three links, no other Tab stop');
+});
 test('ac82_home: the program well, the trace buttons and the -Vv block are reachable and ringed at 3:1', () => {
   ac82('home');
   const doc = D.page(HOME.html(HOME_FIX.complete), SURFACES.home.chain);
@@ -873,6 +896,8 @@ test('ac84_host: every text on every screen is AA; the step buttons\' edge is pr
   edge('host', SCREENS.host.find((s) => s.name === 'work').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a step button\'s edge', LABELLED);
 });
 
+test('ac84_landing: every text, the koan bubble and the join button are AA', () => ac84('landing'));
+
 test('ac84_home: every text at every step is AA; the ✓ and the highlight edge are 3:1', () => {
   ac84('home');
   const html = HOME.html(HOME_FIX.q3, { step: 1 });
@@ -910,12 +935,13 @@ function ac85(surface) {
 
 test('ac85_buzzer: every letter, button and the code field ask for at least 44 × 44 px', () => ac85('buzzer'));
 test('ac85_host: every action, step button and the sign-in link ask for at least 44 × 44 px', () => ac85('host'));
+test('ac85_landing: the join button, the last-meetup link and the host link ask for 44 × 44 px', () => ac85('landing'));
 test('ac85_home: the trace\'s step buttons ask for 44 × 44 px over trace.js\'s inline 34 px', () => ac85('home'));
 
 // --- AC-86: motion ---------------------------------------------------------------------
 
 const ALL_SHEETS = ['shared/tokens.css', 'shared/components.css', 'shared/fonts.css', 'wall/wall.css',
-  'buzzer/buzzer.css', 'host/host.css', 'home/home.css'];
+  'buzzer/buzzer.css', 'host/host.css', 'home/home.css', 'landing/landing.css'];
 const MOTION = /^(animation|transition)(-|$)|^scroll-behavior$/;
 
 test('ac86_*: nothing animates outside a reduce block; each surface carries the reduce guard', () => {
@@ -928,14 +954,14 @@ test('ac86_*: nothing animates outside a reduce block; each surface carries the 
     const reduce = rules.filter((r) => r.media && /prefers-reduced-motion:\s*reduce/.test(r.media));
     if (moving.length) assert.ok(reduce.length, `${f} moves (${moving.join('; ')}) with no reduce block`);
     assert.deepEqual(moving, [], `${f}: motion outside prefers-reduced-motion`);
-    if (/^(wall|buzzer|host|home)\//.test(f)) {
+    if (/^(wall|buzzer|host|home|landing)\//.test(f)) {
       const stops = reduce.flatMap((r) => r.decls).filter((d) => /^(animation|transition)/.test(d.prop));
       assert.ok(stops.some((d) => /animation/.test(d.prop)) && stops.some((d) => /transition/.test(d.prop)), `${f}: the reduce guard stops both`);
     }
   }
   const scripts = ['shared/dom.js', 'shared/phase.js', 'shared/check.js', 'shared/well.js', 'shared/trace.js',
     'shared/typemodel.js', 'shared/copy.js', 'wall/wall.js', 'wall/qr.js', 'wall/fallback/static.js',
-    'buzzer/buzzer.js', 'host/host.js', 'home/home.js'];
+    'buzzer/buzzer.js', 'host/host.js', 'home/home.js', 'landing/landing.js'];
   for (const f of scripts) {
     const code = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     assert.ok(!/requestAnimationFrame|setInterval|\.animate\(|behavior:\s*["']smooth/.test(code), `${f} animates from script`);
@@ -1016,6 +1042,12 @@ test('ac86_host: each phase is a different primary action; nothing moves', () =>
     assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
     mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)} mv`);
   }
+});
+
+test('ac86_landing: the front door says what it is in words; nothing moves', () => {
+  const sc = SCREENS.landing[0];
+  assert.ok(text(sc.html).includes(C.wall_idle_title), 'the headline');
+  mark('landing', sc.name, 'AC-86', `${still('landing', sc)} mv`);
 });
 
 test('ac86_home: each step says its number in words; nothing moves', () => {

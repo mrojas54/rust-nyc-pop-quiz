@@ -16,6 +16,7 @@ no build step — the prototype *is* the design, and it is already plain JS
 | `buzzer/` | Join, answer, the private hint, the released line | T-06 |
 | `host/` | One screen per phase, one primary action | T-07 |
 | `home/` | Take it home, rebuilt at each release | T-12 |
+| `landing/` | The front door at `GET /`: a headline and two links, no room state | — |
 
 `shared/` is built **first and alone**, because three tickets consume it.
 

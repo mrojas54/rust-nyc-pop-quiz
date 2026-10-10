@@ -109,6 +109,10 @@ pub const RECEIPT_ERROR_CODES: &str = "✓ Error ‹codes›";
 pub const RECEIPT_NOTHING_RAN: &str = "✓ Nothing ran";
 pub const HOME_MACHINE_ONLY: &str = "The machine checked the answer only. An organizer approved the explanation.";
 pub const HOME_NOT_RECORDED: &str = "not recorded";
+pub const LANDING_JOIN: &str = "Join a room";
+pub const LANDING_LAST: &str = "Last meetup's question";
+pub const LANDING_HOST: &str = "Are you a host? Click here";
+pub const LANDING_KOAN: &str = "What is the sound of one value dropping?";
 
 // PROPOSED-§11: strings the pages already showed that §11 does not author yet,
 // moved into `copy.js` words unchanged by T-22 (F-34, F-38, and three more).
@@ -227,6 +231,10 @@ pub const ALL: &[(&str, &str)] = &[
     ("receipt_nothing_ran", RECEIPT_NOTHING_RAN),
     ("home_machine_only", HOME_MACHINE_ONLY),
     ("home_not_recorded", HOME_NOT_RECORDED),
+    ("landing_join", LANDING_JOIN),
+    ("landing_last", LANDING_LAST),
+    ("landing_host", LANDING_HOST),
+    ("landing_koan", LANDING_KOAN),
     ("proposed_home_nothing_yet", PROPOSED_HOME_NOTHING_YET),
     ("proposed_home_miri_separately", PROPOSED_HOME_MIRI_SEPARATELY),
     ("proposed_home_row_compiler", PROPOSED_HOME_ROW_COMPILER),
