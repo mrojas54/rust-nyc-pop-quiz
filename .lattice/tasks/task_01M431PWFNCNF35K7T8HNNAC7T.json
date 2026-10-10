@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 3,
   "complexity": "low",
   "created_at": "2026-10-04T08:50:24Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M431PWFNCNF35K7T8HNNAC7T",
-  "last_event_id": "ev_01M4JF45E8BRX4R7XJCJZXQ490",
+  "last_event_id": "ev_01M4K7VQD99H0HAP5Q09VK53B6",
   "last_status_changed_at": "2026-10-04T08:50:24Z",
   "priority": "high",
   "relationships_out": [],
@@ -26,6 +26,6 @@
   ],
   "title": "AC-26's option-position tell: fail as written, or carry the amended rule",
   "type": "task",
-  "updated_at": "2026-10-10T08:33:27Z",
+  "updated_at": "2026-10-10T15:45:45Z",
   "urgency": null
 }
