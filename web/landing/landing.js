@@ -1,8 +1,8 @@
 /* ===========================================================================
    The front door — GET /.
 
-   One headline, a way into a room and a way
-   to last meetup's question. No room state, no fetch: both exits are links, so
+   A header, one headline beside Ferris, a way into a room and a way to
+   last meetup's question, and the host's way in pinned to the foot. No room state, no fetch: both exits are links, so
    the page works the moment its own HTML and this script arrive.
 
    Every string is a web/shared/copy.js key (SPEC §11); none is typed here.
@@ -11,25 +11,33 @@
   "use strict";
   var PQ = (root.PopQuiz = root.PopQuiz || {});
 
-  function view() {
+  /* The three places the page's words go: the header, the copy column and
+     the footer. Ferris, between them, is drawn in index.html. */
+  function parts() {
     var t = PQ.t;
-    return (
-      '<p class="land-mark">' + t("title_wordmark") + "</p>" +
-      '<h1 class="land-title">' + t("wall_idle_title") + "</h1>" +
-      '<nav class="land-go">' +
-      '<a class="land-btn" href="/join">' + t("landing_join") + "</a>" +
-      '<a class="land-last" href="/last">' + t("landing_last") + "</a>" +
-      "</nav>" +
-      '<p class="land-foot"><a href="/host">' + t("landing_host") + "</a></p>"
-    );
+    return {
+      head: '<p class="land-mark">' + t("title_wordmark") + "</p>",
+      copy:
+        '<h1 class="land-title">' + t("wall_idle_title") + "</h1>" +
+        '<nav class="land-go">' +
+        '<a class="land-btn" href="/join">' + t("landing_join") + "</a>" +
+        '<a class="land-last" href="/last">' + t("landing_last") + "</a>" +
+        "</nav>",
+      foot: '<a href="/host">' + t("landing_host") + "</a>"
+    };
   }
 
   function mount(doc) {
-    var el = doc.getElementById("landing-copy");
-    if (el) el.innerHTML = view();
+    var p = parts();
+    var ids = { "land-head": p.head, "land-copy": p.copy, "land-foot": p.foot };
+    var el = null;
+    Object.keys(ids).forEach(function (id) {
+      el = doc.getElementById(id);
+      if (el) el.innerHTML = ids[id];
+    });
     return el;
   }
 
-  PQ.Landing = { view: view, mount: mount };
+  PQ.Landing = { parts: parts, mount: mount };
   if (root.document && !root.__POPQUIZ_NO_MOUNT__) mount(root.document);
 })(typeof window !== "undefined" ? window : globalThis);

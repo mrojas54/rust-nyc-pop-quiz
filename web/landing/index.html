@@ -10,14 +10,18 @@
 </head>
 <body class="landing-page">
 <!-- The front door (GET /). Everything on it is drawn by landing.js from
-     web/shared/copy.js into #landing-copy; this page types no string of its own (SPEC §11).
+     web/shared/copy.js into #land-head, #land-copy and #land-foot; this page types no string of its own (SPEC §11).
      It carries no room state and makes no request of its own: the two ways
      out are plain links, /join for a room and /last for the last question. -->
-<main class="landing">
-  <!-- Ferris as the Lady in the harbour: decoration only, so no alt text. -->
-  <img class="land-ferris" src="/landing/ferris.png" alt="" width="770" height="536">
-  <div id="landing-copy" class="land-copy"></div>
-</main>
+<div class="landing">
+  <header id="land-head" class="land-head"></header>
+  <main class="land-main">
+    <div id="land-copy" class="land-copy"></div>
+    <!-- Ferris as the Lady in the harbour: decoration only, so no alt text. -->
+    <div class="land-art"><img class="land-ferris" src="/landing/ferris.png" alt="" width="770" height="536"></div>
+  </main>
+  <footer id="land-foot" class="land-foot"></footer>
+</div>
 <script src="/shared/copy.js"></script>
 <script src="/landing/landing.js"></script>
 </body>
