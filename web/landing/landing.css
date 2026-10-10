@@ -52,7 +52,7 @@ html, body { background: var(--bg-primary); }
 .land-go { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); }
 .land-btn {
   display: flex; align-items: center; justify-content: center;
-  min-height: 56px; padding: 12px 40px;
+  min-height: 56px; min-width: var(--touch-target); padding: 12px 40px;
   border: var(--border-w) solid var(--accent-primary); border-radius: var(--radius);
   background: var(--accent-primary); color: var(--gray-800);
   font-family: var(--font-mono); font-size: 16px; font-weight: 600; text-decoration: none;
@@ -60,7 +60,7 @@ html, body { background: var(--bg-primary); }
 }
 .land-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
 .land-last {
-  display: flex; align-items: center; justify-content: center; min-height: var(--touch-target);
+  display: flex; align-items: center; justify-content: center; min-height: var(--touch-target); min-width: var(--touch-target);
   font-size: var(--text-sm); color: var(--text-primary);
   text-decoration: underline; text-underline-offset: 3px;
 }
@@ -69,7 +69,7 @@ html, body { background: var(--bg-primary); }
 /* The host's way in, pinned to the foot of the screen. */
 .land-foot { flex: none; display: flex; align-items: center; justify-content: center; min-height: 64px;
              border-top: var(--border-w) solid var(--border-default); }
-.land-foot a { display: inline-flex; align-items: center; min-height: var(--touch-target);
+.land-foot a { display: inline-flex; align-items: center; min-height: var(--touch-target); min-width: var(--touch-target);
                font-size: var(--text-sm); color: var(--text-secondary); text-underline-offset: 3px; }
 .land-foot a:hover { color: var(--accent-hover); }
 .land-btn:focus-visible, .land-last:focus-visible, .land-foot a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
