@@ -85,6 +85,15 @@ step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
 5. Then `just schedule`. A restart or deploy forgets every scheduled question,
    so scheduling comes last.
 
+**Never run the deployed burst during a meetup.** The `deployed-burst`
+workflow, or `just burst` / `just smoke` against the deployed room, shares the
+one machine with every phone in the room. Fly's proxy lets at most
+`hard_limit` connections (400, in `fly.toml`) reach that machine and refuses
+the rest, and cannot tell the harness from a phone; a 200-participant burst
+holds 403 on its own. The restart that follows every such run wipes every room
+in memory. The workflow asks you to type *no meetup is running and the restart
+wipes every room* before it starts; `room/README.md`, *Burst*, has the rest.
+
 The room runs on a paid Fly org, a card with a spending cap. The machine runs
 until something stops or redeploys it. A restart or a deploy loses every room,
 every scheduled question and the used ledger, which lives in memory. `just sync`
@@ -323,6 +332,7 @@ File the sheets:
 | Coming back from Discord answers `400` | The sign-in was replayed, expired or lost its cookie. Open `/host?question=<id>` again and tap *Sign in with Discord* once. |
 | `No question is scheduled with that id.` | The push did not land, or the machine restarted since. Run `just schedule` again with the same id and date, and check it prints `scheduled: new`. |
 | `That question has already been run. Pick another.` | This machine has released that question. Pick another. |
+| `smoke` or `burst` says `create: 409 "That question is open in another room. Pick another."` | A room on the machine still holds that harness id (often a run that stopped partway). Wait for it to go quiet (below), or schedule q3's record under another harness id and pass it with `--question`. Never restart for this during a night. |
 | `That question is open in another room. Pick another.` | Another room on this machine has that question and has not been released. Open that room's saved host-screen address instead, or pick another question. The other room stops holding the question once it goes quiet: 30 minutes with no host action while it waits to start, 20 minutes once started, and 4 hours after it was created at most. Only host actions reset the clock; phones joining or answering do not. If the saved host-screen address is lost, wait for that room to go quiet and create the room again, or pick another question. |
 | `That Discord account isn't in the Rust NYC server.` | Sign in with the account that is. |
 | `That Discord account doesn't have the organizer role.` | Sign in with an account that holds the organizer role. |
