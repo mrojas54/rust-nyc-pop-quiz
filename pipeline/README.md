@@ -30,14 +30,56 @@ so the interpreter and every dependency are the same everywhere.
 | `receipt` | `SPEC.md` §7.5's receipt as a pure function of a `verified` record | T-14 |
 | `migrate_mvp` | One-shot: the August batch into the bank as `legacy` records | T-14 |
 | `runner` | The seam the verifier reaches a toolchain through | T-01 |
-| `generate` | Candidates from an LLM, in the bank's shape | T-16 |
+| `generate` | Candidates from the Message Batches API, in the bank's shape, with a run report; proven on fixtures, never yet run against the API | T-16 |
 | `verify` | Pinned `rustc`, N native runs, Miri — the machine decides the answer | T-15b |
 | `dedupe` | Exact, normalized, and near-duplicate detection | T-17 |
 | `review` | The organizer's screen: accept, reject, edit, affirm | T-18 |
 | `audit` | `bank-audit` — uniformity in both tails, the enumerated tells, fit | T-19 |
 | `schedule` | `popquiz schedule`: the affirm gate, the date's arrangement, the push, and the static fallback with its host sheet; `popquiz sync`: the used ledger pulled back; the reserve count, trend and warning | T-20 |
 
-`generate` and `review` are empty stubs.
+`review` is an empty stub.
+
+## Generating
+
+**The generator has never called the API.** Everything below has run against
+recorded fixtures only; the first paid run is the client's (HC-2), and it needs
+H-4: an Anthropic API key and a spend cap.
+
+Against a fixture, from the repository root — no key, no network, no cost:
+
+    just generate --replay pipeline/tests/fixtures/generate/clean.json \
+      --count 3 --topic ownership --topic iterators --topic integers --difficulty 2 \
+      --out /tmp/popquiz-gen
+
+Each run writes a directory, `<out>/<run id>/`: one candidate per file in the bank's
+shape (`SPEC.md` §3.1 without `verified` or `review`), and under `_run/` the run's
+state and `report.json` — per candidate its tokens, cost (list price at the batch
+discount, labelled an estimate) and wall-clock, every reason a candidate was reported
+instead of emitted, and which of count, topics and difficulty the run could not
+honour. A fixture run's numbers are labelled *FIXTURE NUMBERS*. The default `--out`
+is `bank/candidates/`; nothing is ever written into `bank/questions/`. Candidates go
+on to `just verify` (with the `expect` the report records) and dedupe.
+
+Talk mode takes `--talk-title` and `--talk-abstract` in place of `--topic`; each
+candidate's topic is the std or core-language concept the model names (AC-4).
+
+The paid run, once H-4 is done, is the same command without `--replay`, with the key
+in the environment and a cap:
+
+    ANTHROPIC_API_KEY="$(op read 'op://<vault>/<item>/<field>')" \
+      just generate --count 10 --topic ownership --difficulty 2 --cap-usd 5
+
+There is no default cap. A run with none, or whose worst case (every request's
+`max_tokens` at the output price, plus its size at the input price, at the batch
+discount) is over it, refuses in one sentence before anything is built or sent. The
+model is one configured value, `claude-opus-5-5` (the client's ruling of 2026-10-10).
+A run that is killed resumes with `--run-id <id>`: it picks up the batch already
+submitted and never pays for a second one.
+
+The model's own idea of what a program prints is never written as an answer: there
+is no field for it, the trace is left empty for the organizer to write once the
+verifier has run, and option order means nothing (the night's order is drawn from
+the date). `pipeline/src/popquiz/generate.py`'s docstring has the reasons.
 
 ## Scheduling a meetup
 
