@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-10T19:27:10Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4KMH5K8YX47KTWXZEAPSGRK",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4KMH5K8YX47KTWXZEAPSGRK.md",
+    "size_bytes": 116
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Exact-head review PASS-WITH-NITS at 6222a1b; docs-only fix-back 806b303 re-read; exact-head CI green; merged 9e0e31d",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
