@@ -35,9 +35,80 @@
     "takeaway": "Exhaustiveness is checked for every type, including integer ranges. If you want a fallback, add a final _ arm, or write the last range as 100..=255 so the gap closes by itself."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "This is a compiler-check walkthrough; no source line executes. Line 2 gives n the type u8. The match on line 3 must cover that type's full range, 0 through 255.",
+        "values": [
+          {
+            "name": "uncovered u8 values",
+            "was": "—",
+            "now": "0..=255"
+          }
+        ]
+      },
+      {
+        "lines": [],
+        "focus": [
+          3,
+          4
+        ],
+        "note": "The first pattern on line 4 includes both endpoints, covering 0 through 99. We are tracking pattern coverage, without choosing an arm to run.",
+        "values": [
+          {
+            "name": "uncovered u8 values",
+            "was": "0..=255",
+            "now": "100..=255"
+          }
+        ]
+      },
+      {
+        "lines": [],
+        "focus": [
+          4,
+          5
+        ],
+        "note": "The second pattern on line 5 covers 100 through 254. Together the two patterns still leave one u8 value uncovered: 255.",
+        "values": [
+          {
+            "name": "uncovered u8 values",
+            "was": "100..=255",
+            "now": "255"
+          }
+        ]
+      },
+      {
+        "lines": [],
+        "focus": [
+          2,
+          6
+        ],
+        "note": "The initializer 50 is inside the first range, but it does not narrow the exhaustiveness check to that one value. The check still asks whether every possible u8 has an arm.",
+        "values": [],
+        "pivot": true
+      },
+      {
+        "lines": [],
+        "focus": [
+          3,
+          6
+        ],
+        "note": "With 255 uncovered and no fallback arm, the compiler rejects the match with E0004. Neither println! executes; there is no runtime output to trace.",
+        "values": [
+          {
+            "name": "exhaustiveness check",
+            "was": "255 uncovered",
+            "now": "rejected: E0004"
+          }
+        ]
+      }
+    ]
   },
   "review": {
-    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q12.json --expect does_not_compile` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q12.json --expect does_not_compile` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
   }
 }

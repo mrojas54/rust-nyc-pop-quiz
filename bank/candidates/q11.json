@@ -35,9 +35,96 @@
     "takeaway": "f64 is PartialEq and PartialOrd but not Eq or Ord, because NaN breaks the rules those traits promise. That is why you cannot sort a Vec<f64> with sort(), and why f64::total_cmp exists."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "n holds NaN, a floating-point value representing an undefined numerical result. Read the three expressions on line 3 separately.",
+        "values": [
+          {
+            "name": "n",
+            "was": "—",
+            "now": "NaN"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "First, n == n. Floating-point equality returns false when either side is NaN, even when both sides read the same variable.",
+        "values": [
+          {
+            "name": "n == n",
+            "was": "—",
+            "now": "false"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "Next, n.max(1.0). Rust's max returns the other operand when exactly one is NaN. This method has its own NaN rule, so the equality result does not tell us what max returns.",
+        "values": [
+          {
+            "name": "n.max(1.0)",
+            "was": "—",
+            "now": "1.0"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "Finally, 0.1 + 0.2 == 0.3. These unsuffixed floats default to f64. Binary rounding makes the sum slightly larger than the stored value of 0.3, so exact equality is false.",
+        "values": [
+          {
+            "name": "0.1 + 0.2 == 0.3",
+            "was": "—",
+            "now": "false"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          1,
+          4
+        ],
+        "note": "The print formats the three results in source order. Display writes the floating-point value 1.0 as 1.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "false 1 false"
+          }
+        ]
+      }
+    ]
   },
   "review": {
-    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q11.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q11.json --expect ran` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
   }
 }

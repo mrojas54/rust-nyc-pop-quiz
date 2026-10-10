@@ -35,9 +35,89 @@
     "takeaway": "Both methods exist so you can move a value out of something you only have a mutable borrow of. std::mem::replace works for any type, because you hand it the replacement. std::mem::take needs the type to implement Default, since Default::default() is what it leaves behind. Between them they are how you get an owned field out of &mut self without cloning."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          4
+        ],
+        "note": "a starts with Some(3). Keep the contents of a separate from the values returned by the next two calls.",
+        "values": [
+          {
+            "name": "a",
+            "was": "—",
+            "now": "Some(3)"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "take hands the old Option to b and leaves None in a. The variable a still holds a valid Option and can be used again.",
+        "values": [
+          {
+            "name": "a",
+            "was": "Some(3)",
+            "now": "None"
+          },
+          {
+            "name": "b",
+            "was": "—",
+            "now": "Some(3)"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          3,
+          4
+        ],
+        "note": "replace stores Some(7) in a and returns the contents from before that change. take already left None there, so c receives None.",
+        "values": [
+          {
+            "name": "a",
+            "was": "None",
+            "now": "Some(7)"
+          },
+          {
+            "name": "c",
+            "was": "—",
+            "now": "None"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          5
+        ],
+        "focus": [
+          2,
+          5
+        ],
+        "note": "The print reads a, b, then c. Changing a did not change the Option already returned into b.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "Some(7) Some(3) None"
+          }
+        ]
+      }
+    ]
   },
   "review": {
-    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q9.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q9.json --expect ran` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
   }
 }

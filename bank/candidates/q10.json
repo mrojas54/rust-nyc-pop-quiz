@@ -35,9 +35,160 @@
     "takeaway": "This is the standard word-count shape in Rust. The map is hashed, so its iteration order changes from run to run, which is why this program reads values by key instead of printing the whole map."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          4
+        ],
+        "note": "The map starts empty. Each distinct word will have one entry holding its count.",
+        "values": [
+          {
+            "name": "m",
+            "was": "—",
+            "now": "{}"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The first word is a. Its entry is vacant, so or_insert puts in 0 and returns a mutable reference to it. The += 1 immediately raises that count to 1.",
+        "values": [
+          {
+            "name": "w",
+            "was": "—",
+            "now": "\"a\""
+          },
+          {
+            "name": "m[\"a\"]",
+            "was": "absent",
+            "now": "0 → 1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The next word is b. This is another vacant entry: insert 0, then increment it to 1.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"a\"",
+            "now": "\"b\""
+          },
+          {
+            "name": "m[\"b\"]",
+            "was": "absent",
+            "now": "0 → 1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "Now a appears again. Its entry already holds 1, so or_insert keeps that count and returns a mutable reference to it. The increment raises it to 2.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"b\"",
+            "now": "\"a\""
+          },
+          {
+            "name": "m[\"a\"]",
+            "was": "1",
+            "now": "2"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The word c gets its own entry. Its first appearance counts too: 0 becomes 1.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"a\"",
+            "now": "\"c\""
+          },
+          {
+            "name": "m[\"c\"]",
+            "was": "absent",
+            "now": "0 → 1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3,
+          4
+        ],
+        "focus": [
+          3,
+          5
+        ],
+        "note": "The last word is a. Its existing count rises from 2 to 3. The loop has seen five words and stored three distinct keys.",
+        "values": [
+          {
+            "name": "w",
+            "was": "\"c\"",
+            "now": "\"a\""
+          },
+          {
+            "name": "m[\"a\"]",
+            "was": "2",
+            "now": "3"
+          }
+        ]
+      },
+      {
+        "lines": [
+          6
+        ],
+        "focus": [
+          2,
+          6
+        ],
+        "note": "The print looks up a and c, then asks for the number of keys. These key lookups do not depend on the map's iteration order.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "3 1 3"
+          }
+        ]
+      }
+    ]
   },
   "review": {
-    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q10.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q10.json --expect ran` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
   }
 }
