@@ -854,7 +854,8 @@ is the root's `fly.toml`, written by hand. `.dockerignore` is an allowlist: the
 crate and `web/`.
 
 **From GitHub Actions.** `.github/workflows/deploy.yml` runs `flyctl deploy
---remote-only --ha=false` when started by hand (Actions, *deploy*, Run workflow).
+--remote-only --ha=false` on every push to main, and when started by hand
+(Actions, *deploy*, Run workflow).
 It needs one repository secret, `FLY_API_TOKEN`, from
 `fly tokens create deploy -a rustnyc-popquiz`. This route works where a cloud
 session's does not, since the runner has no proxy in front of the builder.

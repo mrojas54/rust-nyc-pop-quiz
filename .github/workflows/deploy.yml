@@ -1,10 +1,9 @@
 name: deploy
 
-# Deploys the room to Fly (`rustnyc-popquiz`, fly.toml). Started by hand from the
-# Actions tab, never on a push: a deploy restarts the one machine and drops every
-# room it holds (fly.toml, "Never stopped for idleness"), so it runs when the
-# client says so. To deploy on every push to main instead, replace the trigger
-# below with `push: { branches: [main] }`.
+# Deploys the room to Fly (`rustnyc-popquiz`, fly.toml) on every push to main,
+# and by hand from the Actions tab. A deploy restarts the one machine and drops
+# every room it holds (fly.toml, "Never stopped for idleness"), so merge to main
+# with that in mind. To make it manual only, delete the `push` trigger below.
 #
 # The build runs on Fly's remote builder, not on the runner. The one thing this
 # needs from the repository is a secret named FLY_API_TOKEN, made with
@@ -13,6 +12,8 @@ name: deploy
 # the room's state.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
