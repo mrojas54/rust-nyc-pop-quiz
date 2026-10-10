@@ -68,6 +68,10 @@ cargo run --locked -- --question q3 --snapshot reveal
 
 ## Current limits
 
+The [generation plan](GENERATION_PLAN.md) covers offline batches, verification,
+duplicate checks, and opening new candidates in this preview. It also separates
+future review decisions from generation and scheduling.
+
 This prototype previews existing questions. Generation, editing, review decisions,
 explanation approval, scheduling, and projector preview are not implemented.
 
