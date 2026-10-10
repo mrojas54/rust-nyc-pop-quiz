@@ -552,6 +552,7 @@ pub const DRIVEN: &[(&str, &str)] = &[
     ("GET", "/"),
     ("GET", "/landing/landing.js"),
     ("GET", "/landing/landing.css"),
+    ("GET", "/landing/ferris.png"),
     // T-25: the admin channel, every method, at every stop (`admin_probe`).
     ("ANY", "/admin"),
     ("ANY", "/admin/"),
@@ -1268,6 +1269,7 @@ impl<'s> Walk<'s> {
             "/".into(),
             "/landing/landing.js".into(),
             "/landing/landing.css".into(),
+            "/landing/ferris.png".into(),
         ];
         pages.extend(served_files("shared").into_iter().map(|f| format!("/shared/{f}")));
         for page in &pages {

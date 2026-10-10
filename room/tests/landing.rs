@@ -16,7 +16,7 @@ async fn get(app: &axum::Router, uri: &str) -> (StatusCode, String, String) {
     let status = res.status();
     let kind = res.headers().get(header::CONTENT_TYPE).map(|v| v.to_str().unwrap().to_owned()).unwrap_or_default();
     let body = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
-    (status, kind, String::from_utf8(body.to_vec()).unwrap())
+    (status, kind, String::from_utf8_lossy(&body).into_owned())
 }
 
 #[tokio::test]
@@ -29,7 +29,7 @@ async fn the_root_is_the_landing_page_not_a_404() {
     assert!(kind.starts_with("text/html"), "{kind}");
     assert!(page.contains(r#"id="landing-copy""#));
 
-    for (path, want) in [("/landing/landing.js", "text/javascript"), ("/landing/landing.css", "text/css")] {
+    for (path, want) in [("/landing/landing.js", "text/javascript"), ("/landing/landing.css", "text/css"), ("/landing/ferris.png", "image/png")] {
         let (status, kind, body) = get(&app, path).await;
         assert_eq!(status, StatusCode::OK, "{path}");
         assert!(kind.starts_with(want), "{path}: {kind}");

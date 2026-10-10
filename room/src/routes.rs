@@ -722,6 +722,10 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
         router = router
             .route("/", get(|| async { asset("text/html; charset=utf-8", include_str!("../../web/landing/index.html")) }))
             .route("/landing/landing.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../web/landing/landing.js")) }))
+            .route(
+                "/landing/ferris.png",
+                get(|| async { ([(header::CONTENT_TYPE, "image/png"), (header::CACHE_CONTROL, "no-cache")], include_bytes!("../../web/landing/ferris.png").as_slice()) }),
+            )
             .route("/landing/landing.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/landing/landing.css")) }));
     }
     // end front door -------------------------------------------------------

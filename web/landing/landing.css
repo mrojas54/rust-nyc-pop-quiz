@@ -19,6 +19,9 @@ html, body { background: var(--bg-primary); }
   overflow-wrap: anywhere;
 }
 
+/* Ferris, from the client's own drawing. Scales with the column, never past it. */
+.land-ferris { display: block; width: 100%; max-width: 300px; height: auto; }
+
 .land-copy { display: flex; flex-direction: column; gap: var(--space-6); }
 .land-mark { margin: 0; font-size: var(--text-xs); letter-spacing: var(--tracking-caps);
              text-transform: uppercase; color: var(--text-secondary); }
