@@ -864,6 +864,16 @@ separate environment secret (a deploy token for `rustnyc-popquiz`), never
 committed. The environment's setup script is the alternative place for the same
 install line.
 
+**just in cloud sessions.** `.claude/hooks/install-just.sh` (the second
+`SessionStart` hook, remote sessions only) downloads the pinned `just` release
+tarball from `github.com`, checks its SHA-256, and puts the binary in `~/.just/bin`
+and on `PATH`, so `just test` runs. It is idempotent, bounded to 60 s, and on a
+blocked network prints one line and lets the session start. `just test` needs
+`just setup` once first (it fetches dependencies; `test` itself is offline).
+`just test-full` also needs a running Docker daemon for `sandbox-build`; a cloud
+session has the `docker` client and `dockerd` but no daemon until `dockerd &`.
+Fixtures: `bash .claude/hooks/install-just.test.sh`.
+
 **One machine, never two.** The room is one state in memory (SPEC §9). A second
 machine would be a second room that phones could land in. `fly deploy` adds a
 second machine "for high availability" whatever `fly.toml` says, so every
