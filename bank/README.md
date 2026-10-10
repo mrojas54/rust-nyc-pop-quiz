@@ -390,7 +390,7 @@ What it checks:
 | The slot path | AC-23, G-1, G-10 | `slot.py` takes the date and nothing else, and every caller passes the literal 5. Nothing in the pipeline reads, writes or imports `mvp/answer-history.json`, and no function both draws a slot and writes a file — the shape of the MVP's old ledger-writer, under any name. |
 | Five options | AC-24 | Every question has five options, and exactly one is *does not compile*. |
 | No published distribution | AC-25, G-11 | No percentage or ratio sits within a line of *compile*, *UB*, *undefined*, *panic* or *output* in anything an attendee could read: the copy table, take-it-home text, the public README, and the organizer docs. Nothing under `web/` or `room/` may mention `bank/audit`. |
-| The tells | AC-26 | For each tell there is a short list of rules an attendee might learn — "`unsafe` means undefined behaviour", "long programs don't compile", "pick the longest option", "it's always E", "this topic never compiles". A sixth line checks the answer categories themselves ("always pick *does not compile*"). A rule fails when it beats chance by more than 1.5× **and** luck cannot explain it. With four questions, beating chance by luck is easy, so a rule that is merely lucky is shown as a warning. |
+| The tells | AC-26 | For each tell there is a short list of rules an attendee might learn — "`unsafe` means undefined behaviour", "long programs don't compile", "pick the longest option", "it's always E", "this topic never compiles". A sixth line checks the answer categories themselves ("always pick *does not compile*"). A rule fails when it beats chance by more than 1.5× **and** luck cannot explain it. With four questions, beating chance by luck is easy, so a rule that is merely lucky is shown as a warning. The position rules read the order a room shows, not the order the file stores: each question is arranged by `popquiz schedule`'s arrangement on 1,000 made-up nights, and counts once, by how often a rule finds its answer across those nights. |
 | `unsafe` parity | AC-27 | If any accepted question's answer is undefined behaviour, some accepted question whose answer is not UB must contain `unsafe` too. |
 | Fits the room | AC-100, D-15 | Each program fits the wall's reading area at the smallest size the back row can read, using the same arithmetic as `web/shared/typemodel.js`. Each option is one line of at most 29 characters. |
 | Difficulty drift | AC-88 | Across accepted questions, the organizer's judged difficulty averages within one level of what was asked for. If not, the **run** fails, not any one question. |
@@ -403,14 +403,23 @@ does not fail the run. Otherwise every too-long draft would keep the audit red
 until someone reviewed it. `--strict` fails on any flag or warning.
 
 No question in the bank carries a flag for fit or option length. At T-14, q4, q7
-and q8 did; PR #36's re-authoring (D-15) cleared all three. The option-position
-tell warns because every migrated record has its correct option last in the
-file. The file order is not the order a room sees: `popquiz schedule` puts the
-correct option at the meetup date's slot before the room and the static fallback
-receive the record, and never rewrites the file (`pipeline/README.md`,
-*Scheduling a meetup*). The audit still reads the stored order as a tell about the
-generator, so a fifth record written answer-last will fail; that rule is its own
-ticket's to revisit.
+and q8 did; PR #36's re-authoring (D-15) cleared all three.
+
+The file order is not the order a room sees: `popquiz schedule` puts the correct
+option at the meetup date's slot before the room and the static fallback receive
+the record, and never rewrites the file (`pipeline/README.md`,
+*Scheduling a meetup*). So the option-position tell measures that arrangement, on
+made-up nights, and the bank's habit of storing every answer last is not a tell:
+the position line passes, every letter near chance. Under the arrangement a
+letter's score is the date's draw, the same for every question, so what the line
+can catch is an arrangement that lets the question pick the letter; the
+*does not compile* position rules repeat what the answer-category line measures.
+
+A tell fails only past the margin and when its chance tail is at most 0.01 divided
+by its number of rules. The position tell has ten rules, so its bound is 0.001,
+and the smallest tail n questions can reach is 0.2ⁿ: below five questions the
+position tell can only warn, at five it can fail. A tell with one rule has a bound
+of 0.01 and can fail at three.
 
 **The report is organizer-only and not committed.** It names answer categories and
 how often a rule would have won, which is exactly what AC-25 keeps from attendees.
