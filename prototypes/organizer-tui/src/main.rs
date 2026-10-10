@@ -22,7 +22,7 @@ fn main() -> Result<()> {
                 )
             }
             "--help" | "-h" => {
-                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\n1 Question / t Trace / arrows Step / r Reveal / [ ] Candidate / j k Scroll / q Quit");
+                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\n1 Question / t Trace / Left-Right Step / r Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
                 return Ok(());
             }
             _ => return Err(format!("Unknown argument: {arg}").into()),
@@ -65,7 +65,8 @@ fn main() -> Result<()> {
                     KeyCode::PageUp => Some('K'),
                     KeyCode::PageDown => Some('J'),
                     KeyCode::Tab => Some('\t'),
-                    KeyCode::Esc => Some('q'),
+                    KeyCode::Enter => Some('\n'),
+                    KeyCode::Esc => Some('\u{1b}'),
                     _ => None,
                 };
                 if action.is_some_and(|key| !app.handle(key)) {
