@@ -1141,8 +1141,10 @@ def score_across_nights(name: str, rule: Rule, faces: Sequence[Face]) -> RuleSco
     those chances at the rounded-down sum of the rates: a trial in [0, 1] with
     mean p has no more variance than a coin with p, and rounding down only ever
     makes a FAIL harder (where the rates are one shared draw - the index rules
-    under the real arrangement - the margin is what holds, see above). Counting nights as trials instead would treat one draw of
-    the slot, shared by every question that night, as many independent ones.
+    under the real arrangement - the margin is what holds, see above).
+
+    Counting nights as trials instead would treat one draw of the slot, shared
+    by every question that night, as many independent ones.
     """
     rates, ps = [], []
     for face in faces:

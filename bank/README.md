@@ -410,10 +410,12 @@ option at the meetup date's slot before the room and the static fallback receive
 the record, and never rewrites the file (`pipeline/README.md`,
 *Scheduling a meetup*). So the option-position tell measures that arrangement, on
 made-up nights, and the bank's habit of storing every answer last is not a tell:
-the position line passes, every letter near chance. Under the arrangement a
-letter's score is the date's draw, the same for every question, so what the line
-can catch is an arrangement that lets the question pick the letter; the
-*does not compile* position rules repeat what the answer-category line measures.
+the position line passes with every rule under the 1.5× margin (worst:
+*does not compile* at E, 1.25×; the letter rules at most 1.14×). Under the
+arrangement a letter's score is the date's draw, the same for every question,
+so what the line can catch is an arrangement that lets the question pick the
+letter; the *does not compile* position rules repeat what the answer-category
+line measures.
 
 A tell fails only past the margin and when its chance tail is at most 0.01 divided
 by its number of rules. The position tell has ten rules, so its bound is 0.001,
