@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-10T21:25:34Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4KV9Z48397JA1S2DXTP952S",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4KV9Z48397JA1S2DXTP952S.md",
+    "size_bytes": 94
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Exact-head CI green and Orchestrator read PASS at c69877b; merged a3c8c4e on the client's word",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
