@@ -1,5 +1,25 @@
 # Organizer TUI prototype validation
 
+## Step navigator — 2026-10-10
+
+RED commit `4d5387a`; GREEN commit `6d8579e`.
+
+From `prototypes/organizer-tui/`, after the final source changes:
+
+- `cargo test --locked`: 15 passed (4 unit, 11 integration).
+- `cargo clippy --locked --all-targets -- -D warnings`: clean.
+- `cargo fmt --check`: clean.
+
+The four new tests failed before implementation. They cover selecting versus
+opening a step, focus and Escape behavior, blocking reveal through list navigation,
+and help without changing the underlying state. Existing isolation and rendering
+tests continue to pass.
+
+A 136 × 41 pseudo-terminal recording exercised selection, Enter, Tab through all
+panes, stepping, explicit reveal, scrolling, help, and clean exit. The recording
+is about 35 seconds. See [design-qa.md](design-qa.md) for the visual comparison.
+Only the prototype checks were rerun; no new bank verification is claimed.
+
 ## Ratatui replacement — 2026-10-07
 
 Implementation commit `326b49e`, RED commit `2549b1e`.
