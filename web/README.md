@@ -75,7 +75,7 @@ only a layout engine and a screen reader can show.
 
 `web/test/a11y.test.js`, on node's runner with no dependency, like every suite
 here. It is hermetic and takes about a second, so `just test` runs it too
-(through the `test-web` glob, silently); `just test-full` runs `just a11y`.
+(through the `test-web` glob, silently); `just a11y` prints the matrix.
 
 It renders every surface at every phase from fixtures: the wall at every phase
 and step (and the unanimous reveal), the static fallback at every `{phase,

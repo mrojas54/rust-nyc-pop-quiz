@@ -118,9 +118,9 @@ jobs:
           key: cargo-burst-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
           restore-keys: cargo-burst-${{ runner.os }}-
 
-      # Built before anything touches the room: the Fly trial org stops the
-      # machine about five minutes after it starts, so scheduling, burst and
-      # smoke run back to back with no build between them.
+      # Built before anything touches the room, so scheduling, burst and smoke
+      # run back to back with no build between them: a restart or deploy in
+      # between would lose the scheduled ids.
       - name: Build both harnesses
         run: |
           set -euo pipefail
@@ -160,8 +160,7 @@ jobs:
           set -euo pipefail
           mkdir -p reports
           ulimit -n 4096 2>/dev/null || true
-          # Short enough to sit inside the trial's window: one isolated burst
-          # per shape, a 10 s churn. Stdout is the report; --out keeps it.
+          # Short: one isolated burst per shape, a 10 s churn. Stdout is the report; --out keeps it.
           room/target/release/burst --url "$ROOM_URL" --participants "$PARTICIPANTS" \
             --question burst-q3 --connection-cap "$CAP" --cycles 1 --churn-secs 10 \
             --seed "$GITHUB_RUN_ID" --out reports/burst.json > /dev/null

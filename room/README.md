@@ -904,13 +904,11 @@ resets q3 for another HC-0 drive after a real one. The ledger is in memory until
 T-20's `popquiz sync` pulls it (through T-25's `GET /admin/used`), so a restart
 before a sync loses the night's record.
 
-**The trial org stops the machine.** The Fly org has no payment method, so Fly
-stops every machine after about five minutes. Rooms live in memory, so a
-stopped machine has lost every room it held. `auto_start_machines` starts a
-fresh one (with no rooms and q3 unused) on the next request. HC-0 therefore
-runs inside one such window: open the host URL, create the room, and walk it
-through within five minutes. Otherwise, add a card at https://fly.io/trial. No
-code works around this.
+**A restart loses every room.** The room runs on a paid Fly org, a card with
+a spending cap. The machine runs until something stops or redeploys it. Rooms
+live in memory, so a restart or a deploy loses every room, every scheduled
+question and the used ledger; `auto_start_machines` starts a fresh one (no
+rooms, nothing used) on the next request. `docs/RUNBOOK.md` has the rest.
 
 **DNS, later (H-2).** When `popquiz.rustnyc.org` points at the app, run
 `fly certs add popquiz.rustnyc.org -a rustnyc-popquiz` and set
@@ -1012,7 +1010,10 @@ the default 200 participants that is 403**: against the old cap of 400 the
 deployed 200-participant run could not count, so the client raised
 `hard_limit` to 500 (2026-10-10). That leaves 97 connections for anything else
 on the machine — another reason never to run it during a meetup. Up to 248
-participants fit. The spike's "more than one Fly machine"
+participants fit. 500 is a limit on the connections Fly's proxy routes to one
+machine, not a measured capacity of the VM: watch the first deployed run
+(`fly logs`, the machine's CPU and memory in the Fly dashboard), and read its
+report before trusting the number. The spike's "more than one Fly machine"
 check is gone — the room exposes no machine id, and `fly.toml` runs one; a
 machine lost mid-run shows as `404`s and is reported as the room gone.
 
@@ -1043,8 +1044,9 @@ and handed to curl on stdin, never on its command line:
           https://rustnyc-popquiz.fly.dev/admin/questions/$id
     done
 
-**From the laptop** (the pre-checkpoint path), right after scheduling, inside
-one trial window (*The trial org stops the machine*, above):
+**From the laptop** (the pre-checkpoint path), right after scheduling (a
+restart or deploy in between loses the scheduled ids — *A restart loses every
+room*, above):
 
     export POPQUIZ_ORGANIZER_SESSION=…   # what follows the # after signing in at /host
     just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 --out burst.json   # 500: fly.toml's hard_limit

@@ -335,8 +335,8 @@ pub async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u
 }
 
 /// Wait for the room to answer `GET /join`. The first request also waits out
-/// a stopped machine's start (Fly starts it on the first request after the
-/// trial's stop).
+/// a stopped machine's start (Fly starts it on the first request after a
+/// stop or a deploy).
 pub async fn wait_for_room(target: &Arc<Target>, tls: &Option<tokio_rustls::TlsConnector>) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
@@ -462,7 +462,7 @@ pub async fn all_reach(watchers: &[&Watcher], phase: &str, wait: Duration) -> Re
 }
 
 /// An error, with what it most likely means on Fly when the room vanished
-/// mid-run: the trial org stops the machine after about five minutes, and a
+/// mid-run: the machine runs until something stops or redeploys it, and a
 /// restarted machine has no rooms (room/README.md, *Deploying*). Never read as
 /// "a second machine" — `fly.toml` runs one.
 pub fn explain(e: &str) -> String {
@@ -473,7 +473,7 @@ pub fn explain(e: &str) -> String {
     let room_404 = e.contains(": 404") && !e.starts_with("create");
     let gone = connection || room_404;
     if gone {
-        format!("{e} — the room may be gone: if this is the deployed app, the machine may have been stopped or restarted mid-run (the Fly trial stops it after about five minutes); restart it and run again inside one window")
+        format!("{e} — the room may be gone: if this is the deployed app, the machine may have been stopped or restarted mid-run (it runs until something stops or redeploys it, and a restart or a deploy loses every room); check `fly status`, then schedule the ids again and rerun")
     } else {
         e.to_string()
     }
