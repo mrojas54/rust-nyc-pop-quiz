@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M309ZRXZSP6J2MBF62V9JG5W",
-  "last_event_id": "ev_01M461KGF0SEEJFQ2DHZ9GHNJM",
+  "last_event_id": "ev_01M4KRMKJFJ0PT2QEZE8V815HR",
   "last_status_changed_at": "2026-09-20T21:01:39Z",
   "priority": "medium",
   "relationships_out": [
@@ -39,6 +39,6 @@
   ],
   "title": "Review surface",
   "type": "task",
-  "updated_at": "2026-10-05T12:46:17Z",
+  "updated_at": "2026-10-10T20:38:57Z",
   "urgency": null
 }
