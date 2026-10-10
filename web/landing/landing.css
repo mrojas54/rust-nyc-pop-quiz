@@ -6,8 +6,8 @@
    One column, centred, 375px at the narrowest. Every control is at least
    44px (AC-85). Nothing here sets a width wider than the viewport, and long
    words wrap, so the page never scrolls sideways (AC-33). Colour is never
-   the only signal (AC-40): the buttons are labelled and Ferris is
-   decoration. No red or error token.
+   the only signal (AC-40): the buttons are labelled and there is
+   no decoration. No red or error token.
    =========================================================================== */
 html, body { background: var(--bg-primary); }
 
@@ -24,9 +24,6 @@ html, body { background: var(--bg-primary); }
              text-transform: uppercase; color: var(--text-secondary); }
 
 .land-title { margin: 0; font-size: 48px; line-height: var(--leading-tight); }
-
-/* Ferris, in the harbour pose. Scales with the column, never past it. */
-.land-ferris { display: block; width: 100%; max-width: 240px; height: auto; }
 
 
 .land-go { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-6); }

@@ -1,12 +1,11 @@
 /* ===========================================================================
    The front door — GET /.
 
-   Ferris with a crown and torch, one headline, a way into a room and a way
+   One headline, a way into a room and a way
    to last meetup's question. No room state, no fetch: both exits are links, so
    the page works the moment its own HTML and this script arrive.
 
    Every string is a web/shared/copy.js key (SPEC §11); none is typed here.
-   Ferris is drawn in index.html: decoration, aria-hidden, no text.
    =========================================================================== */
 (function (root) {
   "use strict";
