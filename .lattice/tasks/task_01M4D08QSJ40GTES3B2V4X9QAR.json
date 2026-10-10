@@ -1,0 +1,40 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": null,
+  "created_at": "2026-10-08T05:37:36Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "Follow-up to PQ-30 (PR #51, head 6c589fa). The exact-head review confirmed the pairs below. Each normalizes equal on HEAD (and on main), rustc 1.96.1 --edition 2021 --crate-type bin compiles A (exit 0) but not B (exit 1), so each silently discards a valid question (AC-15, SPEC 7.3). Items 1-3 were reproduced from the Orchestrator seat; item 4 is the reviewer's report alone, so re-probe it first.\n\n1. (Major) A local or parameter reaches into a nested mod in its fn body, where the bare name is the library's. A: fn main() { let drop = 1; mod m { pub fn f() { drop(1); } } m::f(); let _ = drop; } vs B: drop renamed to zzq everywhere (E0425). Parameter variant: fn f(drop: i32) -> i32 { mod m { pub fn g() { drop(1); } } m::g(); drop } fn main() { f(1); } vs zzq. Fix site: scope_outside_modules (dedupe.py ~1061); only item scopes get holes for nested mod bodies today; subtract them from let, parameter and block scopes.\n2. (Major) A block-level use shadows an item. A: fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::drop; drop(1); } drop(1, 2); } vs B: fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::drop; zzq(1); } zzq(1, 2); } (E0061). Conservative fix: a name that sits next to a block-level use keeps its spelling.\n3. (Major) _STD_MEMBERS is incomplete. A: fn count_ones(x: u32) -> u32 { x } struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); count_ones(1); let _ = 3u32.count_ones(); } vs B: count_ones renamed to zzq everywhere (E0599). Documented as incomplete; the fix is a complete list or a rule that does not need one (keep a method name when a program type also declares it).\n4. (Minor) The scope is anchored on the first { after the pattern, which is the initializer block. A: fn main() { if let Some(drop) = { drop(1); Some(2) } { } } vs zzq (E0425). Reachable only when the binding is unused in the then-block; the for analogue is caught only because the binding is used.\n\nAlso in scope: over-corrections (equal on main, unequal on HEAD, both compile 0/0, so a recall loss that sends the pair to an organizer): static dispatch through a program trait, trait Tr { fn go() -> i32; } struct S; impl Tr for S { fn go() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::go() } fn main() { f::<S>(); } vs go renamed to run; and a type-alias head, type A = S; A::mk() vs A::build(). Performance NIT: a 4000-line synthetic program takes 3.9 s on HEAD against 1.2 s on main (scope_outside_modules loops every item over every module); a 1000-line program 0.33 s; the largest real bank question 0.5 ms. _impl_owner/_impl_trait and _header_words/_header_keyword duplicate parsing.\n\nAcceptance: each pair added unweakened to pipeline/tests/test_dedupe.py with a twin and a named mutation, probed with rustc (exit codes in the validation note); existing tables stay green; just test under 60 s warm; the docstring and bank/README.md lists updated to remove only what is closed. Conservative rule: where scope is ambiguous at the token level, do not rename. Standard library only. Cleared files: pipeline/src/popquiz/dedupe.py, pipeline/tests/test_dedupe.py, bank/README.md. Warning from PQ-30: this area has gone four review rounds with new Majors at the edge of the absolute criterion; the delegator should state the stopping rule in its plan (a bounded list of known shapes, not 'no false match exists'). Base: main once PR #51 merges.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M4D08QSJ40GTES3B2V4X9QAR",
+  "last_event_id": "ev_01M4D0910R9TAMESACSR8NQRQ1",
+  "last_status_changed_at": "2026-10-08T05:37:36Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-10-08T05:37:46Z",
+      "created_by": "agent:orchestrator",
+      "note": null,
+      "target_task_id": "task_01M3EC996KRZVG82K3DP03QEYF",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-66",
+  "status": "backlog",
+  "tags": [
+    "held",
+    "follow-up",
+    "dedupe",
+    "pipeline",
+    "T-17"
+  ],
+  "title": "Dedupe follow-up: the false normalized duplicates PQ-30's exact-head review left open",
+  "type": "bug",
+  "updated_at": "2026-10-08T05:37:46Z",
+  "urgency": null
+}

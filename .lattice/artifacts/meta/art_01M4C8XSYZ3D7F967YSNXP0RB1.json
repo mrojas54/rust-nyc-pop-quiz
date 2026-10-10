@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-07T22:49:41Z",
+  "created_by": "agent:delegator-pq30-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4C8XSYZ3D7F967YSNXP0RB1",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4C8XSYZ3D7F967YSNXP0RB1.md",
+    "size_bytes": 830
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Code review (eighth class)",
+  "token_usage": null,
+  "type": "note"
+}

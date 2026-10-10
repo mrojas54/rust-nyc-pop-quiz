@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-08T08:36:17Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4DAFXC6AK3XRB8ZE316RT7C",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4DAFXC6AK3XRB8ZE316RT7C.md",
+    "size_bytes": 1592
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Merge-scoped re-read of the docs fix-back (Orchestrator), PASS-WITH-NITS",
+  "token_usage": null,
+  "type": "note"
+}

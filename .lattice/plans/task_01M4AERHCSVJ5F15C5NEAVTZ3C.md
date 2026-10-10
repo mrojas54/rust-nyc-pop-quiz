@@ -11,3 +11,7 @@ SCOPE. (1) Print the room's reason verbatim for every 409 on create, and make th
 NOT IN SCOPE. The --question q3 default and refusing a bank id off loopback are PQ-41 item (B); land them there. If PQ-41 is dispatched first, fold this ticket into it.
 
 Acceptance: just test green and under 60 s; each new check shown failing under its mutation; no change to room/src/rooms.rs.
+
+# Plan (orchestrator, 2026-10-10)
+
+Folded into PQ-41 (ruling 2 of its DISPATCH) and delivered in PR #54, merged at 8819b67. No separate work; this ticket is closed as a bookkeeping transition.

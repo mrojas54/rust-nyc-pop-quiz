@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-08T08:39:42Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4DAP5KYGW12NT0DHMHX4F12",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4DAP5KYGW12NT0DHMHX4F12.md",
+    "size_bytes": 181
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #51 (merge commit 4e2c173, head e0cb648); exact-head review FAIL at 6c589fa then docs fix-back PASS-WITH-NITS at e0cb648; open false duplicates tracked as PQ-66 (held)",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

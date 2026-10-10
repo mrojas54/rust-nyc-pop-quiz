@@ -1,0 +1,1 @@
+Folded into PQ-41 and delivered in PR #54 (merged 8819b67): the 409 hint depends on the room's reason, and the held case never suggests a restart; tests and README passages landed there.
