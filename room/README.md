@@ -926,23 +926,24 @@ secret, and every organizer signs in with their own Discord account.
 **The pipeline's secret.** `POPQUIZ_ADMIN_TOKEN` is the other Fly secret, and
 every build needs it (*Pipeline channel*, H-11). Set it before deploying.
 
-**Smoke uses up q3.** `just smoke <url>` runs a whole segment on q3, which must
-be scheduled first (SPEC §8.3), and release writes
-q3's `used` record into the machine's in-memory ledger (G-10, T-11). That
-machine then refuses to create a room on q3 until it restarts. After every
-smoke run against the deployed room, run `fly apps restart rustnyc-popquiz`
+**Smoke uses up the id it runs.** `just smoke <url>` runs a whole segment on
+q3's record, which must be scheduled first (SPEC §8.3), and release writes that
+id's `used` record into the machine's in-memory ledger (G-10, T-11). That
+machine then refuses to create a room on that id until it restarts. So smoke
+runs on a harness id, `smoke-q3` by default, which no bank question has; off
+loopback it refuses a bank id unless given `--spend-bank-question`. After every
+smoke run against the deployed room, and only when no meetup is running (a
+restart wipes every room in memory), run `fly apps restart rustnyc-popquiz`
 before anyone hosts on it. The same restart (or `fly machine restart <id>`)
 resets q3 for another HC-0 drive after a real one. The ledger is in memory until
 T-20's `popquiz sync` pulls it (through T-25's `GET /admin/used`), so a restart
 before a sync loses the night's record.
 
-**The trial org stops the machine.** The Fly org has no payment method, so Fly
-stops every machine after about five minutes. Rooms live in memory, so a
-stopped machine has lost every room it held. `auto_start_machines` starts a
-fresh one (with no rooms and q3 unused) on the next request. HC-0 therefore
-runs inside one such window: open the host URL, create the room, and walk it
-through within five minutes. Otherwise, add a card at https://fly.io/trial. No
-code works around this.
+**A restart loses every room.** The room runs on a paid Fly org, a card with
+a spending cap. The machine runs until something stops or redeploys it. Rooms
+live in memory, so a restart or a deploy loses every room, every scheduled
+question and the used ledger; `auto_start_machines` starts a fresh one (no
+rooms, nothing used) on the next request. `docs/RUNBOOK.md` has the rest.
 
 **DNS, later (H-2).** When `popquiz.rustnyc.org` points at the app, run
 `fly certs add popquiz.rustnyc.org -a rustnyc-popquiz` and set
@@ -977,14 +978,27 @@ named `correct`. At `reveal`, a positive control checks that they do arrive. The
 image holds the room binary and nothing else, so a green smoke run also shows a
 room created and run to release with no pipeline present (AC-1's runtime half).
 Its timings are smoke's, not `burst`'s AC-41/53/54 figures (*Burst*, below).
-`--question` names the id q3's record was scheduled under (default `q3`; the
-deployed workflow uses `smoke-q3`, so a run never releases a bank question), and
-`--out` also writes the result as JSON. `just test-full` runs it against an
+`--question` names the id q3's record was scheduled under (default `smoke-q3`,
+so a run never releases a bank question; off loopback a bank id is refused
+unless `--spend-bank-question` is given, and plain `http://` is refused so the
+organizer session never crosses a network in cleartext), and `--out` also
+writes the result as JSON. If *Create a room* answers `409`, smoke prints the
+room's reason as given and what to do about it: not scheduled → schedule it;
+already run → schedule q3's record under another harness id; **open in another
+room** → another room on the machine holds that id (an aborted earlier run, or
+someone's room): wait for it to go quiet (30 minutes with no host action
+before it starts, 20 once started, 4 hours at most) or use another harness id.
+Never restart for that one: a restart wipes every room, the night's included. `just test-full` runs it against an
 in-process room on loopback (`tests/harness_full.rs`).
 
 ## Burst (T-21)
 
-`just burst <url> [--participants N] [--question ID] [--out PATH]`
+**Never during a meetup.** A burst or smoke run against the deployed room
+shares the one machine with every phone in the room, and the restart that
+follows it wipes every room in memory. The deployed workflow asks for that in
+words before it starts (*From CI*, below).
+
+`just burst <url> --connection-cap M [--participants N] [--question ID] [--out PATH]`
 (`src/bin/burst.rs`, behind the `burst` feature; `--help` lists the rest) puts
 200 participants on the room's own protocol, through the client smoke uses
 (`src/bin/room_client.rs`): joins by code, a buzzer socket each, answers as
@@ -1005,7 +1019,36 @@ test` on recorded samples. Write latency starts on an already open connection,
 and the client's own scheduling delay is measured beside it, never added. A pass
 whose interval crosses its threshold is `MARGINAL` in words. Exit `0` pass, `1`
 a criterion missed, `2` invalid or could not run: an invalid report says
-`"quotable": false` and judges nothing. The spike's "more than one Fly machine"
+`"quotable": false` and judges nothing. `3` is a run below the criteria's own
+conditions — fewer than 200 participants, a window wider than 2 s, or one burst
+shape — that missed nothing: such a run can show a miss but never earn a pass,
+so it never prints *all four criteria pass*, and its `pass` fields are `null`.
+The report's `conditions` says which, and every summary prints `n`. A write the
+room never answered is an AC-52 miss (a write lost), not only a broken run; a
+run with no send-lag samples is invalid, never a lag of zero. That includes a
+kept-alive connection the proxy closed before answering: burst does not retry
+a write on a fresh connection, so such a close reads as a miss — read
+`first_unanswered` before blaming the room. It can cost a pass; it cannot make
+one.
+
+**The connection cap (`hard_limit`).** Fly's proxy routes at most `hard_limit`
+simultaneous connections (`fly.toml`, `[http_service.concurrency]`, 500 today)
+to the one room machine, and refuses new ones past it; it starts preferring
+other machines at `soft_limit` (350), and there are none. It cannot tell a
+harness from a phone. burst holds **2n + 3** connections at its peak: each
+participant's kept-alive HTTP connection and its buzzer socket, the wall's and
+the host's sockets, and the host's HTTP connection (smoke holds the same). So
+burst needs `--connection-cap` off loopback, prints `expected peak connections
+N vs cap M`, and a run over the cap is **invalid** — "over the room's
+connection cap; the proxy would refuse some participants" — never a pass. **At
+the default 200 participants that is 403**: against the old cap of 400 the
+deployed 200-participant run could not count, so the client raised
+`hard_limit` to 500 (2026-10-10). That leaves 97 connections for anything else
+on the machine — another reason never to run it during a meetup. Up to 248
+participants fit. 500 is a limit on the connections Fly's proxy routes to one
+machine, not a measured capacity of the VM: watch the first deployed run
+(`fly logs`, the machine's CPU and memory in the Fly dashboard), and read its
+report before trusting the number. The spike's "more than one Fly machine"
 check is gone — the room exposes no machine id, and `fly.toml` runs one; a
 machine lost mid-run shows as `404`s and is reported as the room gone.
 
@@ -1020,7 +1063,12 @@ which a person starts: nothing unattended can create a room on the deployed app.
 
 **Scheduling.** A question runs once per machine, and burst and smoke each run
 one room to release, so each gets q3's record under a harness id — `burst-q3`,
-`smoke-q3` — which no bank question has, so neither run can retire one. Over
+`smoke-q3`, their defaults — which no bank question has, so neither run can
+retire one. Off loopback either refuses any other id (an id that does not
+start `burst-` or `smoke-`) unless given `--spend-bank-question`. A `409` on
+create prints the room's reason and its own advice, as smoke's does (*Smoke*,
+above); for *open in another room* that is to wait or use another harness id,
+never a restart. Over
 the pipeline channel (*Pipeline channel*, above), the token read from 1Password
 and handed to curl on stdin, never on its command line:
 
@@ -1031,30 +1079,60 @@ and handed to curl on stdin, never on its command line:
           https://rustnyc-popquiz.fly.dev/admin/questions/$id
     done
 
-**From the laptop** (the pre-checkpoint path), right after scheduling, inside
-one trial window (*The trial org stops the machine*, above):
+**From the laptop** (the pre-checkpoint path), right after scheduling (a
+restart or deploy in between loses the scheduled ids — *A restart loses every
+room*, above):
 
     export POPQUIZ_ORGANIZER_SESSION=…   # what follows the # after signing in at /host
-    just burst https://rustnyc-popquiz.fly.dev --question burst-q3 --out burst.json
-    just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3 --participants 200
+    just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 --out burst.json   # 500: fly.toml's hard_limit
+    just smoke https://rustnyc-popquiz.fly.dev --participants 200
     unset POPQUIZ_ORGANIZER_SESSION
 
 **From CI** (`.github/workflows/deployed-burst.yml`, `workflow_dispatch` only):
 
-    gh secret set POPQUIZ_ORGANIZER_SESSION     # pasted at the prompt, never typed on the line
-    gh secret set POPQUIZ_ADMIN_TOKEN
-    gh workflow run deployed-burst -f url=https://rustnyc-popquiz.fly.dev -f participants=200
+    gh secret set POPQUIZ_ORGANIZER_SESSION --env deployed-burst   # pasted at the prompt, never typed on the line
+    gh secret set POPQUIZ_ADMIN_TOKEN --env deployed-burst
+    gh workflow run deployed-burst --ref main -f url=https://rustnyc-popquiz.fly.dev -f participants=200 \
+      -f confirm='no meetup is running and the restart wipes every room'
 
-It builds both clients first, then schedules the two ids, runs burst (one
-isolated burst per shape, a 10 s churn, to stay inside the trial window) and
-smoke back to back, and uploads both JSON reports as an artifact; the job
-summary lists each criterion. There is no Fly token in CI.
+A first job checks the `confirm` input against exactly that sentence and stops
+the run otherwise, before any approval is asked and before any step that could
+read a secret. Then the job runs in the `deployed-burst` environment (a
+reviewer approves it in the Actions tab). It reads `hard_limit` from `fly.toml`
+(a read; it prints the commit it read) and passes it as `--connection-cap`;
+if 2n + 3 is over it the job stops there, before anything reaches the room —
+so the `participants` default of 200 (403) fits under today's 500. Otherwise it builds both clients, schedules the two ids, runs burst (one isolated burst per
+shape, a 10 s churn) and smoke back to back, and uploads both JSON reports as
+an artifact; the job summary lists `n`, the connections against the cap, the
+exit code and each criterion. There is no Fly token in CI.
 
-**Afterwards, every time:** `fly apps restart rustnyc-popquiz` — before anyone
-hosts and **before any `popquiz sync`**, because the machine's ledger holds the
-harness ids until it restarts — then `gh secret delete POPQUIZ_ORGANIZER_SESSION`
-and `gh secret delete POPQUIZ_ADMIN_TOKEN`. Record the four criteria on the
-ticket, never a token.
+**The environment, once (the client, in the repository's settings).** The
+secrets live in an Environment, not the repository, so a workflow edited on a
+branch cannot read them; that, not the confirm input, is the guard:
+
+1. GitHub → the repository → **Settings** → **Environments** → **New
+   environment**, name it exactly `deployed-burst`, **Configure environment**.
+2. Tick **Required reviewers**, add yourself, **Save protection rules**.
+3. **Deployment branches and tags** → **Selected branches and tags** → **Add
+   deployment branch or tag rule** → `main` → **Add rule**.
+4. Before a run, set the two secrets on the environment (`gh secret set … --env
+   deployed-burst`, above); if either was ever a repository secret, delete
+   that copy (**Settings** → **Secrets and variables** → **Actions** →
+   *Repository secrets*), or a branch's workflow could still read it.
+
+**Afterwards, every time:** `fly apps restart rustnyc-popquiz` — with no
+meetup running (it wipes every room in memory), before anyone hosts and
+**before any `popquiz sync`**, because the machine's ledger holds the harness
+ids until it restarts — then `gh secret delete POPQUIZ_ORGANIZER_SESSION --env
+deployed-burst` and `gh secret delete POPQUIZ_ADMIN_TOKEN --env deployed-burst`.
+Record the four criteria on the ticket, never a token.
+
+**A run that stops partway** (an error, a cancelled job, a killed laptop)
+leaves its room open, holding its harness id until it goes quiet (30 minutes
+with no host action before it starts, 20 once started, 4 hours at most), and
+writes up to one `socket_dropped` line per participant, each naming that
+room's id, never the night's (`tests/requestlog.rs`). The restart above clears
+it.
 
 ## After a meetup (T-21, AC-55)
 
@@ -1069,10 +1147,21 @@ on standard error, which Fly keeps:
 - `{"event":"participant_requests","room":…,"failed":F,"total":T,"ended":…}` —
   once per room, at release (or when a watched room is swept, `ended: "gone"`).
 
-The night's rate, the morning after (before anything restarts the machine):
+The night's rate, the morning after (before anything restarts the machine).
+Filter by the meetup's room id — the id in the host-screen address,
+`/host/<room id>#…` — so a harness run's room never mixes in:
 
-    fly logs -a rustnyc-popquiz --no-tail | grep '"event":"participant_requests"'
-    fly logs -a rustnyc-popquiz --no-tail | grep '"event":"participant_request_failed"'
+    fly logs -a rustnyc-popquiz --no-tail | grep '"room":"<room id>"'
+    fly logs -a rustnyc-popquiz --no-tail | grep '"room":null'
+
+The first gives that room's summary and its failure lines. The second is the
+`5xx` answers to `POST /join`, which name no room (the join's path has none);
+add any from the meetup's hours to both `failed` and `total` by hand.
+
+**Counted while the room runs.** A room's counters run from its first
+participant request to its release, and the summary carries them. A failure
+line always names its room, even after release, but a line written after the
+summary is not in the summary's `failed`.
 
 The rate is `failed / total`; AC-55 passes under 0.001. `total` counts
 successful joins, answer writes, state reads and buzzer sockets attached;

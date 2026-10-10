@@ -2,8 +2,10 @@
 //!
 //! EVALUATION.md's harness row: *200 synthetic participants; the deadline write
 //! burst in isolation (AC-54); then a full segment (AC-52, AC-53, AC-41).*
-//! `just burst <url> [--participants N] [--question ID] [--out PATH] …`
-//! (`--help` lists the rest).
+//! `just burst <url> [--participants N] [--question ID] [--connection-cap M] [--out PATH] …`
+//! (`--help` lists the rest). The question defaults to `burst-q3`, a harness
+//! id, so a run that omits `--question` cannot retire a bank question; off
+//! loopback a bank id is refused unless `--spend-bank-question` is given.
 //!
 //! | Criterion | Measure | Pass |
 //! |---|---|---|
@@ -33,20 +35,32 @@
 //! `test-full`) it proves the harness; the report says `"substrate":
 //! "loopback"` and never claims that clause.
 //!
-//! Exit: `0` all four criteria pass as measured; `1` a criterion missed; `2`
-//! the run is invalid or could not run — do not quote its numbers.
+//! **The connection cap.** The run holds `2n + 3` connections at its peak: two
+//! per participant (its kept-alive HTTP connection and its buzzer socket), the
+//! wall's and the host's sockets, and the host's HTTP connection. Fly's proxy
+//! routes at most `hard_limit` (`fly.toml`) to the one machine and refuses the
+//! rest, and cannot tell a harness from a phone. Off loopback
+//! `--connection-cap` (that `hard_limit`) is required, and a run whose peak is
+//! over it is invalid, never a pass.
+//!
+//! Exit: `0` all four criteria pass as measured, at the criteria's conditions;
+//! `1` a criterion missed; `2` the run is invalid or could not run; `3` the
+//! run was below the criteria's conditions and missed nothing. Only `0` is a
+//! pass.
 
 #[path = "room_client.rs"]
 mod client;
 #[path = "burst_report.rs"]
-mod numbers;
+pub(crate) mod numbers;
 
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 
-use client::{all_reach, explain, millis, open_ws, wait_for_room, watch, Http, Target, Watcher, LETTERS, MAX_PARTICIPANTS};
+use client::{
+    all_reach, create_refused, explain, millis, open_ws, question_allowed, wait_for_room, watch, Http, Target, Watcher, LETTERS, MAX_PARTICIPANTS,
+};
 use numbers::{Cycle, Exit, Measured};
 
 /// How long any one phase may take to reach every socket.
@@ -90,6 +104,10 @@ pub struct Args {
     pub window_ms: u64,
     /// Quiet time between stages, so no burst overlaps anything else.
     pub gap_ms: u64,
+    /// The proxy's connection cap the room runs behind (`hard_limit`).
+    pub connection_cap: Option<u64>,
+    /// `--spend-bank-question`: a bank id off loopback, on purpose.
+    pub spend_bank: bool,
 }
 
 impl Default for Args {
@@ -97,7 +115,7 @@ impl Default for Args {
         Args {
             url: String::new(),
             participants: MAX_PARTICIPANTS,
-            question: "q3".into(),
+            question: "burst-q3".into(),
             seed: 1,
             out: None,
             // Both shapes run and the worst drives AC-54: letting only the
@@ -108,6 +126,8 @@ impl Default for Args {
             churn_secs: 20,
             window_ms: 2000,
             gap_ms: 1500,
+            connection_cap: None,
+            spend_bank: false,
         }
     }
 }
@@ -117,7 +137,11 @@ burst - the room under load, on its own protocol (T-21)
 
   --url <base>          http(s):// base of the room (required)
   --participants <n>    1-200, default 200
-  --question <id>       the scheduled question to create the room on (default q3)
+  --question <id>       the scheduled question to create the room on (default burst-q3,
+                        a harness id; off loopback a bank id is refused)
+  --spend-bank-question allow a bank id off loopback: its release retires that question
+  --connection-cap <m>  the proxy's hard_limit (fly.toml); required off loopback.
+                        A run whose peak, 2n+3 connections, is over it is invalid
   --seed <n>            makes the letters and offsets reproducible (default 1)
   --out <path>          also write the JSON report here
   --burst-shape <s>     uniform | spike | both   (default both; the worst drives AC-54)
@@ -127,7 +151,8 @@ burst - the room under load, on its own protocol (T-21)
   --gap-ms <n>          quiet time between stages (default 1500)
 
 POPQUIZ_ORGANIZER_SESSION must be in the environment (never on the command line).
-Exit: 0 all criteria pass - 1 a criterion missed - 2 run invalid or could not run, do not quote.";
+Exit: 0 all criteria pass - 1 a criterion missed - 2 run invalid or could not run, do not quote -
+3 below the criteria's conditions (n < 200, window > 2000 ms, one shape) and nothing missed: not a pass.";
 
 pub fn parse_args(argv: &[String]) -> Result<Args, String> {
     let mut a = Args::default();
@@ -151,6 +176,8 @@ pub fn parse_args(argv: &[String]) -> Result<Args, String> {
             "--churn-secs" => a.churn_secs = num(flag, it.next())?,
             "--window-ms" => a.window_ms = num(flag, it.next())?.max(SPIKE_TAIL_MS),
             "--gap-ms" => a.gap_ms = num(flag, it.next())?,
+            "--connection-cap" => a.connection_cap = Some(num(flag, it.next())?),
+            "--spend-bank-question" => a.spend_bank = true,
             "--burst-shape" => {
                 a.shapes = match it.next().map(String::as_str) {
                     Some("uniform") => vec![Shape::Uniform],
@@ -169,7 +196,23 @@ pub fn parse_args(argv: &[String]) -> Result<Args, String> {
     if a.cycles == 0 {
         return Err("--cycles must be at least 1: AC-54 is the isolated burst".into());
     }
+    guard(&a)?;
     Ok(a)
+}
+
+/// What a run must not do whatever built its arguments: talk plain http
+/// across a network, spend a bank question off loopback by default, or run
+/// against a deployed room without knowing its connection cap.
+pub fn guard(a: &Args) -> Result<Target, String> {
+    let target = Target::parse(&a.url)?;
+    question_allowed(&target, &a.question, a.spend_bank)?;
+    if !target.is_loopback() && a.connection_cap.is_none() {
+        return Err(format!(
+            "--connection-cap is required off loopback: the hard_limit in fly.toml. The run holds {} connections at its peak (2n+3).",
+            numbers::expected_peak_connections(a.participants)
+        ));
+    }
+    Ok(target)
 }
 
 // ---------------------------------------------------------------------------
@@ -230,15 +273,34 @@ struct Wrote {
 /// book its own sleep as send lag.
 type Plan = Vec<(Duration, usize)>;
 
+/// What became of the writes the room never answered.
+#[derive(Default)]
+struct Unanswered {
+    /// Where in the stage each was scheduled.
+    offsets: Vec<Duration>,
+    /// The first few, as said.
+    errors: Vec<String>,
+}
+
+/// A failed write is the harness's own failure only when it could not reach
+/// the room at all (a fresh connect); a write that was sent and never
+/// answered — no response in time, the connection closed under it — is the
+/// room's, and an AC-52 miss.
+fn harness_side(e: &str) -> bool {
+    e.contains(": connect ") || e.contains(": TLS to ")
+}
+
 /// Run every participant's plan concurrently from `start`. Returns the people
-/// (their connections kept open), every answered write, and the harness
-/// errors (a write that got no answer at all).
-async fn write_stage(people: Vec<Person>, plans: Vec<Plan>, start: Instant, room: &str) -> (Vec<Person>, Vec<Wrote>, Vec<String>) {
+/// (their connections kept open), every answered write, the harness errors
+/// (a write that could not reach the room), and the writes the room never
+/// answered.
+async fn write_stage(people: Vec<Person>, plans: Vec<Plan>, start: Instant, room: &str) -> (Vec<Person>, Vec<Wrote>, Vec<String>, Unanswered) {
     let tasks = people.into_iter().zip(plans).map(|(mut p, plan)| {
         let path = format!("/rooms/{room}/answer");
         tokio::spawn(async move {
             let mut wrote = Vec::new();
             let mut errors = Vec::new();
+            let mut unanswered = Unanswered::default();
             for (offset, l) in plan {
                 let at = start + offset;
                 tokio::time::sleep_until(at.into()).await;
@@ -253,26 +315,33 @@ async fn write_stage(people: Vec<Person>, plans: Vec<Plan>, start: Instant, room
                         }
                         wrote.push(Wrote { offset, ms: millis(took), lag_ms: millis(sent.saturating_duration_since(at)), acked });
                     }
-                    Err(e) => errors.push(e),
+                    Err(e) if harness_side(&e) => errors.push(e),
+                    Err(e) => {
+                        unanswered.offsets.push(offset);
+                        unanswered.errors.push(e);
+                    }
                 }
             }
-            (p, wrote, errors)
+            (p, wrote, errors, unanswered)
         })
     });
     let mut people = Vec::new();
     let mut all = Vec::new();
     let mut errors = Vec::new();
+    let mut unanswered = Unanswered::default();
     for t in futures_util::future::join_all(tasks).await {
         match t {
-            Ok((p, w, e)) => {
+            Ok((p, w, e, u)) => {
                 people.push(p);
                 all.extend(w);
                 errors.extend(e);
+                unanswered.offsets.extend(u.offsets);
+                unanswered.errors.extend(u.errors);
             }
             Err(e) => errors.push(format!("a client task died: {e}")),
         }
     }
-    (people, all, errors)
+    (people, all, errors, unanswered)
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +391,7 @@ fn everyone<'a>(wall: &'a Watcher, host: &'a Watcher, people: &'a [Person]) -> V
 /// the room unreachable, the session refused, the question not scheduled, or
 /// the room gone mid-run.
 pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value, Exit), String> {
-    let target = Arc::new(Target::parse(&args.url)?);
+    let target = Arc::new(guard(args)?);
     let tls = target.tls_connector();
     let n = args.participants;
     let seed = args.seed;
@@ -336,10 +405,21 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
         participants: n,
         window_ms: args.window_ms,
         churn_secs: args.churn_secs,
+        shapes: args.shapes.len(),
+        connection_cap: args.connection_cap,
         ulimit_nofile: ulimit_nofile(),
         ..Measured::default()
     };
     let gap = Duration::from_millis(args.gap_ms);
+
+    let peak = numbers::expected_peak_connections(n);
+    match args.connection_cap {
+        Some(cap) => eprintln!(
+            "· expected peak connections {peak} vs cap {cap}{}",
+            if peak as u64 > cap { " — OVER: the proxy would refuse some participants; this run cannot be a result for AC-53" } else { "" }
+        ),
+        None => eprintln!("· expected peak connections {peak} (loopback: no proxy cap)"),
+    }
 
     eprintln!("· the room answers");
     wait_for_room(&target, &tls).await?;
@@ -352,16 +432,12 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
         201 => {}
         401 => return Err("create with POPQUIZ_ORGANIZER_SESSION: 401 — the session is unknown or expired; sign in again at /host".into()),
         403 => return Err(format!("create: 403 {} — Discord says this organizer may not host", created["reason"])),
-        409 => {
-            return Err(format!(
-                "create: 409 {} — schedule the question as {} over the pipeline channel first; if it has already been run on this machine, restart it (fly apps restart) and schedule it again",
-                created["reason"], args.question
-            ))
-        }
+        409 => return Err(create_refused(created["reason"].as_str().unwrap_or_default(), &args.question)),
         s => return Err(format!("create: {s} {created}")),
     }
     let field = |k: &str| created[k].as_str().map(str::to_string).ok_or(format!("create: no {k} in the response"));
     let (room, code, session) = (field("id")?, field("code")?, field("host_session")?);
+    m.room_id = room.clone();
 
     let wall = watch(open_ws(&target, &format!("/rooms/{room}/ws/wall"), None).await?, None);
     let host = watch(open_ws(&target, &format!("/rooms/{room}/ws/host"), Some(&session)).await?, None);
@@ -419,11 +495,13 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
                 .map(|who| vec![(Duration::from_millis(burst_offset_ms(seed, stage, who, shape, args.window_ms)), letter(seed, stage, who))])
                 .collect();
             let start = Instant::now() + Duration::from_millis(200);
-            let (back, wrote, errors) = write_stage(people, plans, start, &room).await;
+            let (back, wrote, errors, unanswered) = write_stage(people, plans, start, &room).await;
             people = back;
             m.scheduled_writes += people.len();
             m.send_lag_ms.extend(wrote.iter().map(|w| w.lag_ms));
             m.errors.extend(errors);
+            m.unanswered_writes += unanswered.offsets.len();
+            m.unanswered_first.extend(unanswered.errors);
             m.cycles.push(Cycle {
                 shape: shape.as_str(),
                 index,
@@ -463,7 +541,7 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
         .collect();
     let churn_count: usize = plans.iter().map(|p| p.len() - 1).sum();
     let start = Instant::now() + Duration::from_millis(200);
-    let (back, wrote, errors) = write_stage(people, plans, start, &room).await;
+    let (back, wrote, errors, unanswered) = write_stage(people, plans, start, &room).await;
     people = back;
     m.errors.extend(errors);
     m.scheduled_writes += churn_count + people.len();
@@ -472,6 +550,9 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
     // Each plan's deadline write is scheduled past `churn + gap`; every
     // churn write before it.
     let boundary = churn + gap;
+    m.unanswered_writes += unanswered.offsets.len();
+    m.unanswered_deadline = unanswered.offsets.iter().filter(|o| **o >= boundary).count();
+    m.unanswered_first.extend(unanswered.errors);
     let (deadline, churned): (Vec<&Wrote>, Vec<&Wrote>) = wrote.iter().partition(|w| w.offset >= boundary);
     let churn_ms: Vec<f64> = churned.iter().map(|w| w.ms).collect();
     let deadline_ms: Vec<f64> = deadline.iter().map(|w| w.ms).collect();
@@ -590,7 +671,13 @@ async fn main() -> std::process::ExitCode {
             for note in report["verdict"]["notes"].as_array().into_iter().flatten() {
                 eprintln!("burst: {}", note.as_str().unwrap_or_default());
             }
-            eprintln!("burst: {} — exit {}", report["substrate"].as_str().unwrap_or("?"), code as i32);
+            eprintln!(
+                "burst: {} — n={} of {} — exit {}",
+                report["substrate"].as_str().unwrap_or("?"),
+                report["client"]["participants_connected"],
+                report["client"]["participants_requested"],
+                code as i32
+            );
             std::process::ExitCode::from(code as u8)
         }
         Err(e) => {
@@ -614,8 +701,9 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let a = args("--url https://x.fly.dev").unwrap();
-        assert_eq!((a.participants, a.question.as_str(), a.cycles, a.churn_secs, a.window_ms), (200, "q3", 2, 20, 2000));
+        let a = args("--url https://x.fly.dev --connection-cap 400").unwrap();
+        assert_eq!((a.participants, a.question.as_str(), a.cycles, a.churn_secs, a.window_ms), (200, "burst-q3", 2, 20, 2000));
+        assert_eq!((a.connection_cap, a.spend_bank), (Some(400), false));
         assert_eq!(a.shapes, vec![Shape::Uniform, Shape::Spike]);
         let a = args("--url http://127.0.0.1:9 --participants 12 --question burst-q3 --cycles 1 --burst-shape spike --churn-secs 3 --out r.json").unwrap();
         assert_eq!((a.participants, a.question.as_str(), a.cycles, a.out.as_deref()), (12, "burst-q3", 1, Some("r.json")));

@@ -14,6 +14,10 @@
 //! bound crosses the threshold is `marginal` in words, never a clean pass; a
 //! run that did not happen properly is *invalid* (exit 2) and none of its
 //! criteria are judged, which is a different thing from a miss (exit 1).
+//!
+//! A run below the criteria's own conditions — fewer than 200 participants, a
+//! window wider than 2 s, one burst shape — can show a miss but cannot earn a
+//! pass: when nothing missed it exits `3`, *not a pass*, and judges nothing.
 
 #![allow(dead_code)]
 
@@ -28,6 +32,18 @@ pub const REVEAL_P95_MS: f64 = 2000.0;
 pub const SEND_LAG_P95_INVALID_MS: f64 = 25.0;
 /// Below this many open files, 200 participants cannot all connect.
 pub const MIN_NOFILE: u64 = 1024;
+/// The criteria's own conditions: AC-52's 200 participants, SPEC §9's 2 s
+/// deadline window, and both burst shapes (the worst drives AC-54).
+pub const CRITERIA_PARTICIPANTS: usize = 200;
+pub const CRITERIA_WINDOW_MS: u64 = 2000;
+pub const CRITERIA_SHAPES: usize = 2;
+
+/// Connections `burst` holds at its peak with `n` participants: each one's
+/// kept-alive HTTP connection and its buzzer socket, then the wall's socket,
+/// the host's socket and the host's HTTP connection (`burst.rs`, `run`).
+pub fn expected_peak_connections(n: usize) -> usize {
+    2 * n + 3
+}
 pub const SCHEMA: &str = "rustnyc-popquiz/burst-report/room-1";
 
 // ---------------------------------------------------------------------------
@@ -139,6 +155,8 @@ pub enum Exit {
     Pass = 0,
     Missed = 1,
     Invalid = 2,
+    /// Below the criteria's conditions and nothing missed: not a pass.
+    NotAPass = 3,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -164,6 +182,12 @@ pub struct VerdictInput {
     pub errors: u64,
     pub missing_reveal_receipts: u64,
     pub segment_population_ok: bool,
+    /// Writes sent while live that the room never answered: AC-52 misses.
+    pub unanswered_writes: u64,
+    /// The peak connections and the proxy's cap, when the cap is known.
+    pub connections: Option<(u64, u64)>,
+    /// Each way this run fell below the criteria's conditions, in words.
+    pub reduced: Vec<String>,
     pub burst_marginal: bool,
     pub segment_marginal: bool,
     pub reveal_marginal: bool,
@@ -197,7 +221,16 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         ));
         invalid = true;
     }
-    if v.send_lag_p95 > SEND_LAG_P95_INVALID_MS {
+    if let Some((peak, cap)) = v.connections.filter(|(peak, cap)| peak > cap) {
+        notes.push(format!(
+            "RUN INVALID: over the room's connection cap ({peak} connections at the peak against a cap of {cap}): the proxy would refuse some participants; this run is not a result for AC-53"
+        ));
+        invalid = true;
+    }
+    if v.send_lag_p95.is_nan() {
+        notes.push("RUN INVALID: no send-lag samples — nothing shows the client kept its schedule".into());
+        invalid = true;
+    } else if v.send_lag_p95 > SEND_LAG_P95_INVALID_MS {
         notes.push(format!(
             "RUN INVALID: client send lag p95 {:.1} ms exceeds {:.0} ms — the client machine, not the room, is what was measured",
             v.send_lag_p95, SEND_LAG_P95_INVALID_MS
@@ -211,11 +244,21 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         );
         invalid = true;
     }
+    // A write the room never answered is lost, whatever else went wrong: an
+    // AC-52 miss, said even on an invalid run.
+    let unanswered_note = (v.unanswered_writes > 0).then(|| {
+        format!("AC-52 MISS: {} writes sent while live were never answered by the room", v.unanswered_writes)
+    });
     if invalid {
+        notes.extend(unanswered_note);
         return (Exit::Invalid, notes);
     }
 
     let mut missed = false;
+    if let Some(note) = unanswered_note {
+        notes.push(note);
+        missed = true;
+    }
     if !(v.burst_headline_p95 < WRITE_P95_MS) {
         notes.push(format!("AC-54 MISS: deadline-burst write p95 {:.1} ms, threshold < {:.0} ms", v.burst_headline_p95, WRITE_P95_MS));
         missed = true;
@@ -258,7 +301,16 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
     }
 
     if missed {
+        if !v.reduced.is_empty() {
+            notes.push(format!("(measured below the criteria's conditions: {})", v.reduced.join("; ")));
+        }
         (Exit::Missed, notes)
+    } else if !v.reduced.is_empty() {
+        notes.push(format!(
+            "NOT A PASS: this run was below the criteria's conditions ({}); nothing missed, but its numbers are not a pass of AC-54, AC-53, AC-41 or AC-52",
+            v.reduced.join("; ")
+        ));
+        (Exit::NotAPass, notes)
     } else if marginal > 0 {
         notes.push(format!(
             "all four criteria pass as measured, {marginal} of them marginally — read the notes above before quoting this as a pass"
@@ -297,6 +349,12 @@ pub struct Measured {
     pub connected: usize,
     pub window_ms: u64,
     pub churn_secs: u64,
+    /// How many burst shapes ran.
+    pub shapes: usize,
+    /// The room this run created (an id, never a credential).
+    pub room_id: String,
+    /// The proxy's connection cap, when given.
+    pub connection_cap: Option<u64>,
     pub cycles: Vec<Cycle>,
     /// The host's live `answered` after the isolated bursts (N if each session
     /// was counted once).
@@ -306,6 +364,11 @@ pub struct Measured {
     /// Churn and deadline writes the room answered but did not save as sent
     /// (anything but `200 {saved: <the letter>}`).
     pub unacked_writes: usize,
+    /// Writes sent while live that the room never answered, and how many of
+    /// them were deadline writes.
+    pub unanswered_writes: usize,
+    pub unanswered_deadline: usize,
+    pub unanswered_first: Vec<String>,
     /// How many writes the live phase scheduled; every one must be a sample.
     pub scheduled_writes: usize,
     pub expected_totals: [u32; 5],
@@ -352,12 +415,29 @@ pub fn report(m: &Measured) -> (Value, Exit) {
     let mut segment: Vec<f64> = m.cycles.iter().flat_map(|c| c.writes_ms.iter().copied()).collect();
     segment.extend(&m.churn_ms);
     segment.extend(&m.deadline_ms);
-    let population_ok = segment.len() == m.scheduled_writes && m.deadline_ms.len() == m.connected;
+    // Every scheduled write is a sample or a write the room never answered;
+    // a post-close refusal slipped in shows as one too many.
+    let population_ok = segment.len() + m.unanswered_writes == m.scheduled_writes
+        && m.deadline_ms.len() + m.unanswered_deadline == m.connected;
     let segment_stats = Stats::new(segment);
     let reveal = Stats::new(m.reveal_ms.clone());
     let send_lag = Stats::new(m.send_lag_ms.clone());
 
-    let bursts_acked = m.cycles.iter().all(|c| c.acked) && m.host_answered_after_bursts == Some(n as u64) && m.unacked_writes == 0;
+    let bursts_acked = m.cycles.iter().all(|c| c.acked)
+        && m.host_answered_after_bursts == Some(n as u64)
+        && m.unacked_writes == 0
+        && m.unanswered_writes == 0;
+    let peak = expected_peak_connections(n) as u64;
+    let mut reduced = Vec::new();
+    if n < CRITERIA_PARTICIPANTS {
+        reduced.push(format!("n={n}, under {CRITERIA_PARTICIPANTS} participants"));
+    }
+    if m.window_ms > CRITERIA_WINDOW_MS {
+        reduced.push(format!("a {} ms window, wider than {CRITERIA_WINDOW_MS} ms", m.window_ms));
+    }
+    if m.shapes < CRITERIA_SHAPES {
+        reduced.push(format!("{} burst shape, not both", m.shapes));
+    }
     let sum: u32 = m.split_totals.map(|t| t.iter().sum()).unwrap_or(0);
     let totals_ok = m.split_totals == Some(m.expected_totals)
         && m.split_answered == Some(n as u64)
@@ -374,11 +454,14 @@ pub fn report(m: &Measured) -> (Value, Exit) {
         post_close_ok,
         clients_connected: m.connected,
         clients_expected: n,
-        send_lag_p95: if send_lag.n == 0 { 0.0 } else { send_lag.p95 },
+        send_lag_p95: send_lag.p95,
         ulimit_nofile: m.ulimit_nofile,
         errors: m.errors.len() as u64,
         missing_reveal_receipts: m.connected.saturating_sub(reveal.n) as u64,
         segment_population_ok: population_ok,
+        unanswered_writes: m.unanswered_writes as u64,
+        connections: m.connection_cap.map(|cap| (peak, cap)),
+        reduced: reduced.clone(),
         burst_marginal,
         segment_marginal: segment_stats.marginal(WRITE_P95_MS, true),
         reveal_marginal: reveal.marginal(REVEAL_P95_MS, false),
@@ -387,8 +470,16 @@ pub fn report(m: &Measured) -> (Value, Exit) {
 
     // An invalid run's criteria are not judged at all: `pass` is null, and
     // the report says at the top level that none of its numbers may be quoted.
+    // Below the criteria's conditions a criterion can be judged a miss, never
+    // a pass.
     let quotable = code != Exit::Invalid;
-    let judged = |b: bool| if quotable { Value::Bool(b) } else { Value::Null };
+    let judged = |b: bool| {
+        if !quotable || (b && !reduced.is_empty()) {
+            Value::Null
+        } else {
+            Value::Bool(b)
+        }
+    };
     let ac52_pass = totals_ok && bursts_acked && post_close_ok;
     let substrate = if m.loopback { "loopback" } else { "deployed" };
 
@@ -415,7 +506,21 @@ pub fn report(m: &Measured) -> (Value, Exit) {
         "invocation": m.invocation,
         "room": {
             "url": m.url,
+            "id": m.room_id,
             "question": m.question,
+        },
+        "connections": {
+            "expected_peak": peak,
+            "cap": m.connection_cap,
+            "over_cap": m.connection_cap.is_some_and(|cap| peak > cap),
+            "note": "2n+3: each participant's HTTP connection and buzzer socket, the wall's and host's sockets, the host's HTTP connection",
+        },
+        "conditions": {
+            "n": n,
+            "window_ms": m.window_ms,
+            "shapes": m.shapes,
+            "at_criteria_conditions": reduced.is_empty(),
+            "below_because": reduced.clone(),
         },
         "client": {
             "cpus": std::thread::available_parallelism().map(|p| p.get()).unwrap_or(0),
@@ -442,6 +547,7 @@ pub fn report(m: &Measured) -> (Value, Exit) {
                     "churn": m.churn_ms.len(),
                     "deadline_burst": m.deadline_ms.len(),
                     "not_saved_as_sent": m.unacked_writes,
+                    "never_answered": m.unanswered_writes,
                     "scheduled": m.scheduled_writes,
                     "ok": population_ok,
                     "note": "every accepted write while live. Post-close refusals are a correctness probe, never a latency sample.",
@@ -471,6 +577,7 @@ pub fn report(m: &Measured) -> (Value, Exit) {
             "send_lag_ms": send_lag.to_json(SEND_LAG_P95_INVALID_MS, true),
             "errors": m.errors.len(),
             "first_errors": m.errors.iter().take(10).collect::<Vec<_>>(),
+            "first_unanswered": m.unanswered_first.iter().take(10).collect::<Vec<_>>(),
             "missing_reveal_receipts": vin.missing_reveal_receipts,
         },
         "quotable": quotable,

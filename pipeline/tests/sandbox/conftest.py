@@ -7,8 +7,8 @@ with a message saying which hook runs it.
 
 **Refused, not skipped.** A skipped Docker suite is indistinguishable from a
 passing one in a summary line, and AC-12 is a criterion that must never be able to
-look green without a container having actually held something. The scaffold's own
-`_pending` recipe makes the same choice: fail loudly rather than pass quietly.
+look green without a container having actually held something: fail loudly
+rather than pass quietly.
 """
 
 from __future__ import annotations

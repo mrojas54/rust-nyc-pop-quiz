@@ -31,14 +31,23 @@
 //! **What the room cannot see** — a request venue wifi lost before it reached
 //! the room — is in no log. The rate these lines give is therefore a floor.
 //!
+//! **Counted while the room runs.** A room's counters start at its first
+//! participant request and end at its summary. A failure line always carries
+//! the room id its path names — after the summary too, so filtering the log by
+//! a room id finds every line about that room — but only lines written while
+//! the room ran are in the summary's `failed`. A `5xx` on `POST /join` names
+//! no room (its path has none, and the body is not read here): its `room` is
+//! `null`, it is in no summary, and a reader adds those lines by hand.
+//!
 //! Fields are fixed and carry no secret: `event`, `room` (the room id; `null`
-//! for a `/join` that failed before it found one), `route` (a name, never the
+//! for a `/join`), `route` (a name, never the
 //! request's path), `kind`, and `status` or `phase`; the summary carries
 //! `room`, `failed`, `total` and `ended` (`released`, or `gone` when a watched
 //! room was swept without a release). Never a token, a host session, a code or
 //! an answer.
 
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 
 use axum::extract::{Request, State};
@@ -69,7 +78,9 @@ static CAPTURE: Mutex<Option<Vec<String>>> = Mutex::new(None);
 
 fn emit(line: Value) {
     let text = line.to_string();
-    eprintln!("{text}");
+    // Not `eprintln!`, which panics when standard error is a closed pipe:
+    // logging must never take a request down with it.
+    let _ = writeln!(std::io::stderr(), "{text}");
     if let Some(lines) = CAPTURE.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
         lines.push(text);
     }
@@ -108,9 +119,11 @@ pub fn request(room: &str) {
     counts().entry(room.to_string()).or_default().total += 1;
 }
 
-/// A participant request that answered `5xx`.
-pub fn server_error(room: Option<&str>, route: &'static str, status: u16) {
-    if let Some(room) = room {
+/// A participant request that answered `5xx`. `counted` is whether its room
+/// was running: only then does it enter the room's counters. The line is
+/// written either way, with the room id its path named (`None` for `/join`).
+pub fn server_error(room: Option<&str>, counted: bool, route: &'static str, status: u16) {
+    if let (Some(room), true) = (room, counted) {
         counts().entry(room.to_string()).or_default().failed += 1;
     }
     emit(json!({ "event": "participant_request_failed", "room": room, "route": route, "kind": "server_error", "status": status }));
@@ -148,7 +161,12 @@ pub fn participant_route<'a>(method: &Method, path: &'a str) -> Option<(&'static
 /// A room that exists and has not been released — the only kind whose
 /// participant requests are counted.
 pub fn running(state: &AppState, room: &str) -> bool {
-    state.with_room(room, |r| r.phase() != crate::phase::Phase::Released).unwrap_or(false)
+    running_phase(state, room).is_some()
+}
+
+/// The phase of a room that exists and has not been released.
+pub fn running_phase(state: &AppState, room: &str) -> Option<crate::phase::Phase> {
+    state.with_room(room, |r| r.phase()).ok().filter(|p| *p != crate::phase::Phase::Released)
 }
 
 /// `POST /rooms/{id}/release` — the host's release, whose `200` ends the room.
@@ -170,14 +188,15 @@ pub(crate) async fn layer(State(state): State<Arc<AppState>>, request: Request, 
     let response = next.run(request).await;
     let status = response.status();
     if let Some((route, room)) = participant_route(&method, &path) {
-        // Only a room that is still running: after release its summary is
-        // written, and a phone re-reading the ended room must not reopen it.
-        let room = room.filter(|id| running(&state, id));
-        if let Some(id) = room {
+        // Only a room that is still running is counted: after release its
+        // summary is written, and a phone re-reading the ended room must not
+        // reopen it. Its failure lines still name it.
+        let counted = room.is_some_and(|id| running(&state, id));
+        if let (Some(id), true) = (room, counted) {
             self::request(id);
         }
         if status.is_server_error() {
-            server_error(room, route, status.as_u16());
+            server_error(room, counted, route, status.as_u16());
         }
     } else if let Some(id) = release_of(&method, &path) {
         if status.is_success() {
@@ -217,14 +236,39 @@ mod tests {
         let room = "unit-test-room-counters";
         request(room);
         request(room);
-        server_error(Some(room), "answer", 503);
+        server_error(Some(room), true, "answer", 503);
         socket_dropped(room, json!("live"));
         assert_eq!(counts_for(room), Counts { failed: 2, total: 2 });
         ended(room, "released");
         assert_eq!(counts_for(room), Counts::default());
-        // Gone after a release says nothing more.
+        // Gone after a release says nothing more. (Capture may already be on
+        // from a test running beside this one, so compare before and after.)
         start_capture();
+        let before = captured(room).len();
         ended(room, "gone");
-        assert!(captured(room).is_empty());
+        assert_eq!(captured(room).len(), before);
+    }
+
+    #[test]
+    fn a_failure_after_the_summary_names_its_room_and_is_not_counted() {
+        start_capture();
+        let room = "unit-test-room-after-release";
+        server_error(Some(room), false, "answer", 500);
+        let lines = captured(room);
+        assert_eq!(lines.len(), 1, "the line names the room it was about");
+        assert_eq!((lines[0]["kind"].as_str(), lines[0]["status"].as_u64()), (Some("server_error"), Some(500)));
+        assert_eq!(counts_for(room), Counts::default(), "and no counter was reopened");
+        assert!(!counts().contains_key(room));
+        // A `/join` names no room.
+        server_error(None, false, "join", 502);
+        assert!(captured_all().iter().any(|l| l.contains(r#""room":null"#) && l.contains(r#""route":"join""#)));
+    }
+
+    #[test]
+    fn nothing_here_writes_with_eprintln() {
+        // `eprintln!` panics on a closed standard error (EPIPE); `emit` must not.
+        let src = include_str!("requestlog.rs");
+        let banned = ["eprint", "ln!("].concat();
+        assert!(!src.contains(&banned), "requestlog.rs writes with {banned}");
     }
 }

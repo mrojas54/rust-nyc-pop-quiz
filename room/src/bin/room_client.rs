@@ -22,6 +22,59 @@ use tokio_tungstenite::tungstenite::Message;
 pub const MAX_PARTICIPANTS: usize = 200;
 pub const LETTERS: [&str; 5] = ["A", "B", "C", "D", "E"];
 
+/// How long a TCP connect, a TLS handshake or a socket's upgrade may take.
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long one request may wait for its whole response. A write the room
+/// never answers ends here, as an error, rather than hanging the run.
+pub const READ_TIMEOUT: Duration = Duration::from_secs(30);
+
+// --------------------------------------------------------------------------
+// Which question a harness may run.
+// --------------------------------------------------------------------------
+
+/// The flag that lets a harness create a room on a bank question off loopback.
+/// Its release retires that question in the machine's ledger, and from there
+/// in `/admin/used` and the bank (the false retirement CLAUDE.md records).
+pub const SPEND_BANK_FLAG: &str = "--spend-bank-question";
+
+/// A harness id: q3's record scheduled under a name no bank question has
+/// (`burst-q3`, `smoke-q3`), so releasing it retires nothing.
+pub fn is_harness_id(id: &str) -> bool {
+    ["burst-", "smoke-"].iter().any(|p| id.len() > p.len() && id.starts_with(p))
+}
+
+/// Refuse a bank question off loopback unless [`SPEND_BANK_FLAG`] was given.
+/// Any id that is not a harness id counts as a bank question here: the bank
+/// grows, and the safe guess about an unknown id is that someone needs it.
+pub fn question_allowed(target: &Target, id: &str, spend_bank: bool) -> Result<(), String> {
+    if target.is_loopback() || is_harness_id(id) || spend_bank {
+        return Ok(());
+    }
+    Err(format!(
+        "{id:?} is not a harness id, and {} is not this machine: the run would release it and retire a bank question on the deployed room. Schedule q3's record under a harness id (burst-…, smoke-…; room/README.md, Burst) and pass that with --question, or pass {SPEND_BANK_FLAG} if spending {id} is what you mean.",
+        target.base
+    ))
+}
+
+/// A `409` on *Create a room*: the room's reason, verbatim, and what to do
+/// about that reason. The three reasons are the room's own copy
+/// (`rooms.rs`, `create_for`). None of the hints is a restart: a restart
+/// wipes every room on the machine, the night's included.
+pub fn create_refused(reason: &str, id: &str) -> String {
+    let hint = if reason.contains("open in another room") {
+        format!(
+            "another room on this machine holds {id} and has not been released. Wait for it to go quiet (30 minutes with no host action before it starts, 20 once started, 4 hours at most; docs/RUNBOOK.md, the failure table), or schedule q3's record under another harness id and pass that with --question"
+        )
+    } else if reason.contains("already been run") {
+        format!("{id} has been run on this machine. Schedule q3's record under another harness id (room/README.md, Burst, Scheduling) and pass that with --question")
+    } else if reason.contains("No question is scheduled") {
+        format!("schedule q3's record as {id} over the pipeline channel first (room/README.md, Burst, Scheduling)")
+    } else {
+        "the room gave a reason this harness does not know; read it above".to_string()
+    };
+    format!("create: 409 {reason:?} — {hint}")
+}
+
 // --------------------------------------------------------------------------
 // The target.
 // --------------------------------------------------------------------------
@@ -54,7 +107,13 @@ impl Target {
             }
             _ => (rest.to_string(), if tls { 443 } else { 80 }),
         };
-        Ok(Target { tls, host, port, base: url.to_string() })
+        let target = Target { tls, host, port, base: url.to_string() };
+        // The organizer session rides every host request: never in cleartext
+        // across a network. Plain http stays for a room on this machine.
+        if !tls && !target.is_loopback() {
+            return Err(format!("{url:?}: plain http to a host that is not this machine would send the organizer session in cleartext; use https://"));
+        }
+        Ok(target)
     }
 
     pub fn host_header(&self) -> String {
@@ -104,6 +163,7 @@ pub struct Http {
     target: Arc<Target>,
     tls: Option<tokio_rustls::TlsConnector>,
     conn: Option<BufReader<Box<dyn Io>>>,
+    read_timeout: Duration,
 }
 
 pub struct Resp {
@@ -124,23 +184,30 @@ impl Http {
             target: target.clone(),
             tls: tls.clone(),
             conn: None,
+            read_timeout: READ_TIMEOUT,
         }
+    }
+
+    /// The same client with a different per-request deadline (tests).
+    pub fn with_read_timeout(mut self, d: Duration) -> Http {
+        self.read_timeout = d;
+        self
     }
 
     /// Open the connection now, so a later request is timed on an already
     /// open, already handshaken connection.
     pub async fn open(&mut self) -> Result<(), String> {
         let t = &self.target;
-        let tcp = TcpStream::connect((t.connect_host(), t.port))
-            .await
-            .map_err(|e| format!("connect {}:{}: {e}", t.host, t.port))?;
-        tcp.set_nodelay(true).map_err(|e| e.to_string())?;
+        let tcp = connect(t).await?;
         let io: Box<dyn Io> = match &self.tls {
             None => Box::new(tcp),
             Some(connector) => {
                 let name = rustls::pki_types::ServerName::try_from(t.connect_host().to_string())
                     .map_err(|e| format!("{}: {e}", t.host))?;
-                Box::new(connector.connect(name, tcp).await.map_err(|e| format!("TLS to {}: {e}", t.host))?)
+                let tls = tokio::time::timeout(CONNECT_TIMEOUT, connector.connect(name, tcp))
+                    .await
+                    .map_err(|_| format!("TLS to {}: no handshake within {}s", t.host, CONNECT_TIMEOUT.as_secs()))?;
+                Box::new(tls.map_err(|e| format!("TLS to {}: {e}", t.host))?)
             }
         };
         self.conn = Some(BufReader::new(io));
@@ -155,7 +222,10 @@ impl Http {
         if self.conn.is_none() {
             self.open().await?;
         }
-        let result = self.exchange(method, path, bearer, body).await;
+        let result = match tokio::time::timeout(self.read_timeout, self.exchange(method, path, bearer, body)).await {
+            Ok(r) => r,
+            Err(_) => Err(format!("no response within {}s", self.read_timeout.as_secs_f64())),
+        };
         if result.is_err() {
             self.conn = None;
         }
@@ -230,6 +300,16 @@ impl Http {
     }
 }
 
+/// A TCP connection to the target, under [`CONNECT_TIMEOUT`], with Nagle off.
+async fn connect(t: &Target) -> Result<TcpStream, String> {
+    let tcp = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect((t.connect_host(), t.port)))
+        .await
+        .map_err(|_| format!("connect {}:{}: timed out after {}s", t.host, t.port, CONNECT_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("connect {}:{}: {e}", t.host, t.port))?;
+    tcp.set_nodelay(true).map_err(|e| e.to_string())?;
+    Ok(tcp)
+}
+
 pub async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u8>) -> Result<(), String> {
     let mut line = String::new();
     loop {
@@ -255,8 +335,8 @@ pub async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u
 }
 
 /// Wait for the room to answer `GET /join`. The first request also waits out
-/// a stopped machine's start (Fly starts it on the first request after the
-/// trial's stop).
+/// a stopped machine's start (Fly starts it on the first request after a
+/// stop or a deploy).
 pub async fn wait_for_room(target: &Arc<Target>, tls: &Option<tokio_rustls::TlsConnector>) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
@@ -313,13 +393,14 @@ impl Drop for Watcher {
 }
 
 pub async fn open_ws(target: &Target, path: &str, attach: Option<&str>) -> Result<Ws, String> {
-    let tcp = TcpStream::connect((target.connect_host(), target.port))
-        .await
-        .map_err(|e| format!("connect for {path}: {e}"))?;
-    tcp.set_nodelay(true).map_err(|e| e.to_string())?;
-    let (mut ws, _) = tokio_tungstenite::client_async_tls_with_config(target.ws_url(path), tcp, None, None)
-        .await
-        .map_err(|e| format!("socket {path}: {e}"))?;
+    let tcp = connect(target).await.map_err(|e| format!("{e} (for {path})"))?;
+    let (mut ws, _) = tokio::time::timeout(
+        CONNECT_TIMEOUT,
+        tokio_tungstenite::client_async_tls_with_config(target.ws_url(path), tcp, None, None),
+    )
+    .await
+    .map_err(|_| format!("socket {path}: no upgrade within {}s", CONNECT_TIMEOUT.as_secs()))?
+    .map_err(|e| format!("socket {path}: {e}"))?;
     if let Some(token) = attach {
         let msg = json!({ "t": "attach", "token": token }).to_string();
         ws.send(Message::Text(msg.into())).await.map_err(|e| format!("attach {path}: {e}"))?;
@@ -381,7 +462,7 @@ pub async fn all_reach(watchers: &[&Watcher], phase: &str, wait: Duration) -> Re
 }
 
 /// An error, with what it most likely means on Fly when the room vanished
-/// mid-run: the trial org stops the machine after about five minutes, and a
+/// mid-run: the machine runs until something stops or redeploys it, and a
 /// restarted machine has no rooms (room/README.md, *Deploying*). Never read as
 /// "a second machine" — `fly.toml` runs one.
 pub fn explain(e: &str) -> String {
@@ -392,7 +473,7 @@ pub fn explain(e: &str) -> String {
     let room_404 = e.contains(": 404") && !e.starts_with("create");
     let gone = connection || room_404;
     if gone {
-        format!("{e} — the room may be gone: if this is the deployed app, the machine may have been stopped or restarted mid-run (the Fly trial stops it after about five minutes); restart it and run again inside one window")
+        format!("{e} — the room may be gone: if this is the deployed app, the machine may have been stopped or restarted mid-run (it runs until something stops or redeploys it, and a restart or a deploy loses every room); check `fly status`, then schedule the ids again and rerun")
     } else {
         e.to_string()
     }

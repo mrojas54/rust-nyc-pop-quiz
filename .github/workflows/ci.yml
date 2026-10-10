@@ -63,7 +63,7 @@ jobs:
       # tests; kept on this fast job so a broken client fails early. The
       # in-process runs against a live room are `test-full`'s (harness-full).
       - name: The smoke and burst clients
-        run: cd room && cargo test --offline --locked --features burst --test smoke_config --bin smoke --bin burst
+        run: cd room && cargo test --offline --locked --features burst --test smoke_config --test harness_rules --bin smoke --bin burst
 
   # Everything that exists, plus a named list of what does not. Docker is used by
   # this hook only: it builds T-15a's sandbox image and runs the AC-12 containment
@@ -73,6 +73,9 @@ jobs:
   test-full:
     name: just test-full
     runs-on: ubuntu-latest
+    # About four minutes with the sandbox image cached; a cold image build
+    # (cargo miri setup) is the long pole. A hung socket test stops here.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
 

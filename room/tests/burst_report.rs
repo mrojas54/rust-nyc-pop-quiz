@@ -33,6 +33,8 @@ fn clean(n: usize) -> Measured {
         connected: n,
         window_ms: 2000,
         churn_secs: 3,
+        shapes: 2,
+        room_id: "a-room-id".into(),
         cycles: vec![
             Cycle { shape: "uniform", index: 0, writes_ms: fast(n), acked: true },
             Cycle { shape: "spike", index: 0, writes_ms: fast(n), acked: true },
@@ -188,11 +190,13 @@ fn marginal_is_said_in_words_on_a_pass_and_never_beside_a_miss() {
 
 #[test]
 fn a_clean_run_reports_every_field_and_every_sample() {
-    let (r, exit) = report(&clean(20));
+    let (r, exit) = report(&clean(200));
     assert_eq!(exit, Exit::Pass, "{}", r["verdict"]);
+    assert_eq!(r["verdict"]["notes"].as_array().unwrap().last().unwrap(), "all four criteria pass as measured");
+    assert_eq!(r["conditions"]["at_criteria_conditions"], true);
     assert_eq!(r["schema"], SCHEMA);
     assert_eq!(r["quotable"], true);
-    for key in ["substrate", "substrate_note", "invocation", "room", "client", "runs", "diagnostics", "criteria", "verdict"] {
+    for key in ["substrate", "substrate_note", "invocation", "room", "connections", "conditions", "client", "runs", "diagnostics", "criteria", "verdict"] {
         assert!(!r[key].is_null(), "{key}");
     }
     for id in ["AC-54", "AC-53", "AC-41", "AC-52"] {
@@ -200,9 +204,9 @@ fn a_clean_run_reports_every_field_and_every_sample() {
     }
     // Raw samples ship, so any percentile can be recomputed from the file.
     let seg = &r["runs"]["segment"]["writes"];
-    assert_eq!(seg["n"], 20 * 3 + 20 / 3);
-    assert_eq!(seg["samples_ms"].as_array().unwrap().len(), 20 * 3 + 20 / 3);
-    assert_eq!(r["runs"]["segment"]["reveal"]["samples_ms"].as_array().unwrap().len(), 20);
+    assert_eq!(seg["n"], 200 * 3 + 200 / 3);
+    assert_eq!(seg["samples_ms"].as_array().unwrap().len(), 200 * 3 + 200 / 3);
+    assert_eq!(r["runs"]["segment"]["reveal"]["samples_ms"].as_array().unwrap().len(), 200);
     assert_eq!(r["runs"]["burst_only"]["cycles"].as_array().unwrap().len(), 2);
     // The report survives a round trip through text.
     let again: Value = serde_json::from_str(&r.to_string()).unwrap();
@@ -283,4 +287,86 @@ fn two_sessions_swapping_answers_fail_ac52_although_every_total_survives() {
     m.split_totals.as_mut().unwrap()[0] -= 1;
     m.split_totals.as_mut().unwrap()[1] += 1;
     assert_eq!(report(&m).1, Exit::Missed);
+}
+
+// --------------------------------------------------------------------------
+// PQ-41: what a verdict may not claim.
+// --------------------------------------------------------------------------
+
+fn notes(r: &Value) -> Vec<String> {
+    r["verdict"]["notes"].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn a_run_below_the_criteria_conditions_can_miss_but_never_pass() {
+    let mut window = clean(200);
+    window.window_ms = 3000;
+    let mut one_shape = clean(200);
+    one_shape.shapes = 1;
+    one_shape.cycles.pop();
+    one_shape.scheduled_writes -= 200;
+    for (want, m) in [("n=12", clean(12)), ("3000 ms window", window), ("1 burst shape", one_shape)] {
+        let (r, exit) = report(&m);
+        assert_eq!(exit, Exit::NotAPass, "{want}: {:?}", notes(&r));
+        assert_eq!(r["verdict"]["exit_code"], 3);
+        assert_eq!(r["verdict"]["pass"], false);
+        let n = notes(&r);
+        assert!(n.iter().any(|t| t.starts_with("NOT A PASS") && t.contains(want)), "{want}: {n:?}");
+        assert!(!n.iter().any(|t| t.contains("pass as measured")), "{want}: {n:?}");
+        for id in ["AC-54", "AC-53", "AC-41", "AC-52"] {
+            assert!(criterion(&r, id)["pass"].is_null(), "{want}: {id} judged a pass below the conditions");
+        }
+        assert_eq!(r["conditions"]["at_criteria_conditions"], false);
+    }
+    // A miss below the conditions is still a miss, and says so.
+    let mut m = clean(12);
+    m.deadline_ms = vec![900.0; 12];
+    let (r, exit) = report(&m);
+    assert_eq!(exit, Exit::Missed);
+    assert_eq!(criterion(&r, "AC-53")["pass"], false);
+    assert!(criterion(&r, "AC-41")["pass"].is_null());
+    assert_eq!(r["conditions"]["n"], 12);
+}
+
+#[test]
+fn a_run_over_the_connection_cap_is_invalid_never_a_pass() {
+    assert_eq!(expected_peak_connections(200), 403);
+    assert_eq!(expected_peak_connections(1), 5);
+    let mut m = clean(200);
+    m.connection_cap = Some(400);
+    let (r, exit) = report(&m);
+    assert_eq!(exit, Exit::Invalid);
+    assert_eq!(r["quotable"], false);
+    assert_eq!((r["connections"]["expected_peak"].as_u64(), r["connections"]["cap"].as_u64(), r["connections"]["over_cap"].as_bool()), (Some(403), Some(400), Some(true)));
+    assert!(notes(&r).iter().any(|t| t.contains("connection cap") && t.contains("403") && t.contains("400") && t.contains("AC-53")), "{:?}", notes(&r));
+    // At the cap exactly, the run stands.
+    m.connection_cap = Some(403);
+    assert_eq!(report(&m).1, Exit::Pass);
+}
+
+#[test]
+fn a_write_the_room_never_answered_is_an_ac52_miss() {
+    let mut m = clean(200);
+    m.deadline_ms.pop();
+    m.unanswered_writes = 1;
+    m.unanswered_deadline = 1;
+    let (r, exit) = report(&m);
+    assert_eq!(exit, Exit::Missed, "{:?}", notes(&r));
+    assert_eq!(r["runs"]["segment"]["writes_population"]["ok"], true, "an unanswered write is in the population");
+    assert!(notes(&r).iter().any(|t| t.starts_with("AC-52 MISS: 1 writes sent while live were never answered")), "{:?}", notes(&r));
+    assert_eq!(criterion(&r, "AC-52")["pass"], false);
+    // Said even when the run is invalid for another reason.
+    m.errors.push("connect: refused".into());
+    let (r, exit) = report(&m);
+    assert_eq!(exit, Exit::Invalid);
+    assert!(notes(&r).iter().any(|t| t.starts_with("AC-52 MISS")), "{:?}", notes(&r));
+}
+
+#[test]
+fn no_send_lag_samples_is_invalid_not_zero() {
+    let mut m = clean(200);
+    m.send_lag_ms.clear();
+    let (r, exit) = report(&m);
+    assert_eq!(exit, Exit::Invalid);
+    assert!(notes(&r).iter().any(|t| t.contains("no send-lag samples")), "{:?}", notes(&r));
 }

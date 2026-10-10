@@ -31,6 +31,7 @@ mod smoke;
 use std::sync::Arc;
 
 use common::{q3, TestAuth, ORGANIZER};
+use room::requestlog;
 use room::rooms::{AppState, Urls};
 use serde_json::Value;
 
@@ -52,8 +53,11 @@ fn criterion<'a>(report: &'a Value, id: &str) -> &'a Value {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "test-full: `just harness-full`"]
 async fn burst_on_loopback_at_200() {
+    requestlog::start_capture();
     let base = room_on_loopback().await;
-    let argv: Vec<String> = format!("--url {base} --participants 200 --cycles 1 --churn-secs 3 --gap-ms 500 --seed 20260930")
+    // The criteria's conditions (200, both shapes, a 2 s window), on q3 itself:
+    // a bank id is the harness's own business on loopback.
+    let argv: Vec<String> = format!("--url {base} --question q3 --participants 200 --cycles 1 --churn-secs 3 --gap-ms 500 --seed 20260930")
         .split_whitespace()
         .map(String::from)
         .collect();
@@ -73,6 +77,32 @@ async fn burst_on_loopback_at_200() {
     for note in r["verdict"]["notes"].as_array().unwrap() {
         println!("  {}", note.as_str().unwrap());
     }
+
+    // The exit code is the verdict's: a pass, or invalid only because this
+    // machine's scheduler lagged (send lag is the client, not the room).
+    let notes: Vec<&str> = r["verdict"]["notes"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    assert_eq!(r["verdict"]["exit_code"], exit as i32);
+    assert_eq!(r["conditions"]["at_criteria_conditions"], true, "{}", r["conditions"]);
+    match exit {
+        burst::numbers::Exit::Pass => assert!(notes.last().unwrap().starts_with("all four criteria pass as measured"), "{notes:?}"),
+        burst::numbers::Exit::Invalid => assert!(
+            notes.iter().all(|n| n.starts_with("RUN INVALID: client send lag")),
+            "invalid for a reason other than send lag: {notes:?}; first errors: {}",
+            r["diagnostics"]["first_errors"]
+        ),
+        other => panic!("burst on loopback: {other:?} {notes:?}"),
+    }
+    for id in ["AC-54", "AC-53", "AC-41"] {
+        assert_ne!(criterion(&r, id)["pass"], false, "{id}: {notes:?}");
+    }
+    // AC-55's log: the room failed no participant request.
+    let room_id = r["room"]["id"].as_str().unwrap();
+    let lines = requestlog::captured(room_id);
+    assert_eq!(lines.iter().filter(|l| l["event"] == "participant_request_failed").count(), 0, "{lines:?}");
+    let summary: Vec<_> = lines.iter().filter(|l| l["event"] == "participant_requests").collect();
+    assert_eq!(summary.len(), 1, "{lines:?}");
+    assert_eq!(summary[0]["failed"], 0, "{}", summary[0]);
+    assert_eq!(requestlog::counts_for(room_id), requestlog::Counts::default(), "counters end at the summary");
 
     // The harness, not the machine: every participant joined, every write was
     // answered, every reveal arrived, the counts are exact.
@@ -103,7 +133,7 @@ async fn burst_on_loopback_at_200() {
 #[ignore = "test-full: `just harness-full`"]
 async fn smoke_on_loopback() {
     let base = room_on_loopback().await;
-    let args = smoke::parse_args(format!("--url {base} --participants 50").split_whitespace().map(String::from)).unwrap();
+    let args = smoke::parse_args(format!("--url {base} --question q3 --participants 50").split_whitespace().map(String::from)).unwrap();
     let outcome = smoke::run(&args, ORGANIZER).await.expect("smoke ran");
     println!("smoke, LOOPBACK:");
     outcome.lines.iter().for_each(|l| println!("  {l}"));

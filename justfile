@@ -24,8 +24,7 @@
 # all, which is why the toolchain has to be baked in at build time.
 
 # Suites not built yet, and the ticket that delivers each (`name:T-nn`, space
-# separated). Read by both `_pending` and `test-full`, so the two can never
-# disagree about what is missing. Empty since T-21 built `burst`; the mechanism
+# separated). `test-full` prints them. Empty since T-21 built `burst`; the list
 # stays for the next reserved name that lands before its suite.
 PENDING := ""
 
@@ -62,9 +61,12 @@ test-pipeline:
 test-web:
     node --test 'web/test/*.test.js'
 
+# `a11y` is not a dependency: `test` already runs web/test/a11y.test.js (the
+# test-web glob); `just a11y` is the same suite with its matrix printed.
+#
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test a11y sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only") harness-full
+test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only") harness-full
     #!/usr/bin/env bash
     set -euo pipefail
     (cd room && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
@@ -107,6 +109,7 @@ harness-full:
     fi
     cd room
     cargo test --offline --locked --features burst,spike --bins
+    cargo test --offline --locked --features burst --test harness_rules
     cargo test --offline --locked --features burst --test harness_full -- --ignored --nocapture
 
 # AC-81 and AC-37 at 200 buzzers over loopback sockets (T-04c). The test is
@@ -246,9 +249,11 @@ secret-scan:
 #
 #   just smoke https://rustnyc-popquiz.fly.dev [--participants N] [--question ID] [--out PATH]
 #
-# One run releases the question it ran, and a machine refuses a question it has
-# already run until it restarts: `fly apps restart rustnyc-popquiz` before the
-# next run, and before any `popquiz sync`.
+# The question defaults to `smoke-q3`, a harness id: q3's record scheduled
+# under it first (room/README.md, Burst, Scheduling), so the run's release
+# never retires a bank question. Off loopback a bank id is refused unless
+# `--spend-bank-question` is given, and plain http is refused. Never run it
+# during a meetup.
 #
 # The deployed room, all seven phases (POPQUIZ_ORGANIZER_SESSION in the environment).
 smoke URL *ARGS:
@@ -261,11 +266,15 @@ smoke URL *ARGS:
 # AC-54, AC-53, AC-41 and AC-52 on the room's own protocol (T-21): 200
 # participants, isolated deadline bursts, then a full segment to release. JSON
 # report on stdout (and --out); exit 0 pass, 1 a criterion missed, 2 invalid or
-# could not run. Credentials as smoke; the question is scheduled first over the
-# pipeline channel (room/README.md, Burst). Against https it is the deployed
-# substrate; `test-full` runs it on loopback (harness-full).
+# could not run, 3 below the criteria's conditions without a miss (not a pass).
+# Credentials as smoke; the question defaults to `burst-q3`, a harness id,
+# scheduled first over the pipeline channel (room/README.md, Burst); a bank id
+# is refused off loopback unless `--spend-bank-question`. Off loopback
+# `--connection-cap` is required: fly.toml's hard_limit (the run holds 2n+3
+# connections). Against https it is the deployed substrate; `test-full` runs
+# it on loopback (harness-full). Never during a meetup.
 #
-#   just burst https://rustnyc-popquiz.fly.dev --question burst-q3 [--out PATH]   (--help for the rest)
+#   just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 [--out PATH]   (--help for the rest)
 #
 # AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION in the environment).
 burst URL *ARGS:
@@ -309,18 +318,3 @@ sync *ARGS:
 # AC-82…AC-86 on every surface and phase, with the matrix.
 a11y:
     A11Y_MATRIX=1 node --test web/test/a11y.test.js
-
-# Prints which ticket delivers a suite, then fails.
-_pending SUITE:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for entry in {{ PENDING }}; do
-        name="${entry%%:*}"
-        ticket="${entry##*:}"
-        if [ "$name" = "{{ SUITE }}" ]; then
-            echo "just {{ SUITE }}: not built yet — BUILDPLAN $ticket delivers it." >&2
-            exit 1
-        fi
-    done
-    echo "just {{ SUITE }}: no such suite, and it is not on the pending list." >&2
-    exit 1

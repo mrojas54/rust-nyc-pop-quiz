@@ -407,10 +407,8 @@ impl Transport {
 
         if let (Some(_), true) = (session, broke) {
             // AC-55: only while the room is still running.
-            if let Ok(phase) = inner.state.with_room(&room_id, |r| r.phase()) {
-                if phase != crate::phase::Phase::Released {
-                    crate::requestlog::socket_dropped(&room_id, serde_json::to_value(phase).unwrap_or_default());
-                }
+            if let Some(phase) = crate::requestlog::running_phase(&inner.state, &room_id) {
+                crate::requestlog::socket_dropped(&room_id, serde_json::to_value(phase).unwrap_or_default());
             }
         }
         if let (Some(session), false) = (session, replaced) {
