@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-10T20:59:41Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4KSTHMEVEE7BGXCY6CKBWA5",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4KSTHMEVEE7BGXCY6CKBWA5.md",
+    "size_bytes": 938
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Orchestrator exact-head review (PR #60)",
+  "token_usage": null,
+  "type": "note"
+}

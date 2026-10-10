@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-10-10T20:55:33Z",
+  "created_by": "agent:delegator-pq67",
+  "custom_fields": {
+    "url": "https://github.com/mrojas54/rust-nyc-pop-quiz/pull/60"
+  },
+  "id": "art_01M4KSK02GV9ETN9EQ86ENS4YN",
+  "model": null,
+  "payload": {
+    "content_type": null,
+    "file": null,
+    "size_bytes": null
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "PR",
+  "token_usage": null,
+  "type": "reference"
+}
