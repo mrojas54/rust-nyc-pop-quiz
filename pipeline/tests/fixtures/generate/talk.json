@@ -1,0 +1,71 @@
+{
+  "_about": "Talk mode: two candidates, each naming a std or core-language concept from the talk.",
+  "_not_a_recording": "Hand-built in the SDK's documented batch result shape. No real batch produced it; no answer is claimed; nothing here is verified.",
+  "batch_id": "msgbatch_fixture_talk",
+  "results": [
+    {
+      "custom_id": "c01",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture_1",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-opus-5-5",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "fixture-not-a-real-signature"
+            },
+            {
+              "type": "text",
+              "text": "{\"source\": \"fn main() {\\n    let mut v = vec![1, 2];\\n    let w = std::mem::take(&mut v);\\n    println!(\\\"{} {}\\\", v.len(), w.len());\\n}\\n\", \"options\": [{\"text\": \"0 2\", \"kind\": \"output\", \"why_tempting\": \"take leaves the default behind.\"}, {\"text\": \"2 2\", \"kind\": \"output\", \"why_tempting\": \"It reads like a copy.\"}, {\"text\": \"2 0\", \"kind\": \"output\", \"why_tempting\": \"The arguments look swapped.\"}, {\"text\": \"does not compile\", \"kind\": \"does_not_compile\", \"why_tempting\": \"A move looks like it could leave nothing behind.\"}, {\"text\": \"panics at runtime\", \"kind\": \"panic\", \"why_tempting\": \"Taking from a live vector feels unsafe.\"}], \"hint\": \"Follow who owns the value after each line.\", \"explains\": {\"what\": \"The program runs top to bottom; each binding takes what the line before left it.\", \"takeaway\": \"Ownership moves on assignment unless the type is Copy.\"}, \"expect\": \"ran\", \"concept\": {\"name\": \"std::mem::take\", \"kind\": \"std\"}}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 2100,
+            "output_tokens": 1800,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "service_tier": "batch"
+          }
+        }
+      }
+    },
+    {
+      "custom_id": "c02",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture_2",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-opus-5-5",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "fixture-not-a-real-signature"
+            },
+            {
+              "type": "text",
+              "text": "{\"source\": \"struct D(u8);\\nimpl Drop for D { fn drop(&mut self) { print!(\\\"{}\\\", self.0); } }\\nfn main() {\\n    let _a = D(1);\\n    let _b = D(2);\\n}\\n\", \"options\": [{\"text\": \"21\", \"kind\": \"output\", \"why_tempting\": \"Drops run in reverse.\"}, {\"text\": \"12\", \"kind\": \"output\", \"why_tempting\": \"Declaration order feels natural.\"}, {\"text\": \"1\", \"kind\": \"output\", \"why_tempting\": \"Only the first one seems to drop.\"}, {\"text\": \"does not compile\", \"kind\": \"does_not_compile\", \"why_tempting\": \"A move looks like it could leave nothing behind.\"}, {\"text\": \"2\", \"kind\": \"output\", \"why_tempting\": \"Only the last one seems to drop.\"}], \"hint\": \"Follow who owns the value after each line.\", \"explains\": {\"what\": \"The program runs top to bottom; each binding takes what the line before left it.\", \"takeaway\": \"Ownership moves on assignment unless the type is Copy.\"}, \"expect\": \"ran\", \"concept\": {\"name\": \"drop order\", \"kind\": \"core_language\"}}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 2100,
+            "output_tokens": 1800,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "service_tier": "batch"
+          }
+        }
+      }
+    }
+  ]
+}
