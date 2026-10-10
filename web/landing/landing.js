@@ -11,8 +11,8 @@
   "use strict";
   var PQ = (root.PopQuiz = root.PopQuiz || {});
 
-  /* The three places the page's words go: the header, the copy column and
-     the footer. Ferris, between them, is drawn in index.html. */
+  /* The three places the page's words go: the header, the copy column, Ferris's
+     speech bubble and the footer. Ferris, between them, is drawn in index.html. */
   function parts() {
     var t = PQ.t;
     return {
@@ -23,13 +23,14 @@
         '<a class="land-btn" href="/join">' + t("landing_join") + "</a>" +
         '<a class="land-last" href="/last">' + t("landing_last") + "</a>" +
         "</nav>",
+      koan: t("landing_koan"),
       foot: '<a href="/host">' + t("landing_host") + "</a>"
     };
   }
 
   function mount(doc) {
     var p = parts();
-    var ids = { "land-head": p.head, "land-copy": p.copy, "land-foot": p.foot };
+    var ids = { "land-head": p.head, "land-copy": p.copy, "land-koan": p.koan, "land-foot": p.foot };
     var el = null;
     Object.keys(ids).forEach(function (id) {
       el = doc.getElementById(id);

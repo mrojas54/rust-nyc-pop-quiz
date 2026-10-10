@@ -32,9 +32,19 @@ html, body { background: var(--bg-primary); }
   text-align: center;
 }
 .land-copy { order: 2; display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
-.land-art { order: 1; min-width: 0; display: grid; place-items: center; padding: var(--space-4) 0;
+.land-art { order: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: var(--space-6); padding: var(--space-6) var(--space-4);
             background: var(--white); border: var(--border-w) solid var(--border-default);
             border-radius: var(--radius); box-shadow: var(--shadow-card); }
+/* Ferris's speech bubble: the card's grey, the house border, a tail down to the crab. */
+.land-koan { position: relative; margin: 0; max-width: 28ch; padding: var(--space-3) var(--space-4);
+             background: var(--bg-secondary); border: var(--border-w) solid var(--border-default);
+             border-radius: var(--radius); font-size: var(--text-sm); line-height: var(--leading-body);
+             color: var(--text-primary); text-align: center; }
+.land-koan::before, .land-koan::after { content: ""; position: absolute; left: 50%; top: 100%;
+                                        border: solid transparent; transform: translateX(-50%); }
+.land-koan::before { border-width: 9px; border-top-color: var(--border-default); }
+.land-koan::after { border-width: 8px; border-top-color: var(--bg-secondary); }
 .land-ferris { display: block; width: 260px; max-width: 80%; height: auto; }
 
 .land-title { margin: 0; font-size: 52px; line-height: 1.05; text-wrap: balance; }
@@ -70,7 +80,7 @@ html, body { background: var(--bg-primary); }
   .land-main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-16);
                align-items: center; text-align: left; }
   .land-copy { order: 0; gap: var(--space-8); }
-  .land-art { order: 0; min-height: 440px; padding: 0; }
+  .land-art { order: 0; min-height: 440px; padding: var(--space-8); }
   .land-ferris { width: 400px; max-width: 90%; }
   .land-title { font-size: 96px; }
   .land-go { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
