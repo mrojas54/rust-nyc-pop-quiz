@@ -7,8 +7,8 @@ The preview reads questions from the bank without changing them.
 
 ![Question preview, teaching trace, and answer reveal](recordings/organizer-preview.gif)
 
-The recording walks through `q3`, reveals the answer, and scrolls to the
-verification receipt. [Download the terminal recording](recordings/organizer-preview.cast)
+The recording selects and opens a teaching step, moves keyboard focus between
+panes, reveals the answer, and opens help. [Download the terminal recording](recordings/organizer-preview.cast)
 to replay it with `asciinema play recordings/organizer-preview.cast`.
 
 ## Run
@@ -21,7 +21,8 @@ cargo run --locked -- --question q3
 ```
 
 The first build downloads dependencies. Use a terminal at least 40 columns wide
-and 14 rows tall; 100 × 36 gives the code and narration more room.
+and 14 rows tall; 136 × 41 gives the code and narration more room. Below 80
+columns, the focused pane fills the view. Tab switches panes.
 
 To load another bank, add `--bank /path/to/bank`. That directory must contain a
 `questions/` subdirectory with the question JSON files.
@@ -31,19 +32,27 @@ To load another bank, add `--bank /path/to/bank`. That directory must contain a
 | Key | Action |
 | --- | --- |
 | `1` | Show the question and five choices |
-| `t` or Tab | Switch between the question and teaching trace |
+| `t` | Switch between the question and teaching trace |
+| Tab | Move focus between steps, source, and narration |
+| Enter | Open the selected teaching step |
 | Left / Right or `<` / `>` | Step backward or forward |
 | `r` | Reveal the answer and final trace step |
 | `[` / `]` | Open the previous or next question |
-| Up / Down or `k` / `j` | Scroll the current view |
-| Page Up / Page Down | Scroll ten rows |
-| `q`, Escape, or Ctrl-C | Exit and restore the terminal |
+| Up / Down or `k` / `j` | Select a step, or scroll the focused pane |
+| Page Up / Page Down | Move ten steps or scroll ten rows |
+| Escape | Close help, return focus to steps, or go back to the question |
+| `?` | Open or close keyboard help |
+| `q` or Ctrl-C | Exit and restore the terminal |
 
 Each trace step highlights the relevant code and shows the host's narration and
 value changes. These steps are written as a teaching aid; the values are not
 captured from a debugger.
 
-In the teaching trace, the arrow keys stop before the final step. Press `r` to see that step, the answer,
+The left list selects a step without changing the source or narration. Enter
+opens that step. Left and Right step through the walkthrough immediately.
+The focused pane has an amber border and a `FOCUS` label.
+
+In the teaching trace, navigation stops before the final step. Press `r` to see that step, the answer,
 the explanation, why the other choices are tempting, and the verification receipt.
 Switching questions returns to the question view.
 
