@@ -150,7 +150,8 @@ burst - the room under load, on its own protocol (T-21)
   --gap-ms <n>          quiet time between stages (default 1500)
 
 POPQUIZ_ORGANIZER_SESSION must be in the environment (never on the command line).
-Exit: 0 all criteria pass - 1 a criterion missed - 2 run invalid or could not run, do not quote.";
+Exit: 0 all criteria pass - 1 a criterion missed - 2 run invalid or could not run, do not quote -
+3 below the criteria's conditions (n < 200, window > 2000 ms, one shape) and nothing missed: not a pass.";
 
 pub fn parse_args(argv: &[String]) -> Result<Args, String> {
     let mut a = Args::default();
