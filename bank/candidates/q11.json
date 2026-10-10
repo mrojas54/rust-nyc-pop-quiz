@@ -1,0 +1,43 @@
+{
+  "id": "q11",
+  "source": "fn main() {\n    let n = f64::NAN;\n    println!(\"{} {} {}\", n == n, n.max(1.0), 0.1 + 0.2 == 0.3);\n}",
+  "topic": "Floating point",
+  "difficulty_requested": 3,
+  "options": [
+    {
+      "text": "false 1 true",
+      "kind": "output",
+      "why_tempting": "0.1 + 0.2 is 0.3 on paper. In binary floating point the sum lands a hair above it, so the comparison is false."
+    },
+    {
+      "text": "true 1 false",
+      "kind": "output",
+      "why_tempting": "Everything equals itself, you would think. NaN is the one value that does not: n == n is false."
+    },
+    {
+      "text": "false 1 false",
+      "kind": "output"
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile",
+      "why_tempting": "Comparing floats with == is allowed, and so is comparing a NaN with itself. Lints may grumble about it, but the compiler accepts both."
+    },
+    {
+      "text": "false NaN false",
+      "kind": "output",
+      "why_tempting": "In many languages a NaN poisons everything it touches. f64::max is defined to skip a NaN and hand back the other number, so you get the 1."
+    }
+  ],
+  "hint": "Three separate floating point facts, one per value printed. Take them one at a time.",
+  "explains": {
+    "what": "NaN is not equal to anything, itself included, so n == n is false. f64::max hands back the other number when one side is NaN, so n.max(1.0) is 1, and Display prints the float 1.0 as 1. And 0.1 + 0.2 is stored as a binary value slightly different from the one 0.3 is stored as, so that comparison is false as well.",
+    "takeaway": "f64 is PartialEq and PartialOrd but not Eq or Ord, because NaN breaks the rules those traits promise. That is why you cannot sort a Vec<f64> with sort(), and why f64::total_cmp exists."
+  },
+  "trace": {
+    "steps": []
+  },
+  "review": {
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/questions/q11.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+  }
+}

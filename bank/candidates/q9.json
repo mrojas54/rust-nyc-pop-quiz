@@ -1,0 +1,43 @@
+{
+  "id": "q9",
+  "source": "fn main() {\n    let mut a = Some(3);\n    let b = a.take();\n    let c = a.replace(7);\n    println!(\"{:?} {:?} {:?}\", a, b, c);\n}",
+  "topic": "Option and ownership",
+  "difficulty_requested": 2,
+  "options": [
+    {
+      "text": "Some(3) Some(3) None",
+      "kind": "output",
+      "why_tempting": "take sounds like a peek or a clone, so a would still hold its 3. It moves the value out and leaves None behind."
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile",
+      "why_tempting": "take wants &mut self, and a is declared mut, so the call is fine. Reading a again afterwards is fine too, because take left a valid value there."
+    },
+    {
+      "text": "Some(7) Some(3) Some(7)",
+      "kind": "output",
+      "why_tempting": "replace hands back the old contents. If you read it as returning what you gave it, c comes out Some(7)."
+    },
+    {
+      "text": "Some(7) Some(3) None",
+      "kind": "output"
+    },
+    {
+      "text": "None Some(3) None",
+      "kind": "output",
+      "why_tempting": "This is replace doing half its job: it returns the old value but forgets to store the new one. It stores it, so a ends as Some(7)."
+    }
+  ],
+  "hint": "Both methods change a. Track what a holds after each call, and which value each call hands back.",
+  "explains": {
+    "what": "take moves the value out of the Option and leaves None in its place, so b gets Some(3) and a is now None. replace puts a new value in and returns what was there before. What was there was None, so c is None and a ends up Some(7).",
+    "takeaway": "Both methods exist so you can move a value out of something you only have a mutable borrow of. std::mem::take and std::mem::replace do the same job for any type, and they are how you get an owned field out of &mut self without cloning."
+  },
+  "trace": {
+    "steps": []
+  },
+  "review": {
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/questions/q9.json --expect ran` on the pinned image to write one. Trace is empty until the walk-through steps are drafted; affirm needs both."
+  }
+}
