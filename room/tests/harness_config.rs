@@ -42,7 +42,8 @@ fn the_deployed_workflow_installs_nothing_it_does_not_use() {
     let w = read(".github/workflows/deployed-burst.yml");
     let code = code(&w).join("\n");
     assert!(!code.contains("casey/just") && !code.contains("JUST_VERSION"), "deployed-burst installs just and never calls it");
-    assert!(!code.contains("just "), "deployed-burst calls just: then install it");
+    let calls_just = code.lines().any(|l| l.split(|c: char| !c.is_alphanumeric() && c != '-' && c != '_').any(|w| w == "just"));
+    assert!(!calls_just, "deployed-burst calls just: then install it");
 }
 
 #[test]
@@ -77,6 +78,12 @@ fn the_deployed_burst_runs_against_the_cap_fly_toml_states() {
     assert!(run.contains(r#"--connection-cap "$CAP""#), "burst is not given the cap");
     assert!(run.contains("CAP: ${{ steps.cap.outputs.cap }}"));
     assert!(!run.contains("> fly.toml") && !run.contains(">> fly.toml"), "the workflow writes fly.toml");
+    // Over the cap it stops before the room is touched.
+    let cap_step = run.split("id: cap").nth(1).expect("the cap step");
+    let cap_step = cap_step.split("\n      - name:").next().unwrap();
+    assert!(cap_step.contains(r#"[ "$peak" -le "$cap" ] ||"#) && cap_step.contains("exit 2"), "the cap step does not stop an over-cap run: {cap_step}");
+    let (before, after) = run.split_once("id: cap").unwrap();
+    assert!(!before.contains("$ROOM_URL/") && after.contains("$ROOM_URL/admin/questions"), "something reaches the room before the cap check");
 }
 
 #[test]

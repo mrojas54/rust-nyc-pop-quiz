@@ -44,8 +44,9 @@
 //! over it is invalid, never a pass.
 //!
 //! Exit: `0` all four criteria pass as measured, at the criteria's conditions;
-//! `1` a criterion missed; `2` the run is invalid, was below the criteria's
-//! conditions without missing, or could not run — do not quote it as a pass.
+//! `1` a criterion missed; `2` the run is invalid or could not run; `3` the
+//! run was below the criteria's conditions and missed nothing. Only `0` is a
+//! pass.
 
 #[path = "room_client.rs"]
 mod client;

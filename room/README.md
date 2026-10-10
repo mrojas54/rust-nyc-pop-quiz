@@ -992,7 +992,11 @@ shape — that missed nothing: such a run can show a miss but never earn a pass,
 so it never prints *all four criteria pass*, and its `pass` fields are `null`.
 The report's `conditions` says which, and every summary prints `n`. A write the
 room never answered is an AC-52 miss (a write lost), not only a broken run; a
-run with no send-lag samples is invalid, never a lag of zero.
+run with no send-lag samples is invalid, never a lag of zero. That includes a
+kept-alive connection the proxy closed before answering: burst does not retry
+a write on a fresh connection, so such a close reads as a miss — read
+`first_unanswered` before blaming the room. It can cost a pass; it cannot make
+one.
 
 **The connection cap (`hard_limit`).** Fly's proxy routes at most `hard_limit`
 simultaneous connections (`fly.toml`, `[http_service.concurrency]`, 400 today)
@@ -1057,8 +1061,10 @@ A first job checks the `confirm` input against exactly that sentence and stops
 the run otherwise, before any approval is asked and before any step that could
 read a secret. Then the job runs in the `deployed-burst` environment (a
 reviewer approves it in the Actions tab). It reads `hard_limit` from `fly.toml`
-(a read; it prints the commit it read) and passes it as `--connection-cap`,
-builds both clients, schedules the two ids, runs burst (one isolated burst per
+(a read; it prints the commit it read) and passes it as `--connection-cap`;
+if 2n + 3 is over it the job stops there, before anything reaches the room —
+so the `participants` default of 200 stops at 403 vs 400 until `hard_limit`
+is raised, and 198 is the most that fits today. Otherwise it builds both clients, schedules the two ids, runs burst (one isolated burst per
 shape, a 10 s churn) and smoke back to back, and uploads both JSON reports as
 an artifact; the job summary lists `n`, the connections against the cap, the
 exit code and each criterion. There is no Fly token in CI.

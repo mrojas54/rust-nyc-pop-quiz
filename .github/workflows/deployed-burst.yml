@@ -91,8 +91,8 @@ jobs:
           # the room's own: the Fly app, or its DNS name once H-2 lands.
           [[ "$ROOM_URL" =~ ^https://(rustnyc-popquiz\.fly\.dev|popquiz\.rustnyc\.org)$ ]] || { echo "url must be https://rustnyc-popquiz.fly.dev or https://popquiz.rustnyc.org, got: $ROOM_URL" >&2; exit 2; }
           [[ "$PARTICIPANTS" =~ ^[0-9]+$ ]] && [ "$PARTICIPANTS" -ge 1 ] && [ "$PARTICIPANTS" -le 200 ] || { echo "participants must be 1-200" >&2; exit 2; }
-          [ "$HAS_SESSION" = true ] || { echo "set the POPQUIZ_ORGANIZER_SESSION repository secret first (room/README.md, Burst)" >&2; exit 2; }
-          [ "$HAS_ADMIN" = true ] || { echo "set the POPQUIZ_ADMIN_TOKEN repository secret first (room/README.md, Burst)" >&2; exit 2; }
+          [ "$HAS_SESSION" = true ] || { echo "set the POPQUIZ_ORGANIZER_SESSION secret on the deployed-burst environment first (room/README.md, Burst)" >&2; exit 2; }
+          [ "$HAS_ADMIN" = true ] || { echo "set the POPQUIZ_ADMIN_TOKEN secret on the deployed-burst environment first (room/README.md, Burst)" >&2; exit 2; }
 
       # Read, never written: the proxy's cap on connections to the one machine.
       - name: The connection cap from fly.toml
@@ -101,7 +101,11 @@ jobs:
           set -euo pipefail
           cap=$(python3 -c 'import tomllib; print(tomllib.load(open("fly.toml", "rb"))["http_service"]["concurrency"]["hard_limit"])')
           [[ "$cap" =~ ^[0-9]+$ ]] || { echo "no hard_limit in fly.toml" >&2; exit 2; }
-          echo "hard_limit $cap, from fly.toml at $(git rev-parse --short HEAD) on $GITHUB_REF_NAME; burst holds $((2 * PARTICIPANTS + 3)) at its peak"
+          peak=$((2 * PARTICIPANTS + 3))
+          echo "hard_limit $cap, from fly.toml at $(git rev-parse --short HEAD) on $GITHUB_REF_NAME; burst holds $peak at its peak"
+          # Over the cap the run is invalid before it starts: stop here, before
+          # anything reaches the room, rather than load the machine for nothing.
+          [ "$peak" -le "$cap" ] || { echo "expected peak connections $peak vs cap $cap: over the cap, the run cannot count. Run with participants $(( (cap - 3) / 2 )) or fewer, or raise hard_limit (room/README.md, The connection cap)." >&2; exit 2; }
           echo "cap=$cap" >> "$GITHUB_OUTPUT"
 
       - name: Cache cargo registry and target
