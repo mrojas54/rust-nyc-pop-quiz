@@ -1,4 +1,12 @@
 //! Keyboard scheduling form backed by the existing Python scheduler.
+use crossterm::event::KeyCode;
+use ratatui::{
+    layout::Rect,
+    style::Style,
+    text::Line,
+    widgets::{Block, Borders, Paragraph},
+    Frame,
+};
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -15,6 +23,7 @@ pub(crate) struct Schedule {
     message: String,
     job: Option<Receiver<String>>,
     scroll: u16,
+    max_scroll: u16,
 }
 
 impl Schedule {
@@ -29,7 +38,40 @@ impl Schedule {
             message: String::new(),
             job: None,
             scroll: 0,
+            max_scroll: 0,
         }
+    }
+
+    pub(crate) fn handle_key(&mut self, key: KeyCode) -> bool {
+        match key {
+            KeyCode::PageDown => self.scroll = self.scroll.saturating_add(10).min(self.max_scroll),
+            KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(10),
+            KeyCode::Down | KeyCode::Up if self.finished || self.confirm => {
+                self.scroll = if key == KeyCode::Down {
+                    self.scroll.saturating_add(1).min(self.max_scroll)
+                } else {
+                    self.scroll.saturating_sub(1)
+                };
+            }
+            KeyCode::Down | KeyCode::Tab
+                if !self.confirm && !self.finished && self.job.is_none() =>
+            {
+                self.field = (self.field + 1) % 3;
+                self.scroll = 0;
+            }
+            KeyCode::Up | KeyCode::BackTab
+                if !self.confirm && !self.finished && self.job.is_none() =>
+            {
+                self.field = (self.field + 2) % 3;
+                self.scroll = 0;
+            }
+            KeyCode::Char(c) => return self.handle(c),
+            KeyCode::Enter => return self.handle('\n'),
+            KeyCode::Esc => return self.handle('\u{1b}'),
+            KeyCode::Backspace => return self.handle('\u{8}'),
+            _ => {}
+        }
+        true
     }
 
     /// False closes the form. No external action happens before an explicit y.
@@ -40,7 +82,7 @@ impl Schedule {
         if self.finished {
             match key {
                 '\u{1b}' => return false,
-                'j' => self.scroll = self.scroll.saturating_add(1),
+                'j' => self.scroll = self.scroll.saturating_add(1).min(self.max_scroll),
                 'k' => self.scroll = self.scroll.saturating_sub(1),
                 _ => {}
             }
@@ -82,6 +124,15 @@ impl Schedule {
         if !Path::new(&self.fields[2]).is_absolute() {
             return Err("Use an absolute fallback directory outside the repository.".into());
         }
+        let output = resolved_path(Path::new(&self.fields[2]))
+            .map_err(|_| "Cannot resolve the fallback directory.".to_string())?;
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .map_err(|_| "Cannot resolve the repository directory.".to_string())?;
+        if output.starts_with(repo) {
+            return Err("Choose a fallback directory outside the repository.".into());
+        }
         Ok(())
     }
 
@@ -119,7 +170,7 @@ impl Schedule {
         std::thread::spawn(move || {
             let result = match cmd.output() {
                 Ok(out) => {
-                    let heading = if out.status.success() { "Scheduled" } else { "Scheduling did not complete" };
+                    let heading = result_heading(out.status.success());
                     format!("{heading}\n{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))
                 },
                 Err(_) => "Could not start the scheduler. Set up pipeline/.venv with Python 3.12, or set POPQUIZ_PYTHON to its executable. Nothing was sent.".into(),
@@ -168,9 +219,57 @@ impl Schedule {
         text
     }
 
-    pub(crate) fn scroll(&self) -> u16 {
-        self.scroll
+    pub(crate) fn draw(&mut self, frame: &mut Frame<'_>, area: Rect) {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(" Schedule question / PgUp PgDn Scroll ")
+            .border_style(Style::default().fg(super::AMBER));
+        let inner = block.inner(area);
+        let text = self.text();
+        let lines: Vec<_> = text
+            .lines()
+            .flat_map(|line| textwrap::wrap(line, usize::from(inner.width.max(1))))
+            .map(|line| Line::raw(line.into_owned()))
+            .collect();
+        self.max_scroll = lines
+            .len()
+            .saturating_sub(usize::from(inner.height))
+            .min(usize::from(u16::MAX)) as u16;
+        self.scroll = self.scroll.min(self.max_scroll);
+        frame.render_widget(block, area);
+        frame.render_widget(Paragraph::new(lines).scroll((self.scroll, 0)), inner);
     }
+}
+
+fn result_heading(success: bool) -> &'static str {
+    if success {
+        "Scheduled"
+    } else {
+        "Scheduler reported a problem"
+    }
+}
+
+// Resolve existing symlink prefixes as well as new directories and parent components.
+fn resolved_path(path: &Path) -> std::io::Result<PathBuf> {
+    use std::path::Component;
+    let mut result = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::ParentDir => {
+                result.pop();
+            }
+            Component::CurDir => {}
+            other => {
+                result.push(other.as_os_str());
+                match result.canonicalize() {
+                    Ok(canonical) => result = canonical,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+    }
+    Ok(result)
 }
 
 fn safe_report(mut text: String) -> String {
@@ -221,6 +320,46 @@ fn valid_date(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repository_paths_are_refused_before_confirmation() {
+        let mut form = Schedule::new("q3".into(), PathBuf::from("/tmp/bank"));
+        form.fields = [
+            "2026-10-15".into(),
+            "https://example.test".into(),
+            format!("{}/../../new-fallback", env!("CARGO_MANIFEST_DIR")),
+        ];
+        form.handle('\n');
+        assert!(!form.confirm);
+        assert!(form.message.contains("outside the repository"));
+        assert_eq!(
+            resolved_path(Path::new("/tmp/new-dir/../fallback")).unwrap(),
+            Path::new("/tmp").canonicalize().unwrap().join("fallback")
+        );
+    }
+
+    #[test]
+    fn result_scroll_clamps_to_rendered_height_and_resize() {
+        use ratatui::{backend::TestBackend, Terminal};
+        let mut form = Schedule::new("q3".into(), PathBuf::from("/tmp/bank"));
+        form.finished = true;
+        form.message = "many wrapped words to test scrolling. ".repeat(100);
+        let mut terminal = Terminal::new(TestBackend::new(40, 14)).unwrap();
+        terminal.draw(|f| form.draw(f, f.area())).unwrap();
+        for _ in 0..1000 {
+            form.handle('j');
+        }
+        assert_eq!(form.scroll, form.max_scroll);
+        assert!(form.scroll > 0);
+        form.message = "short".into();
+        terminal.draw(|f| form.draw(f, f.area())).unwrap();
+        assert_eq!(form.scroll, 0);
+    }
+
+    #[test]
+    fn unsuccessful_exit_does_not_claim_the_room_was_unchanged() {
+        assert_eq!(result_heading(false), "Scheduler reported a problem");
+    }
 
     #[test]
     fn dates_reject_impossible_days_and_accept_leap_years() {

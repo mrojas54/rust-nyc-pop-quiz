@@ -1,5 +1,6 @@
 //! Question and authored teaching-trace preview, with explicit scheduling.
 mod scheduling;
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     backend::TestBackend,
     layout::{Constraint, Layout, Rect},
@@ -169,6 +170,46 @@ impl App {
         })
     }
 
+    /// Keep terminal key identity until the focused surface handles it.
+    pub fn handle_event(&mut self, key: KeyEvent) -> bool {
+        if key.kind != KeyEventKind::Press {
+            return true;
+        }
+        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
+            return false;
+        }
+        if key.modifiers.intersects(
+            KeyModifiers::CONTROL
+                | KeyModifiers::ALT
+                | KeyModifiers::SUPER
+                | KeyModifiers::HYPER
+                | KeyModifiers::META,
+        ) {
+            return true;
+        }
+        if let Some(schedule) = &mut self.schedule {
+            if !schedule.handle_key(key.code) {
+                self.schedule = None;
+            }
+            return true;
+        }
+        let action = match key.code {
+            KeyCode::Char(c) => Some(c),
+            KeyCode::Left => Some('<'),
+            KeyCode::Right => Some('>'),
+            KeyCode::Up => Some('k'),
+            KeyCode::Down => Some('j'),
+            KeyCode::PageUp => Some('K'),
+            KeyCode::PageDown => Some('J'),
+            KeyCode::Tab => Some('\t'),
+            KeyCode::Enter => Some('\n'),
+            KeyCode::Backspace => Some('\u{8}'),
+            KeyCode::Esc => Some('\u{1b}'),
+            _ => None,
+        };
+        action.is_none_or(|c| self.handle(c))
+    }
+
     /// Returns false only for an explicit quit action.
     pub fn handle(&mut self, key: char) -> bool {
         if let Some(schedule) = &mut self.schedule {
@@ -241,6 +282,8 @@ impl App {
                 self.selected = self.step.min(total.saturating_sub(2));
             }
             '<' if self.mode != Mode::Question => {
+                self.mode = Mode::Trace;
+                self.focus = Focus::Steps;
                 self.step = self.step.saturating_sub(1);
                 self.selected = self.step.min(total.saturating_sub(2));
             }
@@ -488,15 +531,6 @@ impl App {
             Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(inner);
         let q = &self.candidates[self.index];
         let teaching_count = q.trace.steps.len().saturating_sub(1);
-        // Short navigation labels for the demonstration question; the teaching
-        // content itself always comes from the bank. Other candidates use notes.
-        let demo_labels = [
-            "Build the vector",
-            "Compare neighbours",
-            "Middle pair",
-            "Last pair",
-            "Pause here",
-        ];
         let items: Vec<_> = q
             .trace
             .steps
@@ -504,11 +538,7 @@ impl App {
             .take(teaching_count)
             .enumerate()
             .map(|(i, step)| {
-                let label = if q.id == "q3" {
-                    demo_labels.get(i).copied().unwrap_or("Teaching step")
-                } else {
-                    step.note.split('.').next().unwrap_or("Teaching step")
-                };
+                let label = step.note.split('.').next().unwrap_or("Teaching step");
                 ListItem::new(vec![
                     Line::raw(format!("{} {}", i + 1, label)),
                     Line::raw(""),
@@ -596,18 +626,7 @@ impl App {
         frame.render_widget(Block::default().style(Style::default().fg(FG).bg(BG)), area);
         if let Some(schedule) = &mut self.schedule {
             schedule.poll();
-            frame.render_widget(
-                Paragraph::new(schedule.text())
-                    .wrap(ratatui::widgets::Wrap { trim: false })
-                    .scroll((schedule.scroll(), 0))
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .title(" Schedule question ")
-                            .border_style(Style::default().fg(AMBER)),
-                    ),
-                area,
-            );
+            schedule.draw(frame, area);
             return;
         }
         if area.width < 40 || area.height < 14 {
@@ -726,6 +745,16 @@ pub fn snapshot(keys: &[char], width: u16, height: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn navigator_labels_follow_edited_trace_content() {
+        let mut app = App::load(&default_bank(), Some("q3")).unwrap();
+        app.candidates[app.index].trace.steps[0].note = "Edited teaching label. Detail.".into();
+        app.handle('t');
+        let screen = capture(&mut app, 120, 40).unwrap();
+        assert!(screen.contains("> 1 Edited teaching label"));
+        assert!(!screen.contains("Build the vector"));
+    }
 
     #[test]
     fn incomplete_trace_never_becomes_a_teaching_step() {
