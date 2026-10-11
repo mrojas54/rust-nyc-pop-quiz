@@ -1,5 +1,24 @@
 # Organizer TUI prototype validation
 
+## Review fixes — 2026-10-11
+
+RED commit `237c863`; GREEN commit `7e7cef4`.
+
+- `just test` passed, including the newly added `test-organizer` dependency.
+- TUI: 26 tests (11 unit, 15 integration), Clippy with warnings denied,
+  and formatting checks passed. The path test initially assumed macOS's
+  per-user temporary directory was `/tmp`; its expected canonical path was fixed.
+- The full recipe also passed the room and web suites and 710 pipeline tests
+  (the existing q3 copy warning remains). No container or deployed tests ran.
+- Real PTY smoke against a loopback server exercised arrow escape sequences,
+  Ctrl-Y, and Alt-Y before plain `y`. No request was sent until plain `y`;
+  exactly one PUT followed, fallback files were created, and the temporary bank
+  remained unchanged. The test token did not appear in terminal output.
+- Refreshed the teaching navigator and scheduling recordings. Inspected the
+  note-derived navigator labels in the rendered terminal capture.
+
+See [REVIEW_FIXES.md](REVIEW_FIXES.md) for each finding and its disposition.
+
 ## Scheduling — 2026-10-11
 
 RED commit `44387fd`; GREEN commit `4f3b6e0`.
