@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M4NY6ZT9W4Q4GXZPB0TYD2VN",
-  "last_event_id": "ev_01M4NZ01C4T6SDMEA03DGP9DVN",
-  "last_status_changed_at": "2026-10-11T17:08:09Z",
+  "last_event_id": "ev_01M4NZE1N50QX0A2DVY6V3PMVP",
+  "last_status_changed_at": "2026-10-11T17:16:11Z",
   "priority": "low",
   "relationships_out": [
     {
@@ -25,7 +25,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-68",
-  "status": "planned",
+  "status": "in_progress",
   "tags": [
     "m3",
     "fast-track",
@@ -34,6 +34,6 @@
   ],
   "title": "Generator follow-ups from the PR #61 review",
   "type": "task",
-  "updated_at": "2026-10-11T17:08:32Z",
+  "updated_at": "2026-10-11T17:16:11Z",
   "urgency": null
 }
