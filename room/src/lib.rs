@@ -1,6 +1,9 @@
 //! The live room: one meetup, one question, seven phases.
 //!
-//! The modules are the ones `BUILDPLAN.md` §2 names:
+//! The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
+//! them: [`host`] (the organizer), [`connections`] (the audience's sockets and
+//! sessions) and [`models`] (the data). Each is also reachable at the crate
+//! root, so `room::phase` and `room::models::phase` are the same module.
 //!
 //! - [`phase`] — the machine: `idle → … → released`, host actions only, no
 //!   skipping, `trace_step` (G-6). Consumed by everything in M1.
@@ -45,22 +48,19 @@ use std::sync::Arc;
 use axum::Router;
 
 pub mod admin;
-pub mod answers;
-pub mod auth;
-pub mod club;
 pub mod config;
+pub mod connections;
 pub mod copy;
-pub mod discord;
+pub mod host;
 pub mod lifecycle;
-pub mod phase;
-pub mod question;
-pub mod requestlog;
+pub mod models;
 pub mod rooms;
 mod routes;
-pub mod sessions;
-pub mod used;
-pub mod view;
-pub mod ws;
+
+// The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
+pub use connections::{requestlog, sessions, ws};
+pub use host::{auth, discord};
+pub use models::{answers, club, phase, question, used, view};
 
 pub use routes::host_routes;
 

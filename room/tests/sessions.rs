@@ -361,7 +361,7 @@ async fn ac56_after_release_no_session_remains() {
 fn ac57_a_session_is_a_token_and_an_answer() {
     // The compile-time half is the exhaustive pattern in `sessions.rs`; this
     // reads the source so the claim is visible in the test output too.
-    let src = std::fs::read_to_string(repo().join("room/src/sessions.rs")).unwrap();
+    let src = std::fs::read_to_string(repo().join("room/src/connections/sessions.rs")).unwrap();
     let body = src.split("pub struct Session {").nth(1).expect("struct Session").split('}').next().unwrap();
     let fields: Vec<&str> = body
         .lines()
