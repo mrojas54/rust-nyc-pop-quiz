@@ -1,5 +1,30 @@
 # Organizer TUI prototype validation
 
+## Scheduling — 2026-10-11
+
+RED commit `44387fd`; GREEN commit `4f3b6e0`.
+
+- Rust: 20 tests passed (7 unit, 13 integration); Clippy with warnings denied
+  and formatting checks passed.
+- Python, from `pipeline/`: all 66 scheduling tests passed; the full
+  non-container suite passed 710 tests with the existing q3 copy warning.
+- Real binary smoke check: entered the schedule form over a pseudo-terminal,
+  filled its fields, reviewed the confirmation, and pressed `y`. The existing
+  Python scheduler sent exactly one PUT to a loopback test server and wrote
+  the fallback. It sent no request before confirmation. The temporary bank
+  remained byte-identical, the test token did not appear in terminal output,
+  and the TUI exited cleanly.
+- Inspected rendered confirmation and success screens at 110 × 36. The first
+  smoke assertion incorrectly searched the incremental terminal byte stream
+  for a whole rendered line; status was instead checked in the rendered capture,
+  with HTTP requests and fallback files checked directly. The final smoke passed.
+
+The smoke used a temporary copy of q3 with fixture review metadata and a local
+test server. No production request, real affirmation, or new compiler/Miri
+verification occurred. Python implementation files were unchanged. The TUI now
+has an explicit write action, so the earlier read-only description applies only
+to browsing. Scheduling does not alter bank records or sync the used ledger.
+
 ## Step navigator — 2026-10-10
 
 RED commit `4d5387a`; GREEN commit `6d8579e`.
