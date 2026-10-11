@@ -1,6 +1,24 @@
 use organizer_preview::snapshot;
 
 #[test]
+fn scheduling_opens_without_revealing_and_escape_cancels() {
+    let screen = snapshot(&['s'], 120, 40);
+    assert!(screen.contains("Schedule q3"));
+    assert!(screen.contains("YYYY-MM-DD"));
+    assert!(!screen.contains("Correct answer"));
+    let screen = snapshot(&['s', '\u{1b}'], 120, 40);
+    assert!(screen.contains("What happens when this program runs?"));
+    assert!(!screen.contains("Schedule q3"));
+}
+
+#[test]
+fn schedule_form_does_not_treat_typing_as_preview_shortcuts() {
+    let screen = snapshot(&['s', 'r', 'q', ']'], 120, 40);
+    assert!(screen.contains("Schedule q3"));
+    assert!(!screen.contains("Correct answer"));
+}
+
+#[test]
 fn selecting_a_step_waits_for_enter_before_changing_the_trace() {
     let screen = snapshot(&['t', 'j'], 120, 40);
     assert!(screen.contains("Steps / FOCUS"));
