@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-11T20:19:16Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4P9X91KX3BNZQBDVKQ8H6ZK",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4P9X91KX3BNZQBDVKQ8H6ZK.md",
+    "size_bytes": 401
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "MERGED. PR #62 merged from the Orchestrator seat (client 2026-10-11: 'merge it, F6 after, minors in a follow-up'), merge commit 296262b5a7c233eaeaeb7ac44347107dd1a027b9, --match-head-commit 2a64233, e",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

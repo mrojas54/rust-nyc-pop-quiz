@@ -1,0 +1,1 @@
+MERGED with PQ-69 in PR #62 (merge commit 296262b). F1-F5 met per the Orchestrator exact-head review (art_01M4P94GCKW9GJ4N5KY8A4HNBM on PQ-69). F6 (.env.example line) not done: client chose to add it after the merge; carried into PQ-70 as item 6.

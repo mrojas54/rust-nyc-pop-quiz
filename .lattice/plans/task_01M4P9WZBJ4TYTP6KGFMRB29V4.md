@@ -1,0 +1,17 @@
+# PQ-70: Generator follow-ups from the PR #62 review
+
+Follow-ups from the PQ-69 exact-head review of PR #62 (merged at 296262b), plus F6 carried from PQ-68. Held until the client releases it.
+
+Minor:
+1. The real-claude guard (autouse PATH=/usr/bin:/bin, which claude is None, sockets blocked) lives only in pipeline tests/test_generate_cli.py:115. Move it to a conftest so no test anywhere can build ClaudeCliClient(None, ...) or pass an absolute --claude-bin that resolves to the real binary.
+2. SIGTERM/SIGHUP to the generator orphans the claude child (default SIGTERM skips the except BaseException kill, generate_cli.py:218; child is in its own session) and it keeps consuming plan usage for up to 900 s. Install a handler that kills the child process group, test it under test-generate-full, and update the README (it mentions only kill -9). Do this before the client's first real claude-cli run (HC-2).
+3. OSError from Popen (binary removed, E2BIG) and UnicodeDecodeError from communicate(text=True) escape main (generate.py:1388) as tracebacks; the decode case calls communicate() a second time inside _kill. Map both to a clean GenerateError stop; finished candidates stay cached.
+4. DEFAULT_TIMEOUT_S=900 is not settable from the CLI. Add a flag.
+
+NIT:
+5. generate.py:1187: a claude-cli run killed between the submitting state and submit is told to "check the Console" about a batch and cannot resume under its run id. Give claude-cli its own message and let it resume.
+6. F6 (from PQ-68): add ANTHROPIC_API_KEY= to .env.example. The sandbox denies .env.* in worktrees; the client adds the line or allows the edit.
+
+Upstream, not in this ticket: BUILDPLAN D-D's model line keeps "$5 in / $25 out" beside the amendment's $4/$20, and the T-16 row reads "Claude Opus 5". Also confirm --safe-mode, --setting-sources "" and --effort against the real binary at HC-2.
+
+Guardrails carried from PQ-69: no real claude -p or API call from tests, CI or a delegator; the child env never sees ANTHROPIC_API_KEY; Batches stays the default, no fallback; never write down what a program prints (AC-7); never overstate verification (AC-43).
