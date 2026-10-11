@@ -10,6 +10,7 @@ room.
 |---|---|
 | [`PHILOSOPHY.md`](PHILOSOPHY.md) | **The one thing, and the principles.** Read before changing anything user-facing. |
 | [`sequence/USER_STORIES.md`](sequence/USER_STORIES.md) | Stories with stable acceptance-criteria IDs (**AC-1 … AC-102**, 20 stories). IDs never change meaning. |
+| [`PRODUCT.md`](PRODUCT.md) | Descriptive product reading guide and dated source inventory; subordinate to the purpose and build contracts, not a completion ledger. |
 | [`ECONOMICS.md`](ECONOMICS.md) | What it costs to run and who absorbs it. |
 | [`DESIGN.md`](DESIGN.md) | **The converged design — Direction C, voice, aesthetic, the wall's type model.** The binding visual contract; the build reproduces `prototypes/C-projector-first.html` one-to-one. |
 | [`SPEC.md`](SPEC.md) · [`EVALUATION.md`](EVALUATION.md) · [`BUILDPLAN.md`](BUILDPLAN.md) | **The build contract** (`tone-architect`): what to build and its twelve enforced guardrails; how every criterion is proven and the five human-use checkpoints; the decided stack and the ticket path. Passed the adversarial judge gate 2026-09-18; amended 2026-09-19 after the build stage's contract check (D-16…D-25), then judged the same day (round 1, 6/10 fail; round 2, 8/10 pass). |

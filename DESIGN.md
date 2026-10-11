@@ -177,9 +177,8 @@ build's visual contract the same day on the client's word: *"yes i love it."*** 
 original decision sections describe what `prototypes/C-projector-first.html` and
 `prototypes/take-it-home.html` actually do; nothing here is a proposal the prototype
 does not already carry. The implementation inventory added below is descriptive, not a
-new visual contract. Later accepted amendments in the build contract and source comments
-(including accessibility companions and trace dimming) qualify the historical prototype;
-do not undo them to match a snapshot.
+new visual contract. Where this file and the prototype disagree, the prototype wins
+and this file is corrected.
 
 The converged direction is **C — projector-first, phone as buzzer.** The code
 lives on the big screen and nowhere else; the phone is five letters. The client
@@ -292,6 +291,7 @@ label rule.
 
 | Surface | Additional implemented sizes and roles |
 |---|---|
+| Landing (`/`) | 52px serif title, 96px from the 860px breakpoint; 16px mono primary button, 12px wordmark, 14px supporting links and Ferris speech bubble |
 | Buzzer | 30px wordmark, 24px role, 28px identity/input in different faces, 46px choices, 24px saved glyph, 17px status, 19px follow-up, 72px post-vote letter, 18px split row, 16px count |
 | Host | 30px heading, 24px role, 34px room code, 20px phase control, 14px mono h3 |
 | Take-home | 30px masthead, 24px explanation headings, 14px mono section headings, 13px code, 12px receipt, 11px kbd |
@@ -343,10 +343,17 @@ padding, and take-it-home caps its sheet at 760px with 16px horizontal page
 padding. Take-it-home has a compact layout at a 480px breakpoint. These are
 surface measurements, not a replacement global grid.
 
-### The three surfaces
+The landing page (`web/landing/`, served at `/`) caps its container at 1280px.
+It stacks below 860px and uses two columns from that breakpoint, with a decorative
+Ferris illustration beside the copy. Its primary button has a 56px minimum height
+and 12px × 40px padding. These are existing scoped styles, not shared ramp defaults.
+
+### The web surfaces
 
 | Surface | Who sees it | What it carries |
 |---|---|---|
+| **The landing page (`/`)** | visitors, attendees and hosts | join button, last-question link, host link, decorative Ferris illustration; `web/landing/` |
+| **Take-home** | readers after release | the released question, explanation, verification receipt and independently steppable trace |
 | **The wall** | the whole room | brand line top-left; the join strip; the source, line-numbered, full-width; five options beneath in two columns; the split as bars with counts; the trace; the reveal; the handover |
 | **The buzzer** | a participant, on their own phone | the room code as the room's identity; five letters; *Show me a hint*; after the split, a **count** beside their letter, never a ✗; at the end, *nothing about you was recorded* |
 | **The host phone** | the host | one button per phase transition; `←` `→` to step the trace; the read-aloud script at the reveal; **no answer preview** (§7) |
