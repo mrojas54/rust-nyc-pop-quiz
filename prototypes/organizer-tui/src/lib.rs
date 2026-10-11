@@ -1,4 +1,5 @@
-//! Read-only question and authored teaching-trace preview.
+//! Question and authored teaching-trace preview, with explicit scheduling.
+mod scheduling;
 use ratatui::{
     backend::TestBackend,
     layout::{Constraint, Layout, Rect},
@@ -106,6 +107,8 @@ const MUTED: Color = Color::Rgb(153, 162, 173);
 const AMBER: Color = Color::Rgb(244, 199, 83);
 
 pub struct App {
+    bank: PathBuf,
+    schedule: Option<scheduling::Schedule>,
     candidates: Vec<Candidate>,
     index: usize,
     mode: Mode,
@@ -149,6 +152,8 @@ impl App {
             None => 0,
         };
         Ok(Self {
+            bank: bank.canonicalize()?,
+            schedule: None,
             candidates,
             index,
             mode: Mode::Question,
@@ -166,6 +171,12 @@ impl App {
 
     /// Returns false only for an explicit quit action.
     pub fn handle(&mut self, key: char) -> bool {
+        if let Some(schedule) = &mut self.schedule {
+            if !schedule.handle(key) {
+                self.schedule = None;
+            }
+            return true;
+        }
         if key == 'q' {
             return false;
         }
@@ -178,6 +189,12 @@ impl App {
         let total = self.candidates[self.index].trace.steps.len();
         let before = (self.index, self.mode, self.step);
         match key {
+            's' => {
+                self.schedule = Some(scheduling::Schedule::new(
+                    self.candidates[self.index].id.clone(),
+                    self.bank.clone(),
+                ))
+            }
             '?' => self.help = true,
             '\u{1b}' => {
                 if self.mode == Mode::Reveal {
@@ -577,6 +594,22 @@ impl App {
     pub fn draw(&mut self, frame: &mut Frame<'_>) {
         let area = frame.area();
         frame.render_widget(Block::default().style(Style::default().fg(FG).bg(BG)), area);
+        if let Some(schedule) = &mut self.schedule {
+            schedule.poll();
+            frame.render_widget(
+                Paragraph::new(schedule.text())
+                    .wrap(ratatui::widgets::Wrap { trim: false })
+                    .scroll((schedule.scroll(), 0))
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title(" Schedule question ")
+                            .border_style(Style::default().fg(AMBER)),
+                    ),
+                area,
+            );
+            return;
+        }
         if area.width < 40 || area.height < 14 {
             frame.render_widget(Paragraph::new("Resize to 40 x 14 or larger. q Quit"), area);
             return;
@@ -634,14 +667,14 @@ impl App {
             }
         }
         let hints = if self.mode == Mode::Question {
-            "Up/Down or j/k Scroll   t Teaching trace   ? Help"
+            "Up/Down or j/k Scroll   t Teaching trace   s Schedule   ? Help"
         } else if self.focus == Focus::Steps {
             "Up/Down or j/k Select step   Enter Jump   Tab Focus   Esc Back"
         } else {
             "Up/Down or j/k Scroll pane   PgUp/PgDn Page   Tab Focus   Esc Back"
         };
         let footer_text = if area.width < 80 {
-            "1 Question  t Trace  r Reveal  q Quit\nTab Pane  j/k Move  Enter Jump  ? Help\n< > Step  [ ] Candidate  Esc Back".to_string()
+            "1 Question  t Trace  r Reveal  q Quit\nTab Pane  j/k Move  Enter Jump  ? Help\n< > Step  [ ] Candidate  s Schedule".to_string()
         } else {
             format!("{hints}\n1 Question   Left/Right Step   r Reveal   [ ] Candidate   ? Help   q Quit")
         };
@@ -649,7 +682,7 @@ impl App {
         if self.help {
             let [_, row, _] = Layout::vertical([
                 Constraint::Fill(1),
-                Constraint::Length(12),
+                Constraint::Length(13),
                 Constraint::Fill(1),
             ])
             .areas(area);
@@ -660,7 +693,7 @@ impl App {
             ])
             .areas(row);
             frame.render_widget(Clear, modal);
-            frame.render_widget(Paragraph::new("1 Question    t Teaching trace\nTab: focus steps, source, narration\nj/k or arrows: select or scroll\nEnter: jump to selected teaching step\nLeft/Right: step immediately\nr: reveal the final step and answer\n[ / ]: previous / next question\nEsc: back or close help    q: quit\n? or Esc closes this help")
+            frame.render_widget(Paragraph::new("1 Question    t Teaching trace\nTab: focus steps, source, narration\nj/k or arrows: select or scroll\nEnter: jump to selected teaching step\nLeft/Right: step immediately\nr: reveal the final step and answer\n[ / ]: previous / next question\ns: schedule this question\nEsc: back or close help    q: quit\n? or Esc closes this help")
                 .style(Style::default().fg(FG).bg(BG))
                 .block(Block::default().borders(Borders::ALL).title(" Keyboard help ").border_style(Style::default().fg(AMBER))), modal);
         }

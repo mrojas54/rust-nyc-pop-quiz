@@ -22,7 +22,7 @@ fn main() -> Result<()> {
                 )
             }
             "--help" | "-h" => {
-                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\n1 Question / t Trace / Left-Right Step / r Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
+                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\ns Schedule / 1 Question / t Trace / Left-Right Step / r Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
                 return Ok(());
             }
             _ => return Err(format!("Unknown argument: {arg}").into()),
@@ -49,6 +49,9 @@ fn main() -> Result<()> {
     ratatui::run(|terminal| -> Result<()> {
         loop {
             terminal.draw(|frame| app.draw(frame))?;
+            if !event::poll(std::time::Duration::from_millis(100))? {
+                continue;
+            }
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
                     continue;
@@ -66,6 +69,7 @@ fn main() -> Result<()> {
                     KeyCode::PageDown => Some('J'),
                     KeyCode::Tab => Some('\t'),
                     KeyCode::Enter => Some('\n'),
+                    KeyCode::Backspace => Some('\u{8}'),
                     KeyCode::Esc => Some('\u{1b}'),
                     _ => None,
                 };
