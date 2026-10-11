@@ -15,10 +15,11 @@ A run ends when its agreed outcome is verified or progress requires the user.
   completing the whole project. Stop when the outcome and required checks are
   complete, and report the evidence.
 - **No scope expansion.** Do only the work necessary for the agreed outcome.
-  Record unrelated findings in a short deferred list. Do not automatically
-  create tickets, dispatch agents, start another workflow stage, or reopen the
-  broader contract for those findings. If a new prerequisite changes the
-  agreed scope, explain the blocker and wait for the user's direction.
+  Record unrelated findings in a short deferred list. Do not create tickets,
+  dispatch agents, start another workflow stage, or reopen the broader
+  contract for those findings unless the user asks. If a new prerequisite
+  changes the agreed scope, explain the blocker and wait for the user's
+  direction.
 - **Bounded review cycles.** Allow at most two review passes per run: an
   initial review and one re-review after fixes. Review the exact changed scope
   and affected behavior; the re-review checks the fixes and their effects.
