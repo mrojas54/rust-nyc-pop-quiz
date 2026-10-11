@@ -939,6 +939,15 @@ resets q3 for another HC-0 drive after a real one. The ledger is in memory until
 T-20's `popquiz sync` pulls it (through T-25's `GET /admin/used`), so a restart
 before a sync loses the night's record.
 
+**A demo or rehearsal in one command.** `just demo [question] [room]` (defaults
+`q3` and the deployed room) reads the admin token from `$POPQUIZ_ADMIN_TOKEN`, or
+from 1Password at `$POPQUIZ_OP_REF`, checks `GET /admin/used`, pushes the bank
+record and prints the host link. If the question is already in the ledger it stops
+and says so; only a restart clears that, and the recipe never restarts anything.
+It pushes the record in its stored order, so it is for demos, not a meetup
+(`just schedule` arranges the options for the meetup's date). Run it again after
+any restart or deploy.
+
 **A restart loses every room.** The room runs on a paid Fly org, a card with
 a spending cap. The machine runs until something stops or redeploys it. Rooms
 live in memory, so a restart or a deploy loses every room, every scheduled
