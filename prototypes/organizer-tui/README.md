@@ -37,7 +37,7 @@ To load another bank, add `--bank /path/to/bank`. That directory must contain a
 | Tab | Move focus between steps, source, and narration |
 | Enter | Open the selected teaching step |
 | Left / Right or `<` / `>` | Step backward or forward |
-| `r` | Reveal the answer and final trace step |
+| `r`, then `r` again | Arm reveal, then show the answer and final trace step |
 | `s` | Schedule the selected question |
 | `[` / `]` | Open the previous or next question |
 | Up / Down or `k` / `j` | Select a step, or scroll the focused pane |
@@ -54,8 +54,11 @@ The left list selects a step without changing the source or narration. Enter
 opens that step. Left and Right step through the walkthrough immediately.
 The focused pane has an amber border and a `FOCUS` label.
 
-In the teaching trace, navigation stops before the final step. Press `r` to see that step, the answer,
+In the teaching trace, navigation stops before the final step. Press `r` to arm
+reveal, then press `r` again to see that step, the answer,
 the explanation, why the other choices are tempting, and the verification receipt.
+The first press shows “Press r again to reveal the answer. Esc cancels.” Any
+other key disarms reveal. This safeguard also applies from the question preview.
 Switching questions returns to the question view.
 
 ## Print a preview
