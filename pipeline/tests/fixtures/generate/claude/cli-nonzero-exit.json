@@ -1,0 +1,183 @@
+{
+  "note": "Hand-built in the shape the Claude Code docs give for `claude -p --output-format json` with `--json-schema` (headless, Agent SDK result message). Documented, not observed: no real claude has run. The candidates are clean.json's, so nothing here says which option is correct. c01's process exits 2 with nothing on stdout: the run stops at the first candidate.",
+  "responses": [
+    {
+      "when": "Topic: ownership",
+      "exit": 2,
+      "stdout": "",
+      "stderr": "Error: something went wrong before any result was printed\n"
+    },
+    {
+      "when": "Topic: iterators",
+      "exit": 0,
+      "stdout": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "duration_ms": 41000,
+        "duration_api_ms": 40000,
+        "num_turns": 1,
+        "result": "",
+        "stop_reason": "end_turn",
+        "session_id": "fixture-session-1",
+        "total_cost_usd": 0.0451,
+        "usage": {
+          "input_tokens": 2110,
+          "output_tokens": 1820,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        },
+        "structured_output": {
+          "source": "fn main() {\n    let v = vec![3, 1, 2];\n    let m = v.iter().max().unwrap();\n    println!(\"{m}\");\n}\n",
+          "options": [
+            {
+              "text": "3",
+              "kind": "output",
+              "why_tempting": "Max picks the largest."
+            },
+            {
+              "text": "2",
+              "kind": "output",
+              "why_tempting": "The last element is easy to grab."
+            },
+            {
+              "text": "Some(3)",
+              "kind": "output",
+              "why_tempting": "max returns an Option."
+            },
+            {
+              "text": "does not compile",
+              "kind": "does_not_compile",
+              "why_tempting": "A move looks like it could leave nothing behind."
+            },
+            {
+              "text": "1",
+              "kind": "output",
+              "why_tempting": "Sorting order can be misread."
+            }
+          ],
+          "hint": "Follow who owns the value after each line.",
+          "explains": {
+            "what": "The program runs top to bottom; each binding takes what the line before left it.",
+            "takeaway": "Ownership moves on assignment unless the type is Copy."
+          },
+          "expect": "ran",
+          "trace": {
+            "steps": [
+              {
+                "lines": [
+                  2
+                ],
+                "focus": [
+                  1,
+                  5
+                ],
+                "note": "The first binding is set up here.",
+                "values": [],
+                "pivot": false
+              },
+              {
+                "lines": [
+                  4
+                ],
+                "focus": [
+                  1,
+                  5
+                ],
+                "note": "The last statement runs, and the program finishes.",
+                "values": [],
+                "pivot": false
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "when": "Topic: integers",
+      "exit": 0,
+      "stdout": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "duration_ms": 42000,
+        "duration_api_ms": 41000,
+        "num_turns": 1,
+        "result": "",
+        "stop_reason": "end_turn",
+        "session_id": "fixture-session-2",
+        "total_cost_usd": 0.0461,
+        "usage": {
+          "input_tokens": 2120,
+          "output_tokens": 1840,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        },
+        "structured_output": {
+          "source": "fn main() {\n    let x: u8 = 255;\n    let y = x.wrapping_add(1);\n    println!(\"{y}\");\n}\n",
+          "options": [
+            {
+              "text": "0",
+              "kind": "output",
+              "why_tempting": "Wrapping goes back to the start."
+            },
+            {
+              "text": "256",
+              "kind": "output",
+              "why_tempting": "Plain arithmetic says so."
+            },
+            {
+              "text": "255",
+              "kind": "output",
+              "why_tempting": "It might saturate instead."
+            },
+            {
+              "text": "does not compile",
+              "kind": "does_not_compile",
+              "why_tempting": "A move looks like it could leave nothing behind."
+            },
+            {
+              "text": "panics at runtime",
+              "kind": "panic",
+              "why_tempting": "Overflow panics in debug builds."
+            }
+          ],
+          "hint": "Follow who owns the value after each line.",
+          "explains": {
+            "what": "The program runs top to bottom; each binding takes what the line before left it.",
+            "takeaway": "Ownership moves on assignment unless the type is Copy."
+          },
+          "expect": "ran",
+          "trace": {
+            "steps": [
+              {
+                "lines": [
+                  2
+                ],
+                "focus": [
+                  1,
+                  5
+                ],
+                "note": "The first binding is set up here.",
+                "values": [],
+                "pivot": false
+              },
+              {
+                "lines": [
+                  4
+                ],
+                "focus": [
+                  1,
+                  5
+                ],
+                "note": "The last statement runs, and the program finishes.",
+                "values": [],
+                "pivot": false
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
