@@ -264,6 +264,123 @@ def test_a_rejected_verdict_has_no_record_to_write() -> None:
         verify.with_record(question_for("q3"), _verify("q3", "ub"))
 
 
+# --------------------------------------------------------------------------- #
+# The trace's stdout row: written by the verifier, never authored (T-16, option b)
+# --------------------------------------------------------------------------- #
+
+
+def _stdout_rows(q: bank.Question) -> list[bank.ValueDelta]:
+    return [v for step in q.trace.steps for v in step.values if v.name == "stdout"]
+
+
+def _without_stdout(trace: bank.Trace) -> bank.Trace:
+    return bank.Trace(
+        steps=tuple(
+            dataclasses.replace(s, values=tuple(v for v in s.values if v.name != "stdout"))
+            for s in trace.steps
+        )
+    )
+
+
+def test_a_drafted_trace_gets_its_stdout_row_from_the_record() -> None:
+    """A trace drafted with no stdout row gains exactly one, on the last step, whose
+    value is the recorded output as an option spells it - and nothing else changes."""
+    drafted = dataclasses.replace(
+        question_for("q3"), verified=None, trace=_without_stdout(question_for("q3").trace)
+    )
+    assert _stdout_rows(drafted) == []
+
+    after = verify.with_record(drafted, _verify("q3", "ran"))
+
+    recorded = _recording("q3")["run:1"]["stdout"]
+    last = after.trace.steps[-1]
+    assert _stdout_rows(after) == [bank.ValueDelta("stdout", "—", bank.normalized_output(recorded))]
+    assert last.values[-1].name == "stdout"
+    assert _without_stdout(after.trace) == drafted.trace
+    assert bank.question_from_dict(bank.question_to_dict(after)) == after
+
+
+def test_re_verifying_rewrites_only_the_stdout_value() -> None:
+    """A stale row's `now` is overwritten in place: its `was`, its position, every
+    other row and every other step are untouched, and no second row appears."""
+    q3 = question_for("q3")
+    *before, last = q3.trace.steps
+    # The row moved first and given a `was` of its own, so an append-and-drop
+    # cannot pass for an overwrite in place.
+    stale_last = dataclasses.replace(
+        last,
+        values=(
+            bank.ValueDelta("stdout", "an earlier line", "stale"),
+            *(v for v in last.values if v.name != "stdout"),
+        ),
+    )
+    stale = dataclasses.replace(q3, trace=bank.Trace(steps=(*before, stale_last)))
+
+    after = verify.with_record(stale, _verify("q3", "ran"))
+
+    recorded = _recording("q3")["run:1"]["stdout"]
+    assert len(after.trace.steps[-1].values) == len(stale_last.values)
+    assert [v.now for v in _stdout_rows(after)] == [bank.normalized_output(recorded)]
+    unfilled = [dataclasses.replace(v, now="stale") if v.name == "stdout" else v
+                for v in after.trace.steps[-1].values]
+    assert tuple(unfilled) == stale_last.values
+    assert after.trace.steps[:-1] == stale.trace.steps[:-1]
+
+
+def test_a_padded_or_cased_stdout_row_becomes_the_one_row_the_wall_reads() -> None:
+    """The generator's rule, the same here: `" Stdout "` and `"STDOUT"` are stdout rows.
+    The first keeps its `was` and place under the canonical name; any other goes."""
+    q3 = question_for("q3")
+    *before, last = q3.trace.steps
+    others = tuple(v for v in last.values if v.name != "stdout")
+    odd = dataclasses.replace(
+        last,
+        values=(bank.ValueDelta(" Stdout ", "an earlier line", "x"), *others, bank.ValueDelta("STDOUT", "—", "y")),
+    )
+    q = dataclasses.replace(q3, trace=bank.Trace(steps=(*before, odd)))
+
+    after = verify.with_record(q, _verify("q3", "ran"))
+
+    recorded = _recording("q3")["run:1"]["stdout"]
+    assert after.trace.steps[-1].values == (
+        bank.ValueDelta("stdout", "an earlier line", bank.normalized_output(recorded)), *others,
+    )
+
+
+def test_a_record_that_did_not_run_keeps_no_stdout_row() -> None:
+    """SPEC 3.2: nothing ran, so nothing printed. A does-not-compile verdict gets no
+    row, and a row left by an earlier record is removed with nothing else."""
+    q8 = question_for("q8")
+    steps = (
+        bank.TraceStep(lines=(3,), focus=(1, 6), note="a borrow is taken"),
+        bank.TraceStep(
+            lines=(4,), focus=(1, 6), note="push wants the vector",
+            values=(bank.ValueDelta("v", "—", "x"), bank.ValueDelta("stdout", "—", "left over")),
+        ),
+    )
+    with_row = dataclasses.replace(q8, trace=bank.Trace(steps=steps))
+
+    after = verify.with_record(with_row, _verify("q8", "does_not_compile"))
+
+    assert _stdout_rows(after) == []
+    assert after.trace == _without_stdout(with_row.trace)
+    drafted = dataclasses.replace(with_row, trace=_without_stdout(with_row.trace))
+    assert verify.with_record(drafted, _verify("q8", "does_not_compile")).trace == drafted.trace
+
+
+def test_a_rejected_candidate_file_is_left_byte_for_byte(tmp_path) -> None:
+    """The CLI writes nothing on a rejection - not the record, not a stdout row."""
+    drafted = dataclasses.replace(
+        question_for("q3"), verified=None, trace=_without_stdout(question_for("q3").trace)
+    )
+    path = tmp_path / "q3.json"
+    bank._write_json(path, bank.question_to_dict(drafted))
+    before = path.read_bytes()
+
+    assert verify.main([str(path), "--expect", "ub"], runner=StubRunner(RECORDINGS)) == 1
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize(
     ("program", "expect"), [("q3", "ran"), ("q8", "does_not_compile"), ("ub-both", "ub")]
 )

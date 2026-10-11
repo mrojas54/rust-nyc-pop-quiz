@@ -294,6 +294,14 @@ burst URL *ARGS:
 verify *ARGS:
     uv run --offline --no-sync --project pipeline python -m popquiz.verify {{ ARGS }}
 
+# Candidate questions from the Message Batches API (T-16). --replay FIXTURE runs on a
+# recorded batch with no key and no network; without it a run needs ANTHROPIC_API_KEY
+# and --cap-usd, and has never been run (HC-2). pipeline/README.md, Generating.
+# Positional, so a talk's title and abstract arrive whole rather than split on spaces.
+[positional-arguments]
+generate *ARGS:
+    uv run --offline --no-sync --project pipeline python -m popquiz.generate "$@"
+
 # The whole bank against SPEC 7.6; writes bank/audit/<date>.json (T-19). Every
 # check also runs inside `test`. Room flags: --screen-width-ft --screen-height-ft
 # --back-row-ft (SPEC 5.2 defaults, a hypothesis until HC-1); --strict fails on any flag.

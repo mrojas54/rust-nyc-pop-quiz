@@ -481,17 +481,22 @@ _DEBUG_PRINTED = re.compile(r"(\[[^\[\]\n]*\])")
 
 
 def quoted_outputs(question: Question) -> tuple[str, ...]:
-    """Every quoted span in a question's beats, for T-18's AC-73 check.
+    """Every quoted span in a question's beats and trace notes, for T-18's AC-73 check.
 
     T-18 compares these against `verified.stdout` and blocks acceptance on a
     mismatch (AC-73). **This function does not do that comparison and does not
     decide which spans are claims about output** - it lists candidates.
 
-    Searched: `explains.what`, `explains.takeaway`, `explains.legacy`, and every
-    option's `why_tempting`. The hint is **not** searched: it is written to be read
-    before anyone has seen an answer, so an output quoted in it is a leak for the
-    canary suite (G-3) and not a mismatch for AC-73. Reporting it here would send a
-    real finding to the wrong gate.
+    Searched: `explains.what`, `explains.takeaway`, `explains.legacy`, every
+    option's `why_tempting`, and every trace step's `note`. Notes are searched
+    because a generated trace is drafted by a model (T-16), and a note that quotes
+    what the program printed is the same claim AC-73 exists to catch in a beat. The
+    trace's `stdout` row is not searched: the verifier writes it.
+
+    The hint is **not** searched: it is written to be read before anyone has seen
+    an answer, so an output quoted in it is a leak for the canary suite (G-3) and
+    not a mismatch for AC-73. Reporting it here would send a real finding to the
+    wrong gate.
 
     **No filter on the shape of a span is applied, and that is a finding rather
     than a shortcut.** Reading the eight August explanations for what they actually
@@ -522,6 +527,7 @@ def quoted_outputs(question: Question) -> tuple[str, ...]:
     if question.explains.legacy is not None:
         texts.append(question.explains.legacy)
     texts.extend(o.why_tempting for o in question.options if o.why_tempting)
+    texts.extend(step.note for step in question.trace.steps)
 
     seen: dict[str, None] = {}
     for text in texts:

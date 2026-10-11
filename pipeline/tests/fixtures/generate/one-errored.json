@@ -1,0 +1,85 @@
+{
+  "_about": "Three requests; c02 came back errored and is reported, never emitted.",
+  "_not_a_recording": "Hand-built in the SDK's documented batch result shape. No real batch produced it; no answer is claimed; nothing here is verified.",
+  "batch_id": "msgbatch_fixture_one_errored",
+  "results": [
+    {
+      "custom_id": "c01",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture_1",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-opus-5-5",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "fixture-not-a-real-signature"
+            },
+            {
+              "type": "text",
+              "text": "{\"source\": \"fn main() {\\n    let s = String::from(\\\"hi\\\");\\n    let t = s;\\n    println!(\\\"{}\\\", t.len());\\n}\\n\", \"options\": [{\"text\": \"2\", \"kind\": \"output\", \"why_tempting\": \"Two characters went in.\"}, {\"text\": \"hi\", \"kind\": \"output\", \"why_tempting\": \"It looks like it prints the string.\"}, {\"text\": \"0\", \"kind\": \"output\", \"why_tempting\": \"A moved value might seem emptied.\"}, {\"text\": \"does not compile\", \"kind\": \"does_not_compile\", \"why_tempting\": \"A move looks like it could leave nothing behind.\"}, {\"text\": \"panics at runtime\", \"kind\": \"panic\", \"why_tempting\": \"Moves can feel risky at runtime.\"}], \"hint\": \"Follow who owns the value after each line.\", \"explains\": {\"what\": \"The program runs top to bottom; each binding takes what the line before left it.\", \"takeaway\": \"Ownership moves on assignment unless the type is Copy.\"}, \"expect\": \"ran\", \"trace\": {\"steps\": [{\"lines\": [2], \"focus\": [1, 5], \"note\": \"The first binding is set up here.\", \"values\": [], \"pivot\": false}, {\"lines\": [4], \"focus\": [1, 5], \"note\": \"The last statement runs, and the program finishes.\", \"values\": [], \"pivot\": false}]}}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 2100,
+            "output_tokens": 1800,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "service_tier": "batch"
+          }
+        }
+      }
+    },
+    {
+      "custom_id": "c02",
+      "result": {
+        "type": "errored",
+        "error": {
+          "type": "error",
+          "error": {
+            "type": "overloaded_error",
+            "message": "Overloaded"
+          },
+          "request_id": "req_fixture_2"
+        }
+      }
+    },
+    {
+      "custom_id": "c03",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture_3",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-opus-5-5",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "fixture-not-a-real-signature"
+            },
+            {
+              "type": "text",
+              "text": "{\"source\": \"fn main() {\\n    let x: u8 = 255;\\n    let y = x.wrapping_add(1);\\n    println!(\\\"{y}\\\");\\n}\\n\", \"options\": [{\"text\": \"0\", \"kind\": \"output\", \"why_tempting\": \"Wrapping goes back to the start.\"}, {\"text\": \"256\", \"kind\": \"output\", \"why_tempting\": \"Plain arithmetic says so.\"}, {\"text\": \"255\", \"kind\": \"output\", \"why_tempting\": \"It might saturate instead.\"}, {\"text\": \"does not compile\", \"kind\": \"does_not_compile\", \"why_tempting\": \"A move looks like it could leave nothing behind.\"}, {\"text\": \"panics at runtime\", \"kind\": \"panic\", \"why_tempting\": \"Overflow panics in debug builds.\"}], \"hint\": \"Follow who owns the value after each line.\", \"explains\": {\"what\": \"The program runs top to bottom; each binding takes what the line before left it.\", \"takeaway\": \"Ownership moves on assignment unless the type is Copy.\"}, \"expect\": \"ran\", \"trace\": {\"steps\": [{\"lines\": [2], \"focus\": [1, 5], \"note\": \"The first binding is set up here.\", \"values\": [], \"pivot\": false}, {\"lines\": [4], \"focus\": [1, 5], \"note\": \"The last statement runs, and the program finishes.\", \"values\": [], \"pivot\": false}]}}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 2100,
+            "output_tokens": 1800,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "service_tier": "batch"
+          }
+        }
+      }
+    }
+  ]
+}

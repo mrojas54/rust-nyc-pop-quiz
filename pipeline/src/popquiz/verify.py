@@ -37,7 +37,9 @@ The procedure, in order. Each step is asked only if the one before it passed:
 Refusals (`VerifyError`) say nothing about the candidate: the verifier would not
 run. Rejections are a `Verdict` with a code and a plain-words reason, and no record
 is written. An accepted verdict carries the SPEC 3.2 record as a `bank.Verified`,
-which **replaces** any record the candidate had, whole (D-16).
+which **replaces** any record the candidate had, whole (D-16), and `with_record`
+writes the trace's `stdout` row from it - the one trace value that is observed
+rather than authored.
 
 **Miri proves absence of UB on the paths it executed, and nothing wider** (AC-43).
 Nothing here says otherwise.
@@ -486,10 +488,63 @@ def verify(
 
 def with_record(question: Question, verdict: Verdict) -> Question:
     """The candidate with the verdict's record in place of whatever it had -
-    replaced whole, never merged (D-16)."""
+    replaced whole, never merged (D-16) - and its trace's `stdout` row written.
+
+    The generator drafts a trace with no `stdout` row: what a program prints is
+    never the model's to say (T-16). This is where the row gets its value, from
+    `verified.stdout` and nothing else: see `_trace_with_stdout`. It is the only
+    writer of `verified` in the pipeline, so a record that ran and has a trace
+    reached the bank through here, or fails `bank.validate_question`. That check
+    asks for a row named `stdout`, not for its value; the value is the verifier's
+    because nothing else writes it.
+    """
     if verdict.verified is None:
         raise ValueError(f"{question.id}: a rejected verdict has no record to write")
-    return dataclasses.replace(question, verified=verdict.verified)
+    return dataclasses.replace(
+        question,
+        verified=verdict.verified,
+        trace=_trace_with_stdout(question.trace, verdict.verified),
+    )
+
+
+def _is_stdout(name: str) -> bool:
+    return name.strip().lower() == "stdout"
+
+
+def _trace_with_stdout(trace: bank.Trace, verified: Verified) -> bank.Trace:
+    """The trace with its last step's `stdout` row set from the record (SPEC 3.1, D-10).
+
+    For a record that ran: the row's `now` becomes `bank.normalized_output(stdout)`,
+    the spelling every bank trace already uses (`migrate_mvp`) and the one option
+    texts use; raw `stdout` would put `println!`'s newline into a one-line wall row.
+    An existing row keeps its `was` and only `now` changes, so re-verifying
+    rewrites that one value; otherwise a row is appended. For a record that did
+    not run, any `stdout` row on the last step is removed, because nothing printed
+    (SPEC 3.2). An empty trace stays empty: there is no step to resolve.
+
+    A row is a `stdout` row by the generator's rule - the name, stripped and
+    lower-cased - so a hand-written `" Stdout "` is rewritten as the one `stdout`
+    row the wall reads, never left beside it.
+    """
+    if not trace.steps:
+        return trace
+    *before, last = trace.steps
+    rows = [i for i, v in enumerate(last.values) if _is_stdout(v.name)]
+    others = tuple(v for v in last.values if not _is_stdout(v.name))
+    if bank.receipt_class(verified) == "ran" and verified.stdout is not None:
+        now = bank.normalized_output(verified.stdout)
+        if rows:
+            first = rows[0]
+            values = tuple(
+                bank.ValueDelta(name="stdout", was=v.was, now=now) if i == first else v
+                for i, v in enumerate(last.values)
+                if i == first or not _is_stdout(v.name)
+            )
+        else:
+            values = (*others, bank.ValueDelta(name="stdout", was="—", now=now))
+    else:
+        values = others
+    return bank.Trace(steps=(*before, dataclasses.replace(last, values=values)))
 
 
 # --------------------------------------------------------------------------- #
