@@ -4,6 +4,36 @@ A live quiz segment for the Rust NYC meetup: original Rust program-output
 questions, machine-verified before anyone sees them, run from the front of the
 room.
 
+## Run guardrails
+
+These rules apply to every run, including workflow resumes and delegated work.
+A run ends when its agreed outcome is verified or progress requires the user.
+
+- **One visible outcome per run.** State the user-visible result and the
+  observable acceptance check before starting work. Use the user's current
+  request to bound the run; a backlog or workflow resume does not authorize
+  completing the whole project. Stop when the outcome and required checks are
+  complete, and report the evidence.
+- **No scope expansion.** Do only the work necessary for the agreed outcome.
+  Record unrelated findings in a short deferred list. Do not create tickets,
+  dispatch agents, start another workflow stage, or reopen the broader
+  contract for those findings unless the user asks. If a new prerequisite
+  changes the agreed scope, explain the blocker and wait for the user's
+  direction.
+- **Bounded review cycles.** Allow at most two review passes per run: an
+  initial review and one re-review after fixes. Review the exact changed scope
+  and affected behavior; the re-review checks the fixes and their effects.
+  If blockers remain after the second pass, report them and stop for the
+  user's direction. Do not restart the count by changing agents or sessions,
+  weaken acceptance criteria, or mark unresolved work complete. Preserve
+  required RED → GREEN → VERIFY → DOCS, phase commits, tests, and PR checks.
+- **Stop polling when blocked on the user.** Record one compact checkpoint
+  with the current branch/head, completed evidence, exact decision or action
+  needed, and how to resume. Stop the blocked work and cancel its self-wakes
+  or polling loops; do not repeatedly read tabs, CI, or trackers while waiting
+  for the same user action. A pause also stops those loops. Resume only after
+  the user supplies the needed input or explicitly authorizes continuation.
+
 ## Read these first
 
 | Artifact | What it is |
