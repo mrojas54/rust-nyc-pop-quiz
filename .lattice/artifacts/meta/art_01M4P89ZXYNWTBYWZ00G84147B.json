@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-11T19:51:16Z",
+  "created_by": "agent:delegator-pq69-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4P89ZXYNWTBYWZ00G84147B",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4P89ZXYNWTBYWZ00G84147B.md",
+    "size_bytes": 1053
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Code review",
+  "token_usage": null,
+  "type": "note"
+}

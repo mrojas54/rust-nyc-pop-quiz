@@ -1,17 +1,23 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": "low",
   "created_at": "2026-10-11T16:54:51Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Follow-ups from the PQ-21 exact-head review of PR #61 (merged at 170cfd4). Held until the client releases it.\n\nMinor:\n1. The stdout filter matches by name only (pipeline generate.py:651). Run any value 'now' strings through the AC-73 quoted-output comparison too, so a model-claimed output under another name cannot reach a trace.\n2. verify.py:529-547 leaves stdout rows on non-last trace steps untouched. Strip them or refuse them, or have validate_question reject them.\n3. AC-2's kill-and-rerun is an in-process KeyboardInterrupt. Add a real subprocess kill -9 case under test-full and assert the room is unaffected.\n\nNIT:\n4. run() takes fixture and client_factory separately (generate.py:964-1020); derive fixture from the client type.\n5. The single-line option rule is hard-coded (generate.py:324); read cap.option_lines.\n6. Add 'ANTHROPIC_API_KEY=' to .env.example. The sandbox blocks .env.* in worktrees, so the client adds this line or allows the edit.\n\nUpstream, not in this ticket: BUILDPLAN D-D's model line should read claude-opus-5-5; EVALUATION's AC-2 row versus the in-process kill.\n\nGuardrails carried from PQ-21: no API call and no key read; never write down what a program prints (AC-7); never overstate verification (AC-43).",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M4P8J9DS9JZY6GD02YGVFMTY",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M4NY6ZT9W4Q4GXZPB0TYD2VN",
-  "last_event_id": "ev_01M4NZE1N50QX0A2DVY6V3PMVP",
-  "last_status_changed_at": "2026-10-11T17:16:11Z",
+  "last_event_id": "ev_01M4P8TE73W11RA4N1BTHGS5TE",
+  "last_status_changed_at": "2026-10-11T19:55:49Z",
   "priority": "low",
   "relationships_out": [
     {
@@ -25,7 +31,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-68",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "m3",
     "fast-track",
@@ -34,6 +40,6 @@
   ],
   "title": "Generator follow-ups from the PR #61 review",
   "type": "task",
-  "updated_at": "2026-10-11T17:16:11Z",
+  "updated_at": "2026-10-11T20:00:15Z",
   "urgency": null
 }
