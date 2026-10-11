@@ -1,0 +1,487 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T00:06:43.138085+00:00",
+  "title": "Design System: Rust NYC Pop Quiz",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "shadow-card",
+        "value": "0 1px 3px rgba(45,55,72,0.08)",
+        "purpose": "Restrained product panel depth."
+      }
+    ],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "home-compact",
+        "value": "480px"
+      }
+    ],
+    "colorMeta": {
+      "white": {
+        "displayName": "white",
+        "role": "neutral"
+      },
+      "gray-50": {
+        "displayName": "gray-50",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "gray-100": {
+        "displayName": "gray-100",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "gray-200": {
+        "displayName": "gray-200",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "gray-300": {
+        "displayName": "gray-300",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "gray-500": {
+        "displayName": "gray-500",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "gray-600": {
+        "displayName": "gray-600",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "gray-800": {
+        "displayName": "gray-800",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "amber-300": {
+        "displayName": "amber-300",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "amber-500": {
+        "displayName": "amber-500",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "amber-600": {
+        "displayName": "amber-600",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "amber-700": {
+        "displayName": "amber-700",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "green-500": {
+        "displayName": "green-500",
+        "role": "semantic"
+      },
+      "red-500": {
+        "displayName": "red-500",
+        "role": "semantic"
+      },
+      "orange-500": {
+        "displayName": "orange-500",
+        "role": "semantic"
+      },
+      "blue-500": {
+        "displayName": "blue-500",
+        "role": "semantic"
+      },
+      "green-50": {
+        "displayName": "green-50",
+        "role": "semantic"
+      },
+      "red-50": {
+        "displayName": "red-50",
+        "role": "semantic"
+      },
+      "orange-50": {
+        "displayName": "orange-50",
+        "role": "semantic"
+      },
+      "blue-50": {
+        "displayName": "blue-50",
+        "role": "semantic"
+      },
+      "bg-primary": {
+        "displayName": "bg-primary",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "bg-secondary": {
+        "displayName": "bg-secondary",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "bg-tertiary": {
+        "displayName": "bg-tertiary",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "bg-input": {
+        "displayName": "bg-input",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "text-primary": {
+        "displayName": "text-primary",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "text-secondary": {
+        "displayName": "text-secondary",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "text-muted": {
+        "displayName": "text-muted",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "accent-primary": {
+        "displayName": "accent-primary",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "accent-secondary": {
+        "displayName": "accent-secondary",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "accent-hover": {
+        "displayName": "accent-hover",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "accent-subtle": {
+        "displayName": "accent-subtle",
+        "role": "primary",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "border-default": {
+        "displayName": "border-default",
+        "role": "neutral",
+        "tonalRamp": [
+          "#2d3748",
+          "#4a5568",
+          "#718096",
+          "#cbd5e0",
+          "#dee2e6",
+          "#e9ecef",
+          "#f8f9fa",
+          "#ffffff"
+        ]
+      },
+      "border-focus": {
+        "displayName": "border-focus",
+        "role": "neutral",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "success": {
+        "displayName": "success",
+        "role": "semantic"
+      },
+      "error": {
+        "displayName": "error",
+        "role": "semantic"
+      },
+      "warning": {
+        "displayName": "warning",
+        "role": "semantic"
+      },
+      "info": {
+        "displayName": "info",
+        "role": "semantic"
+      },
+      "success-subtle": {
+        "displayName": "success-subtle",
+        "role": "semantic"
+      },
+      "error-subtle": {
+        "displayName": "error-subtle",
+        "role": "semantic"
+      },
+      "warning-subtle": {
+        "displayName": "warning-subtle",
+        "role": "semantic"
+      },
+      "info-subtle": {
+        "displayName": "info-subtle",
+        "role": "semantic"
+      },
+      "focus-ring": {
+        "displayName": "focus-ring",
+        "role": "semantic",
+        "tonalRamp": [
+          "#945c0a",
+          "#b7791f",
+          "#d69e2e",
+          "#faf089"
+        ]
+      },
+      "success-text": {
+        "displayName": "success-text",
+        "role": "semantic"
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Neutral button",
+      "kind": "button",
+      "description": "Extracted from existing web surface styles.",
+      "html": "<button class=\"ds-btn\">Close answers</button>",
+      "css": ".ds-btn {font-family:var(--font-mono);font-size:var(--text-sm);min-height:var(--touch-target);min-width:var(--touch-target);padding:10px 18px;border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);cursor:pointer;} .ds-btn:hover {background:var(--bg-tertiary)} .ds-btn:focus-visible {outline:2px solid var(--focus-ring);outline-offset:2px} .ds-btn:disabled {opacity:.5;cursor:not-allowed}",
+      "refersTo": "button"
+    },
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "description": "Extracted from existing web surface styles.",
+      "html": "<button class=\"ds-primary\">Put it on the screen</button>",
+      "css": ".ds-primary {font-family:var(--font-mono);font-size:var(--text-sm);min-height:var(--touch-target);min-width:var(--touch-target);padding:10px 18px;border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);cursor:pointer;background:var(--accent-primary);border-color:var(--accent-primary);color:var(--gray-800);font-weight:600} .ds-primary:hover {background:var(--accent-hover);border-color:var(--accent-hover);color:#ffffff} .ds-primary:focus-visible {outline:2px solid var(--focus-ring);outline-offset:2px} .ds-primary:disabled {opacity:.5;cursor:not-allowed}",
+      "refersTo": "button-primary"
+    },
+    {
+      "name": "Room code",
+      "kind": "input",
+      "description": "Extracted from existing web surface styles.",
+      "html": "<label class=\"ds-label\">Room code <input class=\"ds-input\" value=\"RUST\" aria-label=\"Room code\"></label>",
+      "css": ".ds-label {font-family:var(--font-mono)} .ds-input {font-family:var(--font-mono);font-size:28px;letter-spacing:0.2em;width:100%;min-width:var(--touch-target);padding:8px 12px;text-align:center;text-transform:uppercase;background:var(--bg-input);color:var(--text-primary);border:2px solid var(--text-muted);border-radius:var(--radius);min-height:var(--touch-target)} .ds-input:focus-visible {outline:3px solid var(--focus-ring);outline-offset:2px}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "description": "Extracted from existing web surface styles.",
+      "html": "<section class=\"ds-panel\">Room controls</section>",
+      "css": ".ds-panel {font-family:var(--font-mono);background:var(--bg-secondary);border:var(--border-w) solid var(--border-default);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:var(--panel-pad-compact)}",
+      "refersTo": "panel"
+    },
+    {
+      "name": "Source well",
+      "kind": "custom",
+      "description": "Extracted from existing web surface styles.",
+      "html": "<div class=\"ds-src\"><pre class=\"ds-pre\"><span class=\"ds-ln\">1</span>fn main() {}</pre></div>",
+      "css": ".ds-src {border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);font-family:var(--font-mono)} .ds-pre {margin:0;padding:var(--space-4);font-family:var(--font-mono);font-size:13px;line-height:1.6;color:var(--text-primary);overflow-x:auto} .ds-ln {display:inline-block;width:2ch;margin-right:1.5ch;text-align:right;color:var(--text-muted)}",
+      "refersTo": "source-well"
+    },
+    {
+      "name": "Human provenance",
+      "kind": "chip",
+      "description": "Extracted from existing web surface styles.",
+      "html": "<span class=\"ds-provenance\">Human reviewed</span>",
+      "css": ".ds-provenance {display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-caps);font-weight:600;color:#9c4221}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A well-made terminal",
+    "overview": "Nostalgic and technical: muted greys, warm amber, monospace controls and data,\nand serif headings. The shared system stays quiet so the Rust program and the\nroom\u2019s understanding carry the experience.",
+    "keyCharacteristics": [
+      "Projector-first, phone as buzzer.",
+      "Light surfaces, white source wells, restrained depth.",
+      "Counts rather than personal verdicts.",
+      "Host-paced trace, with colour reserved for reading phases."
+    ],
+    "rules": [
+      {
+        "name": "The Accessible Companion Rule",
+        "body": "Surface styles opt into `focus-ring` (deep\namber) and `success-text` (dark green), leaving inherited house-brand tokens\nunchanged. The source flags `text-muted` as unsuitable for normal small body\ntext; retain it as documented metadata, not a general text default.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wall Measurement Rule",
+        "body": "The frontmatter code size is not a projector\nsize. `web/shared/typemodel.js` derives and measures wall type from venue inputs.\nSerif stays confined to headings at 24px and above. The existing aesthetic\nstatement below remains the binding account of the font pairing.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "**Do** preserve the binding prototype decisions and their acceptance criteria.",
+      "**Do** measure projector source fit using the venue\u2019s dimensions and back-row distance.",
+      "**Do** pair colour with text, a glyph, a count, or a structural signal.",
+      "**Do** vendor the brand fonts and respect reduced-motion preferences."
+    ],
+    "donts": [
+      "**Don\u2019t** add gradients, glass, bounce, or extra panel radii.",
+      "**Don\u2019t** mark a participant wrong, introduce scores, or preview the answer to the host.",
+      "**Don\u2019t** promote prototype-only chrome or the dim-room proposal into the light product contract.",
+      "**Don\u2019t** balance correct-answer positions or treat a built deck as a run segment."
+    ]
+  }
+}
