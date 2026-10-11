@@ -1,6 +1,23 @@
 use organizer_preview::snapshot;
 
 #[test]
+fn reveal_requires_two_consecutive_presses_and_any_other_key_disarms() {
+    let screen = snapshot(&['r'], 120, 50);
+    assert!(screen.contains("Press r again to reveal the answer. Esc cancels."));
+    assert!(!screen.contains("Correct answer"));
+    assert!(!screen.contains("How we know"));
+    assert!(snapshot(&['r', 'r'], 120, 50).contains("Correct answer"));
+    for key in ['\u{1b}', 'j', 't', '?', ']', 'x'] {
+        let screen = snapshot(&['r', key], 120, 50);
+        assert!(!screen.contains("Press r again"));
+        assert!(!screen.contains("Correct answer"));
+    }
+    let screen = snapshot(&['r', 'x', 'r'], 120, 50);
+    assert!(!screen.contains("Correct answer"));
+    assert!(screen.contains("Press r again"));
+}
+
+#[test]
 fn stepping_back_from_reveal_returns_to_unspoiled_teaching() {
     let screen = snapshot(&['r', '<'], 120, 50);
     assert!(screen.contains("Step 5 of 6"));
