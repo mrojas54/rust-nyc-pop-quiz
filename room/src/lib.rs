@@ -11,6 +11,8 @@
 //! - [`question`] — the public half of a question.
 //! - [`rooms`] — the room record (§3.4) and the seams for sessions (T-04b) and
 //!   the socket (T-04c).
+//!   - `rooms/create` — the one path that makes a room: *Create a room* and
+//!     *Run it again*, ending at one maker (G-9, GAP-8, G-10).
 //! - [`sessions`] — participant sessions and the answer store (T-04b).
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`auth`] — the `HostAuth` seam (G-9): the one create check.
