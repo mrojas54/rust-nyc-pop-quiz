@@ -18,8 +18,49 @@ fn reveal_requires_two_consecutive_presses_and_any_other_key_disarms() {
 }
 
 #[test]
+fn ignored_terminal_keys_cancel_reveal_and_repeats_do_not_confirm() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use organizer_preview::{capture, default_bank, App};
+    let mut app = App::load(&default_bank(), Some("q3")).unwrap();
+    for key in [
+        KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE),
+        KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+    ] {
+        app.handle('r');
+        app.handle_event(key);
+        assert!(!capture(&mut app, 120, 40)
+            .unwrap()
+            .contains("Press r again"));
+    }
+    app.handle('r');
+    app.handle_event(KeyEvent::new_with_kind(
+        KeyCode::Char('r'),
+        KeyModifiers::NONE,
+        KeyEventKind::Repeat,
+    ));
+    let screen = capture(&mut app, 40, 14).unwrap();
+    assert!(screen.contains("Press r again"));
+    assert!(screen
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .contains("Esc cancels."));
+    assert!(!screen.contains("Correct answer"));
+}
+
+#[test]
+fn explicit_reveal_snapshot_still_prints_the_answer() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_organizer-preview"))
+        .args(["--question", "q3", "--snapshot", "reveal"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Correct answer"));
+}
+
+#[test]
 fn stepping_back_from_reveal_returns_to_unspoiled_teaching() {
-    let screen = snapshot(&['r', '<'], 120, 50);
+    let screen = snapshot(&['r', 'r', '<'], 120, 50);
     assert!(screen.contains("Step 5 of 6"));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("How we know"));
@@ -106,7 +147,7 @@ fn teaching_trace_stops_before_the_resolving_step() {
     assert!(screen.contains("Pause here"));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("stdout:"));
-    keys.push('r');
+    keys.extend(['r', 'r']);
     let screen = snapshot(&keys, 100, 60);
     assert!(screen.contains("Step 6 of 6"));
     assert!(screen.contains("Correct answer"));
@@ -123,10 +164,10 @@ fn trace_highlights_the_authored_step_and_shows_narration() {
 
 #[test]
 fn return_from_reveal_and_candidate_switch_reset_the_boundary() {
-    let screen = snapshot(&['r', 't'], 100, 36);
+    let screen = snapshot(&['r', 'r', 't'], 100, 36);
     assert!(screen.contains("Step 5 of 6"));
     assert!(!screen.contains("Correct answer"));
-    let screen = snapshot(&['r', ']'], 100, 36);
+    let screen = snapshot(&['r', 'r', ']'], 100, 36);
     assert!(screen.contains("q4"));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("Step 6 of 6"));
@@ -149,7 +190,7 @@ fn preview_leaves_all_bank_files_unchanged() {
         .iter()
         .map(|path| std::fs::read(path).unwrap())
         .collect();
-    snapshot(&['t', '>', 'r', ']', '[', '1'], 100, 36);
+    snapshot(&['t', '>', 'r', 'r', ']', '[', '1'], 100, 36);
     for (path, expected) in paths.iter().zip(before) {
         assert_eq!(std::fs::read(path).unwrap(), expected);
     }
