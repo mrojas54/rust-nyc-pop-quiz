@@ -55,6 +55,51 @@ The OAuth redirect URI is not a variable: it is `POPQUIZ_PUBLIC_URL` +
 The released wall's take-it-home link is SPEC §13's `https://popquiz.rustnyc.org/last`
 in every configuration, the same one the static fallback uses.
 
+## Source layout
+
+`room/src` is grouped by who uses the code. Every module is also re-exported at
+the crate root (`room::phase` is `room::models::phase`), so the module names in
+the next section still work as written.
+
+```
+src/
+  lib.rs  rooms.rs  copy.rs        the crate root, the room record and its writes, SPEC §11's strings
+  rooms/create.rs                  create a room, run it again
+  host/                            the organizer
+    auth.rs  discord.rs              the create check (G-9); Discord sign-in and the role check
+  connections/                     the audience
+    ws.rs  sessions.rs  requestlog.rs   sockets and one broadcast per room; participant sessions; AC-55's log
+  models/                          the data
+    phase.rs  answers.rs  question.rs  club.rs  view.rs  used.rs
+                                     the machine; the sealed answers; the public question; clubs;
+                                     the wall/buzzer/host payloads; the ledger and take-it-home
+  server/                          what the `room` binary serves
+    main.rs  config.rs  lifecycle.rs  admin.rs   the binary; its environment; the clock and reaper; the pipeline channel
+    routes/                          the HTTP surface, one file per user
+      mod.rs      shared helpers, the state query, the assembly (the socket layers go last)
+      host.rs     create, run again, host actions, Discord sign-in, the host phone's page
+      connections.rs  join, answer, the buzzer page
+      wall.rs     the wall page, shared assets, the fit report
+      pages.rs    take it home (`/last`) and the front door (`/`)
+      pipeline.rs the `/admin` routes, mounted on their own router
+  cli/                             the clients: smoke, burst, room_client, the spike
+```
+
+`models/view.rs` stays one file: the pre-reveal builders (`mod sealed`) are read
+as a single block by `tests/boundary.rs`, so the proof that they never see the
+opened room is one thing to review. Its header says where each part is.
+
+`tests/` stays flat, because Cargo builds each file as its own test. By group:
+
+| Group | Tests |
+|---|---|
+| host | `auth`, `host_page`, `clubs`, `one_room` |
+| connections | `sessions`, `transport`, `transport_full`, `requestlog`, `buzzer_page` |
+| models | `phase_table`, `room_record`, `boundary`, `used`, `take_home`, `twins` |
+| server | `admin`, `lifecycle`, `smoke_config`, `no_fallback_route`, `landing`, `wall_page` |
+| cli | `burst_report`, `harness_config`, `harness_rules`, `harness_full` |
+| whole room | `wiring`, `canary`, `canary_full`, `canary_scan/` |
+
 ## What is here
 
 `router()` serves the room: create a room, one route per host action, and the
@@ -496,7 +541,7 @@ poke that changed nothing sends nothing. It is called:
 
 - by the `notify` layer after every non-GET request under `/rooms/{id}/…` — all
   host actions, and any HTTP writer whose routes are registered **above the
-  `// T-04c routes` block in `routes.rs`, which must stay last** (`layer` wraps
+  `// T-04c routes` block in `routes/mod.rs`, which must stay last** (`layer` wraps
   only the routes already registered);
 - by the transport after each call into the session map;
 - by `POST /join` itself: its path names no room, so `notify` cannot poke it;
@@ -575,7 +620,7 @@ spike's frames:
 
 The three surfaces are pages the room serves beside its JSON. Each is plain
 HTML, CSS and JS from `web/<surface>/`, embedded at compile time
-(`include_str!`) in its ticket's own block of `routes.rs` — no new crate, no
+(`include_str!`) in its ticket's own block of `routes/` — no new crate, no
 `ServeDir`, nothing read from disk at run time, and a name not listed is `404`.
 
 | Path | What | Ticket |
@@ -785,7 +830,7 @@ listener and the real session map:
   it equals its viewer's projection;
 - every page and every file the router serves (`/wall/{id}`, `/host`,
   `/host/{id}`, `/join`, `/join?code=`, `/{code}`'s redirect, every asset list
-  in `routes.rs`; fonts once per room and byte-compared at every stop);
+  in `routes/wall.rs`; fonts once per room and byte-compared at every stop);
 - the wall's frames as the served `wall.js` renders them (`PQ.Wall.html`, under
   `node`);
 - the **real buzzer page**: the served `buzzer.js` mounted under `node`
@@ -818,7 +863,7 @@ scan that saw nothing cannot pass. `the_rules_catch_a_planted_leak` checks the
 rules themselves against payloads the room must never send.
 
 **The route walk.** `canary_scan::route_table()` reads every `.route(` in
-`src/server/routes.rs`; a route that is neither driven nor on `UNSCANNED` fails
+`src/server/routes/` (all its files); a route that is neither driven nor on `UNSCANNED` fails
 `every_route_in_routes_rs_is_scanned_or_listed`. **Unscanned: none.**
 
 **test-full.** `canary_full.rs` runs the same walk with every HTTP request over a
