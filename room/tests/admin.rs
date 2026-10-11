@@ -303,7 +303,7 @@ fn sources() -> Vec<(String, String)> {
 
 /// `routes.rs`'s `// T-25 routes` block, and everything outside it.
 fn routes_split() -> (String, String) {
-    let s = src("server/routes.rs");
+    let s = common::routes_source();
     let start = s.find("// T-25 routes ---").expect("the T-25 block");
     let end = s.find("// end T-25 routes ---").expect("the T-25 block ends");
     (s[start..end].to_string(), format!("{}{}", &s[..start], &s[end..]))
@@ -343,13 +343,13 @@ fn ac101_g9_no_other_module_reads_the_token() {
             "server/admin.rs" => assert!(names_var && names_type),
             "server/config.rs" => assert!(names_type, "config reads it through admin"),
             "lib.rs" => assert!(!names_var, "lib.rs wires the token and never names the variable"),
-            "server/routes.rs" => {
-                let (_, rest) = routes_split();
-                assert!(!names_var && !rest.contains("AdminToken"), "routes.rs names the token outside the T-25 block");
-            }
+            // The T-25 block is its own file now; the rest of the routes name nothing.
+            "server/routes/pipeline.rs" => assert!(!names_var && names_type),
             _ => assert!(!names_var && !names_type, "{file} names the admin token"),
         }
     }
+    let (_, rest) = routes_split();
+    assert!(!rest.contains("AdminToken"), "the routes name the token outside the T-25 block");
     // The variable's name is a code literal in admin.rs alone; config.rs
     // refers to it as `admin::VAR`.
     let literal = format!("\"{VAR}\"");
