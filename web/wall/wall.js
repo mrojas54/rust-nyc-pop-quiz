@@ -4,7 +4,7 @@
    Seven phases on the 1120x630 design canvas, scaled to the projector as one
    unit (§5.1). What the wall shows is decided by ONE THING: the frame the room
    sends on `GET /rooms/{id}/ws/wall`, which is `view::wall` — the wall's whole
-   state, never a delta (room/src/ws.rs). Nothing is carried from one frame to
+   state, never a delta (room/src/connections/ws.rs). Nothing is carried from one frame to
    the next, so a reload shows exactly what was on the screen.
 
    TWO LAYERS, and the split is load-bearing:

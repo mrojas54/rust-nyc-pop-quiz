@@ -271,7 +271,7 @@ is not the Fly secret.
 
 ## Lifecycle and what outlives a room (T-11)
 
-SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/lifecycle.rs`, `src/used.rs`,
+SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/lifecycle.rs`, `src/models/used.rs`,
 and the release and sweep paths in `src/rooms.rs`.
 
 **How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
@@ -443,7 +443,7 @@ deployed room, and does not discharge it.
 
 ## The transport (T-04c)
 
-`src/ws.rs`. One broadcast per room to the wall, the buzzers and the host, and
+`src/connections/ws.rs`. One broadcast per room to the wall, the buzzers and the host, and
 reconnect with the same session token.
 
 ### Sockets
@@ -684,7 +684,7 @@ builders receive a `PublicView`, which has no path to the vault.
 
 The proof is in two halves, and neither is "we reviewed it":
 
-1. **`compile_fail` doctests**, in `src/phase.rs`, `src/answers.rs` and
+1. **`compile_fail` doctests**, in `src/models/phase.rs`, `src/models/answers.rs` and
    `src/rooms.rs`, cover six attempts to cross the boundary:
    - forge a witness;
    - forge a machine in `reveal`;
@@ -1146,7 +1146,7 @@ it.
 ## After a meetup (T-21, AC-55)
 
 AC-55 — failed participant requests under 0.1% across a session on venue wifi
-— is read from the room's own log (`src/requestlog.rs`). Each is one JSON line
+— is read from the room's own log (`src/connections/requestlog.rs`). Each is one JSON line
 on standard error, which Fly keeps:
 
 - `{"event":"participant_request_failed","room":…,"route":…,"kind":…,…}` — a

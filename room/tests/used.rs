@@ -115,8 +115,19 @@ fn ac92_scheduling_questions_writes_nothing() {
 fn g10_the_release_transition_is_the_only_writer() {
     let src = common::repo().join("room/src");
     let mut writers = Vec::new();
-    for entry in std::fs::read_dir(&src).unwrap() {
-        let path = entry.unwrap().path();
+    let mut files = Vec::new();
+    let mut dirs = vec![src.clone()];
+    while let Some(d) = dirs.pop() {
+        for entry in std::fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    for path in files {
         if path.extension().and_then(|e| e.to_str()) != Some("rs") {
             continue;
         }
@@ -145,7 +156,7 @@ fn g10_the_release_transition_is_the_only_writer() {
     let set = rooms.find("self.parting = Some(").unwrap();
     assert!(released_arm < set && set - released_arm < 1200, "the parting is built outside the Released arm");
     // The ledger's `append` is crate-private.
-    let used = std::fs::read_to_string(src.join("used.rs")).unwrap();
+    let used = std::fs::read_to_string(src.join("models/used.rs")).unwrap();
     assert!(used.contains("pub(crate) fn append("));
 }
 

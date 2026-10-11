@@ -3,7 +3,7 @@
 
    SPEC §2 G-6 fixes the order: idle -> live -> closed -> split -> work ->
    reveal -> released. Each transition is a host action and none is skippable.
-   The room's own phase machine is T-04a's (room/src/phase.rs); this file is the
+   The room's own phase machine is T-04a's (room/src/models/phase.rs); this file is the
    web side's read-only view of the same vocabulary, so the wall, the buzzer and
    the host phone all answer "may I colour this?" the same way.
 
