@@ -23,8 +23,22 @@ fn src() -> PathBuf {
 /// the ones built with `format!` for the host actions.
 fn route_literals() -> Vec<String> {
     let mut out = Vec::new();
-    for entry in fs::read_dir(src()).unwrap() {
-        let path = entry.unwrap().path();
+    // The room's own modules, in their groups; `cli/` holds clients, not routes.
+    let mut files = Vec::new();
+    let mut dirs = vec![src()];
+    while let Some(d) = dirs.pop() {
+        for entry in fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                if path.file_name().is_none_or(|n| n != "cli") {
+                    dirs.push(path);
+                }
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    for path in files {
         if path.extension().is_none_or(|e| e != "rs") {
             continue;
         }

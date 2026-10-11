@@ -2,7 +2,7 @@
 //!
 //! The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
 //! them: [`host`] (the organizer), [`connections`] (the audience's sockets and
-//! sessions) and [`models`] (the data). Each is also reachable at the crate
+//! sessions), [`models`] (the data) and [`server`] (config, routes, admin). Each is also reachable at the crate
 //! root, so `room::phase` and `room::models::phase` are the same module.
 //!
 //! - [`phase`] — the machine: `idle → … → released`, host actions only, no
@@ -47,22 +47,21 @@ use std::sync::Arc;
 
 use axum::Router;
 
-pub mod admin;
-pub mod config;
 pub mod connections;
 pub mod copy;
 pub mod host;
-pub mod lifecycle;
 pub mod models;
 pub mod rooms;
-mod routes;
+pub mod server;
 
 // The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
 pub use connections::{requestlog, sessions, ws};
 pub use host::{auth, discord};
+pub use server::{admin, config, lifecycle};
+use server::routes;
 pub use models::{answers, club, phase, question, used, view};
 
-pub use routes::host_routes;
+pub use server::routes::host_routes;
 
 /// The state the binary serves: *Create a room* authorized by Discord (T-10),
 /// which also signs organizers in, and nothing scheduled — questions arrive

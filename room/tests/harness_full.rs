@@ -21,10 +21,10 @@
 
 mod common;
 
-#[path = "../src/bin/burst.rs"]
+#[path = "../src/cli/burst.rs"]
 #[allow(dead_code)]
 mod burst;
-#[path = "../src/bin/smoke.rs"]
+#[path = "../src/cli/smoke.rs"]
 #[allow(dead_code)]
 mod smoke;
 
