@@ -21,10 +21,17 @@ output", no letter and no position in what the model returns. The answer is deri
 from `verified`, which only the verifier writes (G-2, AC-7); a model's idea of what a
 program prints is never an answer. Three consequences, each a deliberate choice:
 
-* `trace` is written empty. Its last step names `stdout` with a value, which would be
-  the model's claim of the output in a field the wall reads, and no gate checks it
-  (AC-73's `bank.quoted_outputs` reads the beats, not the trace). An empty trace is
-  the honest state for a walk-through nobody has written (`bank.Trace`).
+* `trace` is drafted by the model and has **no `stdout` row**. The steps - lines,
+  focus, note, the values that are not output, an optional pivot - are authored
+  content, like the beats: the organizer checks them at review (HC-2), and nothing
+  here verifies them. The last step's `stdout` row is the program's output, so the
+  model never writes it: any value the model names `stdout` is discarded from every
+  step and the discard is reported, and `verify.with_record` writes the row from
+  `verified.stdout` once the program has run. A record that ran and still lacks the
+  row fails `bank.validate_question`, so a draft never passes as finished. The filter
+  is by name: a value the model calls something else, or a note that states an output
+  in prose, is authored content for review; a note that *quotes* one is listed by
+  `bank.quoted_outputs` for AC-73.
 * `why_tempting` is asked for on all five options, so a missing one cannot mark the
   option the model believes is correct. The review step drops the correct option's
   beat once the verifier has said which that is.
@@ -74,7 +81,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from popquiz import audit, bank, copylint
-from popquiz.bank import BankError, Explains, Option, Question, Trace
+from popquiz.bank import BankError, Explains, Option, Question, Trace, TraceStep, ValueDelta
 
 # --------------------------------------------------------------------------- #
 # Configuration - one place
@@ -128,6 +135,10 @@ REPORT_FILE = "report.json"
 OPTION_KINDS = ("output", "does_not_compile", "ub", "panic")
 EXPECTS = ("ran", "does_not_compile", "ub")
 CONCEPT_KINDS = ("std", "core_language")
+#: The trace value that is the program's output: written by `verify`, never the model.
+STDOUT = "stdout"
+#: SPEC 7.4: a question needs this many trace steps before it can be affirmed.
+MIN_TRACE_STEPS = 2
 _STD_PATH = re.compile(r"^(std|core|alloc)::\S+")
 _RUN_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 
@@ -325,6 +336,17 @@ def system_prompt(cap: Capacity, talk_mode: bool) -> str:
         "- Do not say which option is correct, anywhere. A machine runs the program and decides.",
         "- The `hint` is read before anyone answers, so it never states or quotes an output.",
         "",
+        "The trace, a walk-through the host reads after the reveal:",
+        "- At least two steps, in the order the program runs. The last step is where the "
+        "program finishes.",
+        "- `lines` are the 1-based source lines executing in that step; `focus` is the "
+        "inclusive 1-based range `[first, last]` kept at full contrast.",
+        "- `note` is what the host reads aloud. `values` are the variables that change, each "
+        "with `was` and `now` (use `—` for a value that did not exist yet).",
+        "- Set `pivot` true on at most one step: the one to pause on.",
+        f"- Never name `{STDOUT}` in `values`, and never state or quote what the program prints "
+        "in a note. A machine runs the program and adds its output to the last step.",
+        "",
         "Style:",
         STYLE_BRIEF,
         "",
@@ -370,6 +392,22 @@ def output_schema(talk_mode: bool) -> dict[str, Any]:
         "hint": text,
         "explains": obj({"what": text, "takeaway": text}),
         "expect": {"type": "string", "enum": list(EXPECTS)},
+        "trace": obj(
+            {
+                "steps": {
+                    "type": "array",
+                    "items": obj(
+                        {
+                            "lines": {"type": "array", "items": {"type": "integer"}},
+                            "focus": {"type": "array", "items": {"type": "integer"}},
+                            "note": text,
+                            "values": {"type": "array", "items": obj({"name": text, "was": text, "now": text})},
+                            "pivot": {"type": "boolean"},
+                        }
+                    ),
+                }
+            }
+        ),
     }
     if talk_mode:
         props["concept"] = obj({"name": text, "kind": {"type": "string", "enum": list(CONCEPT_KINDS)}})
@@ -552,6 +590,7 @@ class Outcome:
     expect: str | None = None
     concept: dict[str, str] | None = None
     usage: dict[str, int] = field(default_factory=dict)
+    discarded: list[str] = field(default_factory=list)
 
     @property
     def emitted(self) -> bool:
@@ -566,6 +605,64 @@ def _usage(message: Mapping[str, Any]) -> dict[str, int]:
 
 def _text(value: Any) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
+
+
+def _is_line(value: Any, n_lines: int) -> bool:
+    return type(value) is int and 1 <= value <= n_lines
+
+
+def _read_trace(data: Any, source: str | None, outcome: Outcome) -> Trace | None:
+    """The model's drafted steps as a `bank.Trace`, or `None` with every reason.
+
+    A value named `stdout` (any case or padding) is dropped from every step and the
+    drop is recorded in `outcome.discarded`, never silently: the output is the
+    verifier's to write (`verify.with_record`). The value itself is not echoed into
+    the report, which is read before anything has run.
+    """
+    reasons = outcome.reasons
+    raw = data if isinstance(data, dict) else {}
+    raw_steps = raw.get("steps") if isinstance(raw.get("steps"), list) else []
+    n_lines = len(source.splitlines()) if source is not None else None
+    steps: list[TraceStep] = []
+    for i, step in enumerate(raw_steps, 1):
+        step = step if isinstance(step, dict) else {}
+        note, lines, focus = _text(step.get("note")), step.get("lines"), step.get("focus")
+        problems = []
+        if note is None:
+            problems.append("no note")
+        if not (isinstance(lines, list) and lines and all(type(n) is int for n in lines)):
+            problems.append("no lines")
+            lines = []
+        if not (isinstance(focus, list) and len(focus) == 2 and all(type(n) is int for n in focus) and focus[0] <= focus[1]):
+            problems.append("focus is not a range [first, last]")
+            focus = []
+        if n_lines is not None and not all(_is_line(n, n_lines) for n in (*lines, *focus)):
+            problems.append(f"points at a line outside the source's {n_lines}")
+        values: list[ValueDelta] = []
+        for value in step.get("values") if isinstance(step.get("values"), list) else []:
+            value = value if isinstance(value, dict) else {}
+            name, was, now = _text(value.get("name")), value.get("was"), value.get("now")
+            if name is not None and name.strip().lower() == STDOUT:
+                outcome.discarded.append(f"step {i}: a {STDOUT} value, which only the verifier writes")
+                continue
+            if name is None or not isinstance(was, str) or not isinstance(now, str):
+                problems.append("a value needs a name, was and now")
+                continue
+            values.append(ValueDelta(name=name, was=was, now=now))
+        if problems:
+            reasons.append(f"trace: step {i}: " + "; ".join(problems))
+            continue
+        steps.append(
+            TraceStep(lines=tuple(lines), focus=(focus[0], focus[1]), note=note or "", values=tuple(values), pivot=step.get("pivot") is True)
+        )
+    if len(raw_steps) < MIN_TRACE_STEPS:
+        reasons.append(f"trace: {len(raw_steps)} step(s); a question needs at least {MIN_TRACE_STEPS} (SPEC 7.4)")
+    pivots = sum(s.pivot for s in steps)
+    if pivots > 1:
+        reasons.append(f"trace: {pivots} pivot steps; at most one")
+    if any(r.startswith("trace:") for r in reasons):
+        return None
+    return Trace(steps=tuple(steps))
 
 
 def _read_candidate(data: Any, outcome: Outcome, talk_mode: bool, cap: Capacity, room: audit.Room) -> None:
@@ -621,6 +718,7 @@ def _read_candidate(data: Any, outcome: Outcome, talk_mode: bool, cap: Capacity,
             outcome.concept = {"name": name, "kind": kind}
             outcome.topic = name
 
+    trace = _read_trace(data.get("trace"), source, outcome)
     reasons.extend(capacity_breaks(source, [o.text for o in options], cap, room))
 
     if source is None or hint is None or what is None or takeaway is None or outcome.topic is None:
@@ -633,7 +731,7 @@ def _read_candidate(data: Any, outcome: Outcome, talk_mode: bool, cap: Capacity,
         options=tuple(options),
         hint=hint,
         explains=Explains(what=what, takeaway=takeaway),
-        trace=Trace(),
+        trace=trace if trace is not None else Trace(),  # a broken trace is already a reason
     )
     try:
         bank.validate_question(question)
@@ -799,6 +897,8 @@ def build_report(
                 row[k] = o.usage[k]
         if o.concept is not None:
             row["concept"] = o.concept
+        if o.discarded:
+            row["discarded"] = o.discarded
         if o.emitted:
             row["path"] = str(run_dir / f"{o.id}.json")
             row["quoted_spans"] = list(bank.quoted_outputs(o.question))  # for AC-73 at review

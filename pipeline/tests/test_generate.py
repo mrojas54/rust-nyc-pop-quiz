@@ -10,6 +10,7 @@ recording, and none says which option is correct (see their README).
 from __future__ import annotations
 
 import ast
+import dataclasses
 import json
 import math
 import socket
@@ -18,8 +19,10 @@ from pathlib import Path
 
 import pytest
 
-from popquiz import audit, bank, copylint, generate
+from fixtures.verify.verify_cases import RECORDINGS
+from popquiz import audit, bank, copylint, generate, sandbox, verify
 from popquiz.generate import GenerateError, ReplayBatchClient, RunRequest, Talk
+from popquiz.runner import StubRunner
 
 HERE = Path(__file__).parent
 FIXTURES = HERE / "fixtures" / "generate"
@@ -310,10 +313,11 @@ def test_requests_use_structured_outputs_and_adaptive_thinking(tmp_path):
 
 def test_the_schema_asks_for_no_answer():
     """Ruling 7: nothing in what the model returns names a correct option, an
-    output, a letter or a position."""
+    output, a letter or a position. The trace is asked for; its stdout row is not."""
     for talk_mode in (False, True):
         text = json.dumps(generate.output_schema(talk_mode)).lower()
-        for word in ("correct", "answer", "stdout", "expected_output", "letter", "position", "slot", "trace"):
+        assert "trace" in text
+        for word in ("correct", "answer", "stdout", "expected_output", "letter", "position", "slot"):
             assert word not in text
 
 
@@ -442,6 +446,10 @@ def _candidate(**overrides):
         "hint": "Read it once.",
         "explains": {"what": "It prints.", "takeaway": "Printing prints."},
         "expect": "ran",
+        "trace": {"steps": [
+            {"lines": [2], "focus": [1, 3], "note": "One print.", "values": [], "pivot": False},
+            {"lines": [3], "focus": [3, 3], "note": "The program ends.", "values": [], "pivot": False},
+        ]},
     }
     base.update(overrides)
     return base
@@ -504,7 +512,8 @@ def test_emitted_candidates_are_3_1_minus_verified_and_review(tmp_path):
         question = bank.question_from_dict(data)  # validates, refuses unknown keys
         assert "verified" not in data and "review" not in data
         assert "correct" not in data and "expect" not in data
-        assert question.trace.steps == ()
+        assert len(question.trace.steps) >= generate.MIN_TRACE_STEPS
+        assert not any(v.name == "stdout" for step in question.trace.steps for v in step.values)
         assert bank.correct_index(question) is None  # nothing to derive from: no record
         assert all(o.why_tempting for o in question.options)
 
@@ -779,3 +788,92 @@ def test_the_default_destination_is_a_run_directory_under_bank_candidates():
 def test_a_run_id_cannot_name_a_path(tmp_path, run_id):
     with pytest.raises(GenerateError):
         go(tmp_path, replay("clean"), run_id=run_id)
+
+
+# --------------------------------------------------------------------------- #
+# Option b: the model drafts the trace; the verifier writes its stdout row
+# --------------------------------------------------------------------------- #
+
+TRACE_REQUEST = RunRequest(count=4, difficulty=2, topics=TOPICS)
+MODEL_CLAIM = "MODEL-CLAIMED-OUTPUT"  # what c01's model offered as stdout
+
+
+def _trace_run(tmp_path):
+    report = go(tmp_path, replay("trace-drafts"), request=TRACE_REQUEST)
+    rows = {row["custom_id"]: row for row in report["candidates"]}
+    return report, rows
+
+
+def _stdout_rows(question):
+    return [v for step in question.trace.steps for v in step.values if v.name.strip().lower() == "stdout"]
+
+
+def test_a_drafted_trace_is_emitted_with_no_stdout_and_the_discard_is_reported(tmp_path):
+    """b1, b2: the steps the model drafted are kept; the stdout value it offered (named
+    ' Stdout ') is discarded, reported, and written nowhere - not the candidate, not
+    the report."""
+    report, rows = _trace_run(tmp_path)
+    assert rows["c01"]["status"] == "emitted"
+    path = Path(rows["c01"]["path"])
+    question = bank.question_from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+    assert len(question.trace.steps) == 4
+    assert [s.note for s in question.trace.steps][0] == "Seven elements go in."
+    assert sum(s.pivot for s in question.trace.steps) == 1
+    assert _stdout_rows(question) == []
+    assert MODEL_CLAIM not in path.read_text(encoding="utf-8")
+    assert MODEL_CLAIM not in json.dumps(report)
+    assert rows["c01"]["discarded"] == ["step 4: a stdout value, which only the verifier writes"]
+
+
+def test_a_does_not_compile_draft_has_no_stdout_row(tmp_path):
+    _, rows = _trace_run(tmp_path)
+    assert rows["c02"]["status"] == "emitted"
+    question = bank.question_from_dict(json.loads(Path(rows["c02"]["path"]).read_text(encoding="utf-8")))
+    assert len(question.trace.steps) == 2
+    assert _stdout_rows(question) == []
+    assert "discarded" not in rows["c02"]
+
+
+def test_a_trace_too_short_or_off_the_source_is_reported_not_trimmed(tmp_path):
+    """SPEC 7.4's two steps, and steps that point at real lines: reported, never padded
+    or clipped into shape."""
+    _, rows = _trace_run(tmp_path)
+    assert rows["c03"]["status"] == "reported"
+    assert any("1 step(s); a question needs at least 2" in r for r in rows["c03"]["reasons"])
+    assert rows["c04"]["status"] == "reported"
+    assert any("step 2: points at a line outside the source's 5" in r for r in rows["c04"]["reasons"])
+    assert len(emitted_files(tmp_path)) == 2
+
+
+def test_the_brief_tells_the_model_the_output_is_not_its_to_write():
+    for talk_mode in (False, True):
+        prompt = generate.system_prompt(generate.capacity(), talk_mode)
+        assert "Never name `stdout` in `values`" in prompt
+        assert "never state or quote what the program prints in a note" in prompt
+        assert "At least two steps" in prompt
+
+
+@pytest.mark.parametrize(("custom_id", "program", "expect"), [("c01", "q3", "ran"), ("c02", "q8", "does_not_compile")])
+def test_the_verifier_fills_the_drafted_trace_from_what_ran(tmp_path, custom_id, program, expect):
+    """b3, b6: a generated candidate, verified on the stub Runner's recordings, gets its
+    stdout row from the record - or none, if it did not run. The fixtures reuse the
+    bank's q3 and q8 sources verbatim, so the recordings are of the program the
+    candidate holds; only the generated id is swapped for the recording's."""
+    _, rows = _trace_run(tmp_path)
+    drafted = bank.question_from_dict(json.loads(Path(rows[custom_id]["path"]).read_text(encoding="utf-8")))
+    candidate = dataclasses.replace(drafted, id=program)
+    verdict = verify.verify(candidate, StubRunner(RECORDINGS), expect=expect, pin=sandbox.read_pin())
+    assert verdict.accepted, verdict.reason
+
+    after = verify.with_record(candidate, verdict)
+
+    assert bank.question_from_dict(bank.question_to_dict(after)) == after
+    if expect == "ran":
+        recorded = json.loads((RECORDINGS / f"{program}.json").read_text(encoding="utf-8"))["run:1"]["stdout"]
+        assert _stdout_rows(after) == [bank.ValueDelta("stdout", "—", bank.normalized_output(recorded))]
+        assert after.trace.steps[-1].values[-1] == _stdout_rows(after)[0]
+    else:
+        assert _stdout_rows(after) == []
+    assert after.trace.steps[:-1] == drafted.trace.steps[:-1]
+    assert MODEL_CLAIM not in json.dumps(bank.question_to_dict(after))
