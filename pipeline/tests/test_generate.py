@@ -47,15 +47,30 @@ def no_network_no_key(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", refuse)
 
 
+class MeasuredReplay(ReplayBatchClient):
+    """A replayed batch that is labelled, by its type, as a real one (F4): the
+    measured path - a cap required, a worst case enforced - on fixture data."""
+
+    numbers = generate.MEASURED
+
+
 def replay(name: str, **kwargs) -> ReplayBatchClient:
     return ReplayBatchClient(FIXTURES / f"{name}.json", **kwargs)
+
+
+def measured(name: str, **kwargs) -> MeasuredReplay:
+    return MeasuredReplay(FIXTURES / f"{name}.json", **kwargs)
+
+
+def factory_of(client) -> generate.Factory:
+    """A factory for an already-built client; its labels are read off its type."""
+    return generate.Factory(type(client), lambda: client)
 
 
 def go(tmp_path, client, request=None, **kwargs):
     request = request or RunRequest(count=3, difficulty=2, topics=TOPICS)
     kwargs.setdefault("run_id", "t1")
-    kwargs.setdefault("fixture", True)
-    return generate.run(request, client_factory=lambda: client, out=tmp_path, **kwargs)
+    return generate.run(request, client_factory=factory_of(client), out=tmp_path, **kwargs)
 
 
 def emitted_files(tmp_path, run_id="t1"):
@@ -122,10 +137,9 @@ def test_a_paid_run_with_no_cap_refuses_before_building_a_client(tmp_path):
     with pytest.raises(GenerateError) as err:
         generate.run(
             RunRequest(count=3, difficulty=2, topics=TOPICS),
-            client_factory=lambda: built.append(1) or replay("clean"),
+            client_factory=generate.Factory(MeasuredReplay, lambda: built.append(1) or measured("clean")),
             out=tmp_path,
             run_id="c1",
-            fixture=False,
         )
     assert str(err.value) == generate.NO_CAP
     assert built == []
@@ -136,15 +150,15 @@ def test_a_paid_run_over_its_cap_refuses_before_building_a_client(tmp_path):
     request = RunRequest(count=40, difficulty=2, topics=TOPICS)
     built = []
     with pytest.raises(GenerateError) as err:
-        generate.run(request, client_factory=lambda: built.append(1), out=tmp_path, run_id="c2", fixture=False, cap_usd=1.0)
+        generate.run(request, client_factory=generate.Factory(MeasuredReplay, lambda: built.append(1)), out=tmp_path, run_id="c2", cap_usd=1.0)
     assert str(err.value).startswith("Refusing to submit: the worst case for 40 requests is $")
     assert str(err.value).endswith("over the $1.00 cap.")
     assert built == []
 
 
 def test_a_paid_run_under_its_cap_submits(tmp_path):
-    client = replay("clean")
-    report = go(tmp_path, client, fixture=False, cap_usd=10.0)
+    client = measured("clean")
+    report = go(tmp_path, client, cap_usd=10.0)
     assert client.submit_calls == 1
     assert report["numbers"] == "measured"
 
@@ -154,9 +168,9 @@ def test_the_cap_boundary_is_inclusive_of_the_worst_case(tmp_path):
     request = RunRequest(count=3, difficulty=2, topics=TOPICS)
     cap = generate.capacity()
     worst = generate.worst_case_usd(generate.build_requests(request, cap, generate.DEFAULT_MODEL, generate.DEFAULT_MAX_TOKENS))
-    go(tmp_path, replay("clean"), fixture=False, cap_usd=worst, run_id="b1")
+    go(tmp_path, measured("clean"), cap_usd=worst, run_id="b1")
     with pytest.raises(GenerateError):
-        go(tmp_path, replay("clean"), fixture=False, cap_usd=worst - 0.01, run_id="b2")
+        go(tmp_path, measured("clean"), cap_usd=worst - 0.01, run_id="b2")
 
 
 def test_a_fixture_run_needs_no_cap_but_honours_one_given(tmp_path):
@@ -174,10 +188,9 @@ def test_a_cap_that_is_not_a_positive_amount_refuses(tmp_path, cap):
     with pytest.raises(GenerateError, match="a spend cap is a positive amount"):
         generate.run(
             RunRequest(count=3, difficulty=2, topics=TOPICS),
-            client_factory=lambda: built.append(1),
+            client_factory=generate.Factory(MeasuredReplay, lambda: built.append(1)),
             out=tmp_path,
             run_id="n1",
-            fixture=False,
             cap_usd=cap,
         )
     assert built == []
@@ -203,7 +216,7 @@ def test_the_worst_case_bounds_input_by_bytes_at_the_batch_discount():
 
 def test_a_model_with_no_list_price_refuses(tmp_path):
     with pytest.raises(GenerateError, match="no list price for claude-made-up"):
-        go(tmp_path, replay("clean"), fixture=False, cap_usd=100.0, model="claude-made-up")
+        go(tmp_path, measured("clean"), cap_usd=100.0, model="claude-made-up")
 
 
 def test_prices_cannot_be_set_on_the_command_line():
@@ -765,14 +778,44 @@ def test_ac2_a_rerun_with_a_different_request_is_refused(tmp_path):
 
 def test_ac2_a_fixture_run_id_never_resumes_as_a_paid_run_nor_the_reverse(tmp_path):
     go(tmp_path, replay("clean"))
-    paid = replay("clean")
+    paid = measured("clean")
     with pytest.raises(GenerateError, match="different request"):
-        go(tmp_path, paid, fixture=False, cap_usd=10.0)
+        go(tmp_path, paid, cap_usd=10.0)
     assert paid.submit_calls == 0
 
-    go(tmp_path, replay("clean"), fixture=False, cap_usd=10.0, run_id="p1")
+    go(tmp_path, measured("clean"), cap_usd=10.0, run_id="p1")
     with pytest.raises(GenerateError, match="different request"):
         go(tmp_path, replay("clean"), run_id="p1")
+
+
+def test_f4_the_labels_come_from_the_client_type(tmp_path):
+    """F4: there is no `fixture=` beside the client. The report's numbers and the
+    state's identity are read off the type the factory builds, and a factory that
+    builds some other type refuses rather than mislabel it."""
+    assert (ReplayBatchClient.numbers, generate.AnthropicBatchClient.numbers) == ("fixture", "measured")
+    assert {ReplayBatchClient.backend, generate.AnthropicBatchClient.backend} == {"batches"}
+    assert "fixture" not in generate.run.__kwdefaults__
+    fixture_report = go(tmp_path, replay("clean"), run_id="l1")
+    measured_report = go(tmp_path, measured("clean"), run_id="l2", cap_usd=10.0)
+    assert (fixture_report["numbers"], measured_report["numbers"]) == ("fixture", "measured")
+    assert fixture_report["backend"] == measured_report["backend"] == "batches"
+    state = json.loads((tmp_path / "l2" / "_run" / "state.json").read_text(encoding="utf-8"))
+    assert (state["backend"], state["numbers"]) == ("batches", "measured") and "fixture" not in state
+    with pytest.raises(TypeError, match="MeasuredReplay factory built a ReplayBatchClient"):
+        generate.run(
+            RunRequest(count=3, difficulty=2, topics=TOPICS),
+            client_factory=generate.Factory(MeasuredReplay, lambda: replay("clean")),
+            out=tmp_path, run_id="l3", cap_usd=10.0,
+        )
+
+
+def test_a_batches_run_refuses_the_claude_cli_cap(tmp_path):
+    """Each backend has its own cap and refuses the other's, so nobody believes a
+    batch is capped by a candidate count."""
+    with pytest.raises(GenerateError) as err:
+        go(tmp_path, replay("clean"), max_candidates=3)
+    assert str(err.value) == generate.BATCHES_NO_MAX
+    assert not (tmp_path / "t1").exists()
 
 
 def test_candidates_are_never_written_into_bank_questions(tmp_path, monkeypatch):
@@ -782,10 +825,9 @@ def test_candidates_are_never_written_into_bank_questions(tmp_path, monkeypatch)
         with pytest.raises(GenerateError, match="bank/questions"):
             generate.run(
                 RunRequest(count=3, difficulty=2, topics=TOPICS),
-                client_factory=lambda: replay("clean"),
+                client_factory=generate.Factory(ReplayBatchClient, lambda: replay("clean")),
                 out=out,
                 run_id="q1",
-                fixture=True,
             )
     assert not questions.exists()
 
