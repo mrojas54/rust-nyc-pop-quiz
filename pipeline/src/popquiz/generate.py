@@ -15,6 +15,11 @@ through `runner.Runner` (D-18). Two implementations:
   `just test` uses it, with no key and no network.
 * `AnthropicBatchClient` wraps the Anthropic SDK. It is written in full and has never
   run: it is unexercised until the first paid run, HC-2.
+* `generate_cli.ClaudeCliClient` runs headless Claude Code (`claude -p`) on the
+  client's subscription, one process per candidate (PQ-69). It has never made a real
+  call either: its tests run a fake `claude`.
+
+`--backend` picks one (`batches` by default) and neither ever falls back to the other.
 
 **What the model is never asked for.** There is no `correct` field, no "expected
 output", no letter and no position in what the model returns. The answer is derived
