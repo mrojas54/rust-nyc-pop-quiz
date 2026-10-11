@@ -1,0 +1,42 @@
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 4c5ba36..a70050b 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -1,18 +1,23 @@
+ {
+-  "hooks": {
+-    "SessionStart": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/install-flyctl.sh"
+-          },
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/install-just.sh"
+-          }
+-        ]
+-      }
++  "outputStyle": "default",
++  "permissions": {
++    "ask": [
++      "Bash(git push*)",
++      "Bash(gh pr create*)",
++      "Bash(gh pr merge*)",
++      "Bash(fly *)",
++      "Bash(flyctl *)",
++      "Bash(docker *)"
+     ]
++  },
++  "sandbox": {
++    "filesystem": {
++      "allowRead": [
++        ".env.example"
++      ],
++      "allowWrite": [
++        "/Users/michellerojas/rust-nyc-pop-quiz/.lattice"
++      ]
++    }
+   }
+ }
