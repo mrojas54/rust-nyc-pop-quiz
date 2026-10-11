@@ -249,6 +249,24 @@ def test_the_brief_carries_the_rooms_three_capacity_facts(tmp_path):
     assert audit.OPTION_MAX_CHARS == 29
 
 
+def test_the_option_line_rule_is_read_from_the_capacity():
+    """F5: the brief and the check both read `cap.option_lines`; neither hard-codes one."""
+    cap = generate.capacity()
+    assert cap.option_lines == bank.MAX_OPTION_LINES == 1
+    assert "Each option is a single line" in generate.system_prompt(cap, False)
+    two = dataclasses.replace(cap, option_lines=2)
+    brief = generate.system_prompt(two, False)
+    assert "Each option is at most 2 lines" in brief and "single line" not in brief
+    two_lines = ["a\nb", "c", "d", "does not compile", "e"]
+    assert generate.capacity_breaks(None, two_lines, cap, audit.Room()) == [
+        "capacity: option 1 spans 2 lines; each option is one line"
+    ]
+    assert generate.capacity_breaks(None, two_lines, two, audit.Room()) == []
+    assert generate.capacity_breaks(None, ["a\nb\nc"], two, audit.Room()) == [
+        "capacity: option 1 spans 3 lines; the most is 2"
+    ]
+
+
 def test_the_capacity_follows_the_configured_room():
     """A bigger screen, nearer seats: more lines. Read from the room, never fixed."""
     near = generate.capacity(audit.Room(screen_width_ft=20.0, screen_height_ft=11.25, back_row_ft=15.0))

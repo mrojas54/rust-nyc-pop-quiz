@@ -284,8 +284,10 @@ def capacity_breaks(source: str | None, options: Sequence[str], cap: Capacity, r
     for i, text in enumerate(options):
         if not isinstance(text, str):
             continue
-        if "\n" in text:
-            reasons.append(f"capacity: option {i + 1} spans {text.count(chr(10)) + 1} lines; each option is one line")
+        lines = text.count("\n") + 1
+        if lines > cap.option_lines:
+            most = "each option is one line" if cap.option_lines == 1 else f"the most is {cap.option_lines}"
+            reasons.append(f"capacity: option {i + 1} spans {lines} lines; {most}")
         if audit.js_length(text) > cap.option_chars:
             reasons.append(
                 f"capacity: option {i + 1} is {audit.js_length(text)} characters; the most is {cap.option_chars}"
@@ -311,6 +313,19 @@ def brief_patterns() -> list[str]:
     return [f"- {rule.id}: {rule.source}" for rule in copylint.RULES]
 
 
+def option_lines_rule(cap: Capacity) -> str:
+    """The brief's line rule for options, read from the room's capacity."""
+    if cap.option_lines == 1:
+        return (
+            "- Each option is a single line. A program whose output would span lines is "
+            "rewritten to print on one line; never join or wrap an option."
+        )
+    return (
+        f"- Each option is at most {cap.option_lines} lines. A program whose output would "
+        "span more is rewritten; never join or wrap an option."
+    )
+
+
 def system_prompt(cap: Capacity, talk_mode: bool) -> str:
     """The brief every request carries. Identical across a run."""
     lines = [
@@ -321,8 +336,7 @@ def system_prompt(cap: Capacity, talk_mode: bool) -> str:
         "The room's capacity. A program that breaks any of these is rejected, not trimmed:",
         f"- The source is at most {cap.source_lines} lines.",
         f"- No source line is wider than {cap.source_width} characters.",
-        f"- Each option is a single line. A program whose output would span lines is "
-        "rewritten to print on one line; never join or wrap an option.",
+        option_lines_rule(cap),
         f"- No option is longer than {cap.option_chars} characters.",
         "",
         "The shape:",
