@@ -12,20 +12,21 @@ current certification or a current open-issue count.
 |---|---|---|
 | Explanation heading hierarchy | Confirmed in source; application follow-up remains | `web/home/home.js` `beatsHtml` still emits h3 after the question h1 with no explanation h2 parent; later sections emit h2. Skipping alone is not proof of WCAG failure. |
 | Large TTF delivery | Recommended optimization already implemented; old recommendation is superseded | `web/shared/fonts.css` prefers all four WOFF2 siblings and keeps TTF fallbacks. `pipeline/src/popquiz/fallback.py` removes TTF fallbacks and embeds WOFF2 only. File sizes match the October 3 report: 380,948 WOFF2 bytes versus 1,245,372 TTF bytes across all faces. See `docs/performance/2026-10-03-fonts.md`; those historical timings/tests were not rerun here. No current latency or Core Web Vitals conclusion follows. |
-| Incomplete machine-readable typography | Corrected in this documentation patch | `DESIGN.md` now records 30px, distinct 28px mono/serif roles, 46px choices and other scoped surface sizes; plugin metadata mirrors the added roles. Wall source remains measured, not a static ramp role. |
+| Incomplete machine-readable typography | Corrected in this documentation patch | `DESIGN.md` now records 30px, distinct 28px mono/serif roles, 46px choices and other scoped surface sizes; the landing page’s scoped title and control sizes are included. Wall source remains measured, not a static ramp role. |
 
 Additional imported wording corrected: shared trace dimming is .70 (AC-84 /
 PQ-40), not .32; host phase button padding and voting disabled states are
 exceptions to generic `.btn` examples; small metadata has no contrast exemption;
 serif is also intentional for large room identities and voting letters.
-`.impeccable/config.json` now targets the existing `web/` source directory
-rather than nonexistent `code/`. Plugin component samples remain illustrative.
+The redundant `.impeccable/` config and token snapshot were removed during review.
+Shared CSS remains the token source of truth; DESIGN.md describes its roles.
 
 The restructuring retains the original phase table, voice, divergences and
 venue hypotheses. New inventory sections are descriptive and subordinate to
 those decisions and later accepted build amendments. Historical § references
-point to `PHILOSOPHY.md`, not the new heading order. `PRODUCT.md` remains an
-explicitly dated October 2 snapshot, not today's completion ledger.
+point to `PHILOSOPHY.md`, not the new heading order. `PRODUCT.md` is rechecked
+against October 11 source and linked from CLAUDE.md; it remains a descriptive
+inventory, not a completion ledger.
 
 This recheck inspects code and asset sizes; it does not refresh screen-reader,
 layout, device, deployed performance or venue evidence. Repairing heading
@@ -45,7 +46,11 @@ system and surface-specific accessibility companions are intentional.
 
 No application code was changed. Findings below are recommendations, not fixes.
 
-## Audit health score
+## Historical audit health score — 2026-10-02
+
+**15/20 is the original score, retained without rescoring.** The October 11 source
+recheck leaves one of the three P2 findings open; font delivery and typography
+documentation are resolved. No new browser audit or current score is claimed.
 
 Scores describe the bounded checks below, not full WCAG conformance or meetup readiness.
 
@@ -176,13 +181,15 @@ self-hosted font fallbacks, internal code scrolling on the reading surface,
 source-fit measurement on the wall, and phase-gated syntax colour. The bounded
 wall refit loop is required legibility work, not unbounded layout thrashing.
 
-## Recommended actions
+## Recommended actions — status rechecked 2026-10-11
 
-1. **[P2] `$impeccable harden`** — repair take-home heading semantics.
-2. **[P2] `$impeccable optimize`** — measure and reduce font transfer cost.
-3. **[P2] `$impeccable document`** — complete intentional typography roles.
-4. **`$impeccable polish`** — confirm the affected surfaces in one bounded final
-   browser pass after fixes.
+1. **Open — [P2] `$impeccable harden`** — repair take-home heading semantics.
+2. **Done — `$impeccable optimize`** — WOFF2 delivery and offline embedding are
+   implemented; see `docs/performance/2026-10-03-fonts.md`. No fresh timing claim.
+3. **Done — `$impeccable document`** — DESIGN.md records intentional typography
+   roles, including the landing page and the wall's measured source type.
+4. **Optional follow-up — `$impeccable polish`** — a bounded browser pass after
+   the heading repair; this is a validation suggestion, not another open defect.
 
-You can ask me to run these one at a time, all at once, or in any order you prefer.
-Re-run `$impeccable audit` after fixes to assess the remaining issues.
+A new audit after application fixes can reassess the score; the historical 15/20
+above is unchanged evidence from October 2.

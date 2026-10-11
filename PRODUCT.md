@@ -1,6 +1,8 @@
 # Product — Rust NYC Pop Quiz
 
-<!-- impeccable:product-schema 1 -->
+This is a descriptive reading guide and dated source inventory, not an additional
+contract or completion ledger. `PHILOSOPHY.md` governs purpose; `SPEC.md`,
+`EVALUATION.md`, and `BUILDPLAN.md` define behavior, acceptance, and build work.
 
 ## Platform
 
@@ -90,12 +92,13 @@ Question generation is never required on meetup day.
   boundaries in `SPEC.md`; the host receives no preview.
 - Hints are requested privately; the host is not told who needed one. A person's
   choice receives a company count, never an incorrect marker.
-- Organizer hosting is authorized by the configured Discord organizer role ID.
-  Administrator status alone cannot bypass that role check.
+- Organizer hosting is authorized by the configured Discord role ID for the
+  selected club (D-26, `docs/adr/0001-several-clubs-on-one-room-server.md`, `room/src/club.rs`).
+  Administrator status alone cannot bypass that club role check.
 - Scheduling requires organizer affirmation. A successful verifier run alone
   does not approve explanation quality or make a question ready for the room.
 
-### Implementation snapshot — 2026-10-02
+### Implementation snapshot — rechecked 2026-10-11
 
 This inventory is based on source inspected in this checkout. It is not a live
 Lattice board, a fresh test result, or a deployment/readiness certification.
@@ -104,24 +107,24 @@ Refresh it against source and accepted work before treating it as current status
 | Area | Implemented source | Remaining work or boundary |
 |---|---|---|
 | Live segment | Phase machine, sessions, answer updates, WebSockets, wall, buzzer, host controls | Human walkthrough and deployed/venue checks remain separate gates |
-| Organizer access | Discord OAuth, organizer-role checks, token refresh handling | Real account and environment validation cannot be inferred from source |
+| Organizer access | Discord OAuth, per-club organizer-role checks, token refresh handling | Real account and environment validation cannot be inferred from source |
 | Release and follow-up | Used-question ledger and take-home snapshot; take-home web surface | Verify real release, durable ledger consistency, and reader experience |
-| Offline fallback | One-file wall builder, keyboard driver, host-sheet generation | Scheduling integration and offline operator walkthrough |
+| Offline fallback | One-file wall builder, keyboard driver, host-sheet generation | Scheduling integration exists; offline operator walkthrough remains separate evidence |
 | Verification | Bank schema, migration, pinned sandbox runner, verifier, receipts | Complete reviewed supply workflow; preserve legacy provenance |
 | Freshness and fit | Dedupe, date-only slot mechanism, bank audit and fit logic | Dedupe documents unresolved false-match findings; do not claim the normalized-AST contract is satisfied |
-| Generation | `pipeline/src/popquiz/generate.py` is an empty scaffold | T-16 batch generation and candidate cost reporting |
+| Generation | `pipeline/src/popquiz/generate.py` implements batch generation and candidate cost reporting | Real provider runs and human review throughput require separate evidence |
 | Organizer review | `pipeline/src/popquiz/review.py` is an empty scaffold | T-18 accept/reject/edit/reverify and recorded affirmation |
-| Scheduling and sync | Server-side authenticated admin channel exists; `schedule.py` is an empty scaffold | T-20 publish affirmed questions, build fallback, sync usage, report reserve |
-| Operational finish | Test harnesses, copy checks, and technical documentation exist | T-23 whole-tree guardrail audit, T-24 organizer runbook, and human checkpoints |
+| Scheduling and sync | `schedule.py` publishes affirmed questions, builds fallback and host sheet, syncs usage, and reports reserve through the authenticated admin channel | Real scheduling, sync, and offline operator validation require separate evidence |
+| Operational finish | Test harnesses, copy checks, and `docs/RUNBOOK.md` exist | Current guardrail and human checkpoint evidence remains separate |
 
-### Planned Lattice work
+### Contract and remaining evidence
 
 `BUILDPLAN.md`, `SPEC.md`, and `EVALUATION.md` define the build contract, not a
-completion ledger. Keep T-16 generation, T-18 review, and T-20 scheduling/sync in
-product scope until the organizer can prepare and run a segment end to end.
-Resolve T-17 dedupe's documented correctness limitations rather than equating
-its implementation with acceptance. Finish the T-23 guardrail audit and T-24
-organizer runbook against the resulting product.
+completion ledger. T-16 generation and T-20 scheduling/sync have implementations;
+they are not unbuilt work. `review.py` remains the T-18 scaffold. Source presence
+alone does not establish an accepted end-to-end organizer workflow. Check current
+validation evidence for dedupe and guardrails, and use `docs/RUNBOOK.md` for the
+implemented schedule/host/sync workflow.
 
 Readiness includes rehearsal with actual projector dimensions and back-row
 distance, a timed review of the first batch, take-home reading on a personal
@@ -167,7 +170,7 @@ answer. Historical economics estimates are not current prices or budgets.
 - `docs/demo/`: saved local-run screenshots referenced by README, not proof of
   current deployment or venue legibility.
 - `mvp/PRACTICE-RUN.md` and `mvp/FIELD-NOTES-TEMPLATE.md`: rehearsal and field
-  evidence instruments. The hand-run `mvp/` deck remains an explicitly labeled MVP.
+  evidence instruments. The hand-run `mvp/` deck is retired; the scheduled single-file wall is the fallback.
 
 Where `PRD.md` conflicts with the research synthesis and later client decisions,
 use the later contract. The synthesis itself retains historical wording; the
