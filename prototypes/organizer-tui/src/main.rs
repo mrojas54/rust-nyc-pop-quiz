@@ -22,7 +22,7 @@ fn main() -> Result<()> {
                 )
             }
             "--help" | "-h" => {
-                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\ns Schedule / 1 Question / t Trace / Left-Right Step / r Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
+                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\ns Schedule / 1 Question / t Trace / Left-Right Step / rr Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
                 return Ok(());
             }
             _ => return Err(format!("Unknown argument: {arg}").into()),
@@ -36,6 +36,7 @@ fn main() -> Result<()> {
                 app.handle('t');
             }
             "reveal" => {
+                app.handle('r');
                 app.handle('r');
             }
             _ => return Err("--snapshot needs question, trace, or reveal".into()),
