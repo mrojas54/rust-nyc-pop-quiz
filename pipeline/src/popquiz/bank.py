@@ -598,6 +598,18 @@ def validate_question(question: Question) -> None:
             "values, and this question ran (SPEC 3.1, D-10)"
         )
 
+    # Only the last step resolves, and only the verifier writes its `stdout` row
+    # (`verify.with_record`), so a `stdout` row anywhere earlier was never observed:
+    # it is somebody's claim about the output. Refused rather than stripped, because
+    # dropping authored content silently is the trim this project does not do. The
+    # name test is the generator's and the verifier's: stripped and lower-cased.
+    for i, step in enumerate(question.trace.steps[:-1], 1):
+        if any(v.name.strip().lower() == "stdout" for v in step.values):
+            raise BankError(
+                f"{question.id}: trace step {i} names 'stdout', but only the last step "
+                "may, and only the verifier writes it (SPEC 3.1, D-10)"
+            )
+
 
 # --------------------------------------------------------------------------- #
 # Serialization - absent is absent

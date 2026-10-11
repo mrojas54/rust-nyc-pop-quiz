@@ -368,6 +368,24 @@ def test_a_record_that_did_not_run_keeps_no_stdout_row() -> None:
     assert verify.with_record(drafted, _verify("q8", "does_not_compile")).trace == drafted.trace
 
 
+def test_a_stdout_row_on_an_earlier_step_is_never_written_into_the_bank() -> None:
+    """PQ-68 F2: `with_record` resolves only the last step, so a `stdout` row on an
+    earlier step - never observed - is left where it was, and the record that results
+    is refused by `bank.validate_question` rather than stored with a claim in it."""
+    q3 = question_for("q3")
+    first, *rest = q3.trace.steps
+    claimed = dataclasses.replace(first, values=(*first.values, bank.ValueDelta(" stdout", "—", "a claim")))
+    q = dataclasses.replace(q3, verified=None, trace=bank.Trace(steps=(claimed, *rest)))
+
+    after = verify.with_record(q, _verify("q3", "ran"))
+
+    assert after.trace.steps[0] == claimed
+    with pytest.raises(bank.BankError, match="trace step 1 names 'stdout'"):
+        bank.validate_question(after)
+    with pytest.raises(bank.BankError, match="trace step 1 names 'stdout'"):
+        bank.question_from_dict(bank.question_to_dict(after))
+
+
 def test_a_rejected_candidate_file_is_left_byte_for_byte(tmp_path) -> None:
     """The CLI writes nothing on a rejection - not the record, not a stdout row."""
     drafted = dataclasses.replace(
