@@ -42,6 +42,7 @@ from popquiz.bank import (
     options_needing_reauthoring,
     question_from_dict,
     question_to_dict,
+    quoted_outputs,
     receipt_class,
     save_history,
     save_question,
@@ -348,6 +349,41 @@ def test_a_does_not_compile_question_may_trace_without_naming_stdout() -> None:
         )
     )
     validate_question(_question(verified=REFUSED, trace=trace))
+
+
+def _drafted_trace() -> Trace:
+    """A trace as the generator drafts it: steps, and no `stdout` row, which only
+    the verifier writes (T-16, option b)."""
+    return Trace(
+        steps=(
+            TraceStep(lines=(1,), focus=(1, 1), note="first"),
+            TraceStep(lines=(1,), focus=(1, 1), note="last", values=(ValueDelta("v", "—", "1"),)),
+        )
+    )
+
+
+def test_a_drafted_trace_never_passes_as_finished_once_a_record_says_it_ran(tmp_path) -> None:
+    """A candidate's drafted trace is storable while it is unverified. Given a
+    record that ran by anything but `verify.with_record`, which writes the stdout
+    row, it fails load and save - no placeholder value stands in for the output."""
+    draft = _question(verified=None, trace=_drafted_trace())
+    validate_question(draft)
+
+    ran = dataclasses.replace(draft, verified=RAN)
+    with pytest.raises(BankError, match="does not name 'stdout'"):
+        question_from_dict(question_to_dict(ran))
+    with pytest.raises(BankError, match="does not name 'stdout'"):
+        save_question(tmp_path, ran)
+    assert not (tmp_path / "questions").exists()
+
+
+def test_quoted_outputs_reads_trace_notes() -> None:
+    """AC-73 covers a drafted trace's notes: a model's note quoting an output is a
+    claim the review gate must see (T-16, option b)."""
+    steps = _drafted_trace().steps
+    noted = Trace(steps=(steps[0], dataclasses.replace(steps[1], note='it prints "zebra" here')))
+    assert "zebra" in quoted_outputs(_question(trace=noted))
+    assert "zebra" not in quoted_outputs(_question(trace=_drafted_trace()))
 
 
 def test_affirmation_needs_both_who_and_when() -> None:
