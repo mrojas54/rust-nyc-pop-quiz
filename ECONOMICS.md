@@ -100,6 +100,8 @@ that one organizer can absorb it without thinking about it.** On Durable Objects
 with batch generation, that is achievable — single-digit dollars a year. On Val
 Town Pro with live generation, it is not.
 
+Subscription runs consume plan usage, not dollars.
+
 ## Open questions
 
 - ~~**Q-E1**~~ — *Answered 2026-09-03: moot.* The substrate is Rust on Fly.io at
