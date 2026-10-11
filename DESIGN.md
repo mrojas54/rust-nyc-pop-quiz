@@ -68,6 +68,70 @@ typography:
     fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
     fontSize: "13px"
     lineHeight: 1.6
+  brand-title:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "30px"
+    purpose: "Shared text-3xl token; buzzer wordmark, host heading and home masthead."
+  room-code-input:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "28px"
+    purpose: "Buzzer join input; 0.2em tracking, distinct from serif room identity."
+  room-code-identity:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "28px"
+    purpose: "Buzzer joined-room identity; tracking-wide."
+  voting-letter:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "46px"
+    purpose: "Buzzer choice control; line-height 1; selected weight 700."
+  host-room-code:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "34px"
+    purpose: "Host room-code panel; tracking-wide."
+  host-step-control:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "20px"
+    purpose: "Host phase control; 6px 14px padding."
+  buzzer-status:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "17px"
+    purpose: "Submission, pause and company-count feedback."
+  buzzer-follow-up:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "19px"
+    purpose: "Post-vote feedback and answer text."
+  buzzer-answer-letter:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "72px"
+    purpose: "Post-vote letter; line-height 1."
+  split-row:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "18px"
+    purpose: "Buzzer split and wall reveal row; wall reading row is 22px."
+  split-count:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "16px"
+    purpose: "Buzzer split and wall reveal count; wall reading count is 19px."
+  keyboard-hint:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "11px"
+    purpose: "Take-home kbd; 3px corner radius is component-specific."
+  wall-option:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "24px"
+    purpose: "Wall option text at 1120px design width; letter 22px, reveal machine option 16px."
+  wall-trace-note:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "15px"
+    purpose: "Wall trace note; current wall caller does not enable trace.js big option."
+  wall-title:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "62px"
+    purpose: "Wall title-card h2 at design width."
+  wall-release-link:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "40px"
+    purpose: "Wall release link at design width."
 rounded:
   radius: "4px"
 spacing:
@@ -108,12 +172,14 @@ components:
 ---
 # Design — Rust NYC Pop Quiz
 
-**Status: binding. Written 2026-09-03 at the close of the T-20 drive and made
-the build's visual contract the same day on the client's word: *"yes i love
-it."*** Everything below describes what `prototypes/C-projector-first.html` and
-`prototypes/take-it-home.html` actually do; nothing here is a proposal the
-prototype does not already carry. Where this file and the prototype disagree,
-the prototype wins and this file is corrected.
+**Status: binding. Written 2026-09-03 at the close of the T-20 drive and made the
+build's visual contract the same day on the client's word: *"yes i love it."*** The
+original decision sections describe what `prototypes/C-projector-first.html` and
+`prototypes/take-it-home.html` actually do; nothing here is a proposal the prototype
+does not already carry. The implementation inventory added below is descriptive, not a
+new visual contract. Later accepted amendments in the build contract and source comments
+(including accessibility companions and trace dimming) qualify the historical prototype;
+do not undo them to match a snapshot.
 
 The converged direction is **C — projector-first, phone as buzzer.** The code
 lives on the big screen and nowhere else; the phone is five letters. The client
@@ -139,14 +205,19 @@ room’s understanding carry the experience.
 - Counts rather than personal verdicts.
 - Host-paced trace, with colour reserved for reading phases.
 
-Documentation merge (2026-10-02): canonical sections and machine-readable
-values extracted from `web/shared/tokens.css`, `web/shared/components.css`,
-`web/shared/fonts.css`, and the surface stylesheets. CSS remains the executable
-token source; YAML resolves CSS aliases to literal values because primitives
-cannot reference other primitives. Component references retain semantic names.
-The original binding decisions and their evidence remain below, reorganized
-without rewriting. This merge does not establish new aesthetic choices or
-claim a live visual or venue-readability verification.
+Documentation pass (2026-10-02), imported in draft PR #70 (2026-10-11): canonical
+sections and machine-readable values extracted from `web/shared/tokens.css`,
+`web/shared/components.css`, `web/shared/fonts.css`, and the surface stylesheets. CSS
+remains the executable token source; YAML resolves CSS aliases to literal values because
+primitives cannot reference other primitives. Component references retain semantic
+names. The original binding decisions and their evidence remain below under new
+headings. Cross-references such as §5–§9 in those passages refer to `PHILOSOPHY.md`, not
+this document's new section order. The added inventories do not supersede phase
+behavior, voice, deliberate divergences or accepted build amendments. Frontmatter is a
+scoped inventory, not an exhaustive list of permitted CSS values; component entries
+describe host/buzzer defaults, not every surface or state. Surface overrides remain
+intentional. This merge does not establish new aesthetic choices or claim a live visual
+or venue-readability verification.
 
 ### What the design serves
 
@@ -190,10 +261,12 @@ background token. They communicate state with words, glyphs, or border changes;
 they are not extra brand accents. Rust syntax colours are component-scoped in
 `web/shared/components.css`, not a global accent palette.
 
-**The Accessible Companion Rule.** Surface styles opt into `focus-ring` (deep
-amber) and `success-text` (dark green), leaving inherited house-brand tokens
-unchanged. The source flags `text-muted` as unsuitable for normal small body
-text; retain it as documented metadata, not a general text default.
+**The Accessible Companion Rule.** Surface styles opt into `focus-ring` (deep amber) and
+`success-text` (dark green), leaving inherited house-brand tokens unchanged. The source
+flags `text-muted` as unsuitable for normal small body text. The metadata label is
+historical usage, not a contrast exemption: small metadata also needs AA contrast.
+Current host, buzzer, home and wall styles use `text-secondary` for applicable small
+text. Do not restore the muted token merely because it appears in this inventory.
 
 ## Typography
 
@@ -205,11 +278,36 @@ and require no font CDN (D-14). The frontmatter includes the full fallback stack
 - **Body:** Cascadia Mono, shared body and control type.
 - **Label:** Cascadia Mono, small metadata; caps tracking only where the component applies it.
 - **Code:** Cascadia Mono, the shared well default for personal reading distance.
+- **Brand title:** 30px (`text-3xl` exists in shared CSS); surface styles
+  currently spell 30px literally. This is not a request to refactor them.
 
-**The Wall Measurement Rule.** The frontmatter code size is not a projector
-size. `web/shared/typemodel.js` derives and measures wall type from venue inputs.
-Serif stays confined to headings at 24px and above. The existing aesthetic
-statement below remains the binding account of the font pairing.
+### Surface typography inventory — rechecked 2026-10-11
+
+Frontmatter records shared defaults and scoped roles, including separate serif room
+identity and monospace input roles at 28px. Semantic heading level does not select a
+global visual size: host h3 and home `.sec-h` use 14px mono, while home explanation h3
+uses the shared 24px serif. Code inside explanation headings uses .7em. Labels vary
+tracking by component (home kicker .12em, section labels .1em); .08em is not a universal
+label rule.
+
+| Surface | Additional implemented sizes and roles |
+|---|---|
+| Buzzer | 30px wordmark, 24px role, 28px identity/input in different faces, 46px choices, 24px saved glyph, 17px status, 19px follow-up, 72px post-vote letter, 18px split row, 16px count |
+| Host | 30px heading, 24px role, 34px room code, 20px phase control, 14px mono h3 |
+| Take-home | 30px masthead, 24px explanation headings, 14px mono section headings, 13px code, 12px receipt, 11px kbd |
+| Wall | 30px brand/join link, 24px options, 22px option letter/split row, 19px split count/join strip, 18px reveal row/middle, 16px reveal count/machine option, 15px receipt/trace CSS default, 13px values, 62px title, 40px release link |
+
+Wall values are design-canvas sizes, scaled with the 1120×630 canvas; they are not phone
+defaults. Source size is derived and refitted by `typemodel.js`. The wall calls
+`traceNoteHtml` with `noNav`, without `big`, so its note is 15px. The shared renderer
+also supports an optional 19px `big` mode; that option is not the current wall role.
+Preserve this cascade and source fitting.
+
+**The Wall Measurement Rule.** The frontmatter code size is not a projector size.
+`web/shared/typemodel.js` derives and measures wall type from venue inputs. Serif is
+used for headings and established display roles at 24px and above (room identities and
+voting letters included). The existing aesthetic statement below remains the binding
+account of the font pairing.
 
 ### Aesthetic
 
@@ -218,7 +316,8 @@ Inherited from the **Rust NYC Design System** (the house brand, claude.ai/design
 token files verbatim.
 
 - **Type.** Cascadia Mono for everything — body, controls, code, data.
-  Instrument Serif only for headings at 24px and above. The fonts are not
+  Instrument Serif for headings at 24px and above and the established
+  large room-code/voting-letter roles documented above. The fonts are not
   vendored in the prototypes; a build ships them.
 - **Colour.** Muted technical greys, one warm amber accent, white source well.
   **Lights up** — the light treatment, endorsed by the brand's own imagery
@@ -252,8 +351,9 @@ surface measurements, not a replacement global grid.
 | **The buzzer** | a participant, on their own phone | the room code as the room's identity; five letters; *Show me a hint*; after the split, a **count** beside their letter, never a ✗; at the end, *nothing about you was recorded* |
 | **The host phone** | the host | one button per phase transition; `←` `→` to step the trace; the read-aloud script at the reveal; **no answer preview** (§7) |
 
-Neither source nor trace is ever rendered on a participant device (AC-32 as
-rewritten). The buzzer is deliberately dull.
+Neither source nor trace is rendered on the live participant buzzer (AC-32 as
+rewritten). The separate released take-home reading surface carries both. The buzzer is
+deliberately dull.
 
 ### The wall's type model
 
@@ -298,32 +398,38 @@ artifacts; their heavier shadows and striped badge are not product tokens.
 
 ## Shapes
 
-The shared form language uses one gently squared corner (`radius`, 4px) and
-fine boundaries (`border-w`, 1px). Trace focus and provenance use stronger left
-edges; human-reviewed content uses a dashed edge. Circles for progress dots and
-prototype device-frame corners are scoped exceptions, not new panel radii.
+The shared form language uses one gently squared corner (`radius`, 4px) and fine
+boundaries (`border-w`, 1px). Trace focus and provenance use stronger left edges; human-
+reviewed content uses a dashed edge. Circles for progress dots, the home kbd 3px
+corners, the wall projector 6px frame, and prototype device-frame corners are scoped
+exceptions, not new panel radii.
 
 ## Components
 
 ### Buttons and fields
 
-White neutral buttons use technical charcoal text and an inset-grey hover.
-Primary buttons use warm amber, dark text, and a deep-amber hover with white
-text. Both variants use 10px × 18px padding and the shared corner radius.
-Host and buzzer controls reserve at least a 44px touch target in both axes.
-Disabled buttons halve opacity and use the not-allowed cursor. Buzzer focus
-uses a 3px deep-amber outline; host focus uses 2px, both offset by 2px.
+White neutral buttons use technical charcoal text and an inset-grey hover. Primary
+buttons use warm amber, dark text, and a deep-amber hover with white text. These
+host/buzzer `.btn` defaults use 10px × 18px padding and the shared corner radius; host
+phase controls override padding to 6px × 14px. Voting letters and trace controls have
+their own styles and state rules. Host and buzzer controls reserve at least a 44px touch
+target in both axes. Disabled host/buzzer `.btn` controls halve opacity and use the not-
+allowed cursor. Disabled voting letters use a default cursor and state-specific text; do
+not impose `.btn` styling on them. Buzzer focus uses a 3px deep-amber outline; host
+focus uses 2px, both offset by 2px.
 
 The buzzer’s room-code field uses centred uppercase monospace text, a white
 background, and 8px × 12px padding. It retains a visible deep-amber focus outline.
 
 ### Panels, source, and trace
 
-Panels use the secondary ground, fine border, compact padding, and card shadow.
-Source wells are white, line-numbered, with a 2ch gutter and an internal scroll
-region on personal-reading surfaces. The wall measures fit instead. Trace focus
-uses a pale-amber ground and a 3px left edge; lines outside the focus dim to .32
-opacity. Progress states include a step number, not only dots or colour.
+Panels use the secondary ground, fine border, compact padding, and card shadow. Source
+wells are white, line-numbered, with a 2ch gutter and an internal scroll region on
+personal-reading surfaces. The wall measures fit instead. Trace focus uses a pale-amber
+ground and a 3px left edge (deep-amber on home/wall for contrast); lines outside the
+focus dim to .70 opacity in current shared CSS. This accepted AC-84/PQ-40 amendment
+supersedes the prototype's .32. Progress states include a step number, not only dots or
+colour.
 
 Machine provenance uses a solid green edge; human-reviewed prose uses a dashed
 orange edge. These distinguish the evidence source, not the participant’s result.
@@ -407,7 +513,8 @@ no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
 
 ### What is deliberately absent
 
-- No code or trace on any phone. No timer on the wall. No scoreboard, name,
+- No code or trace on the live participant buzzer; take-home is the explicit
+  personal-reading exception. No timer on the wall. No scoreboard, name,
   account, or history (§6).
 - No public hint: the hint is pulled privately on the buzzer and the host phone
   does not know (AC-48 as rewritten, touchpoint T-13). The host has no hint control.
@@ -421,13 +528,13 @@ no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
 
 ### For the build
 
-The converged take is reproduced **one-to-one**: every designed control present,
-even if it only toasts *not yet implemented (AC-x)*. The prototype, not this
-file, is the reference where they disagree. Everything this file once listed
-as open for `tone-architect` is settled in `SPEC.md` (the static fallback §12,
-the used-question ledger G-10, the explanation model §3.1, fonts D-14, AC-21's
-measurement at HC-2); the real short link behind the placeholder
-`bit.ly/jnfnvd` is the client's, `BUILDPLAN.md` H-2.
+The converged take is reproduced **one-to-one**: every designed control present, even if
+it only toasts *not yet implemented (AC-x)*. The prototype and later accepted build
+amendments are the references; the added implementation inventory does not authorize
+changing either. Everything this file once listed as open for `tone-architect` is
+settled in `SPEC.md` (the static fallback §12, the used-question ledger G-10, the
+explanation model §3.1, fonts D-14, AC-21's measurement at HC-2); the real short link
+behind the placeholder `bit.ly/jnfnvd` is the client's, `BUILDPLAN.md` H-2.
 
 ---
 

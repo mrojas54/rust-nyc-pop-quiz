@@ -400,13 +400,115 @@
         "displayName": "success-text",
         "role": "semantic"
       }
+    },
+    "typographyInventory": {
+      "source": "DESIGN.md frontmatter and surface inventory; rechecked 2026-10-11",
+      "scope": "Descriptive scoped roles, not an exhaustive allowlist. Wall source is measured dynamically.",
+      "roles": [
+        {
+          "name": "brand-title",
+          "fontFamily": "'Instrument Serif',Georgia,'Times New Roman',serif",
+          "fontSize": "30px",
+          "purpose": "Shared text-3xl token; buzzer wordmark, host heading and home masthead."
+        },
+        {
+          "name": "room-code-input",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "28px",
+          "purpose": "Buzzer join input; 0.2em tracking, distinct from serif room identity."
+        },
+        {
+          "name": "room-code-identity",
+          "fontFamily": "'Instrument Serif',Georgia,'Times New Roman',serif",
+          "fontSize": "28px",
+          "purpose": "Buzzer joined-room identity; tracking-wide."
+        },
+        {
+          "name": "voting-letter",
+          "fontFamily": "'Instrument Serif',Georgia,'Times New Roman',serif",
+          "fontSize": "46px",
+          "purpose": "Buzzer choice control; line-height 1; selected weight 700."
+        },
+        {
+          "name": "host-room-code",
+          "fontFamily": "'Instrument Serif',Georgia,'Times New Roman',serif",
+          "fontSize": "34px",
+          "purpose": "Host room-code panel; tracking-wide."
+        },
+        {
+          "name": "host-step-control",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "20px",
+          "purpose": "Host phase control; 6px 14px padding."
+        },
+        {
+          "name": "buzzer-status",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "17px",
+          "purpose": "Submission, pause and company-count feedback."
+        },
+        {
+          "name": "buzzer-follow-up",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "19px",
+          "purpose": "Post-vote feedback and answer text."
+        },
+        {
+          "name": "buzzer-answer-letter",
+          "fontFamily": "'Instrument Serif',Georgia,'Times New Roman',serif",
+          "fontSize": "72px",
+          "purpose": "Post-vote letter; line-height 1."
+        },
+        {
+          "name": "split-row",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "18px",
+          "purpose": "Buzzer split and wall reveal row; wall reading row is 22px."
+        },
+        {
+          "name": "split-count",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "16px",
+          "purpose": "Buzzer split and wall reveal count; wall reading count is 19px."
+        },
+        {
+          "name": "keyboard-hint",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "11px",
+          "purpose": "Take-home kbd; 3px corner radius is component-specific."
+        },
+        {
+          "name": "wall-option",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "24px",
+          "purpose": "Wall option text at 1120px design width; letter 22px, reveal machine option 16px."
+        },
+        {
+          "name": "wall-trace-note",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "15px",
+          "purpose": "Wall trace note; current wall caller does not enable trace.js big option."
+        },
+        {
+          "name": "wall-title",
+          "fontFamily": "'Instrument Serif',Georgia,'Times New Roman',serif",
+          "fontSize": "62px",
+          "purpose": "Wall title-card h2 at design width."
+        },
+        {
+          "name": "wall-release-link",
+          "fontFamily": "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace",
+          "fontSize": "40px",
+          "purpose": "Wall release link at design width."
+        }
+      ]
     }
   },
   "components": [
     {
       "name": "Neutral button",
       "kind": "button",
-      "description": "Extracted from existing web surface styles.",
+      "description": "Illustrative scoped example, not a universal component contract; preserve surface overrides and state styles.",
       "html": "<button class=\"ds-btn\">Close answers</button>",
       "css": ".ds-btn {font-family:var(--font-mono);font-size:var(--text-sm);min-height:var(--touch-target);min-width:var(--touch-target);padding:10px 18px;border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);cursor:pointer;} .ds-btn:hover {background:var(--bg-tertiary)} .ds-btn:focus-visible {outline:2px solid var(--focus-ring);outline-offset:2px} .ds-btn:disabled {opacity:.5;cursor:not-allowed}",
       "refersTo": "button"
@@ -414,7 +516,7 @@
     {
       "name": "Primary button",
       "kind": "button",
-      "description": "Extracted from existing web surface styles.",
+      "description": "Illustrative scoped example, not a universal component contract; preserve surface overrides and state styles.",
       "html": "<button class=\"ds-primary\">Put it on the screen</button>",
       "css": ".ds-primary {font-family:var(--font-mono);font-size:var(--text-sm);min-height:var(--touch-target);min-width:var(--touch-target);padding:10px 18px;border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);cursor:pointer;background:var(--accent-primary);border-color:var(--accent-primary);color:var(--gray-800);font-weight:600} .ds-primary:hover {background:var(--accent-hover);border-color:var(--accent-hover);color:#ffffff} .ds-primary:focus-visible {outline:2px solid var(--focus-ring);outline-offset:2px} .ds-primary:disabled {opacity:.5;cursor:not-allowed}",
       "refersTo": "button-primary"
@@ -422,14 +524,14 @@
     {
       "name": "Room code",
       "kind": "input",
-      "description": "Extracted from existing web surface styles.",
+      "description": "Illustrative scoped example, not a universal component contract; preserve surface overrides and state styles.",
       "html": "<label class=\"ds-label\">Room code <input class=\"ds-input\" value=\"RUST\" aria-label=\"Room code\"></label>",
       "css": ".ds-label {font-family:var(--font-mono)} .ds-input {font-family:var(--font-mono);font-size:28px;letter-spacing:0.2em;width:100%;min-width:var(--touch-target);padding:8px 12px;text-align:center;text-transform:uppercase;background:var(--bg-input);color:var(--text-primary);border:2px solid var(--text-muted);border-radius:var(--radius);min-height:var(--touch-target)} .ds-input:focus-visible {outline:3px solid var(--focus-ring);outline-offset:2px}"
     },
     {
       "name": "Panel",
       "kind": "card",
-      "description": "Extracted from existing web surface styles.",
+      "description": "Illustrative scoped example, not a universal component contract; preserve surface overrides and state styles.",
       "html": "<section class=\"ds-panel\">Room controls</section>",
       "css": ".ds-panel {font-family:var(--font-mono);background:var(--bg-secondary);border:var(--border-w) solid var(--border-default);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:var(--panel-pad-compact)}",
       "refersTo": "panel"
@@ -437,7 +539,7 @@
     {
       "name": "Source well",
       "kind": "custom",
-      "description": "Extracted from existing web surface styles.",
+      "description": "Illustrative scoped example, not a universal component contract; preserve surface overrides and state styles.",
       "html": "<div class=\"ds-src\"><pre class=\"ds-pre\"><span class=\"ds-ln\">1</span>fn main() {}</pre></div>",
       "css": ".ds-src {border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);font-family:var(--font-mono)} .ds-pre {margin:0;padding:var(--space-4);font-family:var(--font-mono);font-size:13px;line-height:1.6;color:var(--text-primary);overflow-x:auto} .ds-ln {display:inline-block;width:2ch;margin-right:1.5ch;text-align:right;color:var(--text-muted)}",
       "refersTo": "source-well"
@@ -445,14 +547,14 @@
     {
       "name": "Human provenance",
       "kind": "chip",
-      "description": "Extracted from existing web surface styles.",
+      "description": "Illustrative scoped example, not a universal component contract; preserve surface overrides and state styles.",
       "html": "<span class=\"ds-provenance\">Human reviewed</span>",
       "css": ".ds-provenance {display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-caps);font-weight:600;color:#9c4221}"
     }
   ],
   "narrative": {
     "northStar": "A well-made terminal",
-    "overview": "Nostalgic and technical: muted greys, warm amber, monospace controls and data,\nand serif headings. The shared system stays quiet so the Rust program and the\nroom\u2019s understanding carry the experience.",
+    "overview": "Nostalgic and technical: muted greys, warm amber, monospace controls and data,\nand serif headings. The shared system stays quiet so the Rust program and the\nroom’s understanding carry the experience.",
     "keyCharacteristics": [
       "Projector-first, phone as buzzer.",
       "Light surfaces, white source wells, restrained depth.",
@@ -462,26 +564,26 @@
     "rules": [
       {
         "name": "The Accessible Companion Rule",
-        "body": "Surface styles opt into `focus-ring` (deep\namber) and `success-text` (dark green), leaving inherited house-brand tokens\nunchanged. The source flags `text-muted` as unsuitable for normal small body\ntext; retain it as documented metadata, not a general text default.",
+        "body": "Surface styles opt into focus-ring and success-text without replacing house tokens. text-muted is not AA-safe for small text, including metadata; retain the surface text-secondary overrides.",
         "section": "colors"
       },
       {
         "name": "The Wall Measurement Rule",
-        "body": "The frontmatter code size is not a projector\nsize. `web/shared/typemodel.js` derives and measures wall type from venue inputs.\nSerif stays confined to headings at 24px and above. The existing aesthetic\nstatement below remains the binding account of the font pairing.",
+        "body": "Personal code defaults are not wall sizes. typemodel.js derives and refits wall source; other wall roles are scaled design-canvas values. Serif includes established large room identities and voting letters. See DESIGN.md for the scoped inventory and accepted amendments.",
         "section": "typography"
       }
     ],
     "dos": [
       "**Do** preserve the binding prototype decisions and their acceptance criteria.",
-      "**Do** measure projector source fit using the venue\u2019s dimensions and back-row distance.",
+      "**Do** measure projector source fit using the venue’s dimensions and back-row distance.",
       "**Do** pair colour with text, a glyph, a count, or a structural signal.",
       "**Do** vendor the brand fonts and respect reduced-motion preferences."
     ],
     "donts": [
-      "**Don\u2019t** add gradients, glass, bounce, or extra panel radii.",
-      "**Don\u2019t** mark a participant wrong, introduce scores, or preview the answer to the host.",
-      "**Don\u2019t** promote prototype-only chrome or the dim-room proposal into the light product contract.",
-      "**Don\u2019t** balance correct-answer positions or treat a built deck as a run segment."
+      "**Don’t** add gradients, glass, bounce, or extra panel radii.",
+      "**Don’t** mark a participant wrong, introduce scores, or preview the answer to the host.",
+      "**Don’t** promote prototype-only chrome or the dim-room proposal into the light product contract.",
+      "**Don’t** balance correct-answer positions or treat a built deck as a run segment."
     ]
   }
 }
