@@ -1,17 +1,58 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 9,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:38Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-16 (M3).\n\nThe generator: Claude Opus 5 via Message Batches, structured outputs into the \u00a73.1 shape, count/topics/difficulty honoured or reported, talk mode, per-candidate cost and wall-clock, re-runnable\n\nCriteria: AC-1\u20135\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-14\nBUILDPLAN notes: Human track: API key, spend cap. Serialized on `pyproject.toml`. The generator's brief carries the room's capacity \u2014 source lines at the floor, each option a single line, at most 29 characters (`SPEC.md` \u00a77.1, D-15). The brief also carries the style rules and the \u00a711.1 patterns (D-23).\n\nOrchestrator notes: Human track H-4. Buildable and testable on fixtures without the key; the first paid run is HC-2.\n\nHELD: needs H-4 an Anthropic API key and spend cap. Do not dispatch until the client releases it.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-10-11T16:54:36Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M4NMKQ0HF314EMJMM74R618G",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4NMKQ49F4TET43JNZV1EN23",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4NPAS9SVHD6GXWRK8W7DE96",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4NQWCNGY5XSRT5CA8ZYQ7CC",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4NQYF63N2CYDQPBHT54FC74",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4NREDB32Y2P8NYJCB5RKMN7",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M4NY6GF5BZFAY7QDSYC7819Q",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M4NY6GF5BZFAY7QDSYC7819P",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M309ZRPH9SQBMEDMGK42J1ZH",
-  "last_event_id": "ev_01M4KWKWPSV6QE14M6TRMG6FNV",
-  "last_status_changed_at": "2026-09-20T21:01:38Z",
+  "last_event_id": "ev_01M4NY6GF5BZFAY7QDSYC7819S",
+  "last_status_changed_at": "2026-10-11T16:54:36Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -22,10 +63,10 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-21",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "m3",
     "inline-full",
@@ -34,6 +75,6 @@
   ],
   "title": "Generator via Message Batches",
   "type": "task",
-  "updated_at": "2026-10-10T21:48:28Z",
+  "updated_at": "2026-10-11T16:54:36Z",
   "urgency": null
 }

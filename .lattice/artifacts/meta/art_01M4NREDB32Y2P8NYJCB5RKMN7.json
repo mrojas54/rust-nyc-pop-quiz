@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-11T15:14:03Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4NREDB32Y2P8NYJCB5RKMN7",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4NREDB32Y2P8NYJCB5RKMN7.md",
+    "size_bytes": 1414
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Orchestrator exact-head review (Opus)",
+  "token_usage": null,
+  "type": "note"
+}

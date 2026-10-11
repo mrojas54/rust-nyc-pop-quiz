@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-11T15:04:13Z",
+  "created_by": "agent:delegator-pq21-reviewer",
+  "custom_fields": {},
+  "id": "art_01M4NQWCNGY5XSRT5CA8ZYQ7CC",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4NQWCNGY5XSRT5CA8ZYQ7CC.md",
+    "size_bytes": 753
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Code review (option b)",
+  "token_usage": null,
+  "type": "note"
+}

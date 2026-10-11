@@ -1,0 +1,1 @@
+Merged PR #61 at 170cfd4 (head f4fb271, --match-head-commit, client approved option a). Exact-head CI SUCCESS; exact-head review PASS-WITH-NITS (art_01M4NREDB32Y2P8NYJCB5RKMN7): Critical 0, Major 0, 3 Minor + 3 NIT routed to a held follow-up. Fixtures-only: the generator has never called the API; H-4 and HC-2 remain open.
