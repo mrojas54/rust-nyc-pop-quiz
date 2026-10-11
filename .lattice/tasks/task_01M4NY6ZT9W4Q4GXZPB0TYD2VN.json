@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-11T16:54:51Z",
   "created_by": "agent:orchestrator",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M4NY6ZT9W4Q4GXZPB0TYD2VN",
-  "last_event_id": "ev_01M4NY75TBF7HNKRFG3TXDBNF7",
-  "last_status_changed_at": "2026-10-11T16:54:51Z",
+  "last_event_id": "ev_01M4NZ01C4T6SDMEA03DGP9DVN",
+  "last_status_changed_at": "2026-10-11T17:08:09Z",
   "priority": "low",
   "relationships_out": [
     {
@@ -25,15 +25,15 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-68",
-  "status": "backlog",
+  "status": "planned",
   "tags": [
     "m3",
-    "held",
     "fast-track",
-    "pyproject"
+    "pyproject",
+    "folded-into-PQ-69"
   ],
   "title": "Generator follow-ups from the PR #61 review",
   "type": "task",
-  "updated_at": "2026-10-11T16:54:58Z",
+  "updated_at": "2026-10-11T17:08:32Z",
   "urgency": null
 }

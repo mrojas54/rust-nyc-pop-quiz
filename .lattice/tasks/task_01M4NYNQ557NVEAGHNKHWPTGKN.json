@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 3,
   "complexity": "medium",
   "created_at": "2026-10-11T17:02:54Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M4NYNQ557NVEAGHNKHWPTGKN",
-  "last_event_id": "ev_01M4NYNTWNKJE191SJJY799VRM",
+  "last_event_id": "ev_01M4NZ3EKV8MW03R6HNRZVF8ZK",
   "last_status_changed_at": "2026-10-11T17:02:54Z",
   "priority": "medium",
   "relationships_out": [
@@ -40,6 +40,6 @@
   ],
   "title": "Generator: a claude -p client on the subscription, beside Message Batches",
   "type": "task",
-  "updated_at": "2026-10-11T17:02:58Z",
+  "updated_at": "2026-10-11T17:10:24Z",
   "urgency": null
 }
