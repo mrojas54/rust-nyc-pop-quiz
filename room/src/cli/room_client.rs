@@ -58,7 +58,7 @@ pub fn question_allowed(target: &Target, id: &str, spend_bank: bool) -> Result<(
 
 /// A `409` on *Create a room*: the room's reason, verbatim, and what to do
 /// about that reason. The three reasons are the room's own copy
-/// (`rooms.rs`, `create_for`). None of the hints is a restart: a restart
+/// (`rooms/create.rs`, `create_for`). None of the hints is a restart: a restart
 /// wipes every room on the machine, the night's included.
 pub fn create_refused(reason: &str, id: &str) -> String {
     let hint = if reason.contains("open in another room") {
