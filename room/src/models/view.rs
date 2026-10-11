@@ -15,6 +15,17 @@
 //! The strings in them are SPEC §11's, from [`crate::copy`]; where a line needs
 //! a value only the phone knows — the participant's own answer — the phone
 //! fills it (AC-58), and the payload carries the counts it needs.
+//!
+//! # Where things are
+//!
+//! In file order: the payload types (`WallPayload`, `BuzzerPayload`,
+//! `HostPayload` and the pieces they hold); the three projections `wall`,
+//! `buzzer`, `host` and `project`, which branch on the witness; the shared
+//! pieces (`options`, `split`, `counts`, the trace and host-step builders);
+//! then `mod sealed`, the pre-reveal builders for all three viewers, and
+//! `mod revealed`, the reveal builders. The two modules stay in this file on
+//! purpose: `tests/boundary.rs` reads `sealed` as one block and refuses any
+//! mention of the opened room in it, so the proof is one thing to review.
 
 use serde::Serialize;
 

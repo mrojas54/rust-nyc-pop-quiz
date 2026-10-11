@@ -60,6 +60,25 @@ impl Sessions for FakeSessions {
     }
 }
 
+/// The HTTP routes' source: `server/routes/mod.rs` first, then its group files
+/// in name order. The scans that read "routes.rs" read this, so a route moved
+/// between the files is still seen, and a marker block stays one block.
+pub fn routes_source() -> String {
+    let dir = repo().join("room/src/server/routes");
+    let mut names: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with(".rs") && n != "mod.rs")
+        .collect();
+    names.sort();
+    names.insert(0, "mod.rs".to_string());
+    names
+        .iter()
+        .map(|n| std::fs::read_to_string(dir.join(n)).unwrap())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
 }

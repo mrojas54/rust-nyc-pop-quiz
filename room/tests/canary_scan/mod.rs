@@ -11,7 +11,7 @@
 //!   three buzzers — drained until it equals the viewer's projection, so no
 //!   stop is scanned before its frame arrived;
 //! - every page and every file the router serves, found by walking
-//!   `src/server/routes.rs` itself ([`route_table`]);
+//!   `src/server/routes/` itself ([`route_table`]);
 //! - the wall's frames as the served `wall.js` renders them, and the real
 //!   buzzer page, mounted under `node` against the running room (`page.js`).
 //!
@@ -378,7 +378,7 @@ pub fn as_payload(frame: &Value) -> Value {
 }
 
 // --------------------------------------------------------------------------
-// The route walk: every path `src/server/routes.rs` registers.
+// The route walk: every path `src/server/routes/` registers.
 // --------------------------------------------------------------------------
 
 /// One registered route: its path pattern and the methods it serves.
@@ -443,7 +443,7 @@ pub fn canary_question_named(id: &str) -> Value {
 // end T-25 admin plant -----------------------------------------------------
 
 fn routes_rs() -> String {
-    std::fs::read_to_string(repo().join("room/src/server/routes.rs")).expect("room/src/server/routes.rs")
+    crate::common::routes_source()
 }
 
 /// Every route `routes.rs` registers, read from the file itself: each

@@ -278,7 +278,7 @@ fn block<'a>(src: &'a str, open: &str, close: &str) -> &'a str {
 
 #[test]
 fn ac67_no_participant_route_touches_the_auth_module() {
-    let routes = std::fs::read_to_string(repo().join("room/src/server/routes.rs")).unwrap();
+    let routes = common::routes_source();
     let mut participant = vec![
         ("routes.rs T-04b", block(&routes, "// T-04b routes", "// end T-04b routes").to_string()),
         ("routes.rs T-06", block(&routes, "// T-06 pages", "// end T-06 pages").to_string()),
@@ -529,7 +529,7 @@ async fn sign_in_redirects_with_both_scopes_and_the_public_redirect_uri() {
     assert_eq!(cookie, format!("pq_oauth={state}"));
     // routes.rs registers the callback by literal (the canary reads literals);
     // it must be the path the redirect URI names.
-    let routes = std::fs::read_to_string(repo().join("room/src/server/routes.rs")).unwrap();
+    let routes = common::routes_source();
     assert!(routes.contains(&format!(".route(\"{}\"", room::discord::CALLBACK_PATH)));
     let set_cookie = r.header("set-cookie").unwrap();
     for attr in ["HttpOnly", "SameSite=Lax", "Path=/auth/discord", "Max-Age=600"] {
