@@ -23,10 +23,15 @@
       "id": "art_01M4P8J78ZQTQATGW4RWDJCH62",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4P94GCKW9GJ4N5KY8A4HNBM",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M4NYNQ557NVEAGHNKHWPTGKN",
-  "last_event_id": "ev_01M4P8TE1ZWMAE26A90E09F07X",
+  "last_event_id": "ev_01M4P94GCNARR23G1G3F2XWJK8",
   "last_status_changed_at": "2026-10-11T19:55:46Z",
   "priority": "medium",
   "relationships_out": [
@@ -56,6 +61,6 @@
   ],
   "title": "Generator: a claude -p client on the subscription, beside Message Batches",
   "type": "task",
-  "updated_at": "2026-10-11T20:00:14Z",
+  "updated_at": "2026-10-11T20:05:44Z",
   "urgency": null
 }
