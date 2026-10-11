@@ -6,7 +6,8 @@ Review target: `8303c2e`. Follow-up: 2026-10-11.
 | --- | --- |
 | Arrows type into scheduling fields | The entry point passes a `KeyEvent` to the app. Scheduling receives `KeyCode`: Up/Down select fields, Left/Right are ignored, and page keys scroll. Printable text stays distinct. |
 | Ctrl/Alt chords trigger plain-letter actions | Modified events are filtered before dispatch, except explicit Ctrl-C. Tests cover Ctrl/Alt-R/S/Q and Ctrl/Alt-Y at confirmation. |
-| Reveal while stepping backward | Left from reveal returns to the teaching view and hides the answer and receipt. Plain `r` remains the deliberate reveal action requested for organizer rehearsal; no extra confirmation was added. |
+| Reveal while stepping backward | Left from reveal returns to the teaching view and hides the answer and receipt. |
+| Follow-up: safeguard reveal | One `r` arms reveal and displays “Press r again to reveal the answer. Esc cancels.” A second `r` reveals; any other key disarms, including ignored Ctrl/Alt chords. Held-key repeat events cannot confirm. Help and controls document the two presses. |
 | q3-specific labels | All candidates now derive labels from the first sentence of the authored note. Editing a note changes its label; the bank itself is unchanged. |
 | Failure heading after successful PUT | Nonzero scheduler exits say “Scheduler reported a problem.” Details retain the scheduler's partial-success or refusal message. |
 | Confirmation summary | Date, room, and output path already appear before the conditional confirmation text. A new screen test asserts all three remain visible after Enter. |
