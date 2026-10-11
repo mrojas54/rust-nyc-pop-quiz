@@ -28,10 +28,11 @@ program prints is never an answer. Three consequences, each a deliberate choice:
   model never writes it: any value the model names `stdout` is discarded from every
   step and the discard is reported, and `verify.with_record` writes the row from
   `verified.stdout` once the program has run. A record that ran and still lacks the
-  row fails `bank.validate_question`, so a draft never passes as finished. The filter
-  is by name: a value the model calls something else, or a note that states an output
-  in prose, is authored content for review; a note that *quotes* one is listed by
-  `bank.quoted_outputs` for AC-73.
+  row fails `bank.validate_question`, so a draft never passes as finished. A value
+  under another name whose `now` is an output option's exact text is discarded the
+  same way (PQ-68 F1). Anything else - a paraphrase, a note that states an output in
+  prose - is authored content for review: the report lists every quoted span and
+  every trace value for AC-73.
 * `why_tempting` is asked for on all five options, so a missing one cannot mark the
   option the model believes is correct. The review step drops the correct option's
   beat once the verifier has said which that is.
@@ -697,13 +698,19 @@ def _is_line(value: Any, n_lines: int) -> bool:
     return type(value) is int and 1 <= value <= n_lines
 
 
-def _read_trace(data: Any, source: str | None, outcome: Outcome) -> Trace | None:
+def _read_trace(data: Any, source: str | None, outcome: Outcome, outputs: frozenset[str] = frozenset()) -> Trace | None:
     """The model's drafted steps as a `bank.Trace`, or `None` with every reason.
 
     A value named `stdout` (any case or padding) is dropped from every step and the
     drop is recorded in `outcome.discarded`, never silently: the output is the
     verifier's to write (`verify.with_record`). The value itself is not echoed into
     the report, which is read before anything has run.
+
+    A value under any other name whose `now` is the text of one of the `output`
+    options (`outputs`) is dropped the same way (PQ-68 F1): it says which option
+    the program prints, under a name the stdout filter does not catch. The match is
+    exact, so a paraphrase still reaches review as authored content; the report
+    lists every remaining value for AC-73's comparison there.
     """
     reasons = outcome.reasons
     raw = data if isinstance(data, dict) else {}
@@ -735,6 +742,11 @@ def _read_trace(data: Any, source: str | None, outcome: Outcome) -> Trace | None
             name, was, now = _text(value.get("name")), value.get("was"), value.get("now")
             if name is not None and name.strip().lower() == STDOUT:
                 outcome.discarded.append(f"step {i}: a {STDOUT} value, which only the verifier writes")
+                continue
+            if isinstance(now, str) and now in outputs:
+                outcome.discarded.append(
+                    f"step {i}: a value whose now is an output option's text, which only the verifier decides"
+                )
                 continue
             if name is None or not isinstance(was, str) or not isinstance(now, str):
                 problems.append("a value needs a name, was and now")
@@ -809,7 +821,8 @@ def _read_candidate(data: Any, outcome: Outcome, talk_mode: bool, cap: Capacity,
             outcome.concept = {"name": name, "kind": kind}
             outcome.topic = name
 
-    trace = _read_trace(data.get("trace"), source, outcome)
+    outputs = frozenset(o.text for o in options if o.kind == "output")
+    trace = _read_trace(data.get("trace"), source, outcome, outputs)
     reasons.extend(capacity_breaks(source, [o.text for o in options], cap, room))
 
     if source is None or hint is None or what is None or takeaway is None or outcome.topic is None:
@@ -1022,7 +1035,9 @@ def build_report(
             row["discarded"] = o.discarded
         if o.emitted:
             row["path"] = str(run_dir / f"{o.id}.json")
-            row["quoted_spans"] = list(bank.quoted_outputs(o.question))  # for AC-73 at review
+            # For AC-73 at review: the quoted spans in the prose, and every trace value
+            # the model wrote, because a value can state an output under any name.
+            row["quoted_spans"] = list(dict.fromkeys([*bank.quoted_outputs(o.question), *_value_spans(o.question)]))
         rows.append(row)
     checks = honoured(request, outcomes)
     totals: dict[str, Any] = {
@@ -1078,6 +1093,12 @@ def build_report(
     if claude_bin is not None:
         report["claude_bin"] = claude_bin
     return report
+
+
+def _value_spans(question: Question | None) -> list[str]:
+    if question is None:
+        return []
+    return [v.now for step in question.trace.steps for v in step.values if v.now.strip()]
 
 
 # --------------------------------------------------------------------------- #

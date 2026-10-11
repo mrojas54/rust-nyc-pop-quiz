@@ -947,6 +947,32 @@ def test_the_verifier_fills_the_drafted_trace_from_what_ran(tmp_path, custom_id,
     assert MODEL_CLAIM not in json.dumps(bank.question_to_dict(after))
 
 
+def test_f1_a_value_naming_an_option_text_under_another_name_is_discarded(tmp_path):
+    """PQ-68 F1: the stdout filter matched by name only, so a model could state the
+    output as `printed` or `result`. A value whose `now` is an output option's exact
+    text is discarded and reported the same way; nothing of it reaches the record."""
+    candidate = _candidate()
+    candidate["trace"]["steps"][1]["values"] = [
+        {"name": "printed", "was": "—", "now": "2"},  # the text of option 2
+        {"name": "x", "was": "—", "now": "7"},  # a value no option claims: kept
+    ]
+    outcome = _classify(candidate)
+    assert outcome.emitted, outcome.reasons
+    last = outcome.question.trace.steps[-1]
+    assert [v.name for v in last.values] == ["x"]
+    assert outcome.discarded == ["step 2: a value whose now is an output option's text, which only the verifier decides"]
+    # A non-output option's text is not an output claim: `does not compile` stays.
+    candidate["trace"]["steps"][1]["values"] = [{"name": "state", "was": "—", "now": "does not compile"}]
+    assert [v.now for v in _classify(candidate).question.trace.steps[-1].values] == ["does not compile"]
+
+
+def test_f1_every_trace_value_is_listed_for_ac73_at_review(tmp_path):
+    report = rows(go(tmp_path, replay("trace-drafts"), request=TRACE_REQUEST))
+    question = bank.question_from_dict(json.loads(Path(report["c01"]["path"]).read_text(encoding="utf-8")))
+    values = [v.now for step in question.trace.steps for v in step.values if v.now.strip()]
+    assert values and set(values) <= set(report["c01"]["quoted_spans"])
+
+
 def _step(**overrides):
     return {"lines": [2], "focus": [1, 3], "note": "A step.", "values": [], "pivot": False, **overrides}
 
