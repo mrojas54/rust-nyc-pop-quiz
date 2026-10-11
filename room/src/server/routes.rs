@@ -270,7 +270,7 @@ fn session_routes(router: Router<Arc<AppState>>) -> Router<Arc<AppState>> {
 // The wall page is the same bytes in every phase: it draws each phase from the
 // wall socket's frames, so it cannot carry an answer before `reveal` (G-3).
 
-const WALL_HTML: &str = include_str!("../../web/wall/index.html");
+const WALL_HTML: &str = include_str!("../../../web/wall/index.html");
 
 type Asset = (&'static str, &'static str, &'static [u8]);
 
@@ -278,64 +278,64 @@ const CSS: &str = "text/css; charset=utf-8";
 const JS: &str = "text/javascript; charset=utf-8";
 
 const WALL_ASSETS: &[Asset] = &[
-    ("wall.js", JS, include_str!("../../web/wall/wall.js").as_bytes()),
-    ("wall.css", CSS, include_str!("../../web/wall/wall.css").as_bytes()),
-    ("qr.js", JS, include_str!("../../web/wall/qr.js").as_bytes()),
+    ("wall.js", JS, include_str!("../../../web/wall/wall.js").as_bytes()),
+    ("wall.css", CSS, include_str!("../../../web/wall/wall.css").as_bytes()),
+    ("qr.js", JS, include_str!("../../../web/wall/qr.js").as_bytes()),
 ];
 
 const SHARED_ASSETS: &[Asset] = &[
-    ("tokens.css", CSS, include_str!("../../web/shared/tokens.css").as_bytes()),
-    ("fonts.css", CSS, include_str!("../../web/shared/fonts.css").as_bytes()),
-    ("components.css", CSS, include_str!("../../web/shared/components.css").as_bytes()),
-    ("dom.js", JS, include_str!("../../web/shared/dom.js").as_bytes()),
-    ("phase.js", JS, include_str!("../../web/shared/phase.js").as_bytes()),
-    ("check.js", JS, include_str!("../../web/shared/check.js").as_bytes()),
-    ("well.js", JS, include_str!("../../web/shared/well.js").as_bytes()),
-    ("trace.js", JS, include_str!("../../web/shared/trace.js").as_bytes()),
-    ("typemodel.js", JS, include_str!("../../web/shared/typemodel.js").as_bytes()),
-    ("copy.js", JS, include_str!("../../web/shared/copy.js").as_bytes()),
+    ("tokens.css", CSS, include_str!("../../../web/shared/tokens.css").as_bytes()),
+    ("fonts.css", CSS, include_str!("../../../web/shared/fonts.css").as_bytes()),
+    ("components.css", CSS, include_str!("../../../web/shared/components.css").as_bytes()),
+    ("dom.js", JS, include_str!("../../../web/shared/dom.js").as_bytes()),
+    ("phase.js", JS, include_str!("../../../web/shared/phase.js").as_bytes()),
+    ("check.js", JS, include_str!("../../../web/shared/check.js").as_bytes()),
+    ("well.js", JS, include_str!("../../../web/shared/well.js").as_bytes()),
+    ("trace.js", JS, include_str!("../../../web/shared/trace.js").as_bytes()),
+    ("typemodel.js", JS, include_str!("../../../web/shared/typemodel.js").as_bytes()),
+    ("copy.js", JS, include_str!("../../../web/shared/copy.js").as_bytes()),
 ];
 
 const FONT_ASSETS: &[Asset] = &[
     (
         "CascadiaMono-VariableFont_wght.ttf",
         "font/ttf",
-        include_bytes!("../../web/shared/fonts/CascadiaMono-VariableFont_wght.ttf"),
+        include_bytes!("../../../web/shared/fonts/CascadiaMono-VariableFont_wght.ttf"),
     ),
     (
         "CascadiaMono-Italic-VariableFont_wght.ttf",
         "font/ttf",
-        include_bytes!("../../web/shared/fonts/CascadiaMono-Italic-VariableFont_wght.ttf"),
+        include_bytes!("../../../web/shared/fonts/CascadiaMono-Italic-VariableFont_wght.ttf"),
     ),
     (
         "InstrumentSerif-Regular.ttf",
         "font/ttf",
-        include_bytes!("../../web/shared/fonts/InstrumentSerif-Regular.ttf"),
+        include_bytes!("../../../web/shared/fonts/InstrumentSerif-Regular.ttf"),
     ),
     (
         "InstrumentSerif-Italic.ttf",
         "font/ttf",
-        include_bytes!("../../web/shared/fonts/InstrumentSerif-Italic.ttf"),
+        include_bytes!("../../../web/shared/fonts/InstrumentSerif-Italic.ttf"),
     ),
     (
         "CascadiaMono-Italic-VariableFont_wght.woff2",
         "font/woff2",
-        include_bytes!("../../web/shared/fonts/CascadiaMono-Italic-VariableFont_wght.woff2"),
+        include_bytes!("../../../web/shared/fonts/CascadiaMono-Italic-VariableFont_wght.woff2"),
     ),
     (
         "InstrumentSerif-Italic.woff2",
         "font/woff2",
-        include_bytes!("../../web/shared/fonts/InstrumentSerif-Italic.woff2"),
+        include_bytes!("../../../web/shared/fonts/InstrumentSerif-Italic.woff2"),
     ),
     (
         "InstrumentSerif-Regular.woff2",
         "font/woff2",
-        include_bytes!("../../web/shared/fonts/InstrumentSerif-Regular.woff2"),
+        include_bytes!("../../../web/shared/fonts/InstrumentSerif-Regular.woff2"),
     ),
     (
         "CascadiaMono-VariableFont_wght.woff2",
         "font/woff2",
-        include_bytes!("../../web/shared/fonts/CascadiaMono-VariableFont_wght.woff2"),
+        include_bytes!("../../../web/shared/fonts/CascadiaMono-VariableFont_wght.woff2"),
     ),
 ];
 
@@ -562,9 +562,9 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     // fragment, which no request carries, so `no-store` and `no-referrer` are
     // belt and braces for the page that reads it (SPEC §8.2, AC-50).
     {
-        const HOST_HTML: &str = include_str!("../../web/host/index.html");
-        const HOST_JS: &str = include_str!("../../web/host/host.js");
-        const HOST_CSS: &str = include_str!("../../web/host/host.css");
+        const HOST_HTML: &str = include_str!("../../../web/host/index.html");
+        const HOST_JS: &str = include_str!("../../../web/host/host.js");
+        const HOST_CSS: &str = include_str!("../../../web/host/host.css");
         fn asset(body: &'static str, content_type: &'static str) -> Response {
             (
                 [
@@ -612,13 +612,13 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
                 .into_response()
         }
         async fn buzzer_page() -> Response {
-            asset("text/html; charset=utf-8", include_str!("../../web/buzzer/index.html"))
+            asset("text/html; charset=utf-8", include_str!("../../../web/buzzer/index.html"))
         }
         async fn buzzer_js() -> Response {
-            asset("text/javascript; charset=utf-8", include_str!("../../web/buzzer/buzzer.js"))
+            asset("text/javascript; charset=utf-8", include_str!("../../../web/buzzer/buzzer.js"))
         }
         async fn buzzer_css() -> Response {
-            asset("text/css; charset=utf-8", include_str!("../../web/buzzer/buzzer.css"))
+            asset("text/css; charset=utf-8", include_str!("../../../web/buzzer/buzzer.css"))
         }
         // Only a well-formed room code redirects, so this never answers for a
         // path that is not one (`/host`, `/last`, …); those are 404 here.
@@ -648,7 +648,7 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     // and a room that is still running never reaches it — the snapshot is
     // written by the `released` transition only (`used.rs`).
     {
-        const HOME_HTML: &str = include_str!("../../web/home/index.html");
+        const HOME_HTML: &str = include_str!("../../../web/home/index.html");
         const SNAPSHOT_SLOT: &str = "<script type=\"application/json\" id=\"take-home\">null</script>";
 
         /// JSON inside a `<script>` element: nothing in it may close the
@@ -699,8 +699,8 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
         router = router
             .route("/last", get(last))
             .route("/last/{club}", get(last_club))
-            .route("/home/home.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../web/home/home.js")) }))
-            .route("/home/home.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/home/home.css")) }));
+            .route("/home/home.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../../web/home/home.js")) }))
+            .route("/home/home.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../../web/home/home.css")) }));
     }
     // end T-12 pages -------------------------------------------------------
     // The front door ------------------------------------------------------
@@ -720,13 +720,13 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
                 .into_response()
         }
         router = router
-            .route("/", get(|| async { asset("text/html; charset=utf-8", include_str!("../../web/landing/index.html")) }))
-            .route("/landing/landing.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../web/landing/landing.js")) }))
+            .route("/", get(|| async { asset("text/html; charset=utf-8", include_str!("../../../web/landing/index.html")) }))
+            .route("/landing/landing.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../../web/landing/landing.js")) }))
             .route(
                 "/landing/ferris.png",
-                get(|| async { ([(header::CONTENT_TYPE, "image/png"), (header::CACHE_CONTROL, "no-cache")], include_bytes!("../../web/landing/ferris.png").as_slice()) }),
+                get(|| async { ([(header::CONTENT_TYPE, "image/png"), (header::CACHE_CONTROL, "no-cache")], include_bytes!("../../../web/landing/ferris.png").as_slice()) }),
             )
-            .route("/landing/landing.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../web/landing/landing.css")) }));
+            .route("/landing/landing.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../../web/landing/landing.css")) }));
     }
     // end front door -------------------------------------------------------
     router = discord_routes(router); // T-10 routes

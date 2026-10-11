@@ -1,11 +1,11 @@
 //! `burst`'s decisions on recorded samples (T-21): the percentile and its
 //! interval, `marginal`, the pass / miss / invalid verdict, and the report's
-//! shape. No sockets and no clock: `src/bin/burst_report.rs` is pure, so this
+//! shape. No sockets and no clock: `src/cli/burst_report.rs` is pure, so this
 //! runs in `just test` while the client that gathers samples stays behind the
 //! `burst` feature. What the client does over real sockets is
 //! `tests/harness_full.rs` (test-full).
 
-#[path = "../src/bin/burst_report.rs"]
+#[path = "../src/cli/burst_report.rs"]
 mod burst_report;
 
 use burst_report::*;
