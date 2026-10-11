@@ -507,6 +507,10 @@ def with_record(question: Question, verdict: Verdict) -> Question:
     )
 
 
+def _is_stdout(name: str) -> bool:
+    return name.strip().lower() == "stdout"
+
+
 def _trace_with_stdout(trace: bank.Trace, verified: Verified) -> bank.Trace:
     """The trace with its last step's `stdout` row set from the record (SPEC 3.1, D-10).
 
@@ -517,16 +521,24 @@ def _trace_with_stdout(trace: bank.Trace, verified: Verified) -> bank.Trace:
     rewrites that one value; otherwise a row is appended. For a record that did
     not run, any `stdout` row on the last step is removed, because nothing printed
     (SPEC 3.2). An empty trace stays empty: there is no step to resolve.
+
+    A row is a `stdout` row by the generator's rule - the name, stripped and
+    lower-cased - so a hand-written `" Stdout "` is rewritten as the one `stdout`
+    row the wall reads, never left beside it.
     """
     if not trace.steps:
         return trace
     *before, last = trace.steps
-    others = tuple(v for v in last.values if v.name != "stdout")
+    rows = [i for i, v in enumerate(last.values) if _is_stdout(v.name)]
+    others = tuple(v for v in last.values if not _is_stdout(v.name))
     if bank.receipt_class(verified) == "ran" and verified.stdout is not None:
         now = bank.normalized_output(verified.stdout)
-        if len(others) < len(last.values):
+        if rows:
+            first = rows[0]
             values = tuple(
-                dataclasses.replace(v, now=now) if v.name == "stdout" else v for v in last.values
+                bank.ValueDelta(name="stdout", was=v.was, now=now) if i == first else v
+                for i, v in enumerate(last.values)
+                if i == first or not _is_stdout(v.name)
             )
         else:
             values = (*others, bank.ValueDelta(name="stdout", was="—", now=now))

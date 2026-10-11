@@ -139,6 +139,7 @@ CONCEPT_KINDS = ("std", "core_language")
 STDOUT = "stdout"
 #: SPEC 7.4: a question needs this many trace steps before it can be affirmed.
 MIN_TRACE_STEPS = 2
+_STEP_KEYS = frozenset({"lines", "focus", "note", "values", "pivot"})
 _STD_PATH = re.compile(r"^(std|core|alloc)::\S+")
 _RUN_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 
@@ -636,6 +637,11 @@ def _read_trace(data: Any, source: str | None, outcome: Outcome) -> Trace | None
         if not (isinstance(focus, list) and len(focus) == 2 and all(type(n) is int for n in focus) and focus[0] <= focus[1]):
             problems.append("focus is not a range [first, last]")
             focus = []
+        unknown = sorted(set(step) - _STEP_KEYS)
+        if unknown:
+            problems.append(f"unknown field(s) {unknown}")
+        if not isinstance(step.get("pivot", False), bool):
+            problems.append("pivot is not true or false")
         if n_lines is not None and not all(_is_line(n, n_lines) for n in (*lines, *focus)):
             problems.append(f"points at a line outside the source's {n_lines}")
         values: list[ValueDelta] = []

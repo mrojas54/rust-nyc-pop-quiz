@@ -881,3 +881,25 @@ def test_the_verifier_fills_the_drafted_trace_from_what_ran(tmp_path, custom_id,
         assert _stdout_rows(after) == []
     assert after.trace.steps[:-1] == drafted.trace.steps[:-1]
     assert MODEL_CLAIM not in json.dumps(bank.question_to_dict(after))
+
+
+def _step(**overrides):
+    return {"lines": [2], "focus": [1, 3], "note": "A step.", "values": [], "pivot": False, **overrides}
+
+
+@pytest.mark.parametrize(
+    "steps, reason",
+    [
+        ([_step(pivot=True), _step(pivot=True)], "2 pivot steps; at most one"),
+        ([_step(), _step(focus=[3, 1])], "step 2: focus is not a range"),
+        ([_step(lines=[True]), _step()], "step 1: no lines"),
+        ([_step(note=""), _step()], "step 1: no note"),
+        ([_step(), _step(pivot="yes")], "step 2: pivot is not true or false"),
+        ([_step(), _step(output="1")], "step 2: unknown field(s) ['output']"),
+        ([_step(), _step(values=[{"name": "v", "was": "—"}])], "step 2: a value needs a name, was and now"),
+    ],
+)
+def test_trace_shape_breaks_are_reported(steps, reason):
+    outcome = _classify(_candidate(trace={"steps": steps}))
+    assert not outcome.emitted
+    assert any(reason in r for r in outcome.reasons), outcome.reasons

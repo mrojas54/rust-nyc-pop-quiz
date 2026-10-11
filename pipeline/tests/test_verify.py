@@ -327,6 +327,26 @@ def test_re_verifying_rewrites_only_the_stdout_value() -> None:
     assert after.trace.steps[:-1] == stale.trace.steps[:-1]
 
 
+def test_a_padded_or_cased_stdout_row_becomes_the_one_row_the_wall_reads() -> None:
+    """The generator's rule, the same here: `" Stdout "` and `"STDOUT"` are stdout rows.
+    The first keeps its `was` and place under the canonical name; any other goes."""
+    q3 = question_for("q3")
+    *before, last = q3.trace.steps
+    others = tuple(v for v in last.values if v.name != "stdout")
+    odd = dataclasses.replace(
+        last,
+        values=(bank.ValueDelta(" Stdout ", "an earlier line", "x"), *others, bank.ValueDelta("STDOUT", "—", "y")),
+    )
+    q = dataclasses.replace(q3, trace=bank.Trace(steps=(*before, odd)))
+
+    after = verify.with_record(q, _verify("q3", "ran"))
+
+    recorded = _recording("q3")["run:1"]["stdout"]
+    assert after.trace.steps[-1].values == (
+        bank.ValueDelta("stdout", "an earlier line", bank.normalized_output(recorded)), *others,
+    )
+
+
 def test_a_record_that_did_not_run_keeps_no_stdout_row() -> None:
     """SPEC 3.2: nothing ran, so nothing printed. A does-not-compile verdict gets no
     row, and a row left by an earlier record is removed with nothing else."""
