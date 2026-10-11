@@ -1,6 +1,14 @@
 use organizer_preview::snapshot;
 
 #[test]
+fn stepping_back_from_reveal_returns_to_unspoiled_teaching() {
+    let screen = snapshot(&['r', '<'], 120, 50);
+    assert!(screen.contains("Step 5 of 6"));
+    assert!(!screen.contains("Correct answer"));
+    assert!(!screen.contains("How we know"));
+}
+
+#[test]
 fn scheduling_opens_without_revealing_and_escape_cancels() {
     let screen = snapshot(&['s'], 120, 40);
     assert!(screen.contains("Schedule q3"));
@@ -139,4 +147,32 @@ fn cli_reports_an_unknown_candidate_without_entering_terminal_mode() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("was not found"));
     assert!(!output.stdout.contains(&0x1b));
+}
+
+#[test]
+fn real_key_events_preserve_form_fields_and_ignore_modified_shortcuts() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use organizer_preview::{App, capture, default_bank};
+    let mut app = App::load(&default_bank(), Some("q3")).unwrap();
+    for modifiers in [KeyModifiers::CONTROL, KeyModifiers::ALT] {
+        for c in ['r', 's', 'q'] {
+            assert!(app.handle_event(KeyEvent::new(KeyCode::Char(c), modifiers)));
+        }
+    }
+    assert!(capture(&mut app, 120, 40).unwrap().contains("Question preview"));
+    app.handle('s');
+    for c in "2026-10-15".chars() { app.handle(c); }
+    for code in [KeyCode::Left, KeyCode::Right, KeyCode::Down, KeyCode::Up] {
+        app.handle_event(KeyEvent::new(code, KeyModifiers::NONE));
+    }
+    app.handle('\t');
+    for c in "https://example.test\t/tmp/review-fallback\n".chars() { app.handle(c); }
+    app.handle_event(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL));
+    app.handle_event(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::ALT));
+    let screen = capture(&mut app, 120, 40).unwrap();
+    assert!(screen.contains("Date (YYYY-MM-DD): 2026-10-15"));
+    assert!(screen.contains("Room URL: https://example.test"));
+    assert!(screen.contains("Fallback directory: /tmp/review-fallback"));
+    assert!(screen.contains("y Schedule"));
+    assert!(!screen.contains("waiting for the room"));
 }
