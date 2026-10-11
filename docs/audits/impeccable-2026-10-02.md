@@ -1,5 +1,41 @@
 # Impeccable technical audit — 2026-10-02
 
+## Current-source recheck — 2026-10-11 (PR #70 documentation correction)
+
+Rechecked against main `046779c8c14d46e3722331501e87622db5bb1235` and
+PR head `6744a7a9e166893afb68dbfc092ae32c4e310e87`; their `web/` source is
+identical. The October 2 audit below is retained as historical evidence.
+Its 15/20 score, three P2 findings, test count and browser samples are not a
+current certification or a current open-issue count.
+
+| Historical finding | Current disposition | Evidence |
+|---|---|---|
+| Explanation heading hierarchy | Confirmed in source; application follow-up remains | `web/home/home.js` `beatsHtml` still emits h3 after the question h1 with no explanation h2 parent; later sections emit h2. Skipping alone is not proof of WCAG failure. |
+| Large TTF delivery | Recommended optimization already implemented; old recommendation is superseded | `web/shared/fonts.css` prefers all four WOFF2 siblings and keeps TTF fallbacks. `pipeline/src/popquiz/fallback.py` removes TTF fallbacks and embeds WOFF2 only. File sizes match the October 3 report: 380,948 WOFF2 bytes versus 1,245,372 TTF bytes across all faces. See `docs/performance/2026-10-03-fonts.md`; those historical timings/tests were not rerun here. No current latency or Core Web Vitals conclusion follows. |
+| Incomplete machine-readable typography | Corrected in this documentation patch | `DESIGN.md` now records 30px, distinct 28px mono/serif roles, 46px choices and other scoped surface sizes; plugin metadata mirrors the added roles. Wall source remains measured, not a static ramp role. |
+
+Additional imported wording corrected: shared trace dimming is .70 (AC-84 /
+PQ-40), not .32; host phase button padding and voting disabled states are
+exceptions to generic `.btn` examples; small metadata has no contrast exemption;
+serif is also intentional for large room identities and voting letters.
+`.impeccable/config.json` now targets the existing `web/` source directory
+rather than nonexistent `code/`. Plugin component samples remain illustrative.
+
+The restructuring retains the original phase table, voice, divergences and
+venue hypotheses. New inventory sections are descriptive and subordinate to
+those decisions and later accepted build amendments. Historical § references
+point to `PHILOSOPHY.md`, not the new heading order. `PRODUCT.md` remains an
+explicitly dated October 2 snapshot, not today's completion ledger.
+
+This recheck inspects code and asset sizes; it does not refresh screen-reader,
+layout, device, deployed performance or venue evidence. Repairing heading
+markup belongs in a separate application change. No application files are
+modified by this correction.
+
+---
+
+## Historical October 2 audit
+
 ## Implementation integrity verdict
 
 **Pass, with isolated documentation gaps.** The implementation expresses the
@@ -99,11 +135,11 @@ before replacing the TTF sources.
 (`text-3xl`); `web/buzzer/buzzer.css:52–69`; `web/wall/wall.css`.
 **Category:** Implementation integrity / documentation.
 
-The merged frontmatter lists 12, 13, 14, 24 and 36px roles but omits the existing
+The imported draft frontmatter listed 12, 13, 14, 24 and 36px roles but omits the existing
 30px shared token and intentional surface roles such as the 28px room code and
 46px voting letters. The detector therefore reports existing implementation as
 off-ramp. New agents could incorrectly “fix” established layouts to satisfy the
-incomplete documentation. This gap was introduced by the documentation merge;
+incomplete documentation. This gap was introduced by the documentation pass;
 it is not evidence that these components need restyling.
 
 **Recommendation:** Document reused surface-specific roles and distinguish the
