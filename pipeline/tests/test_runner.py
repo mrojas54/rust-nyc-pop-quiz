@@ -61,7 +61,10 @@ FORBIDDEN_IMPORTS = {"subprocess", "multiprocessing", "pty", "docker", "importli
 #
 # Paths are relative to `pipeline/`, which is the one base that is unambiguous for
 # both halves of SCANNED — `src/popquiz` and `tests` sit side by side under it.
-MAY_START_A_PROCESS = {"src/popquiz/sandbox.py"}
+MAY_START_A_PROCESS = {
+    "src/popquiz/sandbox.py",
+    "src/popquiz/generate_cli.py",  # PQ-69 ruling 2: the claude-cli backend runs one `claude -p` per candidate
+}
 
 # `os` is not forbidden — modules want `os.environ` and `os.fspath`. These are
 # the calls on it that start something. Both families are complete: all seven

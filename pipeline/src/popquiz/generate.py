@@ -15,6 +15,11 @@ through `runner.Runner` (D-18). Two implementations:
   `just test` uses it, with no key and no network.
 * `AnthropicBatchClient` wraps the Anthropic SDK. It is written in full and has never
   run: it is unexercised until the first paid run, HC-2.
+* `generate_cli.ClaudeCliClient` runs headless Claude Code (`claude -p`) on the
+  client's subscription, one process per candidate (PQ-69). It has never made a real
+  call either: its tests run a fake `claude`.
+
+`--backend` picks one (`batches` by default) and neither ever falls back to the other.
 
 **What the model is never asked for.** There is no `correct` field, no "expected
 output", no letter and no position in what the model returns. The answer is derived
@@ -28,10 +33,11 @@ program prints is never an answer. Three consequences, each a deliberate choice:
   model never writes it: any value the model names `stdout` is discarded from every
   step and the discard is reported, and `verify.with_record` writes the row from
   `verified.stdout` once the program has run. A record that ran and still lacks the
-  row fails `bank.validate_question`, so a draft never passes as finished. The filter
-  is by name: a value the model calls something else, or a note that states an output
-  in prose, is authored content for review; a note that *quotes* one is listed by
-  `bank.quoted_outputs` for AC-73.
+  row fails `bank.validate_question`, so a draft never passes as finished. A value
+  under another name whose `now` is an output option's exact text is discarded the
+  same way (PQ-68 F1). Anything else - a paraphrase, a note that states an output in
+  prose - is authored content for review: the report lists every quoted span and
+  every trace value for AC-73.
 * `why_tempting` is asked for on all five options, so a missing one cannot mark the
   option the model believes is correct. The review step drops the correct option's
   beat once the verifier has said which that is.
@@ -149,6 +155,20 @@ _RUN_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 
 NO_CAP = "Refusing to submit: no spend cap is configured; a paid run needs --cap-usd."
 NO_KEY = "Refusing to build the API client: ANTHROPIC_API_KEY is not set."
+NO_CANDIDATE_CAP = (
+    "Refusing to start: no candidate cap is configured; a claude-cli run needs --max-candidates."
+)
+CLI_NO_USD = (
+    "Refusing to start: a claude-cli run is capped by --max-candidates, not dollars; drop --cap-usd."
+)
+BATCHES_NO_MAX = "Refusing to submit: a batches run is capped by --cap-usd; --max-candidates is claude-cli's."
+CLI_NO_REPLAY = "Refusing to start: --replay replays a batch; a claude-cli run takes no --replay."
+BATCHES_NO_CLAUDE_BIN = "Refusing to submit: --claude-bin is claude-cli's; a batches run starts no claude."
+NOT_RUN = "not run: the run stopped before this candidate; rerun with the same --run-id to pick it up"
+
+
+def over_candidate_cap(count: int, most: int) -> str:
+    return f"Refusing to start: the run asks for {count} candidates, over the {most}-candidate cap."
 
 
 def over_cap(requests: int, worst: float, cap: float) -> str:
@@ -284,8 +304,10 @@ def capacity_breaks(source: str | None, options: Sequence[str], cap: Capacity, r
     for i, text in enumerate(options):
         if not isinstance(text, str):
             continue
-        if "\n" in text:
-            reasons.append(f"capacity: option {i + 1} spans {text.count(chr(10)) + 1} lines; each option is one line")
+        lines = text.count("\n") + 1
+        if lines > cap.option_lines:
+            most = "each option is one line" if cap.option_lines == 1 else f"the most is {cap.option_lines}"
+            reasons.append(f"capacity: option {i + 1} spans {lines} lines; {most}")
         if audit.js_length(text) > cap.option_chars:
             reasons.append(
                 f"capacity: option {i + 1} is {audit.js_length(text)} characters; the most is {cap.option_chars}"
@@ -311,6 +333,19 @@ def brief_patterns() -> list[str]:
     return [f"- {rule.id}: {rule.source}" for rule in copylint.RULES]
 
 
+def option_lines_rule(cap: Capacity) -> str:
+    """The brief's line rule for options, read from the room's capacity."""
+    if cap.option_lines == 1:
+        return (
+            "- Each option is a single line. A program whose output would span lines is "
+            "rewritten to print on one line; never join or wrap an option."
+        )
+    return (
+        f"- Each option is at most {cap.option_lines} lines. A program whose output would "
+        "span more is rewritten; never join or wrap an option."
+    )
+
+
 def system_prompt(cap: Capacity, talk_mode: bool) -> str:
     """The brief every request carries. Identical across a run."""
     lines = [
@@ -321,8 +356,7 @@ def system_prompt(cap: Capacity, talk_mode: bool) -> str:
         "The room's capacity. A program that breaks any of these is rejected, not trimmed:",
         f"- The source is at most {cap.source_lines} lines.",
         f"- No source line is wider than {cap.source_width} characters.",
-        f"- Each option is a single line. A program whose output would span lines is "
-        "rewritten to print on one line; never join or wrap an option.",
+        option_lines_rule(cap),
         f"- No option is longer than {cap.option_chars} characters.",
         "",
         "The shape:",
@@ -490,14 +524,61 @@ def check_spend(requests: Sequence[Mapping[str, Any]], cap_usd: float | None, fi
 # --------------------------------------------------------------------------- #
 
 
+#: What a client's numbers are, by client type (F4). A label is never passed in
+#: beside the client: it is read off the class that builds it.
+FIXTURE = "fixture"  # recorded by hand; not a measurement
+MEASURED = "measured"  # a real batch, costed at list price and the batch discount
+API_EQUIVALENT = "api-equivalent"  # the claude CLI's own figures; subscription usage, not billed
+
+BATCHES = "batches"
+CLAUDE_CLI = "claude-cli"
+BACKENDS = (BATCHES, CLAUDE_CLI)
+
+
 class BatchClient(Protocol):
-    """How the generator reaches the Message Batches API. Three calls, nothing else."""
+    """How the generator reaches a model. Three calls, nothing else.
+
+    Every implementation says, as class attributes, which backend it is and what
+    kind of numbers it produces, so the report labels them by the client's type.
+    A client may also set `stopped` to a sentence once it has stopped early (the
+    claude-cli backend at a usage limit); the run reports the rest as not run.
+    """
+
+    backend: str
+    numbers: str
 
     def submit(self, requests: Sequence[Mapping[str, Any]]) -> str: ...
 
     def poll(self, batch_id: str) -> str: ...
 
     def results(self, batch_id: str) -> Iterable[Mapping[str, Any]]: ...
+
+
+@dataclass(frozen=True)
+class Factory:
+    """Builds one client of type `cls`, and says what kind it is before it exists.
+
+    The run checks its caps before anything is built (a refusal leaves no client),
+    so the backend and the kind of numbers have to be known first; they are read
+    from `cls`, never passed beside it, and the client built must be of that type.
+    """
+
+    cls: type
+    build: Callable[[], Any]
+
+    @property
+    def backend(self) -> str:
+        return self.cls.backend
+
+    @property
+    def numbers(self) -> str:
+        return self.cls.numbers
+
+    def __call__(self) -> BatchClient:
+        client = self.build()
+        if not isinstance(client, self.cls):
+            raise TypeError(f"a {self.cls.__name__} factory built a {type(client).__name__}")
+        return client
 
 
 class ReplayBatchClient:
@@ -510,6 +591,9 @@ class ReplayBatchClient:
     `delay_s` makes the first poll wait, for a run that has to be interrupted while
     the batch is in flight.
     """
+
+    backend = BATCHES
+    numbers = FIXTURE
 
     def __init__(self, fixture: Path, delay_s: float = 0.0) -> None:
         data = json.loads(Path(fixture).read_text(encoding="utf-8"))
@@ -547,6 +631,9 @@ class AnthropicBatchClient:
     passed explicitly, so a credential the SDK would otherwise find on its own (an
     `ant auth` profile, say) is never used without anyone saying so.
     """
+
+    backend = BATCHES
+    numbers = MEASURED
 
     def __init__(self, api_key: str | None) -> None:
         if not api_key:
@@ -592,6 +679,10 @@ class Outcome:
     concept: dict[str, str] | None = None
     usage: dict[str, int] = field(default_factory=dict)
     discarded: list[str] = field(default_factory=list)
+    #: Per-candidate figures a client measured itself (the claude-cli backend's
+    #: `wall_clock_s` and `api_equivalent_usd`). Empty for a batch, which has one
+    #: wall-clock for every request and is costed here from tokens.
+    measured: dict[str, Any] = field(default_factory=dict)
 
     @property
     def emitted(self) -> bool:
@@ -612,13 +703,19 @@ def _is_line(value: Any, n_lines: int) -> bool:
     return type(value) is int and 1 <= value <= n_lines
 
 
-def _read_trace(data: Any, source: str | None, outcome: Outcome) -> Trace | None:
+def _read_trace(data: Any, source: str | None, outcome: Outcome, outputs: frozenset[str] = frozenset()) -> Trace | None:
     """The model's drafted steps as a `bank.Trace`, or `None` with every reason.
 
     A value named `stdout` (any case or padding) is dropped from every step and the
     drop is recorded in `outcome.discarded`, never silently: the output is the
     verifier's to write (`verify.with_record`). The value itself is not echoed into
     the report, which is read before anything has run.
+
+    A value under any other name whose `now` is the text of one of the `output`
+    options (`outputs`) is dropped the same way (PQ-68 F1): it says which option
+    the program prints, under a name the stdout filter does not catch. The match is
+    exact, so a paraphrase still reaches review as authored content; the report
+    lists every remaining value for AC-73's comparison there.
     """
     reasons = outcome.reasons
     raw = data if isinstance(data, dict) else {}
@@ -650,6 +747,11 @@ def _read_trace(data: Any, source: str | None, outcome: Outcome) -> Trace | None
             name, was, now = _text(value.get("name")), value.get("was"), value.get("now")
             if name is not None and name.strip().lower() == STDOUT:
                 outcome.discarded.append(f"step {i}: a {STDOUT} value, which only the verifier writes")
+                continue
+            if isinstance(now, str) and now in outputs:
+                outcome.discarded.append(
+                    f"step {i}: a value whose now is an output option's text, which only the verifier decides"
+                )
                 continue
             if name is None or not isinstance(was, str) or not isinstance(now, str):
                 problems.append("a value needs a name, was and now")
@@ -724,7 +826,8 @@ def _read_candidate(data: Any, outcome: Outcome, talk_mode: bool, cap: Capacity,
             outcome.concept = {"name": name, "kind": kind}
             outcome.topic = name
 
-    trace = _read_trace(data.get("trace"), source, outcome)
+    outputs = frozenset(o.text for o in options if o.kind == "output")
+    trace = _read_trace(data.get("trace"), source, outcome, outputs)
     reasons.extend(capacity_breaks(source, [o.text for o in options], cap, room))
 
     if source is None or hint is None or what is None or takeaway is None or outcome.topic is None:
@@ -752,6 +855,8 @@ def classify(entry: Mapping[str, Any] | None, outcome: Outcome, talk_mode: bool,
     if entry is None:
         outcome.reasons.append("no result came back for this request")
         return outcome
+    if isinstance(entry.get("measured"), Mapping):
+        outcome.measured = dict(entry["measured"])
     result = entry.get("result") or {}
     kind = result.get("type")
     if kind != "succeeded":
@@ -815,8 +920,13 @@ def write_atomic(path: Path, payload: Any) -> Path:
     return path
 
 
+#: Where the claude-cli backend keeps each finished candidate's result, so a rerun
+#: picks up where a stopped or killed run left off (`generate_cli`).
+CLI_SUBDIR = "cli"
+
+
 def sweep_partials(run_dir: Path) -> None:
-    for directory in (run_dir, run_dir / RUN_SUBDIR):
+    for directory in (run_dir, run_dir / RUN_SUBDIR, run_dir / RUN_SUBDIR / CLI_SUBDIR):
         if directory.is_dir():
             for leftover in directory.glob(f".*{PARTIAL_SUFFIX}"):
                 leftover.unlink()
@@ -868,6 +978,19 @@ def honoured(request: RunRequest, outcomes: Sequence[Outcome]) -> dict[str, dict
     return out
 
 
+NUMBERS_NOTES = {
+    FIXTURE: (
+        "FIXTURE NUMBERS: tokens come from recorded fixtures, not from a real batch; "
+        "they are not a measurement"
+    ),
+    MEASURED: "tokens as the batch reported them; cost is list price at the batch discount",
+    API_EQUIVALENT: (
+        "API-EQUIVALENT, NOT BILLED: tokens, wall-clock and total_cost_usd as the claude CLI "
+        "reported them for each candidate; the run consumed subscription usage, not dollars"
+    ),
+}
+
+
 def build_report(
     *,
     run_id: str,
@@ -875,15 +998,21 @@ def build_report(
     model: str,
     cap: Capacity,
     room: audit.Room,
-    fixture: bool,
+    backend: str,
+    numbers: str,
     batch_id: str,
     resumed: bool,
     worst_case: float | None,
     wall_clock_s: float,
     outcomes: Sequence[Outcome],
     run_dir: Path,
+    stopped: str | None = None,
+    claude_bin: str | None = None,
 ) -> dict[str, Any]:
-    price_in, price_out = list_prices(model)
+    # The claude-cli backend's dollars are the CLI's own `total_cost_usd`, per
+    # candidate, and they are never spend: no list price, no batch discount, and no
+    # dollar total anywhere in its report (PQ-69 ruling 5).
+    per_candidate = numbers == API_EQUIVALENT
     rows = []
     for o in outcomes:
         row: dict[str, Any] = {
@@ -895,9 +1024,13 @@ def build_report(
             "expect": o.expect,
             "reasons": o.reasons,
             **{k: o.usage.get(k, 0) for k in ("input_tokens", "output_tokens")},
-            "cost_usd": round(cost_usd(o.usage, model), 6),
-            "wall_clock_s": round(wall_clock_s, 3),
         }
+        if per_candidate:
+            row["api_equivalent_usd"] = o.measured.get("api_equivalent_usd")
+            row["wall_clock_s"] = o.measured.get("wall_clock_s")
+        else:
+            row["cost_usd"] = round(cost_usd(o.usage, model), 6)
+            row["wall_clock_s"] = round(wall_clock_s, 3)
         for k in ("cache_creation_input_tokens", "cache_read_input_tokens"):
             if k in o.usage:
                 row[k] = o.usage[k]
@@ -907,25 +1040,41 @@ def build_report(
             row["discarded"] = o.discarded
         if o.emitted:
             row["path"] = str(run_dir / f"{o.id}.json")
-            row["quoted_spans"] = list(bank.quoted_outputs(o.question))  # for AC-73 at review
+            # For AC-73 at review: the quoted spans in the prose, and every trace value
+            # the model wrote, because a value can state an output under any name.
+            row["quoted_spans"] = list(dict.fromkeys([*bank.quoted_outputs(o.question), *_value_spans(o.question)]))
         rows.append(row)
     checks = honoured(request, outcomes)
-    return {
-        "run_id": run_id,
-        "numbers": "fixture" if fixture else "measured",
-        "numbers_note": (
-            "FIXTURE NUMBERS: tokens come from recorded fixtures, not from a real batch; "
-            "they are not a measurement"
-            if fixture
-            else "tokens as the batch reported them; cost is list price at the batch discount"
-        ),
-        "model": model,
-        "prices": {
+    totals: dict[str, Any] = {
+        "requested": request.count,
+        "emitted": sum(o.emitted for o in outcomes),
+        "reported": sum(not o.emitted for o in outcomes),
+        "input_tokens": sum(o.usage.get("input_tokens", 0) for o in outcomes),
+        "output_tokens": sum(o.usage.get("output_tokens", 0) for o in outcomes),
+    }
+    if per_candidate:
+        seconds = [r["wall_clock_s"] for r in rows if isinstance(r["wall_clock_s"], (int, float))]
+        totals["wall_clock_s"] = round(sum(seconds), 3)
+        prices: dict[str, Any] = {"basis": "the claude CLI's total_cost_usd per candidate: API-equivalent, not billed"}
+        wall_clock_basis = "one claude process per candidate: each row's wall-clock is that process's duration_ms"
+    else:
+        totals["cost_usd"] = round(sum(cost_usd(o.usage, model) for o in outcomes), 6)
+        totals["wall_clock_s"] = round(wall_clock_s, 3)
+        price_in, price_out = list_prices(model)
+        prices = {
             "input_per_mtok": price_in,
             "output_per_mtok": price_out,
             "basis": "list-price estimate",
             "batch_discount": BATCH_DISCOUNT,
-        },
+        }
+        wall_clock_basis = "one batch: every candidate's wall-clock is the batch's, from submit to seen ended"
+    report: dict[str, Any] = {
+        "run_id": run_id,
+        "backend": backend,
+        "numbers": numbers,
+        "numbers_note": NUMBERS_NOTES[numbers],
+        "model": model,
+        "prices": prices,
         "request": request.to_dict(),
         "capacity": {
             "source_lines": cap.source_lines,
@@ -938,22 +1087,23 @@ def build_report(
         "batch_id": batch_id,
         "resumed": resumed,
         "worst_case_usd": None if worst_case is None else round(worst_case, 4),
-        "wall_clock_basis": (
-            "one batch: every candidate's wall-clock is the batch's, from submit to seen ended"
-        ),
+        "wall_clock_basis": wall_clock_basis,
         "candidates": rows,
-        "totals": {
-            "requested": request.count,
-            "emitted": sum(o.emitted for o in outcomes),
-            "reported": sum(not o.emitted for o in outcomes),
-            "input_tokens": sum(o.usage.get("input_tokens", 0) for o in outcomes),
-            "output_tokens": sum(o.usage.get("output_tokens", 0) for o in outcomes),
-            "cost_usd": round(sum(cost_usd(o.usage, model) for o in outcomes), 6),
-            "wall_clock_s": round(wall_clock_s, 3),
-        },
+        "totals": totals,
         "honoured": checks,
         "not_honoured": [name for name, check in checks.items() if check["honoured"] is False],
     }
+    if stopped is not None:
+        report["stopped"] = stopped
+    if claude_bin is not None:
+        report["claude_bin"] = claude_bin
+    return report
+
+
+def _value_spans(question: Question | None) -> list[str]:
+    if question is None:
+        return []
+    return [v.now for step in question.trace.steps for v in step.values if v.now.strip()]
 
 
 # --------------------------------------------------------------------------- #
@@ -961,14 +1111,25 @@ def build_report(
 # --------------------------------------------------------------------------- #
 
 
+def check_candidates(count: int, max_candidates: int | None) -> None:
+    """The claude-cli backend's cap (PQ-69 ruling 4): required, no default, and a
+    run over it refuses rather than running part of what was asked."""
+    if max_candidates is None:
+        raise GenerateError(NO_CANDIDATE_CAP)
+    if max_candidates < 1:
+        raise GenerateError(f"Refusing to start: a candidate cap is at least 1, not {max_candidates}.")
+    if count > max_candidates:
+        raise GenerateError(over_candidate_cap(count, max_candidates))
+
+
 def run(
     request: RunRequest,
     *,
-    client_factory: Callable[[], BatchClient],
+    client_factory: Factory,
     out: Path,
     run_id: str,
-    fixture: bool,
     cap_usd: float | None = None,
+    max_candidates: int | None = None,
     model: str = DEFAULT_MODEL,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     room: audit.Room = audit.Room(),
@@ -978,28 +1139,40 @@ def run(
 ) -> dict[str, Any]:
     """One generation run, start to report. Re-running with the same `run_id` resumes.
 
-    Order matters and is the point: validate, build, check spend, *then* build the
-    client, write the state, submit, write the batch id. A refusal therefore happens
-    before a client exists, and a resumed run never reaches `submit`.
+    Order matters and is the point: validate, build, check the backend's cap, *then*
+    build the client, write the state, submit, write the batch id. A refusal
+    therefore happens before a client exists, and a resumed run never reaches
+    `submit`. Each backend has its own cap and refuses the other's: dollars for
+    Batches, a candidate count for claude-cli, which is checked again on a resume
+    because a resumed claude-cli run starts processes.
     """
     request.validate()
     if not _RUN_ID.match(run_id):
         raise GenerateError(f"A run id is lower-case letters, digits and dashes, not {run_id!r}.")
     if max_tokens < 1:
         raise GenerateError(f"max_tokens is at least 1, not {max_tokens}.")
+    backend, numbers = client_factory.backend, client_factory.numbers
+    if backend == CLAUDE_CLI:
+        if cap_usd is not None:
+            raise GenerateError(CLI_NO_USD)
+        check_candidates(request.count, max_candidates)
+    elif max_candidates is not None:
+        raise GenerateError(BATCHES_NO_MAX)
     cap = capacity(room)
     requests = build_requests(request, cap, model, max_tokens)
     if Path(out).resolve().is_relative_to(QUESTIONS_DIR.resolve()):
         raise GenerateError("Refusing to write candidates into bank/questions/; that is the bank.")
     run_dir = Path(out) / run_id
     state_path = run_dir / RUN_SUBDIR / STATE_FILE
-    # `fixture` is part of the identity so a replayed run id never resumes a real batch,
-    # nor a real one a fixture's.
+    # The backend and the kind of numbers are part of the identity, so a replayed run
+    # id never resumes a real batch, nor a real one a fixture's, nor either backend
+    # the other's run.
     identity = {
         "request": request.to_dict(),
         "model": model,
         "max_tokens": max_tokens,
-        "fixture": fixture,
+        "backend": backend,
+        "numbers": numbers,
     }
 
     worst: float | None = None
@@ -1017,9 +1190,12 @@ def run(
         client = client_factory()
         resumed = True
     else:
-        worst = check_spend(requests, cap_usd, fixture)
+        if backend == BATCHES:
+            worst = check_spend(requests, cap_usd, numbers == FIXTURE)
         client = client_factory()
-        state = {**identity, "status": "submitting", "worst_case_usd": round(worst, 4)}
+        state = {**identity, "status": "submitting"}
+        if worst is not None:
+            state["worst_case_usd"] = round(worst, 4)
         write_atomic(state_path, state)
         state["batch_id"] = client.submit(requests)
         state["submitted_at"] = clock()
@@ -1038,6 +1214,7 @@ def run(
     by_id: dict[str, Mapping[str, Any]] = {}
     for entry in client.results(batch_id):
         by_id.setdefault(str(entry.get("custom_id")), entry)
+    stopped = getattr(client, "stopped", None)
 
     talk_mode = request.talk is not None
     outcomes = []
@@ -1049,6 +1226,10 @@ def run(
             topic=request.topic_for(i),
             difficulty=request.difficulty,
         )
+        if stopped is not None and cid not in by_id:
+            outcome.reasons.append(NOT_RUN)
+            outcomes.append(outcome)
+            continue
         outcomes.append(classify(by_id.get(cid), outcome, talk_mode, cap, room))
 
     for outcome in outcomes:
@@ -1061,13 +1242,16 @@ def run(
         model=model,
         cap=cap,
         room=room,
-        fixture=fixture,
+        backend=backend,
+        numbers=numbers,
         batch_id=batch_id,
         resumed=resumed,
         worst_case=worst if worst is not None else state.get("worst_case_usd"),
         wall_clock_s=wall_clock,
         outcomes=outcomes,
         run_dir=run_dir,
+        stopped=stopped,
+        claude_bin=getattr(client, "binary", None),
     )
     write_atomic(run_dir / RUN_SUBDIR / REPORT_FILE, report)
     sweep_partials(run_dir)
@@ -1083,8 +1267,18 @@ def default_run_id(now: float | None = None) -> str:
     return "g" + time.strftime("%Y%m%d%H%M%S", time.gmtime(time.time() if now is None else now))
 
 
+def _row_dollars(row: Mapping[str, Any]) -> str:
+    if "cost_usd" in row:
+        return f"${row['cost_usd']:.4f}"
+    if isinstance(row.get("api_equivalent_usd"), (int, float)):
+        return f"API-equivalent ${row['api_equivalent_usd']:.4f}, not billed"
+    return "no API-equivalent figure reported"
+
+
 def print_report(report: Mapping[str, Any], out: Any = None) -> None:
     out = sys.stdout if out is None else out
+    if report.get("stopped"):
+        print(report["stopped"], file=out)
     print(report["numbers_note"], file=out)
     for row in report["candidates"]:
         line = f"{row['id']}: {row['status']}"
@@ -1094,14 +1288,15 @@ def print_report(report: Mapping[str, Any], out: Any = None) -> None:
             line += f" ({'; '.join(row['reasons'])})"
         if row.get("discarded"):
             line += f" [discarded: {'; '.join(row['discarded'])}]"
-        line += f" | {row['input_tokens']} in / {row['output_tokens']} out, ${row['cost_usd']:.4f}, {row['wall_clock_s']} s"
+        line += f" | {row['input_tokens']} in / {row['output_tokens']} out, {_row_dollars(row)}, {row['wall_clock_s']} s"
         print(line, file=out)
     totals = report["totals"]
-    print(
-        f"emitted {totals['emitted']} of {totals['requested']}, reported {totals['reported']}; "
-        f"${totals['cost_usd']:.4f} ({report['prices']['basis']}, batch discount), {totals['wall_clock_s']} s",
-        file=out,
-    )
+    summary = f"emitted {totals['emitted']} of {totals['requested']}, reported {totals['reported']}; "
+    if "cost_usd" in totals:
+        summary += f"${totals['cost_usd']:.4f} ({report['prices']['basis']}, batch discount), "
+    else:
+        summary += f"{totals['input_tokens']} in / {totals['output_tokens']} out tokens of subscription usage, "
+    print(summary + f"{totals['wall_clock_s']} s", file=out)
     for name, check in report["honoured"].items():
         mark = "n/a " if check["honoured"] is None else ("ok  " if check["honoured"] else "NOT ")
         print(f"{mark}{name}: {check['detail']}", file=out)
@@ -1109,17 +1304,26 @@ def print_report(report: Mapping[str, Any], out: Any = None) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """`python -m popquiz.generate`. Exit 0: every request honoured. 1: the run
-    finished and reported something it could not honour. 2: refused or failed."""
+    finished and reported something it could not honour, or stopped early. 2:
+    refused or failed."""
     parser = argparse.ArgumentParser(prog="generate", description=__doc__.splitlines()[0])
     parser.add_argument("--count", type=int, required=True)
     parser.add_argument("--difficulty", type=int, required=True)
     parser.add_argument("--topic", action="append", default=[], help="repeat for several")
     parser.add_argument("--talk-title")
     parser.add_argument("--talk-abstract")
-    parser.add_argument("--cap-usd", type=float, default=None, help="spend cap for a paid run; no default")
+    parser.add_argument(
+        "--backend", choices=BACKENDS, default=BATCHES,
+        help="batches (the default): the Message Batches API; claude-cli: headless Claude Code on a subscription",
+    )
+    parser.add_argument("--cap-usd", type=float, default=None, help="batches: spend cap for a paid run; no default")
+    parser.add_argument(
+        "--max-candidates", type=int, default=None, help="claude-cli: the most candidates a run may ask for; no default"
+    )
+    parser.add_argument("--claude-bin", default=None, help="claude-cli: the claude executable; default: claude on PATH")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
-    parser.add_argument("--replay", type=Path, help="a recorded batch fixture; no API, no key")
+    parser.add_argument("--replay", type=Path, help="batches: a recorded batch fixture; no API, no key")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--run-id", default=None, help="resume this run, or name a new one")
     parser.add_argument("--poll-interval-s", type=float, default=DEFAULT_POLL_INTERVAL_S)
@@ -1141,25 +1345,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.talk_title is not None or args.talk_abstract is not None:
         talk = Talk(args.talk_title or "", args.talk_abstract or "")
     request = RunRequest(count=args.count, difficulty=args.difficulty, topics=tuple(args.topic), talk=talk)
+    run_id = args.run_id or default_run_id()
 
+    # One backend per run, named on the command line. Each factory builds exactly one
+    # client type and nothing here builds another after a failure: neither backend
+    # ever falls back to the other (PQ-69 ruling 1).
     replay = args.replay
-    fixture = replay is not None
+    if args.backend == CLAUDE_CLI:
+        if replay is not None:
+            print(f"generate: {CLI_NO_REPLAY}", file=sys.stderr)
+            return 2
+        from popquiz import generate_cli
 
-    def client_factory() -> BatchClient:
+        cache_dir = Path(args.out) / run_id / RUN_SUBDIR / CLI_SUBDIR
+        claude_bin = args.claude_bin
+        factory = Factory(
+            generate_cli.ClaudeCliClient, lambda: generate_cli.ClaudeCliClient(claude_bin, cache_dir)
+        )
+    elif args.claude_bin is not None:
+        print(f"generate: {BATCHES_NO_CLAUDE_BIN}", file=sys.stderr)
+        return 2
+    elif replay is not None:
         # `--replay` is the only way to a fixture client, and a fixture run never
         # builds the real one, whatever the environment holds.
-        if replay is not None:
-            return ReplayBatchClient(replay)
-        return AnthropicBatchClient(os.environ.get("ANTHROPIC_API_KEY"))
+        factory = Factory(ReplayBatchClient, lambda: ReplayBatchClient(replay))
+    else:
+        factory = Factory(AnthropicBatchClient, lambda: AnthropicBatchClient(os.environ.get("ANTHROPIC_API_KEY")))
 
     try:
         report = run(
             request,
-            client_factory=client_factory,
+            client_factory=factory,
             out=args.out,
-            run_id=args.run_id or default_run_id(),
-            fixture=fixture,
+            run_id=run_id,
             cap_usd=args.cap_usd,
+            max_candidates=args.max_candidates,
             model=args.model,
             max_tokens=args.max_tokens,
             room=room,
@@ -1170,7 +1390,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     print_report(report)
     print(f"report: {Path(args.out) / report['run_id'] / RUN_SUBDIR / REPORT_FILE}")
-    return 1 if report["not_honoured"] else 0
+    return 1 if report["not_honoured"] or report.get("stopped") else 0
 
 
 if __name__ == "__main__":

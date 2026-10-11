@@ -66,7 +66,7 @@ test-web:
 #
 # Everything that exists today, then an honest list of what does not.
 # Green by contract: the pending suites are named here, never invoked here.
-test-full: test sandbox-build test-sandbox test-verify-full test-transport-full (canary "--full-only") harness-full
+test-full: test sandbox-build test-sandbox test-verify-full test-generate-full test-transport-full (canary "--full-only") harness-full
     #!/usr/bin/env bash
     set -euo pipefail
     (cd room && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
@@ -145,6 +145,12 @@ test-sandbox:
 # directory's own switch, so `test-sandbox` stays the containment suite alone.
 test-verify-full: sandbox-build
     cd pipeline && POPQUIZ_SANDBOX_SUITE=1 POPQUIZ_VERIFY_FULL=1 uv run --no-sync pytest tests/sandbox/verify -vv
+
+# AC-2 with a real kill (PQ-68 F3): the generator as its own process on the
+# claude-cli backend, SIGKILLed mid-candidate and rerun, against the fake claude.
+# Real processes, so not `test`; no container and no real claude, so no image.
+test-generate-full:
+    cd pipeline && POPQUIZ_SANDBOX_SUITE=1 POPQUIZ_GENERATE_FULL=1 uv run --offline --no-sync pytest tests/sandbox/generate -vv -s
 
 # Build the verification image from pin.toml, then report what it actually says.
 #

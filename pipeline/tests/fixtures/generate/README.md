@@ -30,3 +30,29 @@ machine decides that, later, in `verify` (AC-7). These files never reach
 | `trace-drafts.json` | Drafted traces: a candidate that runs (q3's bank source) whose offered `stdout` value is discarded and reported, and which the verifier fills on the stub Runner; one that does not compile (q8's bank source) with no `stdout` row; a one-step trace and a step past the last source line, both reported (option b) |
 
 The first paid run (HC-2) is the first time a real batch replaces any of this.
+
+## `claude/` — the claude-cli backend (PQ-69)
+
+`fake_claude.py` stands in for the `claude` executable. A test puts a wrapper for it
+first on `PATH`, and it answers each prompt from one of the scripts below. It records
+its argv, its cwd, its prompt and the **names** of the environment variables it saw,
+never their values.
+
+**These are not recordings either.** Each answer is hand-built in the shape the Claude
+Code documentation gives for `claude -p --output-format json` with `--json-schema`:
+`type`, `subtype`, `is_error`, `result` or `errors`, `structured_output`,
+`duration_ms`, `total_cost_usd` and `usage`. No real `claude` produced any of them.
+Two things are **documented, not observed** until HC-2:
+
+- the key names inside `usage`;
+- what a usage-limit failure looks like as JSON. The docs give only its message text.
+
+The candidates are `clean.json`'s.
+
+| Script | What it proves |
+|---|---|
+| `cli-clean.json` | Three clean candidates: emitted, with the CLI's tokens, `duration_ms` and `total_cost_usd` reported as API-equivalent |
+| `cli-invalid.json` | A structured output that fails the generator's own validation is reported; the CLI giving up on a schema-valid answer (`error_max_structured_output_retries`) is reported; the run goes on |
+| `cli-usage-limit.json` | A session-limit result (exit 1, `is_error`) stops the run at c02; c01 is kept, c03 is never asked for, and a rerun picks up the rest |
+| `cli-nonzero-exit.json` | A process that exits 2 with no JSON stops the run at the first candidate |
+| `cli-records-argv-and-env.json` | Clean answers; the test reads what the fake recorded: the flags, the empty cwd, the brief on stdin, and no billing variable in the child's environment |

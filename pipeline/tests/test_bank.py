@@ -351,6 +351,27 @@ def test_a_does_not_compile_question_may_trace_without_naming_stdout() -> None:
     validate_question(_question(verified=REFUSED, trace=trace))
 
 
+@pytest.mark.parametrize("name", ["stdout", " Stdout "])
+@pytest.mark.parametrize("verified", [None, "ran", "refused"])
+def test_a_stdout_row_on_any_step_but_the_last_is_refused(tmp_path, name, verified) -> None:
+    """PQ-68 F2: only the last step resolves, and only the verifier writes its
+    `stdout` row, so a row on an earlier step is an unobserved claim about the
+    output. Refused on load and save, whatever the record says; never stripped."""
+    record = {None: None, "ran": RAN, "refused": REFUSED}[verified]
+    trace = Trace(
+        steps=(
+            TraceStep(lines=(1,), focus=(1, 1), note="first", values=(ValueDelta(name, "—", "1"),)),
+            TraceStep(lines=(2,), focus=(1, 2), note="last", values=(ValueDelta("stdout", "—", "1"),)),
+        )
+    )
+    q = _question(verified=record, trace=trace)
+    with pytest.raises(BankError, match="trace step 1 names 'stdout'"):
+        validate_question(q)
+    with pytest.raises(BankError, match="trace step 1 names 'stdout'"):
+        save_question(tmp_path, q)
+    assert not (tmp_path / "questions").exists()
+
+
 def _drafted_trace() -> Trace:
     """A trace as the generator drafts it: steps, and no `stdout` row, which only
     the verifier writes (T-16, option b)."""

@@ -30,7 +30,7 @@ so the interpreter and every dependency are the same everywhere.
 | `receipt` | `SPEC.md` §7.5's receipt as a pure function of a `verified` record | T-14 |
 | `migrate_mvp` | One-shot: the August batch into the bank as `legacy` records | T-14 |
 | `runner` | The seam the verifier reaches a toolchain through | T-01 |
-| `generate` | Candidates from the Message Batches API, in the bank's shape, with a run report; proven on fixtures, never yet run against the API | T-16 |
+| `generate` | Candidates in the bank's shape, with a run report, from the Message Batches API or from headless `claude -p` on a subscription (`generate_cli`); proven on fixtures and a fake `claude`, neither yet run for real | T-16 |
 | `verify` | Pinned `rustc`, N native runs, Miri — the machine decides the answer | T-15b |
 | `dedupe` | Exact, normalized, and near-duplicate detection | T-17 |
 | `review` | The organizer's screen: accept, reject, edit, affirm | T-18 |
@@ -41,9 +41,16 @@ so the interpreter and every dependency are the same everywhere.
 
 ## Generating
 
-**The generator has never called the API.** Everything below has run against
-recorded fixtures only; the first paid run is the client's (HC-2), and it needs
-H-4: an Anthropic API key and a spend cap.
+**The generator has never called a model.** It has two backends, chosen with
+`--backend`, and neither ever falls back to the other:
+
+- `batches` (the default): the Message Batches API. It needs H-4, an Anthropic API
+  key and a spend cap.
+- `claude-cli`: headless Claude Code (`claude -p`) on a logged-in subscription. It
+  runs one process per candidate and needs a candidate cap.
+
+Everything below has run against recorded fixtures and a fake `claude` only. The
+first real run of either is the client's (HC-2).
 
 Against a fixture, from the repository root — no key, no network, no cost:
 
@@ -75,6 +82,42 @@ discount) is over it, refuses in one sentence before anything is built or sent. 
 model is one configured value, `claude-opus-5-5` (the client's ruling of 2026-10-10).
 A run that is killed resumes with `--run-id <id>`: it picks up the batch already
 submitted and never pays for a second one.
+
+### On the subscription (`--backend claude-cli`)
+
+**This backend has never made a real call.** Its tests run a fake `claude` that
+answers in the shape the Claude Code docs describe for `--output-format json`. Log
+in once with `claude` (`/login`), then:
+
+    just generate --backend claude-cli --max-candidates 10 \
+      --count 10 --topic ownership --difficulty 2
+
+**The billing trap.** If `ANTHROPIC_API_KEY` is set, `claude -p` uses it and bills the
+API, not the plan. The generator starts each `claude` with a copy of its own
+environment from which every `ANTHROPIC_*`, `CLAUDE_CODE_USE_*` and
+`AWS_BEARER_TOKEN_BEDROCK` variable is removed. It also passes flags that load no
+settings, CLAUDE.md, hooks, MCP servers, plugins or tools, and it never passes
+`--bare`, which can only use the API key. Still, run it from a shell without the
+key. At the first run (HC-2), check two things:
+
+- `claude` accepts `--setting-sources ""`;
+- the run shows up as subscription usage, not API usage.
+
+`--max-candidates` has no default, and a run asking for more refuses in one
+sentence. `--cap-usd` is the batches backend's cap; a `claude-cli` run refuses it,
+so nobody believes a subscription run is dollar-capped.
+
+A non-zero exit, an error result (a usage or rate limit, say) or a timeout stops
+the run at that candidate. There is no retry. The candidates already finished are
+written, and rerunning with the same `--run-id` picks up the rest. Killing the
+generator itself (`kill -9`) cannot reach the `claude` it was waiting on. That one
+candidate finishes on plan usage, and the rerun asks for it again.
+
+The report gives each candidate's tokens, `duration_ms` and the CLI's
+`total_cost_usd`. The dollars are labelled API-equivalent, not billed, and they are
+never added up.
+
+### The answer is never the model's
 
 The model's own idea of what a program prints is never written as an answer: there
 is no field for it, and option order means nothing (the night's order is drawn from
