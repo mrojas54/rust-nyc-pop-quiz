@@ -1,0 +1,45 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-10-11T17:02:54Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "Client ruling 2026-10-11: the generator gets a second backend, headless Claude Code (claude -p) on the client's subscription. Message Batches stays. AC-1-5 apply unchanged (SPEC 7.1 names no transport).\n\nRulings:\n1. One more client behind PQ-21's submit/poll/results seam. Backend is an explicit config value or flag (batches | claude-cli). Batches stays the default. Neither backend ever falls back to the other.\n2. One process per candidate: claude -p --model <the one model config value> --output-format json --json-schema <the candidate schema>, prompt on stdin, cwd an empty temp dir, no tools (--tools \"\"), --no-session-persistence. No hooks, CLAUDE.md, MCP servers or plugins may load. Check which flags achieve that against claude --help on this machine and record the check in the PR. Never --bare: it uses only ANTHROPIC_API_KEY and skips the keychain, so it cannot reach the subscription.\n3. Billing guard: the child env is a copy with ANTHROPIC_API_KEY (and ANTHROPIC_AUTH_TOKEN) removed. If it is present, claude -p bills the API instead of the plan. A test asserts the child never sees it. The code never reads or logs the key.\n4. Usage cap: a required max-candidates-per-run with no default. Refuse before the first call if it is unset. A usage-limit or rate-limit error stops the run cleanly: completed candidates are written atomically and a rerun picks up the rest (AC-2).\n5. AC-5 report: tokens and wall-clock as measured. Cost is claude's total_cost_usd, labelled API-equivalent, not billed. Never present it as spend.\n6. Unchanged from PQ-21: model-claimed output never lands in an answer field; verify writes the stdout row; capacity facts and the 11.1 patterns are in the brief; report, never trim.\n7. Hermetic tests: a fake claude executable on PATH, replaying the fixtures. No real claude -p call from just test, CI or the delegator. The first real run is the client's, and it is reviewed under HC-2.\n8. Contract, in this PR: replace BUILDPLAN D-D's first paragraph's model line and add this amendment under D-D, verbatim: '*Amended 2026-10-11 (client).* The model is Claude Opus 5.5 (claude-opus-5-5, $4 in / $20 out per million tokens list). A second backend runs headless Claude Code (claude -p) on the client's subscription, behind the same seam: no API key and no batch discount; it consumes plan usage, so its cap is a candidate count and its per-candidate cost is reported as API-equivalent, not spend. The child process never sees ANTHROPIC_API_KEY, or the run bills the API. Neither backend falls back to the other.' Update the T-16 row's human-track note to 'API key and spend cap (batches) or a logged-in claude CLI (claude-cli)'. Add one line to ECONOMICS: subscription runs consume plan usage, not dollars.\n9. A short operator note in the pipeline README covering how to run each backend, and the ANTHROPIC_API_KEY billing trap.\n\nSerialized with PQ-68 (held) on generate.py and pyproject.toml.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M4NYNQ557NVEAGHNKHWPTGKN",
+  "last_event_id": "ev_01M4NYNTWNKJE191SJJY799VRM",
+  "last_status_changed_at": "2026-10-11T17:02:54Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-10-11T17:02:58Z",
+      "created_by": "agent:orchestrator",
+      "note": null,
+      "target_task_id": "task_01M309ZRPH9SQBMEDMGK42J1ZH",
+      "type": "related_to"
+    },
+    {
+      "created_at": "2026-10-11T17:02:58Z",
+      "created_by": "agent:orchestrator",
+      "note": null,
+      "target_task_id": "task_01M4NY6ZT9W4Q4GXZPB0TYD2VN",
+      "type": "related_to"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-69",
+  "status": "planned",
+  "tags": [
+    "m3",
+    "inline-full",
+    "pyproject"
+  ],
+  "title": "Generator: a claude -p client on the subscription, beside Message Batches",
+  "type": "task",
+  "updated_at": "2026-10-11T17:02:58Z",
+  "urgency": null
+}
