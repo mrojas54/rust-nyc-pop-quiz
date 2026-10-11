@@ -91,7 +91,7 @@
     var colour = PQ.colourAllowed(phase);
     var lines = sourceLines(code);
     var width = String(lines.length).length + "ch";
-    var label = opts.label || "Source code";
+    var label = opts.label || PQ.t("proposed_well_label");
 
     var body = lines.map(function (line, i) {
       var n = i + 1;

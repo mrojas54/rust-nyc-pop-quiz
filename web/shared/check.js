@@ -57,7 +57,7 @@
      announced text. */
   function glyphHtml(opts) {
     var esc = PQ.escapeHtml || function (s) { return String(s); };
-    var srLabel = opts.srLabel === undefined ? "Correct" : opts.srLabel;
+    var srLabel = opts.srLabel === undefined ? PQ.t("proposed_check_correct") : opts.srLabel;
     return '<span class="rn-check" aria-hidden="true">' + CHECK + "</span>" +
            (srLabel ? '<span class="sr-only">' + esc(srLabel) + "</span>" : "");
   }

@@ -111,6 +111,9 @@ day, because the segment dies the first time it does.*
 | **AC-75** | The bank maintains a **reserve** of verified, reviewed, unused questions. The reserve size and its trend are visible at a glance. |
 | **AC-76** | Falling below the reserve threshold warns the organizer with enough lead time to act — not on the day. |
 | **AC-77** | A meetup can run entirely from reserve with **zero generation that day**, using no network beyond serving the room. |
+| **AC-103** | **A club hosts only with its own role.** The room serves several clubs from one Discord server. An organizer names a club when they create a room, and hosting requires the role ID configured for *that* club (AC-65 stands: the role ID in `roles`). The role of another club grants nothing, and an unknown club is refused exactly as a missing role is, so the refusal does not reveal which clubs exist. *Minted 2026-10-09, D-26.* |
+| **AC-104** | **Two clubs can run the same question.** The question bank is shared. Two clubs may hold a room on the same question at the same time, and one club's room never shows another's wall, answers or take-it-home page. *Minted 2026-10-09, D-26.* |
+| **AC-105** | **Never twice is per club.** A question is *used* for a club when that club's room releases it (G-10). It is refused to that club thereafter and stays available to every other club. *Minted 2026-10-09, D-26.* |
 | **AC-102** | **If the room cannot run, the segment still can.** The wall's views for the scheduled question are available as one file that opens on the organizer's laptop with no network, is stepped from the keyboard in the room's phase order, and obeys the same rules as the room's wall: no answer, receipt, ✓ or colour before the views that may show them (AC-97, AC-99). It comes with a plain-text host sheet of the explanation beats and each step's words, so the host has something to read when there is no host phone (AC-39). *Minted 2026-09-19, `tone-architect`, from the static fallback that `SPEC.md` §12 specified and no criterion covered — AC-77's spirit, made testable.* |
 
 ---
@@ -721,6 +724,7 @@ re-judged.
 |---|---|---|
 | **AC-6** | **Status corrected, text unchanged.** The `MVP` tag is withdrawn. | The MVP records `rustc --version` and pins nothing: it runs whichever `rustc` is on `PATH` and compares no version. A criterion cannot be *satisfied by the deck* when the deck never did the thing it names. |
 | **AC-87** | **Amended twice.** A record that predates triple capture says the machine was not recorded and claims nothing wider; a does-not-compile record makes no determinism claim (D-22); and the receipt now scopes the claim in plain words, with the triple on take-it-home (D-23). Original kept in the row. **Answered 2026-09-19 — touchpoint T-23.** | The eight MVP verifications have no target triple, and back-filling one would be a hand-written fact (AC-7's spirit). Without an exception the receipt either overstates or cannot render. |
+| **AC-103…105** | **Minted 2026-10-09**, Story C2 (D-26). AC-64, AC-65, AC-70 and AC-92 keep their meaning and are read *per club*: "the configured role" is the named club's role, and "one question per meetup" is one per club's meetup. | Another club wants the same questions on the same Discord server. |
 | **AC-101** | **Minted**, Story C2. | The laptop-to-server push had no credential and no owner. |
 | **AC-102** | **Minted**, Story A7; **amended the same day** after touchpoint T-24 (*yes, the printable sheet*) to include the host sheet. | The static fallback was specified and had no criterion, and the minimum viable cut leans on it. With no host phone the host had nowhere to read the beats from, and the wall must not show them. |
 
@@ -745,4 +749,4 @@ than say *verified*. The three sentence strings became a step list.
 *Minted 2026-08-11, Stage 1 Phase 3; reviewed at Phase 4 the same day.
 `tone-prototype` is licensed to reopen and extend this file; new criteria take
 fresh IDs and existing IDs never change meaning after handoff. Range is now
-AC-1 … AC-102 across 20 stories.*
+AC-1 … AC-105 across 20 stories.*

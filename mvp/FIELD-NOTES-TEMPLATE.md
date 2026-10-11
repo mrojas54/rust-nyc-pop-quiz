@@ -4,6 +4,7 @@ Instrument **and** capture form. Copy to `mvp/<YYYY-MM-DD>/field-notes.md`, fill
 the blanks in place, and that copy becomes the evidence.
 
 **Runner:** `______________________`  **Date:** `__________`  **Question:** `______`
+**Condition:** `the deck, hands only / the built room, phones`
 
 **This does not have to be run by the client.** Everything below is written so a
 co-organizer can run it cold. If you are a co-organizer picking this up: you are
@@ -17,6 +18,9 @@ Stories B1 and B5 survive, which is most of the build.
 **A hand-run projector deck with no phones is the hands-only condition** those
 stories hang on. You do not have to set anything up to test it; you only have to
 watch.
+
+A night on the built room is the phones condition: the host runs it from
+`docs/RUNBOOK.md`, and *Condition* above says which one this sheet records.
 
 ---
 

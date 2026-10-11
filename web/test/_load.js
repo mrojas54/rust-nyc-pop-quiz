@@ -21,15 +21,21 @@ const SHARED = path.join(__dirname, '..', 'shared');
 // and phase.js supplies the predicates. In a browser the <script> tags compose
 // in any order because every module reads PQ.* at call time, not at load time;
 // these lists are written in the order a page would sensibly write them.
+//
+// check.js, well.js and trace.js read their words from copy.js at call time
+// (T-22: every participant-facing string is a copy key), so their groups carry
+// copy.js, as every page that loads them does.
 const MODULES = {
   dom: ['dom.js'],
   phase: ['phase.js'],
-  check: ['dom.js', 'check.js'],
-  well: ['dom.js', 'phase.js', 'well.js'],
-  trace: ['dom.js', 'phase.js', 'well.js', 'trace.js'],
-  typemodel: ['dom.js', 'phase.js', 'well.js', 'typemodel.js'],
+  check: ['dom.js', 'copy.js', 'check.js'],
+  well: ['dom.js', 'phase.js', 'copy.js', 'well.js'],
+  trace: ['dom.js', 'phase.js', 'copy.js', 'well.js', 'trace.js'],
+  typemodel: ['dom.js', 'phase.js', 'copy.js', 'well.js', 'typemodel.js'],
   copy: ['copy.js'],
-  all: ['dom.js', 'phase.js', 'check.js', 'well.js', 'trace.js', 'typemodel.js', 'copy.js'],
+  // Test-only, so it lives beside the tests (web/shared holds what pages load).
+  copylint: ['../test/copylint.js'],
+  all: ['dom.js', 'phase.js', 'check.js', 'well.js', 'trace.js', 'typemodel.js', 'copy.js', '../test/copylint.js'],
 };
 
 // A document stub with just enough surface for what web/shared touches:

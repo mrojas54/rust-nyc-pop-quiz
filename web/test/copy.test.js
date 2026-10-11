@@ -1,13 +1,11 @@
 // The copy module: completeness against SPEC §11, and cleanliness against the
 // two lints that police it.
 //
-// SCOPE. T-22 owns the forbidden-copy lint (G-5, AC-98) and the trope check
-// (§11.1) as reusable tools, and owns AC-42's row. What is here is the
-// patterns applied to THIS module's own strings, because shipping a copy module
-// nobody has checked against the lints written to police it would hand T-22 a
-// red suite on arrival. The retired-strings fixture below is what makes the
-// clean assertion mean anything: without it, "no entry matches" could pass
-// because the patterns were transcribed wrong.
+// SCOPE. The lints themselves (the Forbidden row, G-5 and AC-98; the §11.1
+// trope check, AC-42) are T-22's one source, web/test/copylint.js, and run over
+// this module in copylint.test.js. This file is about the module's shape: every
+// §11 row has its keys, every key has a row, placeholders, lookup, and the
+// PROPOSED-§11 block's limits.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -84,8 +82,48 @@ test('the client\'s own lines are hers, exactly', () => {
   assert.strictEqual(COPY.wall_released_title, "Let's go to the bar.");
 });
 
-test('the released buzzer says nothing about you was recorded', () => {
-  assert.strictEqual(COPY.buzzer_released, 'Nothing about you was recorded.');
+test('the host page is headed by the wordmark, Host beneath', () => {
+  assert.strictEqual(COPY.title_wordmark, 'Rust NYC Pop Quiz');
+  assert.strictEqual(COPY.host_title_role, 'Host');
+});
+
+// PQ-34, HC-0 (2026-09-27): "remove any text that is absolutely unnecessary.
+// no need to narrate the demo." These keys are gone and their strings with
+// them; a line that comes back has to come back through SPEC §11.
+const REMOVED = {
+  buzzer_join_beneath: 'or open the link on the screen',
+  buzzer_foot: 'no account · no name · no score',
+  buzzer_split_lookup: 'Look up.',
+  buzzer_split_where: 'Where the room landed.',
+  buzzer_split_said: 'people said ‹X›, including you.',
+  buzzer_split_readings: 'Five different readings. Nobody knows what anyone picked.',
+  buzzer_work_walking: "We're walking it through.",
+  buzzer_work_nothing: 'Nothing to do. Nobody knows the answer yet.',
+  buzzer_reveal_on_screen: 'The answer is on the screen.',
+  buzzer_reveal_company: 'You and ‹n−1› other people read it the same way.',
+  buzzer_reveal_company_one: 'You and 1 other person read it the same way.',
+  buzzer_reveal_host_reading: 'The host is reading out the why now.',
+  buzzer_reveal_only_one: 'You were the only one who read it that way.',
+  buzzer_noanswer_count: "‹k› people didn't answer, you included.",
+  buzzer_noanswer_reveal: '✓ It was ‹Y›. The host is reading out the why now.',
+  buzzer_foot_computed: 'computed on this phone · never sent anywhere',
+  buzzer_released: 'Nothing about you was recorded.',
+  buzzer_hint_shown: 'Only you can see this. Nobody is told you looked.',
+  wall_work_lead: "Let's walk it.",
+  wall_work_no_answer: 'Still no answer.',
+  wall_work_nobody: 'Nobody has to say anything.',
+  wall_released_line: 'the question, the walk-through and the why — at your own pace.',
+  host_first_resume: 'If you lose this phone, open this on another one: ‹resume link›',
+  not_a_guarantee_options_public: 'Option text is public — the correct answer is always one of the five visible options.',
+  not_a_guarantee_host_honest: "A host who reads Rust can work out the answer from the source; the host's not being shown it keeps the host honest, it is not a security guarantee.",
+};
+
+test('PQ-34: the removed keys and their strings are gone', () => {
+  for (const [key, str] of Object.entries(REMOVED)) {
+    assert.ok(!Object.prototype.hasOwnProperty.call(COPY, key), `${key} is back`);
+    assert.ok(!Object.values(COPY).includes(str), `"${str}" is back under another key`);
+  }
+  assert.strictEqual(COPY.buzzer_idle, "You're in.");
 });
 
 test('the receipt heading and its two lists are §7.5\'s', () => {
@@ -107,127 +145,54 @@ test('no wall receipt line ends in terminal punctuation or claims a result', () 
   }
 });
 
-// --- the forbidden-copy lint (G-5, AC-98) -----------------------------------
+// --- the two lints --------------------------------------------------------------
 
-// SPEC §11's Forbidden row, verbatim. The one normative list.
-const FORBIDDEN = [
-  /turn to/i,
-  /ask (someone|the person|your neighbou?r)/i,
-  /find someone/i,
-  /volunteer/i,
-  /who (said|picked|chose)/i,
-  /\bwrong\b/i,
-  /\bincorrect\b/i,
-  /✗/,
-  /argu/i,
-];
-
-test('no string obliges anyone to speak, and none says wrong (AC-98)', () => {
-  for (const [key, value] of entries()) {
-    for (const pattern of FORBIDDEN) {
-      assert.ok(!pattern.test(value), `${key} matches ${pattern}: ${JSON.stringify(value)}`);
-    }
-  }
-});
-
-test('the forbidden patterns actually fire', () => {
-  // Otherwise the assertion above passes on a broken transcription.
-  const shouldFail = [
-    'turn to the person beside you',
-    'ask your neighbour what they picked',
-    'find someone who chose differently',
-    'any volunteers?',
-    'who said B?',
-    'that answer is wrong',
-    'that answer is incorrect',
-    '✗ not that one',
-    'the argument is subtle',
-  ];
-  for (const s of shouldFail) {
-    assert.ok(FORBIDDEN.some((p) => p.test(s)), `nothing caught: ${s}`);
-  }
-});
-
-test('the two allowed near-misses stay allowed', () => {
-  // §11: the wall's "‹n› of us said ‹X›" and the host's "Why ‹n› of us said
-  // ‹X›" do not match who (said|picked|chose) and are allowed.
-  for (const s of [COPY.wall_reveal_most_chosen, COPY.host_reveal_beat_why]) {
-    assert.ok(!/who (said|picked|chose)/i.test(s), s);
-  }
-});
+// The Forbidden row and the §11.1 trope check run over this module from their
+// one source, web/test/copylint.js, in web/test/copylint.test.js: patterns
+// pinned to SPEC.md, the shared fixtures, and a failure on any match in any
+// entry here. This file keeps only what is about the module's own shape.
 
 test('no ✗ appears anywhere', () => {
-  // DESIGN.md: "No ✗, anywhere." AC-94.
+  // DESIGN.md: "No ✗, anywhere." AC-94. (Also forbidden/8; kept as its own
+  // line because it is a design rule as much as a lint.)
   for (const [key, value] of entries()) {
     assert.ok(!value.includes('✗'), key);
   }
 });
 
-// --- the trope check (§11.1) ------------------------------------------------
+// --- PROPOSED-§11 -----------------------------------------------------------------
 
-// SPEC §11.1's patterns, grouped as the spec groups them. A match in the copy
-// module fails the build.
-const TROPES = {
-  contrast: [
-    /\b(it'?s|it is|that'?s|that is|this is) not\b[^.!?]{0,90}(—|;|,|:)\s*(it'?s|it is|that'?s|that is|this is|but)\b/i,
-    /\bnot (just|only|merely|simply)\b/i,
-    /(^|[.!?]\s+)not (the|a|an|your|our|every|any)\b/i,
-    /\bnot\b[^.!?]{0,40},\s*not\b[^.!?]{0,40},\s*not\b/i,
-    /\b(listen|look|read|think),? (don'?t|do not)\b/i,
-  ],
-  filler: [
-    /\b(genuinely|truly|honestly|quietly|extremely|deeply|fundamentally|literally)\b/i,
-    /\bdoing (all|the) (the )?work\b/i,
-  ],
-  signpost: [
-    /\bworth (a|the|stopping|talking|noting|remembering)\b/i,
-    /\b(here'?s|here is) the (thing|whole idea)\b/i,
-    /\bthe (important|key) (word|thing|part)\b/i,
-    /\bif you remember one thing\b/i,
-  ],
-  reassurance: [
-    /\bthat'?s (fine|okay|ok|totally fine)\b/i,
-    /\bit'?s (fine|okay|ok|normal) to\b/i,
-    /\bnothing is missing\b/i,
-    /\bdon'?t worry\b/i,
-  ],
-  flattery: [
-    /\bmost (interesting|impressive|clever|insightful)\b/i,
-  ],
-};
+const PROPOSED_ROW = 'PROPOSED-§11 (not yet in SPEC)';
 
-test('no entry reads as generated (§11.1)', () => {
-  for (const [key, value] of entries()) {
-    for (const [group, patterns] of Object.entries(TROPES)) {
-      for (const p of patterns) {
-        assert.ok(!p.test(value), `${key} matches ${group} ${p}: ${JSON.stringify(value)}`);
-      }
-    }
+test('the PROPOSED-§11 row holds exactly the proposed_ keys, and no §11 row holds one', () => {
+  // The block is for strings a page already said before T-22 moved them here,
+  // waiting for §11 to adopt them. It must not become a place to author copy.
+  const proposed = Object.keys(COPY).filter((k) => k.startsWith('proposed_'));
+  assert.deepStrictEqual([...ROWS[PROPOSED_ROW]].sort(), proposed.sort());
+  for (const [row, keys] of Object.entries(ROWS)) {
+    if (row === PROPOSED_ROW) continue;
+    assert.ok(!keys.some((k) => k.startsWith('proposed_')), row);
   }
 });
 
-test('every trope group fires on the retired strings (AC-42)', () => {
-  // EVALUATION.md AC-42's fixture: the strings this project actually wrote and
-  // then cut. If a group does not fire here, its patterns are transcribed
-  // wrong and the clean assertion above is vacuous.
-  const RETIRED = [
-    'That is not a room getting it wrong — that is a room…',
-    'Not the explanation — that one is human',
-    "listen, don't read",
-    "that's fine",
-    'the most interesting answer in the room',
-    'The word doing all the work',
-    'The bit worth talking about',
-  ];
-  for (const [group, patterns] of Object.entries(TROPES)) {
-    const fired = RETIRED.some((s) => patterns.some((p) => p.test(s)));
-    assert.ok(fired, `the ${group} group fires on none of the retired strings`);
-  }
-  // And every retired string is caught by something.
-  const all = Object.values(TROPES).flat();
-  for (const s of RETIRED) {
-    assert.ok(all.some((p) => p.test(s)), `nothing caught: ${s}`);
-  }
+test('the PROPOSED-§11 strings are the words the pages used, unchanged', () => {
+  // F-34 (home.js), F-38 (trace.js), and the three T-22 found. A change of
+  // words is a §11 decision, not an edit here.
+  assert.deepStrictEqual(Object.fromEntries(ROWS[PROPOSED_ROW].map((k) => [k, COPY[k]])), {
+    proposed_home_nothing_yet: 'Welcome to the POP QUIZ',
+    proposed_home_miri_separately: 'run separately',
+    proposed_home_row_compiler: 'compiler',
+    proposed_home_row_edition: 'edition',
+    proposed_home_row_target: 'target',
+    proposed_home_row_flags: 'flags',
+    proposed_home_row_miri: 'miri',
+    proposed_home_miri_seeds: 'seeds',
+    proposed_trace_previous_step: 'previous step',
+    proposed_trace_next_step: 'next step',
+    proposed_trace_value_now: '‹name› is now ‹now›',
+    proposed_check_correct: 'Correct',
+    proposed_well_label: 'Source code',
+  });
 });
 
 // --- placeholders and lookup ------------------------------------------------

@@ -17,6 +17,7 @@ room.
 | [`sequence/research/00-synthesis.md`](sequence/research/00-synthesis.md) | Phase 2 fold-back — what the research changed and why the shape is what it is. |
 | [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate, attendees. |
 | [`mvp/README.md`](mvp/README.md) | The hand-run projector deck. How to run it at a meetup. |
+| [`docs/adr/`](docs/adr/) | Architecture decision records, with diagrams. ADR-0001: several clubs share one room server (D-26). |
 
 ## Standing of `PRD.md`
 

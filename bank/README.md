@@ -8,8 +8,9 @@ diffable, with no server in front of it (BUILDPLAN D-C).
 | `questions/<id>.json` | one question — `SPEC.md` §3.1, with its §3.2 `verified` record | the pipeline; **T-14** migrated the four that are here |
 | `schema/question.schema.json` | the published shape of that file | by hand, kept in step with the types by a test — see below |
 | `history.json` | dedupe's memory across runs: exact hashes, normalized-AST fingerprints, token-bigram sets (§3.3) | **T-17**. The three stores are empty; T-14 fixed the shape |
+| `candidates/<id>.json` | drafted questions waiting on the pinned verifier; not part of the bank until `just verify` writes a record and they move to `questions/` | by hand, then the verifier |
 | `fixtures/receipts/*.json` | the receipt's cases, with the lines each must render | by hand from `SPEC.md` §7.5 |
-| `audit/` | `bank-audit`'s report | **T-19** |
+| `audit/` | `bank-audit`'s run reports, organizer-only and gitignored — see [below](#what-bank-audit-checks-and-why-it-can-never-touch-a-real-night) | **T-19** |
 
 ## This directory is private, and that is load-bearing
 
@@ -25,10 +26,12 @@ program. If you find yourself reasoning about what a program prints, stop and ru
 it.
 
 There is no `correct` field to edit. `SPEC.md` §3.1 marks the correct answer
-*derived* (G-2), so `bank.correct_index()` computes it — for a question that ran,
-the option whose text equals `verified.stdout`; for a does-not-compile question,
-the single `does_not_compile` option. A record with nowhere to write an answer
-down is a record nobody can hand-edit one into (AC-7).
+*derived* (G-2), so `bank.correct_index()` computes it — for a does-not-compile
+question, the single `does_not_compile` option; for UB that Miri reported under
+both borrow models, the single `ub` option; for a question that panicked, the
+single `panic` option; otherwise the option whose text equals `verified.stdout`.
+A record with nowhere to write an answer down is a record nobody can hand-edit
+one into (AC-7).
 
 **Answer position is a pure function of the date, and nothing else.** No
 history, no ledger, no bank state, no "not the same letter as last time". Every
@@ -54,12 +57,16 @@ position of the answer, not the position of *does not compile* (AC-26).
 take them. Four are here; four are not. `SPEC.md` §5.2's fit table, worked at the
 guessed 15 ft / 20 ft room, is why.
 
-| Question | Here? | Why |
+The table is what T-14 found. The three marked *needed work* have had it since:
+PR #36 re-authored q4, q7 and q8 for the 29-character rule (D-15), and every
+option in the bank now fits.
+
+| Question | Here? | Why, at T-14 |
 |---|---|---|
 | **q3** Collections | **yes, as authored** | 5 source lines, and all five options are one line of ≤ 29 characters — the only one of the eight that passes D-15 unchanged |
-| **q4** Integer arithmetic | **yes, needs work** | fits as a program (6 lines); 4 of 5 options are two lines |
-| **q7** Sorting | **yes, needs work** | fits as a program (5 lines); 4 of 5 options are one line of 48 characters |
-| **q8** Borrow checking | **yes, needs work** | fits as a program (6 lines); 1 of 5 options is two lines |
+| **q4** Integer arithmetic | **yes, needed work** | fit as a program (6 lines); 4 of 5 options were two lines |
+| **q7** Sorting | **yes, needed work** | fit as a program (5 lines); 4 of 5 options were one line of 48 characters |
+| **q8** Borrow checking | **yes, needed work** | fit as a program (6 lines); 1 of 5 options was two lines |
 | **q1** Ownership and Drop | no | 16 source lines |
 | **q2** Iterators and closures | no | 10 source lines |
 | **q5** Strings and UTF-8 | no | 9 source lines |
@@ -71,26 +78,73 @@ floor** — the wall cannot show them at a size the back row can read. They stay
 shorter, or when the rehearsal's screen and back-row measurements (H-5) raise the
 floor and with it every number in §5.2.
 
-**"Needs work" is not one thing.** An option's text has to equal what the program
-printed, so a too-long *correct* option cannot be fixed by rewriting the option —
-the program has to print something shorter, and then the machine decides the new
-answer (T-15b). That is q4 and q7. q8's too-long option is a *distractor*, so its
-answer stands, its program need not change, and only that one option needs
-replacing. Each record's `review.reason` says which case it is, generated from the
-measurement rather than typed.
+**"Needed work" was not one thing.** An option's text has to equal what the
+program printed, so a too-long *correct* option cannot be fixed by rewriting the
+option — the program has to print something shorter, and then the machine decides
+the new answer (T-15b). That was q4 and q7: PR #36 changed their programs and the
+pinned verifier wrote their new records. q8's too-long option was a *distractor*,
+so its answer stood, its program's tokens did not change, and only that one
+option was replaced. Each record's `review.reason` says what was re-authored and why.
 
 **Nothing here is affirmed.** Every migrated record has `review.status` unset and
 no `affirmed_by` / `affirmed_at`, so none of them can reach a deck (AC-72, G-12).
 The beats and q3's trace were *drafted* — from the August explanation and the
 prototype the client loved — and are waiting for an organizer to read them.
 
+## How a record is verified
+
+`just verify <candidate.json> --expect ran|does_not_compile|ub` runs
+`pipeline/src/popquiz/verify.py` on the pinned image (`just sandbox-build` first)
+and, if the candidate is accepted, writes its `verified` record into the file. The
+declared answer is an argument, not a field: it is never stored, and a file that
+already has a record recovers it from there. Exit 0 accepted, 1 rejected (file
+untouched), 2 refused.
+
+In order, each step only if the one before passed:
+
+1. **The pin.** The image's `rustc -Vv` release and commit-hash and its
+   `cargo miri --version` must equal `pipeline/sandbox/pin.toml`, and its host
+   triple must be one the pin lists. Otherwise the verifier refuses to run at all.
+2. **Compile** under the pin's edition and flags. Declared *does not compile*: it
+   must fail with at least one `error[Exxxx]`, and every code is recorded;
+   compiling is a rejection. Anything else that fails to compile is rejected.
+3. **Five native runs**, each its own container. Stdout and exit code identical
+   every time, or rejected with the count of distinct outputs (AC-8). Exit 0 or a
+   panic (101) is an answer; any other exit is rejected.
+4. **Miri, Stacked Borrows, strict provenance.** UB not declared: rejected. Miri's
+   stdout or exit different from the native run: rejected (AC-10). Miri unable to
+   run it (an operation isolation refuses): rejected.
+5. **Tree Borrows**, for declared UB only; accepted only if both models report UB
+   (AC-9), and Miri's output before the UB must equal the native output exactly —
+   so a UB question prints only before its UB.
+
+Every field of the record is read off a step or the pin, never typed. A
+re-verified legacy record is replaced whole. `verify.is_stale(record, pin)` is
+what scheduling asks: a record made under a different pin re-verifies first; a
+legacy record is exempt. `verify.check_provenance(file)` is the build's AC-7
+check: it refuses a stored `correct` field, a record the verifier did not write,
+and options that no longer derive an answer from the record. It cannot see an
+edit *inside* the record that leaves it self-consistent — nothing in §3.2 binds a
+record to the run that produced it — and says so.
+
+Of the four migrated questions below, only q3 still carries its `legacy` record.
+q4, q7 and q8 were re-authored for the wall (PR #36) and re-verified on the pinned
+image, which replaced each legacy record whole with one it wrote: q4 and q7 on
+2026-09-30 (new programs, declared *ran*), q8 on 2026-10-03 (the same program,
+declared *does not compile*; E0502 again).
+
+Miri checks only the paths the program executed (AC-43).
+
 ## Where the migrated records came from
 
-`pipeline/src/popquiz/migrate_mvp.py`, run once, output committed. Re-running it
-reproduces these files byte for byte, and a test asserts that, so you can
-regenerate them rather than take them on trust.
+`pipeline/src/popquiz/migrate_mvp.py`, run once, output committed. A re-run writes
+only what the bank does not already hold: a question file or `history.json` that is
+there is kept, and one that is there but cannot be read stops the run rather than
+being kept or overwritten. Run into an empty directory it regenerates all four, and
+q3, the one nobody has touched since, comes out byte for byte the committed file; a
+test asserts that, so you can regenerate it rather than take it on trust.
 
-The records are **`legacy`** (`SPEC.md` §3.2, D-16): they hold only what the
+The records it writes are **`legacy`** (`SPEC.md` §3.2, D-16): they hold only what the
 August batch recorded — `rustc` as the one-line `--version` string, `edition`,
 `runs`, `stdout`, and a Miri result with no version, no borrow models and no
 seeds, because that pass ran outside the repo. `target_triple`, `flags`,
@@ -106,8 +160,12 @@ recorded* and the Miri row says the check was run separately (§13, AC-87). When
 T-15b re-verifies one of these questions the record is **replaced whole, never
 merged**, so the bank never holds half of each.
 
-q8's record carries `compile_error_code`, renamed from the MVP's `error_codes`
-with the codes unchanged, and no `runs`, `stdout` or `miri` — nothing ran (D-22).
+The record it writes for q8 carries `compile_error_code`, renamed from the MVP's
+`error_codes` with the codes unchanged, and no `runs`, `stdout` or `miri` — nothing
+ran (D-22). That record is kept as the receipt fixture
+`q8-does-not-compile-legacy`; the bank's q8 now holds the verifier's. q8's source
+in the bank is the migration's without its trailing newline (commit 6cac9ec), which
+changes no token of the program.
 The MVP's `miri` field for q8 reads `n/a (does not compile)`, which is not a
 result, so no Miri record was written rather than one implying it was fine.
 
@@ -167,11 +225,205 @@ another ticket, so adding a dependency was not T-14's call. Records are validate
 by being loaded through `bank.question_from_dict`, which refuses unknown fields
 and enforces the structural rules (five options, exactly one *does not compile*,
 no duplicate option text, and a trace that ends on `stdout` when the question
-ran). T-19 may want the validator; it is not here yet, and this paragraph exists
-so nobody assumes otherwise.
+ran). T-19 did not add one either: `bank-audit` checks AC-24's shape on each raw
+file, so a malformed record is reported by name, and loads the rest through
+`question_from_dict`.
 
-## `bank/audit/`
+## `history.json` and dedupe
 
-`bank-audit` writes its report under `bank/audit/`. Nothing participant-facing
-reads that directory — the tell audit necessarily names answer categories and
-their frequencies, which is exactly what AC-25 keeps away from attendees.
+`pipeline/src/popquiz/dedupe.py` (T-17) checks every candidate against
+`history.json` before it joins the bank, and grows the history as it goes.
+
+    uv run python -m popquiz.dedupe candidate.json [more.json …]   # check and admit
+    uv run python -m popquiz.dedupe --dry-run candidate.json       # check, write nothing
+    uv run python -m popquiz.dedupe                                 # the history's size
+
+**Three checks, in order.** An *exact* duplicate (the same source bytes) is
+rejected. A *normalized* duplicate (the same program with its names changed or
+its formatting changed) is rejected. A *near* duplicate (Jaccard similarity of
+the two programs' normalized token pairs at or above the threshold) joins the
+review queue carrying `review.near_duplicate_of`, so an organizer makes the call.
+Everything else joins the queue unmarked. The only thing dedupe says about a
+candidate that passed is **no exact or normalized duplicate found**, and it says
+nothing beyond that (AC-18).
+
+**The review queue is the bank.** Dedupe admits a candidate by appending it
+under `questions/` with `review.status` unset, beside the migrated questions
+already waiting there. Rejected candidates are written nowhere. Every check runs
+against every question in the bank whatever its status, so a question that an
+organizer rejected and that comes back is still a resubmission.
+
+**The history describes the bank and can be rebuilt from it.** One entry per
+question id in each of the three stores. Every run first *backfills* any bank
+question the history is missing and *refreshes* any entry whose source has changed,
+and the run report shows the size before and after (AC-17). The committed file is
+still the empty shape T-14 wrote, so the first real run backfills the four
+migrated questions. `pipeline/tests/test_migration.py` checks only this file's
+shape (its version and three stores), not its contents, so a grown history keeps
+the suite green. Re-running the migration keeps the history as it is; it writes
+the empty shape only when there is no `history.json` at all.
+
+**The normalized check works on tokens, not a syntax tree, and that is a
+deviation from `SPEC.md` §7.3.** The contract says "normalized AST". Python's
+standard library has no Rust parser, so dedupe lexes the program itself. It drops
+comments and layout, and drops a comma only where `rustfmt` moves it and the
+program means the same without it. It renames **only the names the program
+declares** (bindings, parameters, functions, types, fields, variants, generics,
+lifetimes) to numbered placeholders in order of first use. Every name the program
+uses but did not declare is kept, whether it comes from `std`, the prelude or a
+macro.
+
+**A declared name is renamed only where the tokens place it in scope.** Each
+declaration reaches a token range that approximates its Rust scope: parameters and generics their function, closure
+parameters their closure, `let`, `if let`, `while let`, `for` and match-arm
+bindings their block or arm, items their module or block, and a method or
+associated item only its own name (a bare name never reaches it). If a spelling is
+used anywhere outside every range of its declarations, it is kept as written
+everywhere. So `fn f(drop: i32) {}` beside a call to the library's `drop(1)` keeps
+`drop`, and the same program spelled with `nope`, which does not compile, stays
+apart from it. A binding named like a field of a library struct
+(`Range { start, end }`) is kept for the same reason. This is scoping by token
+ranges, not Rust's name resolution. The aim is ranges no wider than Rust's, so
+the error is a missed rename rather than a merge, and **that aim is not established**.
+The seven false matches review round 3 found, each confirmed with rustc, are
+closed (PQ-30). A closure in an `if let` head ends at its block. Items stop at
+nested `mod` bodies. A `macro_rules!` name reaches only its textual scope. A
+comma-less arm body is not read as the next arm's pattern. A path's tail is
+renamed only where the tokens show it is the program's (`I::Item` after a generic
+is kept). A lifetime keeps its quote, so `'a` and `a` never share a placeholder.
+Only `impl` and `trait` functions are renamed after a `.`. The eighth class
+found while closing them is closed too: a name declared in an `impl` of a library
+trait (`type Item` in an `impl Iterator`) is kept, and `B::name` or `Self::name`
+is renamed only when `B`'s own `impl`, trait or enum declares `name`.
+
+Known open: these shapes still make a program that compiles normalize equal to
+one that does not (PQ-66).
+
+1. A `let` binding or parameter reaches into a `mod` nested in its function body,
+   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
+2. A block-level `use` shadows an item of the same name
+   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
+3. A library method name missing from `_STD_MEMBERS` that the program also
+   declares (`fn count_ones` beside `3u32.count_ones()`).
+4. An `if let` binding's range starts at the first `{` after the pattern, which can
+   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+
+That is a bounded list of the shapes known so far, not proof that no other exists.
+
+Where tokens cannot tell, the scoping keeps a name instead of renaming it: a
+closure in an `if` or `while` head, a `#[macro_use]` module's macro, a struct
+pattern after an or-pattern's `|`, an item reached through `use super::*`, any
+spelling a kept path tail shares, the names in an `impl` of a library trait, and a
+path the tokens cannot tie to its type (a trait's default method through an
+implementing type, an `impl` for `[u8; 4]`). It also misses two renames Rust
+would allow: a program trait's function called through a generic (`T::go()` in
+`fn f<T: Tr>`) and a path through a type alias (`type A = S; A::mk()`). Each of
+those is a missed rename, which a person sees. The module-scoping step checks every
+item against every module, so time grows quadratically on very large programs
+(PQ-30's exact-head review timed the largest bank question at 0.5 ms). The missed
+renames and the time are recall and speed costs, not safety gaps.
+
+The rule behind every step is that **no normalization may make two different
+programs equal**, including a program that compiles and one that does not.
+*Does not compile* is an answer in this quiz, and a false match rejects a question
+with no person in the loop. That is why `a = = b` stays apart from `a == b`, and
+why `P { a: Q { n: 1 }, b: 2 }` stays apart from the same line missing its comma.
+A dangling `///` stays apart from no comment at all. A struct's own `fn len` is
+never renamed, because the program may also call the library's `len`. That last
+guard covers the library names a quiz program is likely to use. A rarer method
+name that a program both declares and calls on a library type can still be
+renamed in both places, and that is a known gap.
+
+A miss only sends the pair to the near-duplicate check, which is where the
+approximation's gaps land: reordered statements, swapped operands, an expression
+rewritten into an equivalent one, field shorthand against `field: binding`, a
+trailing comma in a tuple, and a declared member renamed to or from a library
+name.
+
+Other conservative choices: the entry point stays named `main`; empty-list commas
+and doc comments before parameters stay in the fingerprint; names in sources
+containing derives are kept, because a derive can expose or interpret them. Each
+can miss a renaming, never make one. Each boundary that is handled has a pair in
+`pipeline/tests/test_dedupe.py` where one program compiles and the other does not,
+and the pairs were run through `rustc` to confirm it.
+
+**The threshold is 0.6 and it is uncalibrated** (D-13). It can be set per run with
+`--threshold`. The first measurements, taken by this code on the four migrated
+questions, are the start of its calibration:
+
+| Pair | Similarity |
+|---|---|
+| distinct bank questions, highest pair (q3, q8) | 0.55 |
+| distinct bank questions, lowest pair (q4, q7) | 0.20 |
+| q3 with its vector's values changed | 0.64 |
+| q3 with a binding added at the top and printed too | 0.78 |
+| q8 with `push` replaced by `clear` | 0.86 |
+| q3 with `v.sort();` added before `dedup` | 0.94 |
+
+Short programs share a lot of scaffolding (`fn main() {`, `let mut`, `println!`),
+so the gap between distinct programs and one-line edits is narrow: 0.55 against
+0.64. Every verdict reports its closest question and that pair's similarity, so
+real batches will show whether 0.6 floods the queue or lets edits through.
+
+## What `bank-audit` checks, and why it can never touch a real night
+
+`just bank-audit` runs the whole bank against `SPEC.md` §7.6 and writes
+`bank/audit/<date>.json`. The same checks run inside `just test`. The code is
+`pipeline/src/popquiz/audit.py`.
+
+**It cannot move tonight's answer.** Where the correct answer sits is decided by
+`slot_for_day(date)` in `pipeline/src/popquiz/slot.py`. That file imports nothing
+but `hashlib` and `datetime`, keeps no state, and takes the date and nothing else.
+The audit checks all of that on every run. The audit calls `slot_for_day` only on
+made-up nights — 20,000 of them starting from 2026-08-12 — and looks at what comes
+out. It never reads a real meetup, never reads which questions were used, and never
+hands anything back. It measures the dice; it does not roll them. That matters
+because this rule has broken four times, and the worst break was a "fairness"
+rule: once a check can change tonight's letter, an attendee can run the same check
+(`PHILOSOPHY.md` §2).
+
+What it checks:
+
+| Check | Criteria | What it measures |
+|---|---|---|
+| The generator | AC-23b | 20,000 made-up nights must look random in **both** directions. Too lopsided means the generator is broken; too even means somebody is balancing it, which is the exploitable failure. It must also repeat a letter on consecutive nights sometimes. |
+| Attendees with perfect memory | AC-23a | Three attendees who remember every past night each guess over 10,000 nights: the most-used letter, the least-used letter, and anything but last night's. Each must land between 18 % and 22 %. Chance is 20 %. |
+| The slot path | AC-23, G-1, G-10 | `slot.py` takes the date and nothing else, and every caller passes the literal 5. Nothing in the pipeline reads, writes or imports `mvp/answer-history.json`, and no function both draws a slot and writes a file — the shape of the MVP's old ledger-writer, under any name. |
+| Five options | AC-24 | Every question has five options, and exactly one is *does not compile*. |
+| No published distribution | AC-25, G-11 | No percentage or ratio sits within a line of *compile*, *UB*, *undefined*, *panic* or *output* in anything an attendee could read: the copy table, take-it-home text, the public README, and the organizer docs. Nothing under `web/` or `room/` may mention `bank/audit`. |
+| The tells | AC-26 | For each tell there is a short list of rules an attendee might learn — "`unsafe` means undefined behaviour", "long programs don't compile", "pick the longest option", "it's always E", "this topic never compiles". A sixth line checks the answer categories themselves ("always pick *does not compile*"). A rule fails when it beats chance by more than 1.5× **and** luck cannot explain it. With four questions, beating chance by luck is easy, so a rule that is merely lucky is shown as a warning. The position rules read the order a room shows, not the order the file stores: each question is arranged by `popquiz schedule`'s arrangement on 1,000 made-up nights, and counts once, by how often a rule finds its answer across those nights. |
+| `unsafe` parity | AC-27 | If any accepted question's answer is undefined behaviour, some accepted question whose answer is not UB must contain `unsafe` too. |
+| Fits the room | AC-100, D-15 | Each program fits the wall's reading area at the smallest size the back row can read, using the same arithmetic as `web/shared/typemodel.js`. Each option is one line of at most 29 characters. |
+| Difficulty drift | AC-88 | Across accepted questions, the organizer's judged difficulty averages within one level of what was asked for. If not, the **run** fails, not any one question. |
+
+**What fails the run, and what is only reported.** The run fails on any failing
+check in the table, and on a question that is flagged for fit or option length
+*while it is in the reserve* — accepted, affirmed and unused, so tonight's
+schedule could pick it. A flagged question still waiting for review is listed but
+does not fail the run. Otherwise every too-long draft would keep the audit red
+until someone reviewed it. `--strict` fails on any flag or warning.
+
+No question in the bank carries a flag for fit or option length. At T-14, q4, q7
+and q8 did; PR #36's re-authoring (D-15) cleared all three.
+
+The file order is not the order a room sees: `popquiz schedule` puts the correct
+option at the meetup date's slot before the room and the static fallback receive
+the record, and never rewrites the file (`pipeline/README.md`,
+*Scheduling a meetup*). So the option-position tell measures that arrangement, on
+made-up nights, and the bank's habit of storing every answer last is not a tell:
+the position line passes with every rule under the 1.5× margin (worst:
+*does not compile* at E, 1.25×; the letter rules at most 1.14×). Under the
+arrangement a letter's score is the date's draw, the same for every question,
+so what the line can catch is an arrangement that lets the question pick the
+letter; the *does not compile* position rules repeat what the answer-category
+line measures.
+
+A tell fails only past the margin and when its chance tail is at most 0.01 divided
+by its number of rules. The position tell has ten rules, so its bound is 0.001,
+and the smallest tail n questions can reach is 0.2ⁿ: below five questions the
+position tell can only warn, at five it can fail. A tell with one rule has a bound
+of 0.01 and can fail at three.
+
+**The report is organizer-only and not committed.** It names answer categories and
+how often a rule would have won, which is exactly what AC-25 keeps from attendees.
+It is gitignored and regenerated on demand; see `bank/audit/README.md`.

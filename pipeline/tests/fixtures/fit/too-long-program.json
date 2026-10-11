@@ -1,0 +1,40 @@
+{
+  "_note": "AC-100's fixture set (EVALUATION.md). Describes no program: the source was never compiled or run, the options are placeholders, and there is no `verified` record, so no answer is claimed and no output is written down. bank-audit's fit and option-length flags read only the source's shape and each option's text.",
+  "why": "9 lines: 177 / (9 x 1.6) = 12.3 px, below the 14.2 px floor, like SPEC 5.2's q5. Options all fit.",
+  "question": {
+    "id": "fixture-too-long-program",
+    "source": "fn main() {\n    // bank-audit fixture: shape only,\n    // never compiled and never run.\n    let a = 1;\n    let b = 2;\n    let c = 3;\n    let d = 4;\n    let e = 5;\n}\n",
+    "topic": "Fixture",
+    "difficulty_requested": 2,
+    "options": [
+      {
+        "text": "placeholder one",
+        "kind": "output"
+      },
+      {
+        "text": "placeholder two",
+        "kind": "output"
+      },
+      {
+        "text": "placeholder three",
+        "kind": "output"
+      },
+      {
+        "text": "does not compile",
+        "kind": "does_not_compile"
+      },
+      {
+        "text": "placeholder four",
+        "kind": "output"
+      }
+    ],
+    "hint": "placeholder",
+    "explains": {
+      "what": "placeholder",
+      "takeaway": "placeholder"
+    }
+  },
+  "expected_flags": [
+    "program_fit"
+  ]
+}

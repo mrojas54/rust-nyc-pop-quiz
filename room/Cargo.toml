@@ -5,16 +5,134 @@ edition = "2021"
 publish = false
 description = "The live room: one meetup, one question, seven phases."
 
+# Bins are listed explicitly rather than discovered, so that `src/bin/` can hold
+# a shared module (`spike_shared.rs`) that is not itself a binary. The answer
+# fingerprint in it is computed on both sides of the wire; a second copy that
+# could drift would quietly weaken the AC-52 check into an aggregate one.
+autobins = false
+
 # This crate is built with whatever `cargo` the machine has. It is deliberately
 # not pinned: the verification toolchain pin (rustc -Vv release and commit-hash,
 # and the nightly's date for Miri) is a different thing entirely, defined once
 # by T-15a where the sandbox image is built. See SPEC.md 7.2 and BUILDPLAN D-17.
 
+[[bin]]
+name = "room"
+path = "src/main.rs"
+
+# --- The T-03 burst spike. Throwaway, frozen; both bins are gated off. --------
+#
+# `required-features` is what holds EVALUATION.md's 60 s budget for `just test`:
+# `cargo test --offline --locked` passes no `--features`, so neither bin and not
+# one line of the crates below is compiled by the inner loop. The budget is kept
+# by construction rather than by care.
+#
+# T-21 renamed the spike's client `spike-burst` (the room's own `burst` is
+# below) and kept both bins so the committed reports in `spike/reports/` stay
+# reproducible. `just test-full` type-checks and unit-tests them (`harness-full`).
+
+[[bin]]
+name = "spike-server"
+path = "src/bin/spike-server.rs"
+required-features = ["spike"]
+
+[[bin]]
+name = "spike-burst"
+path = "src/bin/spike-burst.rs"
+required-features = ["spike"]
+
+# --- T-09: the deployed room's end-to-end check. ------------------------------
+#
+# `just smoke <url>` runs it against a room over https/wss (the Fly edge) or
+# plain http/ws (loopback). Gated like the spike bins, for the same reason: the
+# TLS client is compiled by nothing in `just test`.
+
+[[bin]]
+name = "smoke"
+path = "src/bin/smoke.rs"
+required-features = ["smoke"]
+
+# --- T-21: the room under load (`just burst <url>`). ---------------------------
+#
+# Smoke's client (`src/bin/room_client.rs`, shared) with the spike's
+# measurement (`src/bin/burst_report.rs`, which `tests/burst_report.rs` checks
+# inside `just test` — it is pure, so it needs no feature). Gated like smoke.
+
+[[bin]]
+name = "burst"
+path = "src/bin/burst.rs"
+required-features = ["burst"]
+
+# The in-process room that `test-full` points burst and smoke at (T-21): the
+# real router on loopback, authorized by the tests' `HostAuth`. A test, so
+# nothing of it reaches the binary or the image; gated, so `just test` never
+# compiles the TLS client it drives.
+[[test]]
+name = "harness_full"
+path = "tests/harness_full.rs"
+required-features = ["burst"]
+
+[features]
+# The WebSocket pieces (`axum/ws`, `tokio/sync`, `tokio/time`, `futures-util`)
+# were spike-only until T-04c made the socket part of the room; they are
+# ordinary dependencies below now. The spike keeps only its client's TLS.
+spike = [
+    "dep:tokio-tungstenite",
+]
+
+# The smoke client (T-09). Its TLS is the spike's (tokio-tungstenite over
+# rustls with ring) plus tokio-rustls for the plain HTTP requests, which the
+# room itself now uses too (T-10); every one of these crates was already in
+# the lock.
+smoke = [
+    "dep:tokio-tungstenite",
+]
+
+# `burst` (T-21) is smoke's client plus measurement: no crate of its own.
+burst = ["smoke"]
+
 [dependencies]
-axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+# `ws`: the room's one broadcast per room (T-04c). axum 0.8's `ws` feature is
+# what already pulled tokio-tungstenite 0.29 into the lock for the spike.
+axum = { version = "0.8", features = ["ws"] }
+# `sync` for the per-room watch channels, `time` for the attach deadline (T-04c).
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
+# The room reads the bank's record shape (bank/schema/question.schema.json) and
+# answers in JSON. Both were already in the lock via axum's `json` feature.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Room ids, codes and host sessions are secrets or near-secrets; they come from
+# the OS generator. 0.3.4 was already in the lock (via rand_core).
+getrandom = "0.3"
+# The host-session check is constant-time (SPEC 8, AC-68). Already in the lock
+# (via rustls); T-25's admin-token check reuses it.
+subtle = "2.6"
+
+# --- spike-only, all optional -------------------------------------------------
+# tokio-tungstenite 0.29 is the version axum 0.8's own `ws` feature already
+# pulls, so client and server unify on one tungstenite in the lock.
+tokio-tungstenite = { version = "0.29", optional = true, features = ["rustls-tls-webpki-roots"] }
+# T-10: the room's own HTTPS client for Discord's three calls (`discord.rs`)
+# rides rustls with ring, tokio-rustls and Mozilla's roots — all three were in
+# the lock already (the spike and smoke used them as optional dependencies), so
+# no crate was added. Default features off so there is no second crypto
+# provider; `discord.rs` passes ring to its client explicitly. burst.rs and
+# smoke.rs install ring as the process default themselves. native-tls would
+# drag OpenSSL into any later Linux or CI run for no gain here.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+webpki-roots = "1"
+# SinkExt/StreamExt over the split socket. Already in the lock via axum. The
+# room's transport uses it (T-04c), so it is no longer optional.
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+# serde and serde_json are no longer spike-only: the room itself uses them (T-04a),
+# so they are ordinary dependencies above and the spike bins use those.
+
 
 [dev-dependencies]
 # `tower::ServiceExt::oneshot` is how the canary seam drives the router with no
 # socket. It is a dev-dependency because nothing in the shipped binary needs it.
 tower = { version = "0.5", features = ["util"] }
+# The WebSocket client the transport tests attach with (T-04c): the same 0.29
+# that axum's `ws` feature already locks. No TLS — the tests are loopback.
+tokio-tungstenite = "0.29"

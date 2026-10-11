@@ -145,6 +145,9 @@
     }
   },
   "review": {
-    "reason": "Migrated from the August batch by T-14. Every option is one line of at most 29 characters, so this question runs on the wall as authored (D-15). The three beats and the trace were drafted from the August explanation and the loved prototype, and need an organizer to read them and affirm."
+    "reason": "Migrated from the August batch by T-14. Every option is one line of at most 29 characters, so this question runs on the wall as authored (D-15). The three beats and the trace were drafted from the August explanation and the loved prototype. An organizer read them and affirmed by a documented edit of this block (F-52, 2026-10-10), before the review surface (T-18) existed.",
+    "status": "accepted",
+    "affirmed_by": "queenrose54",
+    "affirmed_at": "2026-10-10T16:41:43-04:00"
   }
 }

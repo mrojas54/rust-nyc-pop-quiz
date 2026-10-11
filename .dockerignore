@@ -1,0 +1,15 @@
+# The room's image (Dockerfile, T-09) is built from the repository root, so this
+# is an allowlist: everything is excluded, then exactly what the build reads is
+# let back in. Without it, room/target/ (gigabytes), .git/, the pipeline, the
+# prototypes and every other question in the bank would go to Fly's builder.
+#
+# The rest of bank/questions/ stays out on purpose: the image seeds q3 alone, and
+# a question that is not in the build context cannot end up in the image.
+
+*
+!room/Cargo.toml
+!room/Cargo.lock
+!room/src
+!web
+web/test
+!bank/questions/q3.json

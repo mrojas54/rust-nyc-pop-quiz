@@ -1,0 +1,123 @@
+{
+  "id": "q9",
+  "source": "fn main() {\n    let mut a = Some(3);\n    let b = a.take();\n    let c = a.replace(7);\n    println!(\"{:?} {:?} {:?}\", a, b, c);\n}",
+  "topic": "Option and ownership",
+  "difficulty_requested": 2,
+  "options": [
+    {
+      "text": "Some(3) Some(3) None",
+      "kind": "output",
+      "why_tempting": "take sounds like a peek or a clone, so a would still hold its 3. It moves the value out and leaves None behind."
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile",
+      "why_tempting": "take wants &mut self, and a is declared mut, so the call is fine. Reading a again afterwards is fine too, because take left a valid value there."
+    },
+    {
+      "text": "Some(7) Some(3) Some(7)",
+      "kind": "output",
+      "why_tempting": "replace hands back the old contents. If you read it as returning what you gave it, c comes out Some(7)."
+    },
+    {
+      "text": "Some(7) Some(3) None",
+      "kind": "output"
+    },
+    {
+      "text": "None Some(3) None",
+      "kind": "output",
+      "why_tempting": "This is replace doing half its job: it returns the old value but forgets to store the new one. It stores it, so a ends as Some(7)."
+    }
+  ],
+  "hint": "Both methods change a. Track what a holds after each call, and which value each call hands back.",
+  "explains": {
+    "what": "take moves the value out of the Option and leaves None in its place, so b gets Some(3) and a is now None. replace puts a new value in and returns what was there before. What was there was None, so c is None and a ends up Some(7).",
+    "takeaway": "Both methods exist so you can move a value out of something you only have a mutable borrow of. std::mem::replace works for any type, because you hand it the replacement. std::mem::take needs the type to implement Default, since Default::default() is what it leaves behind. Between them they are how you get an owned field out of &mut self without cloning."
+  },
+  "trace": {
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          4
+        ],
+        "note": "a starts with Some(3). Keep the contents of a separate from the values returned by the next two calls.",
+        "values": [
+          {
+            "name": "a",
+            "was": "—",
+            "now": "Some(3)"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "take hands the old Option to b and leaves None in a. The variable a still holds a valid Option and can be used again.",
+        "values": [
+          {
+            "name": "a",
+            "was": "Some(3)",
+            "now": "None"
+          },
+          {
+            "name": "b",
+            "was": "—",
+            "now": "Some(3)"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          3,
+          4
+        ],
+        "note": "replace stores Some(7) in a and returns the contents from before that change. take already left None there, so c receives None.",
+        "values": [
+          {
+            "name": "a",
+            "was": "None",
+            "now": "Some(7)"
+          },
+          {
+            "name": "c",
+            "was": "—",
+            "now": "None"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          5
+        ],
+        "focus": [
+          2,
+          5
+        ],
+        "note": "The print reads a, b, then c. Changing a did not change the Option already returned into b.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "Some(7) Some(3) None"
+          }
+        ]
+      }
+    ]
+  },
+  "review": {
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q9.json --expect ran` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
+  }
+}

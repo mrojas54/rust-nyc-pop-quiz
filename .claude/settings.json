@@ -19,5 +19,21 @@
         "/Users/michellerojas/rust-nyc-pop-quiz/.lattice"
       ]
     }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/install-flyctl.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/install-just.sh"
+          }
+        ]
+      }
+    ]
   }
 }

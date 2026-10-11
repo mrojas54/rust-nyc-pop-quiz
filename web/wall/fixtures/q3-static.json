@@ -1,0 +1,135 @@
+{
+  "id": "q3",
+  "source": "fn main() {\n    let mut v = vec![1, 2, 2, 3, 2, 1, 1];\n    v.dedup();\n    println!(\"{:?}\", v);\n}\n",
+  "options": [
+    {
+      "letter": "A",
+      "text": "[1, 2, 3]"
+    },
+    {
+      "letter": "B",
+      "text": "[1, 2, 2, 3, 2, 1, 1]"
+    },
+    {
+      "letter": "C",
+      "text": "[1, 2, 3, 2, 1, 1]"
+    },
+    {
+      "letter": "D",
+      "text": "does not compile"
+    },
+    {
+      "letter": "E",
+      "text": "[1, 2, 3, 2, 1]"
+    }
+  ],
+  "correct": "E",
+  "receipt": {
+    "heading": "How we know",
+    "lines": [
+      "✓ Compiled",
+      "✓ Ran 5 times",
+      "✓ Output never varied",
+      "✓ Miri ran clean"
+    ]
+  },
+  "trace": [
+    {
+      "lines": [
+        2
+      ],
+      "focus": [
+        1,
+        5
+      ],
+      "note": "Seven elements go in — and two of the pairs happen to be sitting next to each other. Hold on to which ones.",
+      "values": [
+        {
+          "name": "v",
+          "was": "—",
+          "now": "[1, 2, 2, 3, 2, 1, 1]"
+        }
+      ],
+      "pivot": false
+    },
+    {
+      "lines": [
+        3
+      ],
+      "focus": [
+        2,
+        4
+      ],
+      "note": "dedup makes one pass, comparing each element with the one immediately before it. Only neighbours are ever compared — it never looks further back.",
+      "values": [],
+      "pivot": false
+    },
+    {
+      "lines": [
+        3
+      ],
+      "focus": [
+        3,
+        3
+      ],
+      "note": "The 2, 2 in the middle collapses. Same value, side by side.",
+      "values": [
+        {
+          "name": "v",
+          "was": "[1, 2, 2, 3, 2, 1, 1]",
+          "now": "[1, 2, 3, 2, 1, 1]"
+        }
+      ],
+      "pivot": false
+    },
+    {
+      "lines": [
+        3
+      ],
+      "focus": [
+        3,
+        3
+      ],
+      "note": "The 1, 1 on the end collapses for exactly the same reason.",
+      "values": [
+        {
+          "name": "v",
+          "was": "[1, 2, 3, 2, 1, 1]",
+          "now": "[1, 2, 3, 2, 1]"
+        }
+      ],
+      "pivot": false
+    },
+    {
+      "lines": [
+        3
+      ],
+      "focus": [
+        3,
+        3
+      ],
+      "note": "And the other 2 and the other 1 survive — because they were never next to their twins. There is already a 2 near the front, and dedup did not look. This is the step the whole question turns on.",
+      "values": [],
+      "pivot": true
+    },
+    {
+      "lines": [
+        4
+      ],
+      "focus": [
+        1,
+        5
+      ],
+      "note": "Five left. Two were dropped, and both of them only because of who they happened to be sitting next to.",
+      "values": [
+        {
+          "name": "stdout",
+          "was": "—",
+          "now": "[1, 2, 3, 2, 1]"
+        }
+      ],
+      "pivot": false
+    }
+  ],
+  "home_link": "https://popquiz.rustnyc.org/last"
+}

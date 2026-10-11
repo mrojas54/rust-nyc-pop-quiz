@@ -42,6 +42,7 @@ from popquiz.bank import (
     options_needing_reauthoring,
     question_from_dict,
     question_to_dict,
+    quoted_outputs,
     receipt_class,
     save_history,
     save_question,
@@ -151,6 +152,69 @@ def test_two_options_matching_the_output_is_an_error() -> None:
     )
     with pytest.raises(BankError, match="options match"):
         correct_index(q)
+
+
+# A panic and UB are answers by option *kind* (ruling on F-19, 2026-09-25). The
+# records below are shapes, not observations: no program is behind them.
+_KINDED = (
+    Option(text="one", kind="output"),
+    Option(text="two", kind="output"),
+    Option(text="it panics", kind="panic"),
+    Option(text="undefined behaviour", kind="ub"),
+    Option(text="does not compile", kind="does_not_compile"),
+)
+_BOTH_MODELS = Miri(clean=False, output_matched=True, configs=bank.BORROW_MODELS)
+
+
+def _ran(**fields: object) -> Verified:
+    return dataclasses.replace(RAN, legacy=False, **fields)  # type: ignore[arg-type]
+
+
+def test_a_panic_derives_the_panic_option_by_kind() -> None:
+    q = _question(options=_KINDED, verified=_ran(exit_code=101))
+    assert correct_index(q) == 2
+
+
+def test_a_panic_is_never_the_output_option_even_when_the_text_matches() -> None:
+    """The printed text before a panic can equal an output option; kind decides."""
+    q = _question(options=_KINDED, verified=_ran(stdout="two\n", exit_code=101))
+    assert correct_index(q) == 2
+
+
+def test_a_panic_with_no_panic_option_derives_nothing_rather_than_the_output() -> None:
+    """A rule that fires is final: it does not fall through to text equality."""
+    q = _question(verified=_ran(stdout="two\n", exit_code=101))
+    assert correct_index(q) is None
+
+
+def test_ub_under_both_borrow_models_derives_the_ub_option() -> None:
+    q = _question(options=_KINDED, verified=_ran(exit_code=0, miri=_BOTH_MODELS))
+    assert correct_index(q) == 3
+
+
+def test_ub_outranks_a_nonzero_exit() -> None:
+    q = _question(options=_KINDED, verified=_ran(exit_code=101, miri=_BOTH_MODELS))
+    assert correct_index(q) == 3
+
+
+def test_ub_under_one_borrow_model_is_not_a_ub_answer() -> None:
+    """verify accepts declared UB only when both models agree (AC-9); a record naming
+    one model is not that, so it is not read as one."""
+    one = Miri(clean=False, output_matched=True, configs=("stacked_borrows",))
+    q = _question(options=_KINDED, verified=_ran(stdout="nine\n", exit_code=0, miri=one))
+    assert correct_index(q) is None
+
+
+def test_a_legacy_unclean_miri_record_is_not_read_as_confirmed_ub() -> None:
+    """No configs recorded, so which models agreed is unknown and nothing is inferred."""
+    legacy = dataclasses.replace(RAN, stdout="nine\n", miri=Miri(clean=False, output_matched=True))
+    assert correct_index(_question(options=_KINDED, verified=legacy)) is None
+
+
+def test_two_options_of_the_derived_kind_is_an_error() -> None:
+    options = _KINDED[:1] + (Option(text="panics", kind="panic"),) + _KINDED[2:]
+    with pytest.raises(BankError, match="options match"):
+        correct_index(_question(options=options, verified=_ran(exit_code=101)))
 
 
 def test_a_question_with_no_verified_record_has_no_derived_answer() -> None:
@@ -287,6 +351,62 @@ def test_a_does_not_compile_question_may_trace_without_naming_stdout() -> None:
     validate_question(_question(verified=REFUSED, trace=trace))
 
 
+@pytest.mark.parametrize("name", ["stdout", " Stdout "])
+@pytest.mark.parametrize("verified", [None, "ran", "refused"])
+def test_a_stdout_row_on_any_step_but_the_last_is_refused(tmp_path, name, verified) -> None:
+    """PQ-68 F2: only the last step resolves, and only the verifier writes its
+    `stdout` row, so a row on an earlier step is an unobserved claim about the
+    output. Refused on load and save, whatever the record says; never stripped."""
+    record = {None: None, "ran": RAN, "refused": REFUSED}[verified]
+    trace = Trace(
+        steps=(
+            TraceStep(lines=(1,), focus=(1, 1), note="first", values=(ValueDelta(name, "—", "1"),)),
+            TraceStep(lines=(2,), focus=(1, 2), note="last", values=(ValueDelta("stdout", "—", "1"),)),
+        )
+    )
+    q = _question(verified=record, trace=trace)
+    with pytest.raises(BankError, match="trace step 1 names 'stdout'"):
+        validate_question(q)
+    with pytest.raises(BankError, match="trace step 1 names 'stdout'"):
+        save_question(tmp_path, q)
+    assert not (tmp_path / "questions").exists()
+
+
+def _drafted_trace() -> Trace:
+    """A trace as the generator drafts it: steps, and no `stdout` row, which only
+    the verifier writes (T-16, option b)."""
+    return Trace(
+        steps=(
+            TraceStep(lines=(1,), focus=(1, 1), note="first"),
+            TraceStep(lines=(1,), focus=(1, 1), note="last", values=(ValueDelta("v", "—", "1"),)),
+        )
+    )
+
+
+def test_a_drafted_trace_never_passes_as_finished_once_a_record_says_it_ran(tmp_path) -> None:
+    """A candidate's drafted trace is storable while it is unverified. Given a
+    record that ran by anything but `verify.with_record`, which writes the stdout
+    row, it fails load and save - no placeholder value stands in for the output."""
+    draft = _question(verified=None, trace=_drafted_trace())
+    validate_question(draft)
+
+    ran = dataclasses.replace(draft, verified=RAN)
+    with pytest.raises(BankError, match="does not name 'stdout'"):
+        question_from_dict(question_to_dict(ran))
+    with pytest.raises(BankError, match="does not name 'stdout'"):
+        save_question(tmp_path, ran)
+    assert not (tmp_path / "questions").exists()
+
+
+def test_quoted_outputs_reads_trace_notes() -> None:
+    """AC-73 covers a drafted trace's notes: a model's note quoting an output is a
+    claim the review gate must see (T-16, option b)."""
+    steps = _drafted_trace().steps
+    noted = Trace(steps=(steps[0], dataclasses.replace(steps[1], note='it prints "zebra" here')))
+    assert "zebra" in quoted_outputs(_question(trace=noted))
+    assert "zebra" not in quoted_outputs(_question(trace=_drafted_trace()))
+
+
 def test_affirmation_needs_both_who_and_when() -> None:
     """AC-72: affirmation records who and when, so one without the other is not it."""
     assert Review().affirmed() is False
@@ -368,9 +488,29 @@ def test_a_record_round_trips_through_json() -> None:
             )
         ),
         review=Review(status="accepted", difficulty_judged=2, affirmed_by="m", affirmed_at="t"),
-        used=Used(meetup_date="2026-08-12", room_id="r", released_at="t", fit="fits"),
+        used=(Used(meetup_date="2026-08-12", room_id="r", released_at="t", fit="fits"),),
     )
     assert question_from_dict(json.loads(json.dumps(question_to_dict(q)))) == q
+
+
+def test_a_null_fit_from_the_room_is_an_absent_key_and_reads_back_as_none() -> None:
+    """F-30: the room sends `fit: null` when no wall reported a verdict. Nothing
+    observed it, so the record holds no `fit` key - absent is absent - and a missing
+    key reads back as `None`, which is not *fits*."""
+    data = question_to_dict(_question())
+    data["used"] = {"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "fit": None}
+    q = question_from_dict(data)
+    assert q.used_by().fit is None
+    written = question_to_dict(q)
+    # Written as a list, one record per club; the bare object read above is the
+    # form the bank wrote before clubs, and reads as the default club's.
+    assert written["used"] == [{"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "club": "nyc"}]
+    assert question_from_dict(json.loads(json.dumps(written))) == q
+    # The published contract agrees: what was written has every required key and
+    # nothing the schema does not name.
+    schema = _schema()["$defs"]["Used"]
+    assert set(schema["required"]) <= set(written["used"][0]) <= set(schema["properties"])
+    assert "fit" not in schema["required"]
 
 
 def test_an_unknown_field_is_an_error_rather_than_ignored() -> None:

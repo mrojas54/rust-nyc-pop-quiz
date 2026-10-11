@@ -44,7 +44,11 @@
 .rn-src-line { display:block; padding:0 var(--space-2); margin:0 calc(-1 * var(--space-2));
                border-left:3px solid transparent; }
 .rn-src-line.hl { background:var(--accent-subtle); border-left-color:var(--accent-primary); }
-.rn-src-line.dim { opacity:.32; }
+/* AC-84 (PQ-40, the client's pick, 2026-10-02): .70, not the prototype's .32
+   (1.84:1). Dimmed code is 4.78:1 on the white well — AA at the wall's 22 px.
+   The line numbers start at --text-muted and fall to 3.57:1, under AA: held to
+   that floor by web/test/a11y.test.js and reported upstream as F-46. */
+.rn-src-line.dim { opacity:.70; }
 
 /* ===========================================================================
    The clipped edge — AC-100, SPEC §5.2. NOT in the prototype.
@@ -145,6 +149,22 @@
    =========================================================================== */
 .rn-correct { color:var(--success); font-weight:700; }
 .rn-correct .rn-check { font-weight:700; }
+
+/* ===========================================================================
+   AA companions — AC-84. NOT in the prototype; added by T-13.
+   ---------------------------------------------------------------------------
+   Two of the prototype's colours fail WCAG AA where the surfaces use them:
+   the amber-500 focus ring is 2.3:1 on the page (3:1 is the floor for a
+   focus indicator), and green-500 text is 3.1:1 (4.5:1 below large text).
+   These are NEW names, not new values for the §1 tokens, so nothing changes
+   until a surface opts in. Each surface's own stylesheet applies them, and
+   web/test/a11y.test.js holds every pair to its ratio.
+
+     --focus-ring    amber-700, the house's own hover amber: 5.3:1 on the page
+     --success-text  the prototype's machine-provenance green (.provenance
+                     .machine above): 6.4:1 on the page, 6.7:1 under white
+   =========================================================================== */
+:root { --focus-ring: var(--amber-700); --success-text: #276749; }
 
 /* The polite live region AC-83 announces through. Visually hidden, never
    display:none — a hidden element is not announced. */

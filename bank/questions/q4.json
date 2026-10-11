@@ -1,27 +1,31 @@
 {
   "id": "q4",
-  "source": "fn main() {\n    let a: i32 = -7;\n    let b: i32 = 2;\n    println!(\"{} {}\", a / b, a % b);\n    println!(\"{} {}\", a.div_euclid(b), a.rem_euclid(b));\n}\n",
+  "source": "fn main() {\n    let a: i32 = -7;\n    let b: i32 = 2;\n    println!(\"{} {} | {} {}\", a / b, a % b, a.div_euclid(b), a.rem_euclid(b));\n}",
   "topic": "Integer arithmetic",
   "difficulty_requested": 3,
   "options": [
     {
-      "text": "-4 1\n-4 1",
-      "kind": "output"
+      "text": "-3 -1 | -3 -1",
+      "kind": "output",
+      "why_tempting": "If div_euclid looks like just another name for /, both sides of the pipe come out truncated. It isn't another name — it floors, and the pipe is there to force the comparison."
     },
     {
-      "text": "-3 1\n-4 1",
-      "kind": "output"
-    },
-    {
-      "text": "-4 -1\n-3 -1",
-      "kind": "output"
+      "text": "-4 1 | -4 1",
+      "kind": "output",
+      "why_tempting": "Python's // floors toward negative infinity, so -7 // 2 is -4 there. Carry that habit into Rust and / looks floored too — but Rust's / truncates toward zero."
     },
     {
       "text": "does not compile",
-      "kind": "does_not_compile"
+      "kind": "does_not_compile",
+      "why_tempting": "div_euclid and rem_euclid are real methods on integers that have been there for years. If either name looked invented, this is where you'd land. Neither is."
     },
     {
-      "text": "-3 -1\n-4 1",
+      "text": "-3 1 | -4 -1",
+      "kind": "output",
+      "why_tempting": "If you remember that the two divisions disagree but misremember which remainder keeps the dividend's sign, every sign lands exactly backwards."
+    },
+    {
+      "text": "-3 -1 | -4 1",
       "kind": "output"
     }
   ],
@@ -35,20 +39,35 @@
     "steps": []
   },
   "verified": {
-    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
     "edition": "2021",
-    "legacy": true,
+    "target_triple": "aarch64-unknown-linux-gnu",
+    "flags": {
+      "opt_level": "0",
+      "overflow_checks": true,
+      "debug_assertions": true
+    },
     "runs": {
       "count": 5,
       "byte_identical": true
     },
-    "stdout": "-3 -1\n-4 1\n",
+    "stdout": "-3 -1 | -4 1\n",
+    "exit_code": 0,
     "miri": {
       "clean": true,
-      "output_matched": true
-    }
+      "output_matched": true,
+      "version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
+      "configs": [
+        "stacked_borrows"
+      ],
+      "seeds": [
+        0
+      ]
+    },
+    "verified_at": "2026-09-30T08:28:13Z",
+    "verifier_version": "popquiz-verify 7b1bc351e4dd"
   },
   "review": {
-    "reason": "Migrated from the August batch by T-14. 4 of 5 options break the wall's rule that an option is one line of at most 29 characters (D-15, SPEC 5.2): indexes 0, 1, 2, 4 in bank order. The correct option is among them, and an option's text has to equal what the program printed, so shortening it is not an edit to the option - the program has to print something shorter, and the machine decides the new answer when it is re-verified (T-15b). No why_tempting beats were drafted, because every incorrect option they would attach to is scheduled for replacement. Cannot be affirmed as it stands: the trace is empty and the middle beats are missing (SPEC 7.4, AC-95)."
+    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the two printlns became one, so the program prints a single line and the machine re-verified the answer. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
   }
 }

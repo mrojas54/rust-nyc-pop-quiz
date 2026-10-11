@@ -2,25 +2,40 @@
 
 These tests are about the harness, not about verification. The verifier's actual
 decisions — determinism at N=5, compile failure with its error code, Miri under
-both borrow models — belong to T-15b and arrive with real recorded fixtures.
+both borrow models — are in `test_verify.py`, against the recordings here.
 """
 
 from __future__ import annotations
 
 import ast
+import json
 import pathlib
 
 import pytest
 
+from popquiz import sandbox
 from popquiz.runner import FixtureError, RealRunner, RunStep, StubRunner
 
 HERE = pathlib.Path(__file__).parent
 FIXTURES = HERE / "fixtures"
+RECORDINGS = FIXTURES / "verify" / "recordings"
 
 # Both halves of what `just test` imports. The tests are scanned too: a test that
 # called out to a toolchain directly would make `just test` shell out just as
 # surely as a module doing it, and would be an easy way to sidestep the seam.
 SCANNED = (HERE.parent / "src" / "popquiz", HERE)
+
+# `tests/sandbox` is the AC-12 containment suite. It runs real containers, so of
+# course it starts processes — and `just test` never collects it: `test-pipeline`
+# passes `--ignore=tests/sandbox`, and that directory's conftest refuses to run
+# unless asked. Scanning it would make this guard fail for files that are not part
+# of what it is a guard over.
+#
+# The exclusion is only sound while the ignore is real, so it is not taken on
+# trust: `test_sandbox.py::test_the_containment_suite_is_not_collected_by_the_inner_loop`
+# asserts the flag is in the justfile and the conftest's gate is in place. Remove
+# either and that test fails, which is what keeps this line honest.
+NOT_PART_OF_JUST_TEST = (HERE / "sandbox",)
 
 # Importing any of these gives a module the ability to start a process.
 # `importlib` is on the list because it is how a forbidden import gets made
@@ -29,6 +44,27 @@ SCANNED = (HERE.parent / "src" / "popquiz", HERE)
 # innocent, narrow this to the dynamic-import calls rather than dropping the
 # entry.
 FORBIDDEN_IMPORTS = {"subprocess", "multiprocessing", "pty", "docker", "importlib"}
+
+# The modules that are allowed to start a process, by path relative to
+# `pipeline/`. T-15a narrowed this from "nobody" to "exactly one", as the guard's
+# own docstring below asks, so that the set stays visible at a glance instead of
+# the guard being deleted the first time something legitimately needs to execute.
+#
+# `popquiz/sandbox.py` owns execution: it is the only caller of `docker run`, and
+# `test_sandbox.py` proves separately that importing it starts nothing, which is
+# what lets `just test` import it at all.
+#
+# The check below is two-directional. An offender that is not on this list fails,
+# and an entry on this list that no longer offends fails too — a one-way
+# allowlist rots into a rubber stamp, and an exemption nobody needs any more is
+# exactly the kind of stale permission that lets the next one in unnoticed.
+#
+# Paths are relative to `pipeline/`, which is the one base that is unambiguous for
+# both halves of SCANNED — `src/popquiz` and `tests` sit side by side under it.
+MAY_START_A_PROCESS = {
+    "src/popquiz/sandbox.py",
+    "src/popquiz/generate_cli.py",  # PQ-69 ruling 2: the claude-cli backend runs one `claude -p` per candidate
+}
 
 # `os` is not forbidden — modules want `os.environ` and `os.fspath`. These are
 # the calls on it that start something. Both families are complete: all seven
@@ -43,40 +79,138 @@ FORBIDDEN_OS_CALLS = {
 
 
 def test_stub_runner_replays_a_recorded_step() -> None:
-    step = StubRunner(FIXTURES).run("placeholder-step", "scaffold-placeholder")
+    """Replays exactly what the file holds - compared against the file, never
+    against a typed-in expectation of what the compiler said."""
+    recorded = json.loads((RECORDINGS / "q8.json").read_text(encoding="utf-8"))["compile"]
+
+    step = StubRunner(RECORDINGS).run("compile", "q8")
 
     assert isinstance(step, RunStep)
-    assert step.kind == "placeholder-step"
-    assert step.exit_code == 0
-    assert step.recorded_from
+    assert step.kind == "compile"
+    assert (step.exit_code, step.stdout, step.stderr) == (
+        recorded["exit_code"], recorded["stdout"], recorded["stderr"]
+    )
+    assert step.recorded_from == recorded["recorded_from"]
 
 
-def test_stub_runner_refuses_a_step_that_does_not_say_where_it_came_from() -> None:
+def _write(tmp_path: pathlib.Path, program: str, payload: dict) -> pathlib.Path:
+    (tmp_path / f"{program}.json").write_text(json.dumps(payload), encoding="utf-8")
+    return tmp_path
+
+
+# The steps below are shapes, not outputs: every stdout and stderr is empty, and
+# no program is behind them.
+_EMPTY = {"exit_code": 0, "stdout": "", "stderr": ""}
+
+
+def test_stub_runner_refuses_a_step_that_does_not_say_where_it_came_from(tmp_path) -> None:
     """The provenance guard.
 
     An output with no toolchain behind it is indistinguishable from one somebody
-    typed, so it is refused rather than replayed. This is what stops T-15b from
+    typed, so it is refused rather than replayed. This is what stops anyone
     hand-writing a fixture.
     """
+    directory = _write(tmp_path, "p", {"compile": {**_EMPTY, "recorded_from": ""}})
     with pytest.raises(FixtureError, match="recorded from"):
-        StubRunner(FIXTURES).run(
-            "placeholder-step-without-provenance", "scaffold-placeholder"
-        )
+        StubRunner(directory).run("compile", "p")
 
 
 def test_stub_runner_reports_a_program_it_has_never_recorded() -> None:
     with pytest.raises(FixtureError, match="no recorded output"):
-        StubRunner(FIXTURES).run("placeholder-step", "a-program-nobody-recorded")
+        StubRunner(RECORDINGS).run("compile", "a-program-nobody-recorded")
 
 
 def test_stub_runner_reports_a_step_it_has_never_recorded() -> None:
     with pytest.raises(FixtureError, match="no recorded"):
-        StubRunner(FIXTURES).run("a-step-nobody-recorded", "scaffold-placeholder")
+        StubRunner(RECORDINGS).run("a-step-nobody-recorded", "q8")
 
 
-def test_real_runner_refuses_until_the_sandbox_exists() -> None:
-    with pytest.raises(NotImplementedError, match="T-15a/T-15b"):
-        RealRunner().run("compile", "anything")
+def test_bookkeeping_keys_are_neither_replayed_nor_listed_as_steps(tmp_path) -> None:
+    """`_recorded` and `_source_sha256` describe the file, not a step."""
+    directory = _write(
+        tmp_path,
+        "p",
+        {"_recorded": {"by": "a test"}, "compile": {**_EMPTY, "recorded_from": "a test"}},
+    )
+    with pytest.raises(FixtureError) as refused:
+        StubRunner(directory).run("_recorded", "p")
+    assert "(it has: compile)" in str(refused.value)
+
+
+def test_a_stopped_step_replays_with_what_stopped_it(tmp_path) -> None:
+    directory = _write(
+        tmp_path,
+        "p",
+        {"run:1": {"exit_code": None, "stdout": "", "stderr": "",
+                   "recorded_from": "a test", "stopped_by": ["TIMEOUT"]}},
+    )
+    step = StubRunner(directory).run("run:1", "p")
+    assert step.exit_code is None and step.stopped_by == ("TIMEOUT",)
+
+
+# --- RealRunner, driven with a fake process runner: no Docker ------------------
+
+
+class _Done:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
+
+
+def _real(calls: list) -> RealRunner:
+    def fake(argv, *, input=None, timeout=None):
+        calls.append((list(argv), input))
+        return _Done(0)
+
+    return RealRunner(
+        {"p": "fn main() {}\n"}, pin=sandbox.read_pin(), process_runner=fake
+    )
+
+
+@pytest.mark.parametrize(
+    ("kind", "script_has"),
+    [
+        ("compile", "rustc "),
+        ("run:3", "exec ./main"),
+        ("miri:stacked_borrows:0", "-Zmiri-seed=0"),
+        ("miri:tree_borrows:7", "-Zmiri-tree-borrows -Zmiri-seed=7"),
+        ("toolchain", "rustc -Vv"),
+    ],
+)
+def test_real_runner_maps_each_kind_onto_one_sandbox_step(kind: str, script_has: str) -> None:
+    calls: list = []
+    step = _real(calls).run(kind, "p")
+
+    assert len(calls) == 1
+    argv, stdin = calls[0]
+    assert argv[:2] == ["docker", "run"]
+    assert script_has in argv[-1]
+    assert stdin == ("" if kind == "toolchain" else "fn main() {}\n")
+    assert step.kind == kind and step.recorded_from == sandbox.read_pin().image
+
+
+def test_real_runner_asks_the_toolchain_once() -> None:
+    calls: list = []
+    runner = _real(calls)
+    runner.run("toolchain", "p")
+    runner.run("toolchain", "p")
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("kind", ["run:0", "run:x", "miri:weak_borrows:0", "miri:tree_borrows", "link"])
+def test_real_runner_refuses_a_kind_outside_the_vocabulary(kind: str) -> None:
+    with pytest.raises(ValueError, match="unknown step kind"):
+        _real([]).run(kind, "p")
+
+
+def test_real_runner_reports_what_stopped_a_step() -> None:
+    def fake(argv, *, input=None, timeout=None):
+        if argv[:2] == ["docker", "kill"]:
+            return _Done(0)
+        raise sandbox.RunnerTimeout(argv, timeout)
+
+    runner = RealRunner({"p": "fn main() {}\n"}, pin=sandbox.read_pin(), process_runner=fake)
+    step = runner.run("run:1", "p")
+    assert step.exit_code is None and step.stopped_by == (sandbox.TIMEOUT,)
 
 
 def _process_starting_nodes(tree: ast.AST) -> list[tuple[int, str]]:
@@ -148,21 +282,71 @@ def test_nothing_just_test_imports_can_start_a_process() -> None:
     that genuinely needs to execute something has to say so in a way a reader
     sees, not so that the absence of a finding is a guarantee.
 
-    T-15b will legitimately need to break this — `RealRunner` executes things.
-    Narrow it to exempt the one module that owns execution rather than deleting
-    it, so the set of modules that can start a process stays visible at a glance.
+    **Narrowed by T-15a, not deleted.** `popquiz/sandbox.py` runs `docker`, so it
+    is on `MAY_START_A_PROCESS`. Two things keep that from being a hole: the check
+    is two-directional, so the exemption cannot outlive its reason; and
+    `test_sandbox.py` proves the exempt module executes nothing at import time,
+    which is the property `just test` actually needs — not "imports nothing that
+    could execute" but "executes nothing".
     """
-    offenders = []
+    found: dict[str, list[str]] = {}
     for root in SCANNED:
         for path in sorted(root.rglob("*.py")):
+            if any(path.is_relative_to(excluded) for excluded in NOT_PART_OF_JUST_TEST):
+                continue
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            where = str(path.relative_to(HERE.parent))
             for lineno, what in _process_starting_nodes(tree):
-                offenders.append(f"{path.relative_to(root.parent)}:{lineno} {what}")
+                found.setdefault(where, []).append(f"{where}:{lineno} {what}")
 
-    assert not offenders, (
-        "something `just test` imports can start a process, which it must never "
-        "do: " + "; ".join(offenders)
+    unexpected, stale = _classify(found, MAY_START_A_PROCESS)
+    assert not unexpected, (
+        "something `just test` imports can start a process, and it is not the one "
+        "module allowed to: " + "; ".join(unexpected)
     )
+    assert not stale, (
+        "these modules are exempted from the shell-out guard but no longer start "
+        "anything, so the exemption should be removed rather than left standing: "
+        + ", ".join(stale)
+    )
+
+
+def _classify(
+    found: dict[str, list[str]], allowed: set[str]
+) -> tuple[list[str], list[str]]:
+    """Split the scan's findings into offenders nobody exempted and exemptions
+    nobody needs. Exact path comparison, on purpose: see the test below."""
+    unexpected = [line for where, lines in found.items() if where not in allowed for line in lines]
+    stale = sorted(allowed - found.keys())
+    return unexpected, stale
+
+
+def test_the_exemption_covers_one_exact_path_and_nothing_near_it() -> None:
+    """The exemption is only as narrow as the comparison behind it. A prefix or a
+    directory match would let a sibling module — or one whose name merely starts
+    the same way — inherit the right to start a process without appearing on the
+    list, which is the one thing the list exists to prevent."""
+    exempt = "src/popquiz/sandbox.py"
+    found = {
+        exempt: [f"{exempt}:1 imports subprocess"],
+        "src/popquiz/verify.py": ["src/popquiz/verify.py:3 imports subprocess"],
+        "src/popquiz/sandbox_helpers.py": ["src/popquiz/sandbox_helpers.py:2 calls os.system"],
+        "src/popquiz/sandbox/extra.py": ["src/popquiz/sandbox/extra.py:5 imports pty"],
+    }
+
+    unexpected, stale = _classify(found, {exempt})
+
+    assert not stale
+    assert not [line for line in unexpected if line.startswith(f"{exempt}:")]
+    assert {line.split(":", 1)[0] for line in unexpected} == {
+        "src/popquiz/verify.py",
+        "src/popquiz/sandbox_helpers.py",
+        "src/popquiz/sandbox/extra.py",
+    }
+
+    # And the other direction: an exemption with no offence behind it is reported.
+    _, stale = _classify({}, {exempt})
+    assert stale == [exempt]
 
 
 def test_the_guard_catches_the_ways_it_claims_to() -> None:
@@ -193,4 +377,14 @@ def test_the_guard_catches_the_ways_it_claims_to() -> None:
     for source in allowed:
         assert not _process_starting_nodes(ast.parse(source)), (
             f"false positive: {source!r}"
+        )
+
+
+def test_every_shell_out_exemption_names_a_file_that_exists() -> None:
+    """A misspelled exemption would surface as a *stale* one, which is a
+    misleading way to find out you typed a path wrong. This says which it is."""
+    for where in sorted(MAY_START_A_PROCESS):
+        assert (HERE.parent / where).is_file(), (
+            f"{where} is exempted from the shell-out guard, but there is no such "
+            f"file under {HERE.parent}. Fix the path or drop the entry."
         )

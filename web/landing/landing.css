@@ -1,0 +1,93 @@
+/* ===========================================================================
+   The front door (GET /). House tokens only: Cascadia Mono for the body,
+   Instrument Serif for the headline (24px and above), one amber accent, one
+   radius, 1px borders, one card shadow. Light, no gradients, no motion.
+
+   Three bands: a header (the wordmark), the main (the headline and the two
+   ways in, beside Ferris on a card) and a footer pinned to the bottom of the
+   screen (the host's way in). From 860px the main is two columns, copy left
+   and Ferris right; below that it stacks, Ferris first, everything centred.
+
+   Every control is at least 44px (AC-85). Long words wrap and Ferris scales
+   with its column, so the page never scrolls sideways (AC-33). Colour is
+   never the only signal (AC-40): the buttons are labelled and Ferris is
+   decoration. No red or error token.
+   =========================================================================== */
+html, body { background: var(--bg-primary); }
+
+.landing {
+  box-sizing: border-box; min-height: 100vh; min-height: 100dvh;
+  width: 100%; max-width: 1280px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  padding: 0 var(--space-4); overflow-wrap: anywhere;
+}
+
+.land-head { flex: none; display: flex; align-items: center; justify-content: center; min-height: 56px; }
+.land-mark { margin: 0; font-size: var(--text-xs); letter-spacing: var(--tracking-caps);
+             text-transform: uppercase; color: var(--text-secondary); }
+
+.land-main {
+  flex: 1; width: 100%;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--space-6);
+  text-align: center;
+}
+.land-copy { order: 2; display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+.land-art { order: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: var(--space-6); padding: var(--space-6) var(--space-4);
+            background: var(--white); border: var(--border-w) solid var(--border-default);
+            border-radius: var(--radius); box-shadow: var(--shadow-card); }
+/* Ferris's speech bubble: the card's grey, the house border, a tail down to the crab. */
+.land-koan { position: relative; margin: 0; max-width: 28ch; padding: var(--space-3) var(--space-4);
+             background: var(--bg-secondary); border: var(--border-w) solid var(--border-default);
+             border-radius: var(--radius); font-size: var(--text-sm); line-height: var(--leading-body);
+             color: var(--text-primary); text-align: center; }
+.land-koan::before, .land-koan::after { content: ""; position: absolute; left: 50%; top: 100%;
+                                        border: solid transparent; transform: translateX(-50%); }
+.land-koan::before { border-width: 9px; border-top-color: var(--border-default); }
+.land-koan::after { border-width: 8px; border-top-color: var(--bg-secondary); }
+.land-ferris { display: block; width: 260px; max-width: 80%; height: auto; }
+
+.land-title { margin: 0; font-size: 52px; line-height: 1.05; text-wrap: balance; }
+
+.land-go { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); }
+.land-btn {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 56px; min-width: var(--touch-target); padding: 12px 40px;
+  border: var(--border-w) solid var(--accent-primary); border-radius: var(--radius);
+  background: var(--accent-primary); color: var(--gray-800);
+  font-family: var(--font-mono); font-size: 16px; font-weight: 600; text-decoration: none;
+  box-shadow: var(--shadow-card);
+}
+.land-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
+.land-last {
+  display: flex; align-items: center; justify-content: center; min-height: var(--touch-target); min-width: var(--touch-target);
+  font-size: var(--text-sm); color: var(--text-primary);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.land-last:hover { color: var(--accent-hover); }
+
+/* The host's way in, pinned to the foot of the screen. */
+.land-foot { flex: none; display: flex; align-items: center; justify-content: center; min-height: 64px;
+             border-top: var(--border-w) solid var(--border-default); }
+.land-foot a { display: inline-flex; align-items: center; min-height: var(--touch-target); min-width: var(--touch-target);
+               font-size: var(--text-sm); color: var(--text-secondary); text-underline-offset: 3px; }
+.land-foot a:hover { color: var(--accent-hover); }
+.land-btn:focus-visible, .land-last:focus-visible, .land-foot a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+@media (min-width: 860px) {
+  .landing { padding: 0 var(--space-16); }
+  .land-head { justify-content: flex-start; min-height: 72px; }
+  .land-main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-16);
+               align-items: center; text-align: left; }
+  .land-copy { order: 0; gap: var(--space-8); }
+  .land-art { order: 0; min-height: 440px; padding: var(--space-8); }
+  .land-ferris { width: 400px; max-width: 90%; }
+  .land-title { font-size: 96px; }
+  .land-go { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
+  .land-btn { display: inline-flex; }
+  .land-last { display: inline-flex; }
+  .land-foot { justify-content: flex-start; min-height: 72px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing * { transition: none !important; animation: none !important; }
+}

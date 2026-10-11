@@ -3,9 +3,9 @@
    ---------------------------------------------------------------------------
    Provenance, licences and checksums: fonts/README.md.
 
-   The Cascadia Mono rules below are ported from the design system's own
-   generated `project/tokens.css` rather than written here — same format hint,
-   same variable weight range, same font-display.
+   The families, variable weight ranges and font-display follow the design
+   system's generated `project/tokens.css`. WOFF2 is preferred for loading;
+   the original TTF remains a compatibility fallback. No glyphs are removed.
 
    `font-display: swap` is deliberate. The wall renders at a size derived by
    typemodel.js from the room's measurements (SPEC §5.2), and a font that blocks
@@ -18,14 +18,16 @@
 /* --- Cascadia Mono — body, controls, code, data --------------------------- */
 @font-face {
   font-family: "Cascadia Mono";
-  src: url("fonts/CascadiaMono-VariableFont_wght.ttf") format("truetype");
+  src: url("fonts/CascadiaMono-VariableFont_wght.woff2") format("woff2"),
+       url("fonts/CascadiaMono-VariableFont_wght.ttf") format("truetype");
   font-weight: 200 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Cascadia Mono";
-  src: url("fonts/CascadiaMono-Italic-VariableFont_wght.ttf") format("truetype");
+  src: url("fonts/CascadiaMono-Italic-VariableFont_wght.woff2") format("woff2"),
+       url("fonts/CascadiaMono-Italic-VariableFont_wght.ttf") format("truetype");
   font-weight: 200 700;
   font-style: italic;
   font-display: swap;
@@ -34,14 +36,16 @@
 /* --- Instrument Serif — headings at 24px and above only (DESIGN.md) ------- */
 @font-face {
   font-family: "Instrument Serif";
-  src: url("fonts/InstrumentSerif-Regular.ttf") format("truetype");
+  src: url("fonts/InstrumentSerif-Regular.woff2") format("woff2"),
+       url("fonts/InstrumentSerif-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Instrument Serif";
-  src: url("fonts/InstrumentSerif-Italic.ttf") format("truetype");
+  src: url("fonts/InstrumentSerif-Italic.woff2") format("woff2"),
+       url("fonts/InstrumentSerif-Italic.ttf") format("truetype");
   font-weight: 400;
   font-style: italic;
   font-display: swap;

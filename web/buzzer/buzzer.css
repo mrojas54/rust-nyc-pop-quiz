@@ -1,0 +1,153 @@
+/* ===========================================================================
+   The buzzer (T-06). Ported from prototypes/C-projector-first.html's buzzer
+   panel (`.buzz-*`), laid out at its 375 px design width, onto the token
+   names of web/shared/tokens.css.
+
+   Not ported, on purpose: the prototype's red border on the participant's
+   own choice when it was not the answer. AC-94: no participant surface marks
+   its own answer as incorrect — no cross mark, no red, no "wrong". Nothing in
+   this file uses a red or error token.
+
+   Every control is at least 44 px tall and wide (AC-85, `--touch-target`). The
+   buzzer carries no code, and every text wraps, so the page never scrolls
+   sideways.
+
+   AC-84 (T-13): focus rings are `--focus-ring`, not the prototype's
+   `--border-focus`, which is 2.3:1 on this page; the ✓ letter's text is
+   `--success-text`; the join field's edge is `--text-muted`. The pairs and
+   their ratios are web/test/a11y.test.js's.
+   =========================================================================== */
+
+/* The prototype's `.btn`, `.btn-primary`, `.panel` and `.meta`
+   (prototypes/_shared/tokens.css) are not in web/shared, which ported only
+   what every surface needs; the buzzer carries its own, scoped to it. */
+.buzzer .meta { font-size: var(--text-xs); color: var(--text-secondary); }
+.buzzer .btn { font-family: var(--font-mono); font-size: var(--text-sm);
+               min-height: var(--touch-target); min-width: var(--touch-target); padding: 10px 18px;
+               border: var(--border-w) solid var(--border-default); border-radius: var(--radius);
+               background: var(--bg-input); color: var(--text-primary); cursor: pointer; }
+.buzzer .btn:hover { background: var(--bg-tertiary); }
+.buzzer .btn:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.buzzer .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary);
+                       color: var(--gray-800); font-weight: 600; }
+.buzzer .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
+.buzzer .btn:disabled { opacity: .5; cursor: not-allowed; }
+.buzzer .panel { background: var(--bg-secondary); border: var(--border-w) solid var(--border-default);
+                 border-radius: var(--radius); box-shadow: var(--shadow-card);
+                 padding: var(--panel-pad-compact); }
+
+html, body { background: var(--bg-primary); }
+body { overflow-x: hidden; }
+
+.buzzer {
+  box-sizing: border-box;
+  width: 100%; max-width: 375px; min-height: 100vh; min-height: 100dvh;
+  margin: 0 auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+/* The wordmark, Guest beneath (§11, Title) — Instrument Serif only at 24px+. */
+.buzz-title { flex: none; text-align: center; }
+.buzz-wordmark { font-family: var(--font-heading); font-size: 30px; font-weight: 400; line-height: 1.2; margin: 0; }
+.buzz-role { font-family: var(--font-heading); font-size: 24px; line-height: 1.2; color: var(--text-secondary); margin: 0 0 6px; }
+.buzz-head { flex: none; text-align: center; padding-bottom: 6px;
+             border-bottom: var(--border-w) solid var(--border-default); }
+.buzz-code { font-size: var(--text-sm); color: var(--text-secondary); }
+.buzz-code b { font-family: var(--font-heading); font-size: 28px; font-weight: 400;
+               color: var(--accent-hover); letter-spacing: var(--tracking-wide); }
+.buzz-head .lookup { font-size: var(--text-sm); color: var(--text-secondary); margin-top: 2px; }
+.buzz-head .lookup b { color: var(--text-primary); }
+
+/* The five letters: ChoiceButtons, one column, the whole middle of the phone. */
+.buzz-grid { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.buzz {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+  min-height: var(--touch-target); min-width: var(--touch-target);
+  border: 2px solid var(--border-default); border-radius: var(--radius);
+  background: var(--white); color: var(--text-primary);
+  font-family: var(--font-heading); font-size: 46px; line-height: 1; cursor: pointer;
+}
+.buzz:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+/* The saved answer: fill, weight, a thicker border and a ✓ beside the letter —
+   shape and glyph as well as colour (AC-40). The ✓ is "this is yours",
+   never a verdict. */
+.buzz[aria-pressed="true"] { background: var(--accent-primary); border-color: var(--accent-hover);
+                             border-width: 4px; font-weight: 700; }
+.buzz[aria-pressed="true"]::after { content: "\2713"; font-family: var(--font-mono); font-size: 24px; }
+/* A letter on its way: dashed, and the submission line says "saving…". */
+.buzz.is-pending { border-style: dashed; border-color: var(--accent-hover); border-width: 3px; }
+.buzz:disabled { cursor: default; }
+.buzz:disabled:not([aria-pressed="true"]) { color: var(--text-secondary); }
+
+.buzz-submit, .buzz-paused, .buzz-said { margin: 0; text-align: center; font-size: 17px; }
+.buzz-submit { min-height: var(--touch-target); display: flex; flex-wrap: wrap; align-items: center;
+               justify-content: center; gap: 8px; }
+.buzz-submit[data-state="saved"] { font-weight: 700; }
+.buzz-paused { color: var(--text-secondary); font-style: italic; }
+
+.buzz-hint-go { font-size: var(--text-xs); }
+.buzz-hint { border-left: 3px solid var(--info); font-size: var(--text-sm); }
+
+.buzz-verdict { flex: 1; display: grid; place-items: center; text-align: center; }
+.buzz-verdict .vb { font-family: var(--font-heading); font-size: 72px; line-height: 1;
+                    color: var(--accent-hover); }
+.buzz-verdict .buzz-said { font-size: 19px; margin-top: 8px; }
+.buzz-after { max-width: 240px; margin: 14px auto 0; }
+.buzz-itwas { font-size: 19px; margin: 14px 0 0; }
+
+/* PQ-37 (HC-0): the room's split, from `split` on — web/wall/wall.css's bar
+   rules, class for class, at the wall's reveal sizes (row 18px, track 24px,
+   count 76px), which fit the 351px phone column. Ported rather than shared
+   because the wall's sheet carries the projector's page globals. */
+.buzz-verdict > div { width: 100%; }
+.buzz-split { margin-top: 14px; text-align: left; }
+.buzzer .bars { display: flex; flex-direction: column; gap: 5px; }
+.buzzer .bar-row { display: flex; align-items: center; gap: 8px; font-size: 18px; line-height: 1.2; }
+.buzzer .bar-row .letter { flex: none; width: 30px; font-weight: 700; }
+.buzzer .bar-track { flex: 1; min-width: 0; height: 24px; background: var(--bg-tertiary);
+                     border: 1px solid var(--border-default); border-radius: var(--radius); overflow: hidden; }
+.buzzer .bar-fill { display: block; height: 100%; background: var(--text-secondary); }
+.buzzer .bar-n { flex: none; width: 76px; text-align: right; font-size: 16px; }
+/* AC-40: the green keys off check.js's element, which only arrives with its ✓. */
+.buzzer .bar-row:has(.rn-correct) .bar-fill { background: var(--success); }
+.buzzer .bar-row:has(.rn-correct) .bar-track { border: 2px solid var(--success); }
+.buzzer .bar-row .letter.rn-correct { width: auto; min-width: 30px; }
+/* The ✓ and its letter as text: 18 px is not large text, and green-500 is
+   3.1:1 here (AC-84). The fill and the track's edge stay --success: they are
+   supplementary to the ✓ and to `n · p%` beside them. */
+.buzzer .rn-correct { color: var(--success-text); }
+/* The reader's own row: the ● glyph beside it and a heavier outline on the
+   letter — shape and glyph, no colour (AC-40); the *you said ‹X›* line
+   beneath keys the glyph. */
+.buzzer .bar-yours { flex: none; width: 14px; font-size: 14px; text-align: center; }
+.buzzer .bar-row.is-yours .letter { outline: 2px solid var(--text-primary); outline-offset: 1px;
+                                    border-radius: var(--radius); text-align: center; }
+.buzz-yours { margin-top: 10px; font-size: 17px; }
+
+
+/* The join form: one field, one button, one line beneath (AC-28). */
+.buzz-join { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.buzz-join-label { font-size: var(--text-sm); color: var(--text-secondary); text-align: center; }
+.buzz-input {
+  box-sizing: border-box; width: 100%; min-height: var(--touch-target); min-width: var(--touch-target);
+  padding: 8px 12px; text-align: center; text-transform: uppercase;
+  font-family: var(--font-mono); font-size: 28px; letter-spacing: 0.2em;
+  border: 2px solid var(--text-muted); border-radius: var(--radius);
+  background: var(--bg-input); color: var(--text-primary);
+}
+.buzz-input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.buzz-join-go { width: 100%; }
+.buzz-refusal { margin: 0; padding: 8px 12px; font-size: var(--text-sm);
+                border-left: 3px solid var(--accent-hover); background: var(--accent-subtle); }
+
+/* Anything focused that the rules above do not name — the hint once it is
+   shown takes the focus the hint button had (buzzer.js, render). */
+.buzzer :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+/* AC-86. Nothing on the buzzer animates today; this is the guard for the day
+   something does. Every state is carried by text and shape, not motion:
+   saving is the dashed border and "saving…", saved the fill and ✓. */
+@media (prefers-reduced-motion: reduce) {
+  .buzzer * { transition: none !important; animation: none !important; }
+}

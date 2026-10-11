@@ -1,0 +1,48 @@
+# THROWAWAY. BUILDPLAN T-03's burst spike only.
+#
+# This is not the room's deploy. T-09 owns that, along with `room/fly.toml`, the
+# real app name, `popquiz.rustnyc.org` and the `smoke` recipe. The app described
+# here exists to be measured against for a few minutes and then destroyed; the
+# destroy command is in the ticket's completion comment for the client to run.
+
+app            = "rustnyc-popquiz-spike"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "spike/Dockerfile"
+
+[http_service]
+  internal_port = 8080
+
+  # Left off so a plain `ws://` control run can quantify what TLS costs per
+  # frame. On the real app (T-09) this is the opposite of what you want.
+  force_https = false
+
+  # Autoscale is off, and this is load-bearing rather than tidiness: a second
+  # machine would hold a second copy of the in-memory room, the 200 sessions
+  # would be split across two maps, and AC-52's "counted exactly once" would be
+  # reconciling against a fiction. burst.rs also asserts that every `hello`
+  # frame carries the same FLY_MACHINE_ID and invalidates the run if not, so
+  # this config and that check have to both fail for a split to go unnoticed.
+  auto_stop_machines   = "off"
+  auto_start_machines  = false
+  min_machines_running = 1
+  processes            = ["app"]
+
+  [http_service.concurrency]
+    # The default is 25 connections. At 200 WebSockets the Fly proxy would shed
+    # connections long before the server was under any strain, and the spike
+    # would report a p95 miss that belonged to this config rather than to Rust
+    # on Fly — a false no-go on D-A, which BUILDPLAN §5 says re-opens the whole
+    # substrate decision. This is the single most important line in the file.
+    type       = "connections"
+    hard_limit = 400
+    soft_limit = 350
+
+[[vm]]
+  # Smallest shared-cpu machine, per the ticket. If the burst passes here it
+  # passes on anything the real room would be given.
+  size      = "shared-cpu-1x"
+  cpu_kind  = "shared"
+  cpus      = 1
+  memory    = "256mb"

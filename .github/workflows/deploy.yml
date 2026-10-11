@@ -1,0 +1,37 @@
+name: deploy
+
+# Deploys the room to Fly (`rustnyc-popquiz`, fly.toml) on every push to main,
+# and by hand from the Actions tab. A deploy restarts the one machine and drops
+# every room it holds (fly.toml, "Never stopped for idleness"), so merge to main
+# with that in mind. To make it manual only, delete the `push` trigger below.
+#
+# The build runs on Fly's remote builder, not on the runner. The one thing this
+# needs from the repository is a secret named FLY_API_TOKEN, made with
+# `fly tokens create deploy -a rustnyc-popquiz`. `--ha=false` is fly.toml's rule:
+# without it Fly adds a second machine, and a second machine is a second copy of
+# the room's state.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: fly deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - run: flyctl deploy --remote-only --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

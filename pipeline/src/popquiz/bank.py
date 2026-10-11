@@ -206,19 +206,36 @@ class Review:
         return bool(self.affirmed_by) and bool(self.affirmed_at)
 
 
+#: The club a record or request that names none belongs to (D-26); the room's
+#: `DEFAULT_CLUB` (room/src/club.rs).
+DEFAULT_CLUB = "nyc"
+
+#: A club's short name, as the room validates it (room/src/club.rs).
+CLUB_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,23}")
+
+
 @dataclass(frozen=True)
 class Used:
-    """Written once, by the release transition and nothing else (SPEC 3.1, G-10).
+    """Written once per club, by the release transition and nothing else (SPEC 3.1, G-10).
+
+    A question is used *for a club* when that club's room is released (D-26,
+    AC-105): the bank keeps one `Used` per club that has run it, and another
+    club's use of a question does not retire it for this one.
 
     Not by a deck build. `build_deck.py` wrote a ledger line at *build* time, which
     retired questions for meetups that then did not happen; that is a defect the
     brownfield table retires (BUILDPLAN 2, G-10).
+
+    `fit` is `None` when the wall never reported a verdict before release: the
+    room sends `null` (room/src/used.rs), nothing observed it, and so - absent is
+    absent - the key is not written (F-30). `None` is not *fits*.
     """
 
     meetup_date: str
     room_id: str
     released_at: str
-    fit: Fit
+    fit: Fit | None = None
+    club: str = DEFAULT_CLUB
 
 
 # --------------------------------------------------------------------------- #
@@ -317,7 +334,11 @@ class Question:
     trace: Trace = field(default_factory=Trace)
     verified: Verified | None = None
     review: Review | None = None
-    used: Used | None = None
+    used: tuple[Used, ...] = ()
+
+    def used_by(self, club: str = DEFAULT_CLUB) -> Used | None:
+        """This club's use of the question, or `None`: a question is used per club (D-26)."""
+        return next((u for u in self.used if u.club == club), None)
 
 
 # --------------------------------------------------------------------------- #
@@ -361,33 +382,69 @@ def normalized_output(stdout: str) -> str:
     return stdout[:-1] if stdout.endswith("\n") else stdout
 
 
+#: The two Miri borrow models (AC-9). A record's `miri.configs` names the ones
+#: that ran; `verify` runs Tree Borrows only for a candidate declared UB, and
+#: accepts that candidate only when both models reported the UB.
+BORROW_MODELS = ("stacked_borrows", "tree_borrows")
+
+
+def ub_confirmed(verified: Verified) -> bool:
+    """Whether Miri reported UB under both borrow models (AC-9).
+
+    A legacy record carries no `configs`, so its unclean Miri pass cannot say which
+    models agreed, and this is false for it: nothing is inferred (D-16).
+    """
+    miri = verified.miri
+    return (
+        miri is not None
+        and miri.clean is False
+        and miri.configs is not None
+        and set(BORROW_MODELS) <= set(miri.configs)
+    )
+
+
 def correct_index(question: Question) -> int | None:
     """Which option is correct, derived from `verified` (SPEC 3.1, G-2).
 
-    There is no stored answer to disagree with. For a record that ran, the correct
-    option is the one whose text equals the verified output; for a does-not-compile
-    record it is the single `does_not_compile` option. `None` when the question has
+    There is no stored answer to disagree with. The rules, in order, and the first
+    that applies decides - it never falls through to a later one:
+
+    1. a does-not-compile record: the single `does_not_compile` option;
+    2. a record that ran, where Miri reported UB under both borrow models: the
+       single `ub` option. UB outranks the exit code, because the UB is what the
+       question is about, whatever the native binary happened to do;
+    3. a record that ran and exited non-zero (a panic): the single `panic` option;
+    4. otherwise, a record that ran: the option whose text equals the output.
+
+    Rules 1-3 match by option *kind*, never by text. `None` when the question has
     no verified record yet, or when nothing matches - and *nothing matching is a
     finding, not a default*: it means the options and the machine's output have
     drifted apart, which is what AC-7's provenance check is looking for.
 
-    Raises `BankError` when two options match, because then "the option whose text
-    equals the output" names no single option and a caller silently taking the
-    first would be inventing an answer.
+    Raises `BankError` when two options match, because then the rule names no
+    single option and a caller silently taking the first would be inventing an
+    answer.
     """
-    if question.verified is None:
+    verified = question.verified
+    if verified is None:
         return None
 
-    kind = receipt_class(question.verified)
+    def of_kind(kind: OptionKind) -> list[int]:
+        return [i for i, o in enumerate(question.options) if o.kind == kind]
+
+    kind = receipt_class(verified)
     if kind == "does_not_compile":
-        matches = [
-            i for i, o in enumerate(question.options) if o.kind == "does_not_compile"
-        ]
+        matches = of_kind("does_not_compile")
     elif kind == "ran":
-        if question.verified.stdout is None:
+        if ub_confirmed(verified):
+            matches = of_kind("ub")
+        elif verified.exit_code is not None and verified.exit_code != 0:
+            matches = of_kind("panic")
+        elif verified.stdout is None:
             return None
-        wanted = normalized_output(question.verified.stdout)
-        matches = [i for i, o in enumerate(question.options) if o.text == wanted]
+        else:
+            wanted = normalized_output(verified.stdout)
+            matches = [i for i, o in enumerate(question.options) if o.text == wanted]
     else:
         return None
 
@@ -424,17 +481,22 @@ _DEBUG_PRINTED = re.compile(r"(\[[^\[\]\n]*\])")
 
 
 def quoted_outputs(question: Question) -> tuple[str, ...]:
-    """Every quoted span in a question's beats, for T-18's AC-73 check.
+    """Every quoted span in a question's beats and trace notes, for T-18's AC-73 check.
 
     T-18 compares these against `verified.stdout` and blocks acceptance on a
     mismatch (AC-73). **This function does not do that comparison and does not
     decide which spans are claims about output** - it lists candidates.
 
-    Searched: `explains.what`, `explains.takeaway`, `explains.legacy`, and every
-    option's `why_tempting`. The hint is **not** searched: it is written to be read
-    before anyone has seen an answer, so an output quoted in it is a leak for the
-    canary suite (G-3) and not a mismatch for AC-73. Reporting it here would send a
-    real finding to the wrong gate.
+    Searched: `explains.what`, `explains.takeaway`, `explains.legacy`, every
+    option's `why_tempting`, and every trace step's `note`. Notes are searched
+    because a generated trace is drafted by a model (T-16), and a note that quotes
+    what the program printed is the same claim AC-73 exists to catch in a beat. The
+    trace's `stdout` row is not searched: the verifier writes it.
+
+    The hint is **not** searched: it is written to be read before anyone has seen
+    an answer, so an output quoted in it is a leak for the canary suite (G-3) and
+    not a mismatch for AC-73. Reporting it here would send a real finding to the
+    wrong gate.
 
     **No filter on the shape of a span is applied, and that is a finding rather
     than a shortcut.** Reading the eight August explanations for what they actually
@@ -465,6 +527,7 @@ def quoted_outputs(question: Question) -> tuple[str, ...]:
     if question.explains.legacy is not None:
         texts.append(question.explains.legacy)
     texts.extend(o.why_tempting for o in question.options if o.why_tempting)
+    texts.extend(step.note for step in question.trace.steps)
 
     seen: dict[str, None] = {}
     for text in texts:
@@ -535,6 +598,18 @@ def validate_question(question: Question) -> None:
             "values, and this question ran (SPEC 3.1, D-10)"
         )
 
+    # Only the last step resolves, and only the verifier writes its `stdout` row
+    # (`verify.with_record`), so a `stdout` row anywhere earlier was never observed:
+    # it is somebody's claim about the output. Refused rather than stripped, because
+    # dropping authored content silently is the trim this project does not do. The
+    # name test is the generator's and the verifier's: stripped and lower-cased.
+    for i, step in enumerate(question.trace.steps[:-1], 1):
+        if any(v.name.strip().lower() == "stdout" for v in step.values):
+            raise BankError(
+                f"{question.id}: trace step {i} names 'stdout', but only the last step "
+                "may, and only the verifier writes it (SPEC 3.1, D-10)"
+            )
+
 
 # --------------------------------------------------------------------------- #
 # Serialization - absent is absent
@@ -563,6 +638,9 @@ def _dump(value: Any) -> Any:
             # An empty `legacy` flag is the ordinary case; writing `false` on every
             # complete record would make the exceptional case harder to spot.
             if f.name == "legacy" and attr is False:
+                continue
+            # An unused question has no `used` at all, as before clubs (D-26).
+            if f.name == "used" and attr == ():
                 continue
             out[f.name] = _dump(attr)
         return out
@@ -677,9 +755,25 @@ def question_from_dict(data: dict[str, Any]) -> Question:
     review_raw = data.get("review")
     if review_raw is not None:
         _require_keys(review_raw, _field_names(Review), f"{where}.review")
+    # `used` is a list, one record per club (D-26). A bare object is what the
+    # bank wrote before clubs: it is the default club's.
     used_raw = data.get("used")
-    if used_raw is not None:
-        _require_keys(used_raw, _field_names(Used), f"{where}.used")
+    if used_raw is None:
+        used_raw = []
+    elif isinstance(used_raw, dict):
+        used_raw = [used_raw]
+    elif not isinstance(used_raw, list):
+        raise BankError(f"{where}.used: expected a list of records, one per club")
+    for n, raw in enumerate(used_raw):
+        if not isinstance(raw, dict):
+            raise BankError(f"{where}.used[{n}]: expected a record")
+        _require_keys(raw, _field_names(Used), f"{where}.used[{n}]")
+        club = raw.get("club", DEFAULT_CLUB)
+        if not isinstance(club, str) or not CLUB_SLUG.fullmatch(club):
+            raise BankError(f"{where}.used[{n}].club: not a club slug (a-z, 0-9, -, 1 to 24)")
+    clubs = [raw.get("club", DEFAULT_CLUB) for raw in used_raw]
+    if len(set(clubs)) != len(clubs):
+        raise BankError(f"{where}.used: one club appears twice; a question is never run twice for a club (G-10)")
     verified_raw = data.get("verified")
 
     question = Question(
@@ -711,13 +805,15 @@ def question_from_dict(data: dict[str, Any]) -> Question:
             affirmed_at=review_raw.get("affirmed_at"),
             near_duplicate_of=review_raw.get("near_duplicate_of"),
         ),
-        used=None
-        if used_raw is None
-        else Used(
-            meetup_date=used_raw["meetup_date"],
-            room_id=used_raw["room_id"],
-            released_at=used_raw["released_at"],
-            fit=used_raw["fit"],
+        used=tuple(
+            Used(
+                meetup_date=raw["meetup_date"],
+                room_id=raw["room_id"],
+                released_at=raw["released_at"],
+                fit=raw.get("fit"),
+                club=raw.get("club", DEFAULT_CLUB),
+            )
+            for raw in used_raw
         ),
     )
     validate_question(question)

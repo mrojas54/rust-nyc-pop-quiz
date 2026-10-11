@@ -1,0 +1,114 @@
+{
+  "id": "q12",
+  "source": "fn main() {\n    let n: u8 = 50;\n    match n {\n        0..=99 => println!(\"small\"),\n        100..=254 => println!(\"big\"),\n    }\n}",
+  "topic": "Pattern matching",
+  "difficulty_requested": 3,
+  "options": [
+    {
+      "text": "big",
+      "kind": "output",
+      "why_tempting": "Only if 50 landed in the second range. It lands in the first, so even a program that compiled would not print this."
+    },
+    {
+      "text": "nothing is printed",
+      "kind": "output",
+      "why_tempting": "The ranges stop at 254, and you may assume a match that finds no arm just does nothing, the way an if-else chain can. A match has to cover every possible value, and the compiler checks."
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile"
+    },
+    {
+      "text": "small big",
+      "kind": "output",
+      "why_tempting": "In C a switch case keeps running into the next one unless you break. A match arm runs on its own and stops."
+    },
+    {
+      "text": "small",
+      "kind": "output",
+      "why_tempting": "The first arm covers 50, so this is what a compiling version would print. The compiler checks the whole match before anything runs."
+    }
+  ],
+  "hint": "Forget which arm 50 lands in. What does the compiler require of a match over a u8?",
+  "explains": {
+    "what": "A match has to account for every possible value of what it is matching on. A u8 runs from 0 to 255, and these two ranges stop at 254, so 255 has no arm. The compiler rejects it before anything runs, with error E0004, and even names the value that is missing.",
+    "takeaway": "Exhaustiveness is checked for every type, including integer ranges. If you want a fallback, add a final _ arm, or write the last range as 100..=255 so the gap closes by itself."
+  },
+  "trace": {
+    "steps": [
+      {
+        "lines": [],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "This is a compiler-check walkthrough; no source line executes. Line 2 gives n the type u8. The match on line 3 must cover that type's full range, 0 through 255.",
+        "values": [
+          {
+            "name": "uncovered u8 values",
+            "was": "—",
+            "now": "0..=255"
+          }
+        ]
+      },
+      {
+        "lines": [],
+        "focus": [
+          3,
+          4
+        ],
+        "note": "The first pattern on line 4 includes both endpoints, covering 0 through 99. We are tracking pattern coverage, without choosing an arm to run.",
+        "values": [
+          {
+            "name": "uncovered u8 values",
+            "was": "0..=255",
+            "now": "100..=255"
+          }
+        ]
+      },
+      {
+        "lines": [],
+        "focus": [
+          4,
+          5
+        ],
+        "note": "The second pattern on line 5 covers 100 through 254. Together the two patterns still leave one u8 value uncovered: 255.",
+        "values": [
+          {
+            "name": "uncovered u8 values",
+            "was": "100..=255",
+            "now": "255"
+          }
+        ]
+      },
+      {
+        "lines": [],
+        "focus": [
+          2,
+          6
+        ],
+        "note": "The initializer 50 is inside the first range, but it does not narrow the exhaustiveness check to that one value. The check still asks whether every possible u8 has an arm.",
+        "values": [],
+        "pivot": true
+      },
+      {
+        "lines": [],
+        "focus": [
+          3,
+          6
+        ],
+        "note": "With 255 uncovered and no fallback arm, the compiler rejects the match with E0004. Neither println! executes; there is no runtime output to trace.",
+        "values": [
+          {
+            "name": "exhaustiveness check",
+            "was": "255 uncovered",
+            "now": "rejected: E0004"
+          }
+        ]
+      }
+    ]
+  },
+  "review": {
+    "reason": "Candidate drafted 2026-10-10 for the next batch. The expected output was read off a local rustc 1.97.0 run, which only checks that the question is well formed: it is not the pinned toolchain and there was no Miri pass, so there is no verified record yet. Run `just verify bank/candidates/q12.json --expect does_not_compile` on the pinned image to write one. Walk-through steps are drafted; pinned verification and organizer affirmation are still required."
+  }
+}

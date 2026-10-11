@@ -21,7 +21,7 @@ jobs:
     name: just test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
       - name: Install just
         run: |
@@ -33,17 +33,17 @@ jobs:
           sudo install -m 0755 just /usr/local/bin/just
           just --version
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: pipeline/uv.lock
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '22'
 
       - name: Cache cargo registry and target
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -58,14 +58,26 @@ jobs:
 
       - run: just test
 
-  # Everything that exists, plus a named list of what does not. Docker is
-  # installed for this hook only: T-15a's sandbox image and T-21's deployed runs
-  # both land here, and nothing uses it yet.
+      # T-09, T-21. The two harness clients, which `just test` does not compile
+      # (they are feature-gated to hold its 60 s budget), and their own unit
+      # tests; kept on this fast job so a broken client fails early. The
+      # in-process runs against a live room are `test-full`'s (harness-full).
+      - name: The smoke and burst clients
+        run: cd room && cargo test --offline --locked --features burst --test smoke_config --test harness_rules --bin smoke --bin burst
+
+  # Everything that exists, plus a named list of what does not. Docker is used by
+  # this hook only: it builds T-15a's sandbox image and runs the AC-12 containment
+  # suite on it. T-21's burst and smoke run inside it against a room the job
+  # starts in-process on loopback; the deployed runs are deployed-burst.yml,
+  # which the client triggers (nothing unattended can create a deployed room).
   test-full:
     name: just test-full
     runs-on: ubuntu-latest
+    # About four minutes with the sandbox image cached; a cold image build
+    # (cargo miri setup) is the long pole. A hung socket test stops here.
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
       - name: Install just
         run: |
@@ -77,17 +89,17 @@ jobs:
           sudo install -m 0755 just /usr/local/bin/just
           just --version
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: pipeline/uv.lock
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '22'
 
       - name: Cache cargo registry and target
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -102,6 +114,35 @@ jobs:
       - name: Docker is available to this job
         run: docker --version
 
+      # Keyed on exactly the two files that decide what is inside the image. A
+      # change to either is a different image and must rebuild; anything else
+      # reuses this one, which matters because the expensive layer is
+      # `cargo miri setup` building the standard library for Miri.
+      #
+      # The image is cached rather than the build layers because its tag carries
+      # the same two inputs as this key (the pin and a digest of the Dockerfile):
+      # `just sandbox-build` finds the restored image under the tag it expects and
+      # skips the build entirely. One mechanism, not two.
+      - name: Cache the sandbox image
+        id: sandbox-image
+        uses: actions/cache@v6.1.0
+        with:
+          path: /tmp/popquiz-sandbox.tar
+          key: sandbox-${{ runner.os }}-${{ hashFiles('pipeline/sandbox/Dockerfile', 'pipeline/sandbox/pin.toml') }}
+
+      - name: Restore the sandbox image
+        if: steps.sandbox-image.outputs.cache-hit == 'true'
+        run: docker load --input /tmp/popquiz-sandbox.tar
+
       - run: just setup
 
       - run: just test-full
+
+      # Only on a miss: on a hit the tarball is already what the cache holds.
+      - name: Save the sandbox image for the next run
+        if: steps.sandbox-image.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cd pipeline
+          image=$(uv run --no-sync python -c 'from popquiz.sandbox import read_pin; print(read_pin(require_recorded=False).image)')
+          docker save --output /tmp/popquiz-sandbox.tar "$image"

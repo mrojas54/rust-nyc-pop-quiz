@@ -1,6 +1,10 @@
 """Migrate the August MVP batch into the bank as `legacy` records (BUILDPLAN T-14).
 
-Run once; its output is committed. Re-running regenerates the same four files.
+Run once; its output is committed. A re-run writes only what the bank does not
+already hold, so it can never undo what happened to a record after it landed:
+q4, q7 and q8 were re-authored and re-verified since (D-15, D-16).
+`test_migration.py` still regenerates all four into an empty directory to show
+where each record came from.
 
     cd pipeline && uv run python -m popquiz.migrate_mvp
 
@@ -41,10 +45,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from popquiz.bank import (
     MAX_OPTION_LINE_CHARS,
+    BankError,
     Explains,
     History,
     Miri,
@@ -56,8 +63,12 @@ from popquiz.bank import (
     TraceStep,
     ValueDelta,
     Verified,
+    history_path,
+    load_history,
+    load_question,
     normalized_output,
     options_needing_reauthoring,
+    question_path,
     save_history,
     save_question,
 )
@@ -494,7 +505,14 @@ def build_question(batch: dict, question: dict, content: dict) -> Question:
 
 
 def migrate(mvp_dir: Path, bank_dir: Path) -> list[Path]:
-    """Read the MVP batch, write the bank records and the history shape."""
+    """Read the MVP batch, write the bank records and the history shape.
+
+    A file already in the bank is kept, never overwritten: the bank is
+    append-only (SPEC 3.3), and a record that was re-authored or re-verified
+    after it was migrated is no longer the migration's to write. A file that is
+    there but cannot be read stops the run with `MigrationError`, neither kept
+    nor overwritten. Returns the paths it wrote.
+    """
     batch = json.loads((mvp_dir / "verified.json").read_text(encoding="utf-8"))
     content = json.loads((mvp_dir / "content.json").read_text(encoding="utf-8"))
     by_id = {q["id"]: q for q in batch["questions"]}
@@ -506,24 +524,58 @@ def migrate(mvp_dir: Path, bank_dir: Path) -> list[Path]:
     written = []
     for qid in MIGRATED:
         question = build_question(batch, by_id[qid], content[qid])
+        if _already_held(question_path(bank_dir, qid), lambda: load_question(bank_dir, qid)):
+            continue
         written.append(save_question(bank_dir, question))
 
     # The history store's shape, with its three stores empty. T-17 fills and reads
     # them and proves AC-17 on this shape; writing it here means T-17 arrives to a
     # file that exists rather than one it has to invent (SPEC 3.3).
-    written.append(save_history(bank_dir, History()))
+    if not _already_held(history_path(bank_dir), lambda: load_history(bank_dir)):
+        written.append(save_history(bank_dir, History()))
     return written
 
 
+def _already_held(path: Path, load: Callable[[], object]) -> bool:
+    """Whether the bank already holds a readable file at `path`.
+
+    A file that is there but does not load - truncated, say - stops the run. Keeping
+    it would leave a damaged record looking migrated, and overwriting it would put
+    the August record back over whatever it had become (SPEC 3.3).
+    """
+    if not path.exists():
+        return False
+    try:
+        load()
+    except (OSError, ValueError, KeyError, TypeError, BankError) as exc:
+        raise MigrationError(
+            f"{path} is in the bank but cannot be read ({exc}); it is neither kept nor "
+            "overwritten. Restore it from git, then re-run."
+        ) from exc
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
-    repo = Path(__file__).resolve().parents[3]
+    """Exit 0: migrated, or kept what the bank already held. Exit 1: refused, a
+    `MigrationError` such as a bank file that cannot be read, said on stderr."""
+    repo =Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mvp-dir", type=Path, default=repo / "mvp" / "2026-08-12")
     parser.add_argument("--bank-dir", type=Path, default=repo / "bank")
     args = parser.parse_args(argv)
 
-    for path in migrate(args.mvp_dir, args.bank_dir):
+    try:
+        written = migrate(args.mvp_dir, args.bank_dir)
+    except MigrationError as e:
+        print(f"popquiz.migrate_mvp: {e}", file=sys.stderr)
+        return 1
+    for path in written:
         print(f"wrote {path}")
+    kept = [qid for qid in MIGRATED if question_path(args.bank_dir, qid) not in written]
+    if history_path(args.bank_dir) not in written:
+        kept.append("history.json")
+    if kept:
+        print("kept, already in the bank: " + ", ".join(kept))
     print(
         "not migrated: "
         + ", ".join(f"{q} ({why})" for q, why in sorted(NOT_MIGRATED.items()))

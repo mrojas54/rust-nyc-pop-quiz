@@ -1,6 +1,6 @@
 # Specification — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25).** This is the
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server).** This is the
 build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
 `prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
 (`sequence/USER_STORIES.md`, AC-1…AC-102) so that an implementer who has never
@@ -63,8 +63,8 @@ code (`mvp/tools/`), the audit ticket audits that code too.
 | **G-6** | The phase order is `idle → live → closed → split → work → reveal → released`, each transition a host action, none skippable. (AC-45, AC-93, AC-97) | A phase machine with exactly these transitions; the wall, buzzer and host phone render from the same phase value (AC-81). | State-machine test; `canary` that `work` carries no ✓, receipt, or colour. |
 | **G-7** | The receipt claims exactly what verification proved. (AC-43, AC-71, AC-87) | The receipt lines are generated from the `verified` record by one function, and a line renders only if the record holds its step (§7.5). | String test; HC-2 reads it. |
 | **G-8** | Neither source nor trace is rendered on a participant device. (AC-32) | Participant payloads have no source field; `canary`. | `canary` in `test`. |
-| **G-9** | Every credential path is enumerated and checked by one function: hosting by role **ID** in `roles`, checked at room creation; the pipeline channel by one admin token (§8.3); and the M1 stand-in (§8.2), which exists only behind a build feature. Nothing else authorizes anything. (AC-64, AC-65, AC-69, AC-101) | One auth function per path; the Administrator test; the Discord-down test; a build without the stand-in feature accepts no stand-in token (§8.2); a route-table test that the admin routes are served to the token check alone (§8.3). | Auth audit ticket, covering all three paths. |
-| **G-10** | A question is *used* when a room is **released**, not when a deck is built. (AC-92) | The used-question record's only writer is the release transition. Building writes nothing. | Audit and retire `build_deck.py`'s write to `answer-history.json`. |
+| **G-9** | Every credential path is enumerated and checked by one function: hosting by role **ID** in `roles`, checked at room creation against the role of the **club** the organizer names (D-26); the pipeline channel by one admin token (§8.3); and the M1 stand-in (§8.2), which exists only behind a build feature. Nothing else authorizes anything. (AC-64, AC-65, AC-69, AC-101) | One auth function per path; the Administrator test; the Discord-down test; a build without the stand-in feature accepts no stand-in token (§8.2); a route-table test that the admin routes are served to the token check alone (§8.3). | Auth audit ticket, covering all three paths. |
+| **G-10** | A question is *used* when a room is **released**, not when a deck is built. It is used **for the club whose room released it**: a question is never run twice for one club, and two clubs may each run it once (D-26). (AC-92, AC-105) | The used-question record's only writer is the release transition. Building writes nothing. | Audit and retire `build_deck.py`'s write to `answer-history.json`. |
 | **G-11** | No answer-category distribution is published anywhere an attendee can read. (AC-25) | `bank-audit` scans participant-facing artifacts; organizer docs carry the tells. | Ticket for the scan. |
 | **G-12** | Every question scheduled has an organizer's affirmation of its explanation. (AC-72, AC-95) | Scheduling refuses unaffirmed questions; affirmation records who and when. | Gate test. |
 
@@ -89,7 +89,7 @@ reader is deleted; a field with no writer is a defect.
 | `trace` — `{steps: [{lines, focus, note, values, pivot?}]}` — §5.3 defines the semantics; the last step is the one whose `values` names `stdout` | generator / organizer edit | wall (work, reveal), take-it-home |
 | `verified` — §3.2 | the verifier only | receipt, `bank-audit`, scheduling |
 | `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
-| `used` — `{meetup_date, room_id, released_at, fit}` where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the organizer's ledger report (`popquiz sync`), which lists any room whose `fit` was not *fits* |
+| `used` — one record per club, `{club: {meetup_date, room_id, released_at, fit}}` (D-26), each where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the organizer's ledger report (`popquiz sync`), which lists any room whose `fit` was not *fits* |
 
 The `explains` shape replaces the MVP's single `explanation` string; the MVP's
 string is kept verbatim as `explains.legacy` for AC-73's quoted-output check on
@@ -170,13 +170,13 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 | Phase | Host action to enter | Wall | Buzzer | Host phone |
 |---|---|---|---|---|
-| **idle** | *Create a room* | Title card: brand line top-left; **Time for a pop quiz.**; join strip `join @ ‹link›` | Room code; ↑ *You're in. Everything happens on the screen at the front — look up.*; foot `no account · no name · no score` | *Put it on the screen*; present count; the code |
-| **live** | *Put it on the screen* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link› · still open`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; present and answered counts (AC-46); **no answer** (AC-47) |
+| **idle** | *Create a room* | Title card: the wordmark top-left (§11, Title); **Time for a pop quiz.**; join strip `join @ ‹link›` · `Joined: ‹n›` | Room code; ↑ *You're in.* | *Start*; the code; *Joined: ‹n›* (AC-46) |
+| **live** | *Start* | Source (colour, §5.3), options beneath in two columns, join strip `join @ ‹link›` · `Joined: ‹n›` · `Answered: ‹n›`. **No timer.** | Letters A–E (tap to answer, change freely, AC-34); saving/saved/failed (AC-35); *Show me a hint* (§4.2) | *Close answers*; *Answered: ‹n›* (AC-46, from here on); **no answer** (AC-47) |
 | **closed** | *Close answers* | Same source and options; strip: **answers are closed** — nothing else | Letters locked; last saved answer shown | *Show the room its split* |
-| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | *Look up. Where the room landed.* — the count `n`, *people said X, including you.*; foot `computed on this phone · never sent anywhere` | *Let's walk it* |
-| **work** | *Let's walk it* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots); beat panel: **Let's walk it. / Still no answer. / Nobody has to say anything.** **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | *Look up. We're walking it through.* — the count; *Nothing to do. Nobody knows the answer yet.* | `←` `→`; the step's words; *Reveal* |
-| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | *The answer is on the screen.* — the count; **✓ It was X.**; *You and ‹n−1› other people read it the same way. The host is reading out the why now.* No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *Release the room* |
-| **released** | *Release the room* | **Let's go to the bar.** The take-it-home link at 40 px, one line of what is behind it, a QR. Nothing else (touchpoint T-20, item 13) | ✓ *Nothing about you was recorded.* | *Run it again* → a new room (never the same question, G-10) |
+| **split** | *Show the room its split* | Five bars with counts (`n · p%`), *N of M in the room answered*; **no answer** | Room code; the wall's five bars (`n · p%`, the wall's order, from the same totals — the two never disagree), the phone's own letter marked by a glyph (●) and *you said ‹X›*, never by colour alone (AC-40); no ✓ | *Trace* |
+| **work** | *Trace* | Source **without colour**; trace at `trace_step` over steps `0..M-2` only (highlight-and-dim, *Step N of M* + dots). **No ✓, no receipt, no `stdout` value** (AC-97, D-10) | Room code; the split's five bars, as at `split` | `←` `→`; the step's words; *Reveal* |
+| **reveal** | *Reveal* | ✓ on the correct option (glyph + colour, AC-40); the most-chosen incorrect option named and counted; the receipt (§7.5), a short list of what the machine did, under the machine provenance marker (AC-74); the trace **entering at its final step** `M-1` (the one that prints), steppable back through all of it, no colour | **✓ It was X.**, with *You didn't answer.* above it on a phone that holds no answer; beneath, the five bars with the correct letter's ✓ as on the wall and the phone's own letter still marked. No ✗ (AC-94) | **Read it aloud** — the three beats (§3.1 `explains`, §4.5), provenance *human*; `←` `→`; *End Pop Quiz* |
+| **released** | *End Pop Quiz* | **Let's go to the bar.** The take-it-home link at 40 px and a QR. Nothing else (touchpoint T-20, item 13) | Room code only | *Run it again* → a new room (never the same question, G-10) |
 
 ### 4.1 Joining (AC-28…AC-31)
 
@@ -245,7 +245,7 @@ room and the schedule refuses a used question (G-10).
 
 The wall lays out at a **1120 × 630 design canvas** and scales as a unit
 (`transform: scale`) to the projector's actual pixels — never `width: 100%`
-on the box. Brand line top-left, `PROTOTYPE` badge removed in the build,
+on the box. The wordmark top-left (§11, *Title*), `PROTOTYPE` badge removed in the build,
 the join strip at the bottom.
 
 ### 5.2 Layout and the type model (AC-100, AC-78)
@@ -345,8 +345,7 @@ gains the ✓ and the green border; no bar is ever marked wrong.
 ### 5.5 Released
 
 *Let's go to the bar.* in Instrument Serif; the link in 40 px monospace; the
-QR encoding the same link; one line: *the question, the walk-through and the
-why — at your own pace.*
+QR encoding the same link.
 
 ---
 
@@ -538,8 +537,7 @@ the 10,000-invalid-requests ban is IP-wide.
 
 ### 8.1 What is not a security guarantee (AC-62, AC-63)
 
-The organizer runbook and the host phone's first screen carry these two
-sentences verbatim: *Option text is public — the correct answer is always one
+The organizer runbook carries these two sentences verbatim: *Option text is public — the correct answer is always one
 of the five visible options.* And: *A host who reads Rust can work out the
 answer from the source; the host's not being shown it keeps the host honest,
 it is not a security guarantee.*
@@ -560,9 +558,12 @@ criterion and gates **HC-1**, never HC-0.
 
 ### 8.3 The pipeline channel (D-20, AC-101)
 
-The laptop reaches the room server through exactly two admin routes:
-`PUT /admin/questions/{id}` (`popquiz schedule` — the question record, answer
-included, into the sealed `answers` module, AC-61) and `GET /admin/used`
+The laptop reaches the room server through exactly two admin routes
+(`PUT` has two spellings, D-26): `PUT /admin/questions/{id}`, or
+`PUT /admin/clubs/{club}/questions/{id}` for a club other than the default
+(`popquiz schedule` — the question record **as arranged for that club's meetup
+date**, answer included, into the sealed `answers` module, AC-61; kept per club,
+so one club's push never replaces another's)  and `GET /admin/used`
 (`popquiz sync` — the used-question record). Both require
 `Authorization: Bearer ‹POPQUIZ_ADMIN_TOKEN›`, a Fly secret that the organizer's
 local pipeline configuration also holds and that is **never in the repository**
@@ -610,36 +611,33 @@ same homes.
 | Where | String |
 |---|---|
 | Wall, idle | **Time for a pop quiz.** · `join @ ‹link›` |
-| Wall, live | `join @ ‹link› · still open` · well header: **What does this program print?** |
+| Wall, live | `join @ ‹link›` · well header: **What does this program print?** |
 | Wall, trace (work, reveal) | **Step ‹N› of ‹M›** with dots · *Pause here.* on a `pivot` step |
-| Buzzer, join form | label **room code** · button **join** · beneath: *or open the link on the screen* |
+| Buzzer, join form | label **room code** · button **join** |
 | Wall, closed | **answers are closed** |
 | Wall, split on | `‹answered› of ‹present› in the room answered` |
-| Wall, work | **Let's walk it.** / Still no answer. / Nobody has to say anything. |
 | Wall, reveal | `‹n› of us said ‹X›` beside the named incorrect option |
-| Wall, released | **Let's go to the bar.** · ‹link› · *the question, the walk-through and the why — at your own pace.* |
-| Buzzer, idle | You're in. Everything happens on the screen at the front — look up. |
-| Buzzer, foot | no account · no name · no score |
-| Buzzer, split | **Look up.** Where the room landed. · `‹n›` · people said **‹X›**, including you. · Five different readings. Nobody knows what anyone picked. |
-| Buzzer, work | **Look up.** We're walking it through. · Nothing to do. Nobody knows the answer yet. |
-| Buzzer, reveal | **Look up.** The answer is on the screen. · ✓ It was **‹Y›**. · You and ‹n−1› other people read it the same way *(when n−1 is 1: **You and 1 other person read it the same way.**)*. The host is reading out the why now. / You were the only one who read it that way. |
-| Buzzer, split → reveal, **no answer given** | **Look up.** · **‹k› people didn't answer, you included.** *(k = `present` − `answered`; when k is 1: **You didn't answer.**)* · (split) Where the room landed. / (work) We're walking it through. / (reveal) ✓ It was **‹Y›**. The host is reading out the why now. |
+| Wall, released | **Let's go to the bar.** · ‹link› |
+| Buzzer, idle | You're in. |
+| Buzzer, reveal | ✓ It was **‹Y›**. |
+| Buzzer, reveal, **no answer given** | You didn't answer. |
+| Buzzer, join connection failure | Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along. |
 | Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
-| Buzzer, foot (split→reveal) | computed on this phone · never sent anywhere |
-| Buzzer, released | Nothing about you was recorded. |
-| Buzzer, hint | Show me a hint · *(once shown)* Only you can see this. Nobody is told you looked. |
-| Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **tap a letter** |
+| Buzzer, hint | Show me a hint |
+| Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **Vote** |
 | Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe / *(no answer yet)* **paused — reconnecting…** |
 | Buzzer, closed | **answers are closed** · you said **‹X›** / you didn't answer |
 | Live region (AC-83), verbatim | *The question is on the screen.* · *Saving.* · *Saved, ‹X›.* · *Couldn't save; your last answer is safe.* · *Answers are closed.* · *The room's split is on the screen.* · *Walking it through on the screen.* · *Revealed: it was ‹Y›.* · *The room is released.* · *Hint shown, only to you.* |
-| Host, phase labels (AC-49), one per screen | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
+| Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
-| Host, actions | Create a room · Put it on the screen · Close answers · Show the room its split · Let's walk it · Reveal · Release the room · Run it again |
+| Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · End Pop Quiz · Run it again |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
-| Host, fit line (AC-100), shown from `live` on | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
-| Host, first screen | If you lose this phone, open this on another one: ‹resume link› · plus §8.1's two sentences |
+| Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
+| Title — every host and buzzer screen's heading: the wordmark with the surface's role beneath; the wall's, top-left in every phase and in the static fallback: the wordmark alone; page titles `Rust NYC Pop Quiz · Host` / `Rust NYC Pop Quiz · Guest` / `Rust NYC Pop Quiz` (wall) | **Rust NYC Pop Quiz** · **Host** (host phone) · **Guest** (buzzer, join form included) · the wordmark alone (wall) |
+| Host + wall, count (AC-46) | Host, one line per screen: `Joined: ‹n›` before `live` (present) · `Answered: ‹n›` from `live` on. Wall join strip: `Joined: ‹n›` in `idle`; `Joined: ‹n›` · `Answered: ‹n›` in `live`; neither after, nor in the static fallback |
 | Take it home | **Why you might have read it as ‹X›** — one heading per incorrect option, over its `why_tempting` text. No counts (D-12). |
+| Landing page (`GET /`) | **Time for a pop quiz.** (the wall's idle line, under the client's Ferris-as-Liberty drawing) · **Join a room** (to `/join`) · **Last meetup's question** (to `/last`) · **Are you a host? Click here** (to `/host`, at the bottom) · Ferris's speech bubble: *What is the sound of one value dropping?* · the wordmark above, as the title |
 | Static fallback | `Space` next phase · `←` `→` step the trace · `Esc` back a phase |
 | Uniqueness (organizer-facing, AC-18) | *no exact or normalized duplicate found* — never *original* |
 | Receipt | §7.5 — a step list headed *How we know*: four lines for a record that ran, three for a does-not-compile record. No sentences. |
@@ -769,6 +767,6 @@ D-10 (the trace's resolving step is withheld until reveal), D-15 (options are
 one line of at most 29 characters, so the wall's options block is a constant
 190 px; **confirmed by the client at touchpoint T-22**), D-12 (take-it-home
 carries no room state) and D-13 (no embedding model; token-bigram Jaccard for
-near-duplicates) are decided here and logged in `run-state.md`, and so are D-16…D-25 (the 2026-09-19 amendments: the legacy receipt, the enforced pin, the stub runner, the M1 host stand-in, the pipeline channel, the static fallback's owner, the does-not-compile receipt, plain spoken room copy with a trope check, the printable host sheet, the receipt as a list of steps). **Fonts** are vendored: Cascadia Mono and
+near-duplicates) are decided here and logged in `run-state.md`, and so are D-26 (several clubs share one room server, one guild and one bank: a host role per club, a used ledger per club, `/last/{club}`) and D-16…D-25 (the 2026-09-19 amendments: the legacy receipt, the enforced pin, the stub runner, the M1 host stand-in, the pipeline channel, the static fallback's owner, the does-not-compile receipt, plain spoken room copy with a trope check, the printable host sheet, the receipt as a list of steps). **Fonts** are vendored: Cascadia Mono and
 Instrument Serif ship in `web/shared/fonts/` from the design system's
 `assets/fonts/`, self-hosted, no font CDN (D-14).

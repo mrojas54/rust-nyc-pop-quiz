@@ -5,7 +5,7 @@ Instrument **and** capture form, like `FIELD-NOTES-TEMPLATE.md`. Copy to
 the evidence.
 
 **Host:** the client  **Helpers:** two regulars  **Date:** `__________`
-**Where:** `______________________`  **Question:** `q3` (see *Before*)
+**Where:** `______________________`  **Question:** `q3` if the prototype (see *Before*)
 
 **Origin.** Rust lunch, reported 2026-09-02. Three people at lunch; the two
 who are not the client are regulars, saw nothing, and offered to help run a
@@ -35,13 +35,18 @@ and the two numbers everything about type size rests on are still guesses.
 
 ## Before
 
-**Drive `prototypes/C-projector-first.html`, not the MVP deck.** The MVP deck
+**Which room.** The built room if HC-0 **and** T-10's live Discord check have
+both passed (`EVALUATION.md`, HC-1): drive it from `docs/RUNBOOK.md`, and its
+question is spent through the room's ledger and `just sync`, not by hand.
+Otherwise the prototype, as written below.
+
+**If the prototype: drive `prototypes/C-projector-first.html`, not the MVP deck.** The MVP deck
 predates Story B11 — it has no split phase and no walk-through, and those are
 the two phases the rehearsal exists to watch. All seven phases, in order, from
 `1 · title` to `7 · released`. The `PROTOTYPE` badge stays on; tell the helpers
 what it means.
 
-**The question is `q3`, and it is spent afterwards.** C's vote, split and
+**If the prototype: the question is `q3`, and it is spent afterwards.** C's vote, split and
 reveal run on mock room data that belongs to `q3` — swapping the source swaps
 only the reading phases. Two regulars who will be in October's room will have
 seen `q3`'s source and its answer. Treat it as used: bank **8 → 7**, and

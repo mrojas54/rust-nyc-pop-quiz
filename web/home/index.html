@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rust NYC Pop Quiz</title>
+<link rel="stylesheet" href="/shared/tokens.css">
+<link rel="stylesheet" href="/shared/components.css">
+<link rel="stylesheet" href="/home/home.css">
+</head>
+<body class="home-page">
+<!-- Take it home (T-12, SPEC §13): the last released question. The room writes
+     the snapshot into the slot below on every request (room/src/routes.rs,
+     T-12 pages); /home/home.js draws the page from it. `null` means nothing
+     has been released yet. The snapshot carries no room state of any kind. -->
+<main class="home-app" id="home"></main>
+<script type="application/json" id="take-home">null</script>
+<script src="/shared/dom.js"></script>
+<script src="/shared/phase.js"></script>
+<script src="/shared/check.js"></script>
+<script src="/shared/well.js"></script>
+<script src="/shared/trace.js"></script>
+<script src="/shared/copy.js"></script>
+<script src="/home/home.js"></script>
+</body>
+</html>

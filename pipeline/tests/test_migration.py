@@ -8,6 +8,15 @@ The rule these are all circling: nobody writes down what a program prints. For a
 migration that is not a slogan - the August batch's outputs are sitting in a JSON
 file, and the difference between copying them and retyping them is the difference
 between a bank you can trust and a trivia deck.
+
+The migration is where the four records came from, not what they all are now.
+PR #36 re-authored q4, q7 and q8 for the wall's 29-character rule (D-15): q4's and
+q7's programs changed, and the pinned verifier wrote their new records (D-16); q8
+kept its program and changed only options, and the pinned verifier has since
+replaced its legacy record whole too. So q3 is checked byte for byte against a
+fresh run - all but what an organizer wrote in its `review` block, which is the
+review surface's to write, not the migration's (F-52) - and q4, q7 and q8 against
+the verifier and the pin, with q8's error codes still the ones the migration carried.
 """
 
 from __future__ import annotations
@@ -15,21 +24,28 @@ from __future__ import annotations
 import dataclasses
 import json
 import pathlib
+import shutil
 
 import pytest
 
+from fixtures.verify.verify_cases import RECORDINGS
+from popquiz import bank, dedupe, migrate_mvp, sandbox, verify
 from popquiz.bank import (
     Explains,
+    History,
     correct_index,
+    history_path,
     incorrect_indexes,
+    load_bank,
     load_question,
     normalized_output,
     options_needing_reauthoring,
+    question_path,
     question_to_dict,
     quoted_outputs,
     receipt_class,
+    save_history,
 )
-from popquiz import migrate_mvp
 from popquiz.migrate_mvp import (
     MIGRATED,
     NOT_MIGRATED,
@@ -37,12 +53,19 @@ from popquiz.migrate_mvp import (
     build_question,
     migrate,
 )
+from popquiz.runner import StubRunner
 
 HERE = pathlib.Path(__file__).parent
 REPO = HERE.parent.parent
 MVP = REPO / "mvp" / "2026-08-12"
 BANK = REPO / "bank"
 MIGRATION_SOURCE = HERE.parent / "src" / "popquiz" / "migrate_mvp.py"
+
+# The records whose `verified` block is still the one the migration wrote.
+STILL_LEGACY = ("q3",)
+# Re-authored after migration, and re-verified by the pinned verifier: q4 and q7
+# with new programs, q8 with its program's tokens unchanged.
+REVERIFIED = ("q4", "q7", "q8")
 
 BATCH = json.loads((MVP / "verified.json").read_text(encoding="utf-8"))
 CONTENT = json.loads((MVP / "content.json").read_text(encoding="utf-8"))
@@ -62,6 +85,10 @@ NEVER_BACK_FILLED = (
 # one line, so a legacy record's compiler string must carry none of them.
 VV_ONLY = ("host:", "release:", "commit-hash:", "commit-date:", "LLVM version:")
 
+# What an organizer may write in a record's `review` block (SPEC 7.4: written by the
+# review surface). The migration drafts `reason`; an organizer may replace it.
+ORGANIZER_WRITES = frozenset({"status", "affirmed_by", "affirmed_at", "difficulty_judged", "reason"})
+
 
 @pytest.fixture(scope="module")
 def committed() -> dict[str, object]:
@@ -73,23 +100,202 @@ def committed() -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 
 
-def test_the_committed_records_are_what_a_fresh_run_writes(
+def _drafted(review: dict) -> dict:
+    return {k: v for k, v in review.items() if k not in ORGANIZER_WRITES}
+
+
+def _is_the_migrations_but_for_the_organizer(fresh: str, landed: str) -> bool:
+    """Whether `landed` is `fresh` byte for byte once the organizer's part of
+    `review` is taken as written.
+
+    The rest of `review` must match as drafted; then the fresh record, carrying the
+    landed `review`, is written the way the bank writes a record and compared with
+    the file. So every other field is still compared, and so is the formatting."""
+    fresh_data, landed_data = json.loads(fresh), json.loads(landed)
+    if _drafted(fresh_data.get("review", {})) != _drafted(landed_data.get("review", {})):
+        return False
+    if "review" in landed_data:
+        fresh_data["review"] = landed_data["review"]
+    return json.dumps(fresh_data, indent=2, ensure_ascii=False) + "\n" == landed
+
+
+def test_the_committed_record_is_what_a_fresh_run_writes(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Re-running the migration reproduces the files byte for byte.
+    """q3, the one question whose program and beats nobody has touched since,
+    reproduces byte for byte, but for what an organizer wrote in its review.
 
-    Which makes the committed records reviewable: a reader can regenerate them rather
-    than take them on trust, and a later edit to the authored beats cannot land in the
-    module without the file beside it changing too.
+    Which makes it reviewable: a reader can regenerate it rather than take it on
+    trust, and a later edit to its authored beats cannot land in the module without
+    the file beside it changing too. Its affirmation (F-52) is the organizer's, not
+    the migration's, so it is the one part a fresh run is not asked to reproduce.
     """
     migrate(MVP, tmp_path)
+    fresh = (tmp_path / "questions" / "q3.json").read_text(encoding="utf-8")
+    landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
+    assert _is_the_migrations_but_for_the_organizer(fresh, landed), (
+        "q3.json on disk is not what the migration writes"
+    )
+    # The shape, not the contents: dedupe grows the committed history (AC-17).
+    fresh_history = json.loads((tmp_path / "history.json").read_text(encoding="utf-8"))
+    landed_history = json.loads((BANK / "history.json").read_text(encoding="utf-8"))
+    assert landed_history.keys() == fresh_history.keys()
+    assert landed_history["version"] == fresh_history["version"]
+
+
+def test_the_compare_lets_through_only_what_an_organizer_writes(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The golden compare above ignores the organizer's part of `review` and
+    nothing else: a change to any other field, at the top level or inside `review`,
+    is caught, and so is a change of formatting alone."""
+    migrate(MVP, tmp_path)
+    fresh = (tmp_path / "questions" / "q3.json").read_text(encoding="utf-8")
+    data = json.loads(fresh)
+
+    def written(record: dict) -> str:
+        return json.dumps(record, indent=2, ensure_ascii=False) + "\n"
+
+    organizer = dict(data["review"], status="accepted", affirmed_by="o", affirmed_at="t")
+    organizer.update(difficulty_judged=3, reason="replaced by an organizer")
+    assert _is_the_migrations_but_for_the_organizer(fresh, written(dict(data, review=organizer)))
+
+    for field in data:
+        if field != "review":
+            assert not _is_the_migrations_but_for_the_organizer(
+                fresh, written(dict(data, **{field: "changed"}))
+            ), field
+    for field in ("near_duplicate_of", "something_new"):
+        changed = dict(data, review=dict(data["review"], **{field: "q1"}))
+        assert not _is_the_migrations_but_for_the_organizer(fresh, written(changed)), field
+    assert not _is_the_migrations_but_for_the_organizer(fresh, json.dumps(data, indent=4) + "\n")
+
+
+def test_q8_was_re_verified_and_its_record_replaced_whole(tmp_path: pathlib.Path) -> None:
+    """SPEC 3.2, D-16, D-22: the migration writes q8 a legacy does-not-compile record;
+    the pinned verifier has since replaced it whole, so the bank holds no field of
+    the August one. The compiler refused the same program with the same codes.
+
+    The program is the migration's with its trailing newline stripped (commit
+    6cac9ec), which changes no token of it."""
+    migrate(MVP, tmp_path)
+    fresh, landed = load_question(tmp_path, "q8"), load_question(BANK, "q8")
+    fresh_record = question_to_dict(fresh)["verified"]
+    landed_record = question_to_dict(landed)["verified"]
+    assert fresh_record["legacy"] is True
+    assert "legacy" not in landed_record
+    assert landed_record["rustc"] != fresh_record["rustc"]
+    assert landed_record["compile_error_code"] == fresh_record["compile_error_code"]
+    assert landed.source == fresh.source.rstrip("\n")
+    assert landed.explains.legacy == fresh.explains.legacy
+
+
+@pytest.mark.parametrize("qid", REVERIFIED)
+def test_a_reauthored_record_was_written_by_the_pinned_verifier(qid: str) -> None:
+    """AC-6, AC-7, D-16. A re-authored question is re-verified, and only `verify`
+    writes the record: not legacy, carrying `verified_at` and `verifier_version`,
+    current against the pin, and passing the build's provenance check."""
+    path = BANK / "questions" / f"{qid}.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "legacy" not in data["verified"]
+    question = verify.check_provenance(data)
+    assert question.verified.verified_at and question.verified.verifier_version
+    assert not verify.is_stale(question.verified, sandbox.read_pin())
+    assert "Re-authored" in question.review.reason
+    assert "pinned verifier" in question.review.reason
+
+
+def _bank_with_a_grown_history(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A copy of the real bank whose history dedupe has grown over its questions.
+
+    The committed `bank/history.json` is still the empty shape, so a re-run that
+    emptied the history would leave it byte-identical and pass. The copy's history
+    is grown here, by dedupe's own sync; the real file is never touched."""
+    shutil.copytree(BANK, tmp_path, dirs_exist_ok=True)
+    grown, backfilled, _ = dedupe.sync_with_bank(History(), load_bank(tmp_path))
+    assert set(backfilled) == set(MIGRATED)
+    save_history(tmp_path, grown)
+    return tmp_path
+
+
+def test_a_rerun_leaves_the_bank_as_it_is(tmp_path: pathlib.Path) -> None:
+    """The bank is append-only (SPEC 3.3). Re-running the migration over the real
+    bank must not put the August programs back over q4 and q7, or the August records
+    back over the verifier's, or q8's old options back over its new ones, or empty
+    the history dedupe has grown."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    before = {p: p.read_bytes() for p in bank_dir.rglob("*.json")}
+    assert migrate(MVP, bank_dir) == []
+    assert {p: p.read_bytes() for p in bank_dir.rglob("*.json")} == before
+    assert dedupe.history_size(bank.load_history(bank_dir)) == len(MIGRATED)
+
+
+def test_a_rerun_over_a_partial_bank_writes_only_what_is_missing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """One question file gone: the migration writes that one, and nothing else
+    changes - not the other questions, and not the grown history. What it writes
+    is its own draft: the committed record but for the organizer's review, and
+    unaffirmed, because a migration never affirms (G-12)."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    missing = question_path(bank_dir, "q3")
+    missing.unlink()
+    before = {p: p.read_bytes() for p in bank_dir.rglob("*.json")}
+
+    assert migrate(MVP, bank_dir) == [missing]
+    after = {p: p.read_bytes() for p in bank_dir.rglob("*.json")}
+    rewritten = after.pop(missing).decode("utf-8")
+    landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
+    assert _is_the_migrations_but_for_the_organizer(rewritten, landed)
+    assert not load_question(bank_dir, "q3").review.affirmed()
+    assert after == before
+
+
+def test_a_rerun_keeps_what_an_organizer_wrote(tmp_path: pathlib.Path) -> None:
+    """F-52: q3 was affirmed by an organizer's documented edit of its review block.
+    A rerun over the committed bank must leave every organizer's review as it was
+    written, so q3 stays affirmed and in the reserve."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    migrate(MVP, bank_dir)
     for qid in MIGRATED:
-        fresh = (tmp_path / "questions" / f"{qid}.json").read_text(encoding="utf-8")
-        landed = (BANK / "questions" / f"{qid}.json").read_text(encoding="utf-8")
-        assert fresh == landed, f"{qid}.json on disk is not what the migration writes"
-    assert (tmp_path / "history.json").read_text(encoding="utf-8") == (
-        BANK / "history.json"
-    ).read_text(encoding="utf-8")
+        assert load_question(bank_dir, qid).review == load_question(BANK, qid).review, qid
+    assert load_question(bank_dir, "q3").review.affirmed()
+
+
+def test_a_rerun_refuses_a_bank_file_it_cannot_read(tmp_path: pathlib.Path) -> None:
+    """A truncated file is neither kept as if it were a record nor overwritten with
+    the August one: either would hide that the bank was damaged."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    damaged = question_path(bank_dir, "q4")
+    whole = damaged.read_bytes()
+    damaged.write_bytes(whole[:40])
+    with pytest.raises(MigrationError, match="q4.json"):
+        migrate(MVP, bank_dir)
+    assert damaged.read_bytes() == whole[:40]
+
+    damaged.write_bytes(whole)
+    history_path(bank_dir).write_text("{", encoding="utf-8")
+    with pytest.raises(MigrationError, match="history.json"):
+        migrate(MVP, bank_dir)
+    assert history_path(bank_dir).read_text(encoding="utf-8") == "{"
+
+
+def test_the_command_line_refuses_in_plain_words(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The same refusal from the command line is a sentence on stderr and exit 1,
+    as fallback.py does for a bank it cannot read, not a traceback."""
+    bank_dir = _bank_with_a_grown_history(tmp_path)
+    damaged = question_path(bank_dir, "q4")
+    damaged.write_bytes(damaged.read_bytes()[:40])
+    truncated = damaged.read_bytes()
+
+    assert migrate_mvp.main(["--mvp-dir", str(MVP), "--bank-dir", str(bank_dir)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("popquiz.migrate_mvp: ")
+    assert "q4.json is in the bank but cannot be read" in err
+    assert "Traceback" not in err
+    assert damaged.read_bytes() == truncated
 
 
 def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
@@ -111,7 +317,7 @@ def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("qid", MIGRATED)
+@pytest.mark.parametrize("qid", STILL_LEGACY)
 def test_no_legacy_record_holds_a_field_the_mvp_never_recorded(
     qid: str, committed: dict
 ) -> None:
@@ -125,7 +331,7 @@ def test_no_legacy_record_holds_a_field_the_mvp_never_recorded(
         assert absent not in written, f"{qid}: {absent} was back-filled"
 
 
-@pytest.mark.parametrize("qid", MIGRATED)
+@pytest.mark.parametrize("qid", STILL_LEGACY)
 def test_a_legacy_compiler_string_is_the_version_line_not_a_vv(
     qid: str, committed: dict
 ) -> None:
@@ -140,7 +346,8 @@ def test_a_legacy_compiler_string_is_the_version_line_not_a_vv(
 
 
 def test_q8_carries_its_error_codes_renamed_and_nothing_that_ran() -> None:
-    """T-14, D-22: `error_codes` becomes `compile_error_code`, values unchanged.
+    """T-14, D-22: `error_codes` becomes `compile_error_code`, values unchanged - and
+    the pinned verifier, re-verifying q8, recorded the same codes.
 
     The MVP's `miri` field for q8 reads "n/a (does not compile)", which is not a
     result, so no Miri record is written rather than one saying it was fine.
@@ -157,7 +364,7 @@ def test_q8_carries_its_error_codes_renamed_and_nothing_that_ran() -> None:
         assert absent not in written
 
 
-@pytest.mark.parametrize("qid", [q for q in MIGRATED if q != "q8"])
+@pytest.mark.parametrize("qid", [q for q in STILL_LEGACY if q != "q8"])
 def test_a_compiling_question_carries_the_runs_and_miri_the_mvp_recorded(
     qid: str, committed: dict
 ) -> None:
@@ -202,19 +409,34 @@ def test_a_non_compiling_question_with_no_error_codes_is_refused() -> None:
 
 @pytest.mark.parametrize("qid", MIGRATED)
 def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) -> None:
-    """PHILOSOPHY 3: the machine decides the answer. The correct option's text is
-    `normalized_output` of the recorded `stdout` and never an authored string, so the
-    derivation and the record cannot disagree."""
+    """PHILOSOPHY 3: the machine decides the answer, and here the machine is asked
+    again rather than the bank restated. `verify` is replayed over the question's
+    recording (`tests/fixtures/verify/recordings/`, which `record.py` made on the
+    pinned image), and the correct option is derived from the record that replay
+    writes. It must be the option the bank's own record derives.
+
+    A hand edit inside a bank record that keeps it self-consistent - `stdout` and
+    the matching option's text changed together - passes `check_provenance` (it
+    says so); it does not pass this. q3's bank record is still August's, so it is
+    also held to the batch's output."""
     question = committed[qid]
     index = correct_index(question)
     assert index is not None, f"{qid}: no option matches the verified answer"
 
+    expect = verify.expect_from_record(question.verified)
+    replayed = verify.verify(question, StubRunner(RECORDINGS), expect=expect)
+    assert replayed.accepted, replayed.reason
+    assert correct_index(verify.with_record(question, replayed)) == index
+
     if qid == "q8":
         assert question.options[index].kind == "does_not_compile"
+        assert replayed.verified.compile_error_code == question.verified.compile_error_code
     else:
-        assert question.options[index].text == normalized_output(
-            MVP_BY_ID[qid]["answer"]
-        )
+        assert question.options[index].kind == "output"
+        assert question.options[index].text == normalized_output(replayed.verified.stdout)
+        assert question.verified.stdout == replayed.verified.stdout
+    if qid in STILL_LEGACY:
+        assert question.verified.stdout == MVP_BY_ID[qid]["answer"]
 
 
 def test_the_resolving_trace_step_is_derived_from_the_record() -> None:
@@ -365,13 +587,28 @@ def test_every_beat_resolves_to_exactly_one_option(committed: dict) -> None:
 
 
 @pytest.mark.parametrize("qid", ["q4", "q7", "q8"])
-def test_the_questions_awaiting_reauthoring_have_no_middle_beats(
+def test_the_migration_drafted_no_middle_beats_for_the_questions_it_flagged(
+    qid: str,
+) -> None:
+    """Every incorrect option they would have attached to was scheduled for
+    replacement, so the migration drafted none - a beat drafted then would have been
+    drafted against text that no longer exists."""
+    built = build_question(BATCH, MVP_BY_ID[qid], CONTENT[qid])
+    assert all(o.why_tempting is None for o in built.options)
+
+
+@pytest.mark.parametrize("qid", ["q4", "q7", "q8"])
+def test_the_reauthored_questions_have_a_middle_beat_for_every_incorrect_option(
     qid: str, committed: dict
 ) -> None:
-    """Every incorrect option they would attach to is scheduled for replacement, so a
-    beat drafted now would be drafted against text that will not exist. The absence
-    blocks affirm (SPEC 7.4, AC-95), which is the correct state."""
-    assert all(o.why_tempting is None for o in committed[qid].options)
+    """AC-95, D-9: PR #36 replaced the options and drafted the beats with them."""
+    question = committed[qid]
+    correct = correct_index(question)
+    for i, option in enumerate(question.options):
+        if i == correct:
+            assert option.why_tempting is None, "the correct option has no tempting"
+        else:
+            assert option.why_tempting, f"{qid} option {i} has no why_tempting"
 
 
 def test_no_middle_beat_is_keyed_by_a_letter() -> None:
@@ -400,11 +637,20 @@ def test_the_prototypes_stage_two_field_names_did_not_survive() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.fixture(scope="module")
+def migrated_fresh(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
+    out = tmp_path_factory.mktemp("fresh")
+    migrate(MVP, out)
+    return out
+
+
 @pytest.mark.parametrize("qid", MIGRATED)
-def test_nothing_migrated_is_affirmed(qid: str, committed: dict) -> None:
+def test_nothing_migrated_is_affirmed(qid: str, migrated_fresh: pathlib.Path) -> None:
     """G-12, AC-72: affirmation is a human act. A migration drafts; it never affirms,
-    so none of these can reach a deck until an organizer has read it."""
-    review = committed[qid].review
+    so none of these can reach a deck until an organizer has read it. This reads
+    what a fresh run writes, not the committed bank, where an organizer may since
+    have affirmed one (q3, F-52)."""
+    review = load_question(migrated_fresh, qid).review
     assert review is not None
     assert review.status is None
     assert review.affirmed() is False
@@ -423,11 +669,13 @@ def test_q3_runs_on_the_wall_as_authored() -> None:
     ("qid", "expected_failures"), [("q4", 4), ("q7", 4), ("q8", 1)]
 )
 def test_the_review_note_names_the_options_that_break_the_wall_rule(
-    qid: str, expected_failures: int, committed: dict
+    qid: str, expected_failures: int
 ) -> None:
     """The note is generated from the measurement, not typed, so it and `bank-audit`
-    cannot disagree about which options fail (D-15)."""
-    question = committed[qid]
+    cannot disagree about which options fail (D-15). Asked of what the migration
+    writes: the committed records have been re-authored since, and their notes say
+    so instead."""
+    question = build_question(BATCH, MVP_BY_ID[qid], CONTENT[qid])
     failing = options_needing_reauthoring(question.options)
     assert len(failing) == expected_failures
 
@@ -443,16 +691,26 @@ def test_q8_needs_only_a_distractor_replaced_and_keeps_its_answer() -> None:
     """The distinction SPEC 5.2's table compresses. q4's and q7's failing options
     include the correct one, so their programs have to print something shorter and the
     machine decides a new answer. q8's failing option is a distractor, so its answer
-    stands and its program need not change."""
-    q8 = load_question(BANK, "q8")
+    stands and its program need not change. Asked of what the migration writes."""
+    q8 = build_question(BATCH, MVP_BY_ID["q8"], CONTENT["q8"])
     failing = options_needing_reauthoring(q8.options)
     assert correct_index(q8) not in failing
     assert "The correct option is not among them" in q8.review.reason
 
     for qid in ("q4", "q7"):
-        question = load_question(BANK, qid)
+        question = build_question(BATCH, MVP_BY_ID[qid], CONTENT[qid])
         assert correct_index(question) in options_needing_reauthoring(question.options)
         assert "The correct option is among them" in question.review.reason
+
+
+@pytest.mark.parametrize("qid", MIGRATED)
+def test_every_committed_option_is_one_short_line(qid: str, committed: dict) -> None:
+    """D-15, SPEC 5.2: after PR #36 every option of all four runs on the wall, and
+    q8 still answers "does not compile"."""
+    assert options_needing_reauthoring(committed[qid].options) == ()
+    if qid == "q8":
+        q8 = committed[qid]
+        assert q8.options[correct_index(q8)].kind == "does_not_compile"
 
 
 # --------------------------------------------------------------------------- #
