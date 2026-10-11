@@ -1,3 +1,111 @@
+---
+name: Rust NYC Pop Quiz
+description: Projector-first Rust quiz, phone as buzzer.
+colors:
+  white: "#ffffff"
+  gray-50: "#f8f9fa"
+  gray-100: "#e9ecef"
+  gray-200: "#dee2e6"
+  gray-300: "#cbd5e0"
+  gray-500: "#718096"
+  gray-600: "#4a5568"
+  gray-800: "#2d3748"
+  amber-300: "#faf089"
+  amber-500: "#d69e2e"
+  amber-600: "#b7791f"
+  amber-700: "#945c0a"
+  green-500: "#38a169"
+  red-500: "#e53e3e"
+  orange-500: "#dd6b20"
+  blue-500: "#3182ce"
+  green-50: "#f0fff4"
+  red-50: "#fef2f2"
+  orange-50: "#fffaf0"
+  blue-50: "#ebf8ff"
+  bg-primary: "#f8f9fa"
+  bg-secondary: "#e9ecef"
+  bg-tertiary: "#dee2e6"
+  bg-input: "#ffffff"
+  text-primary: "#2d3748"
+  text-secondary: "#4a5568"
+  text-muted: "#718096"
+  accent-primary: "#d69e2e"
+  accent-secondary: "#b7791f"
+  accent-hover: "#945c0a"
+  accent-subtle: "#faf089"
+  border-default: "#cbd5e0"
+  border-focus: "#d69e2e"
+  success: "#38a169"
+  error: "#e53e3e"
+  warning: "#dd6b20"
+  info: "#3182ce"
+  success-subtle: "#f0fff4"
+  error-subtle: "#fef2f2"
+  warning-subtle: "#fffaf0"
+  info-subtle: "#ebf8ff"
+  focus-ring: "#945c0a"
+  success-text: "#276749"
+typography:
+  display:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "36px"
+    fontWeight: 400
+    lineHeight: 1.2
+  title:
+    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
+    fontSize: "24px"
+    fontWeight: 400
+    lineHeight: 1.2
+  body:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "14px"
+    lineHeight: 1.6
+  label:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "12px"
+    letterSpacing: "0.08em"
+  code:
+    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
+    fontSize: "13px"
+    lineHeight: 1.6
+rounded:
+  radius: "4px"
+spacing:
+  space-1: "4px"
+  space-2: "8px"
+  space-3: "12px"
+  space-4: "16px"
+  space-6: "24px"
+  space-8: "32px"
+  space-12: "48px"
+  space-16: "64px"
+  panel-pad: "24px"
+  panel-pad-compact: "16px"
+components:
+  button:
+    backgroundColor: "{colors.bg-input}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.radius}"
+    padding: "10px 18px"
+  button-hover:
+    backgroundColor: "{colors.bg-tertiary}"
+  button-primary:
+    backgroundColor: "{colors.accent-primary}"
+    textColor: "{colors.gray-800}"
+    rounded: "{rounded.radius}"
+    padding: "10px 18px"
+  button-primary-hover:
+    backgroundColor: "{colors.accent-hover}"
+    textColor: "{colors.white}"
+  panel:
+    backgroundColor: "{colors.bg-secondary}"
+    rounded: "{rounded.radius}"
+    padding: "{spacing.panel-pad-compact}"
+  source-well:
+    backgroundColor: "{colors.bg-input}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.radius}"
+---
 # Design — Rust NYC Pop Quiz
 
 **Status: binding. Written 2026-09-03 at the close of the T-20 drive and made
@@ -15,7 +123,32 @@ confirmed it by driving all three: *"C is it."* Directions A (hands, no phones)
 and B (phone-first) stay in `prototypes/` as built comparisons for October's
 field notes, not as candidates.
 
-## What the design serves
+## Overview
+
+**Creative North Star: "A well-made terminal"** — the existing metaphor from
+`PHILOSOPHY.md`, preserved rather than replaced.
+
+Nostalgic and technical: muted greys, warm amber, monospace controls and data,
+and serif headings. The shared system stays quiet so the Rust program and the
+room’s understanding carry the experience.
+
+**Key Characteristics:**
+
+- Projector-first, phone as buzzer.
+- Light surfaces, white source wells, restrained depth.
+- Counts rather than personal verdicts.
+- Host-paced trace, with colour reserved for reading phases.
+
+Documentation merge (2026-10-02): canonical sections and machine-readable
+values extracted from `web/shared/tokens.css`, `web/shared/components.css`,
+`web/shared/fonts.css`, and the surface stylesheets. CSS remains the executable
+token source; YAML resolves CSS aliases to literal values because primitives
+cannot reference other primitives. Component references retain semantic names.
+The original binding decisions and their evidence remain below, reorganized
+without rewriting. This merge does not establish new aesthetic choices or
+claim a live visual or venue-readability verification.
+
+### What the design serves
 
 `PHILOSOPHY.md`'s one thing: *the quiz is a pretext, the understanding is the
 product, and the room gets there by working through it together.* Every screen
@@ -30,63 +163,55 @@ shaping:
   the wall the source must *fit*, because container-scroll was a phone escape
   hatch and A-4 took the phone away.
 
-## The three surfaces
+## Colors
 
-| Surface | Who sees it | What it carries |
-|---|---|---|
-| **The wall** | the whole room | brand line top-left; the join strip; the source, line-numbered, full-width; five options beneath in two columns; the split as bars with counts; the trace; the reveal; the handover |
-| **The buzzer** | a participant, on their own phone | the room code as the room's identity; five letters; *Show me a hint*; after the split, a **count** beside their letter, never a ✗; at the end, *nothing about you was recorded* |
-| **The host phone** | the host | one button per phase transition; `←` `→` to step the trace; the read-aloud script at the reveal; **no answer preview** (§7) |
+Muted technical greys provide the ground; warm amber marks emphasis and
+interaction. The frontmatter retains the source token names and exact values.
 
-Neither source nor trace is ever rendered on a participant device (AC-32 as
-rewritten). The buzzer is deliberately dull.
+### Primary
 
-## The segment, in seven phases
+- **Warm amber** (`accent-primary`): primary controls, emphasis, trace edges.
+- **Deep amber** (`accent-secondary`, `accent-hover`): links and hover states.
+- **Pale amber** (`accent-subtle`): the trace focus region and company counts.
 
-The order **repeat → resolve → release** is the mechanism, not a preference
-(AC-97). Host controls step it; nothing else does.
+### Neutral
 
-| # | Phase | Wall | Buzzer | Host phone |
-|---|---|---|---|---|
-| 1 | **Title** | *Time for a pop quiz.* One line. Join strip: *join @ ‹short link›* | code, waiting | *Put it on the screen* |
-| 2 | **Question live** | source in colour, options beneath, *join @ ‹link›*, no timer | A–E, *Show me a hint* (private — the host is not told) | *Close answers* |
-| 3 | **Answers closed** | *answers are closed*, nothing else | locked | *Show the room its split* |
-| 4 | **The split** | five bars with counts, *N of M in the room answered*, **no answer** | your letter gets a count: *N of us read it the same way* | the walk-through button |
-| 5 | **Work through it** | *Let's walk it. Still no answer. Nobody has to say anything.* Trace stepped by the host — highlight-and-dim, *Step N of M*, **no colour, no ✓, no receipt** | unchanged | `←` `→`, the words for each step |
-| 6 | **Reveal** | ✓ on the correct option; the most-chosen wrong answer named and counted; the receipt; the trace steppable again | count stays a count | *Read it aloud* — the three-beat script |
-| 7 | **Released** | *Let's go to the bar.* The link, at 40px, and a QR. Nothing competes with it | *nothing about you was recorded* | *Release the room*, then *Run it again* |
+- **Paper grey** (`bg-primary`): the page ground.
+- **Panel grey** (`bg-secondary`) and **inset grey** (`bg-tertiary`): containers and hover surfaces.
+- **White** (`bg-input`): source wells and input fields.
+- **Technical charcoal** (`text-primary`), **slate** (`text-secondary`), and
+  **muted slate** (`text-muted`): body, secondary information, and metadata.
+- **Soft slate** (`border-default`): boundaries and dividers.
 
-The client, from the host's chair, on phase 5: *"as the host i liked setting
-the pace."* On 6 and 7: *"love it."*
+### Semantic signals
 
-**The reveal script has three beats**, and the order is the point: what
-happened, plain enough for a beginner to repeat (AC-44); why *N of us* read it
-the other way, with the count, which is the beat that makes being wrong ordinary;
-then what to remember, the real decision, which carries on at the
-bar. This makes `explanation` three fields rather than one; `SPEC.md` §3.1
-carries the model (`what`, a `why_tempting` per incorrect option, `takeaway`).
+Success, error, warning, and information each have a foreground and subtle
+background token. They communicate state with words, glyphs, or border changes;
+they are not extra brand accents. Rust syntax colours are component-scoped in
+`web/shared/components.css`, not a global accent palette.
 
-## Voice
+**The Accessible Companion Rule.** Surface styles opt into `focus-ring` (deep
+amber) and `success-text` (dark green), leaving inherited house-brand tokens
+unchanged. The source flags `text-muted` as unsuitable for normal small body
+text; retain it as documented metadata, not a general text default.
 
-Every string is written to be said by a host standing in front of people, and
-to talk **to** the person who got it wrong, never **about** them. In practice:
+## Typography
 
-- **Short declaratives, lower-case where the room reads them.** *answers are
-  closed.* *join @ …* *Let's walk it.*
-- **Counts, not verdicts.** *N of us read it the same way.* Never *wrong*,
-  never ✗, never a score. Correct gets a ✓ because that is a fact about the
-  answer.
-- **No instruction to speak, ever** (AC-98). *Nobody has to say anything* is
-  the only sentence about talking, and it releases rather than asks. Two
-  earlier lines — *someone from each, why?* and *find someone who picked
-  something else* — were written, cut, and are recorded as the shape to avoid.
-- **The client's own lines where they exist.** *Time for a pop quiz.* *Let's go
-  to the bar.* They beat anything written for them.
-- **The verification receipt shows what was done** (§4): a short list of steps —
-  compiled, ran five times, output never varied, Miri ran clean — with no
-  sentence and no claim word. The rest is on take-it-home. Never more than was done.
+Fonts are vendored through `web/shared/fonts.css`, use `font-display: swap`,
+and require no font CDN (D-14). The frontmatter includes the full fallback stacks.
 
-## Aesthetic
+- **Display:** Instrument Serif, regular, the shared h1 role.
+- **Title:** Instrument Serif, regular, the shared h2/h3 role.
+- **Body:** Cascadia Mono, shared body and control type.
+- **Label:** Cascadia Mono, small metadata; caps tracking only where the component applies it.
+- **Code:** Cascadia Mono, the shared well default for personal reading distance.
+
+**The Wall Measurement Rule.** The frontmatter code size is not a projector
+size. `web/shared/typemodel.js` derives and measures wall type from venue inputs.
+Serif stays confined to headings at 24px and above. The existing aesthetic
+statement below remains the binding account of the font pairing.
+
+### Aesthetic
 
 Inherited from the **Rust NYC Design System** (the house brand, claude.ai/design
 `d608a53a…`), not reinvented. `prototypes/_shared/tokens.css` §1 is its four
@@ -110,7 +235,27 @@ token files verbatim.
 - **Every prototype carries a persistent `PROTOTYPE` badge.** A mockup is
   never mistakable for the product.
 
-## The wall's type model
+## Layout
+
+The shared spacing scale and both panel padding tokens are in the frontmatter.
+Observed surface containers differ by task: the buzzer caps at 375px with 12px
+outer padding, the host phone uses the 480px container token and compact panel
+padding, and take-it-home caps its sheet at 760px with 16px horizontal page
+padding. Take-it-home has a compact layout at a 480px breakpoint. These are
+surface measurements, not a replacement global grid.
+
+### The three surfaces
+
+| Surface | Who sees it | What it carries |
+|---|---|---|
+| **The wall** | the whole room | brand line top-left; the join strip; the source, line-numbered, full-width; five options beneath in two columns; the split as bars with counts; the trace; the reveal; the handover |
+| **The buzzer** | a participant, on their own phone | the room code as the room's identity; five letters; *Show me a hint*; after the split, a **count** beside their letter, never a ✗; at the end, *nothing about you was recorded* |
+| **The host phone** | the host | one button per phase transition; `←` `→` to step the trace; the read-aloud script at the reveal; **no answer preview** (§7) |
+
+Neither source nor trace is ever rendered on a participant device (AC-32 as
+rewritten). The buzzer is deliberately dull.
+
+### The wall's type model
 
 The wall **sizes itself to the question; legibility is the floor.** Nothing is
 chosen by hand.
@@ -135,7 +280,132 @@ At the venue guess: `q3` (5 lines) at ~22px, `q7` (69 characters) at 22.1px,
 be 16:9) that set the real number. The wall lays out at 1120px design size and
 scales as a unit.
 
-## What is deliberately absent
+### Hypotheses this design rests on
+
+- **Screen 15ft, back row 20ft.** A guess. The rehearsal (`mvp/PRACTICE-RUN.md`)
+  measures width, height and the distance to the last occupied row, and every
+  number in the type model moves with them.
+- **AC-91's 30 seconds.** The client had an opinion at 10 seconds on a question
+  she had seen many times; the real sample is an attendee's first look.
+- **Participation rate.** Never measured; it sizes the deadline burst (AC-52).
+
+## Elevation & Depth
+
+Product panels use one subtle card shadow (`0 1px 3px rgba(45,55,72,0.08)`)
+with tonal backgrounds and fine borders. Keep it structural and restrained.
+Device frames, browser chrome, and the prototype badge belong to review
+artifacts; their heavier shadows and striped badge are not product tokens.
+
+## Shapes
+
+The shared form language uses one gently squared corner (`radius`, 4px) and
+fine boundaries (`border-w`, 1px). Trace focus and provenance use stronger left
+edges; human-reviewed content uses a dashed edge. Circles for progress dots and
+prototype device-frame corners are scoped exceptions, not new panel radii.
+
+## Components
+
+### Buttons and fields
+
+White neutral buttons use technical charcoal text and an inset-grey hover.
+Primary buttons use warm amber, dark text, and a deep-amber hover with white
+text. Both variants use 10px × 18px padding and the shared corner radius.
+Host and buzzer controls reserve at least a 44px touch target in both axes.
+Disabled buttons halve opacity and use the not-allowed cursor. Buzzer focus
+uses a 3px deep-amber outline; host focus uses 2px, both offset by 2px.
+
+The buzzer’s room-code field uses centred uppercase monospace text, a white
+background, and 8px × 12px padding. It retains a visible deep-amber focus outline.
+
+### Panels, source, and trace
+
+Panels use the secondary ground, fine border, compact padding, and card shadow.
+Source wells are white, line-numbered, with a 2ch gutter and an internal scroll
+region on personal-reading surfaces. The wall measures fit instead. Trace focus
+uses a pale-amber ground and a 3px left edge; lines outside the focus dim to .32
+opacity. Progress states include a step number, not only dots or colour.
+
+Machine provenance uses a solid green edge; human-reviewed prose uses a dashed
+orange edge. These distinguish the evidence source, not the participant’s result.
+
+### The segment, in seven phases
+
+The order **repeat → resolve → release** is the mechanism, not a preference
+(AC-97). Host controls step it; nothing else does.
+
+| # | Phase | Wall | Buzzer | Host phone |
+|---|---|---|---|---|
+| 1 | **Title** | *Time for a pop quiz.* One line. Join strip: *join @ ‹short link›* | code, waiting | *Put it on the screen* |
+| 2 | **Question live** | source in colour, options beneath, *join @ ‹link›*, no timer | A–E, *Show me a hint* (private — the host is not told) | *Close answers* |
+| 3 | **Answers closed** | *answers are closed*, nothing else | locked | *Show the room its split* |
+| 4 | **The split** | five bars with counts, *N of M in the room answered*, **no answer** | your letter gets a count: *N of us read it the same way* | the walk-through button |
+| 5 | **Work through it** | *Let's walk it. Still no answer. Nobody has to say anything.* Trace stepped by the host — highlight-and-dim, *Step N of M*, **no colour, no ✓, no receipt** | unchanged | `←` `→`, the words for each step |
+| 6 | **Reveal** | ✓ on the correct option; the most-chosen wrong answer named and counted; the receipt; the trace steppable again | count stays a count | *Read it aloud* — the three-beat script |
+| 7 | **Released** | *Let's go to the bar.* The link, at 40px, and a QR. Nothing competes with it | *nothing about you was recorded* | *Release the room*, then *Run it again* |
+
+The client, from the host's chair, on phase 5: *"as the host i liked setting
+the pace."* On 6 and 7: *"love it."*
+
+**The reveal script has three beats**, and the order is the point: what
+happened, plain enough for a beginner to repeat (AC-44); why *N of us* read it
+the other way, with the count, which is the beat that makes being wrong ordinary;
+then what to remember, the real decision, which carries on at the
+bar. This makes `explanation` three fields rather than one; `SPEC.md` §3.1
+carries the model (`what`, a `why_tempting` per incorrect option, `takeaway`).
+
+### Voice
+
+Every string is written to be said by a host standing in front of people, and
+to talk **to** the person who got it wrong, never **about** them. In practice:
+
+- **Short declaratives, lower-case where the room reads them.** *answers are
+  closed.* *join @ …* *Let's walk it.*
+- **Counts, not verdicts.** *N of us read it the same way.* Never *wrong*,
+  never ✗, never a score. Correct gets a ✓ because that is a fact about the
+  answer.
+- **No instruction to speak, ever** (AC-98). *Nobody has to say anything* is
+  the only sentence about talking, and it releases rather than asks. Two
+  earlier lines — *someone from each, why?* and *find someone who picked
+  something else* — were written, cut, and are recorded as the shape to avoid.
+- **The client's own lines where they exist.** *Time for a pop quiz.* *Let's go
+  to the bar.* They beat anything written for them.
+- **The verification receipt shows what was done** (§4): a short list of steps —
+  compiled, ran five times, output never varied, Miri ran clean — with no
+  sentence and no claim word. The rest is on take-it-home. Never more than was done.
+
+### Take it home
+
+The second surface, behind the link on the released wall: the last meetup's
+question, alone, at the reader's own pace — the trace steppable both ways,
+the three-beat explanation, the receipt. §9's private pace lives here (touchpoint T-15:
+wall host-stepped, phones step freely). It carries no room state, and
+no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
+
+### The design-system divergences, all deliberate
+
+| Divergence | Why | Who carries it |
+|---|---|---|
+| Syntax colour in the reading phases (`SourceCode` renders none) | the trace reason only holds while a trace runs — §5, AC-99 | the client, to Cole |
+| Room code off the wall; a short link instead | the client's join strip; the link can carry the code | AC-28 rewritten |
+| `explanation` becomes three fields | AC-44 needs a beat a beginner can repeat, and §9 needs the popular wrong answer named | `SPEC.md` §3.1 (`explains`), AC-95 as read by D-9 |
+
+## Do's and Don'ts
+
+### Do
+
+- **Do** preserve the binding prototype decisions and their acceptance criteria.
+- **Do** measure projector source fit using the venue’s dimensions and back-row distance.
+- **Do** pair colour with text, a glyph, a count, or a structural signal.
+- **Do** vendor the brand fonts and respect reduced-motion preferences.
+
+### Don’t
+
+- **Don’t** add gradients, glass, bounce, or extra panel radii.
+- **Don’t** mark a participant wrong, introduce scores, or preview the answer to the host.
+- **Don’t** promote prototype-only chrome or the dim-room proposal into the light product contract.
+- **Don’t** balance correct-answer positions or treat a built deck as a run segment.
+
+### What is deliberately absent
 
 - No code or trace on any phone. No timer on the wall. No scoreboard, name,
   account, or history (§6).
@@ -149,32 +419,7 @@ scales as a unit.
 - No answer-position balancing of any kind. The slot is drawn from the date
   (AC-23/23a/23b; `PHILOSOPHY.md` §2).
 
-## Take it home
-
-The second surface, behind the link on the released wall: the last meetup's
-question, alone, at the reader's own pace — the trace steppable both ways,
-the three-beat explanation, the receipt. §9's private pace lives here (touchpoint T-15:
-wall host-stepped, phones step freely). It carries no room state, and
-no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
-
-## The design-system divergences, all deliberate
-
-| Divergence | Why | Who carries it |
-|---|---|---|
-| Syntax colour in the reading phases (`SourceCode` renders none) | the trace reason only holds while a trace runs — §5, AC-99 | the client, to Cole |
-| Room code off the wall; a short link instead | the client's join strip; the link can carry the code | AC-28 rewritten |
-| `explanation` becomes three fields | AC-44 needs a beat a beginner can repeat, and §9 needs the popular wrong answer named | `SPEC.md` §3.1 (`explains`), AC-95 as read by D-9 |
-
-## Hypotheses this design rests on
-
-- **Screen 15ft, back row 20ft.** A guess. The rehearsal (`mvp/PRACTICE-RUN.md`)
-  measures width, height and the distance to the last occupied row, and every
-  number in the type model moves with them.
-- **AC-91's 30 seconds.** The client had an opinion at 10 seconds on a question
-  she had seen many times; the real sample is an attendee's first look.
-- **Participation rate.** Never measured; it sizes the deadline burst (AC-52).
-
-## For the build
+### For the build
 
 The converged take is reproduced **one-to-one**: every designed control present,
 even if it only toasts *not yet implemented (AC-x)*. The prototype, not this
