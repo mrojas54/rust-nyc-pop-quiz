@@ -3,7 +3,8 @@
 Preview a Rust quiz question and rehearse its teaching trace in the terminal.
 Read the code and choices, step through the explanation, then reveal the answer.
 
-The preview reads questions from the bank without changing them.
+The preview reads questions from the bank without changing them. Scheduling is
+an explicit action that sends the selected question to a room server.
 
 ![Question preview, teaching trace, and answer reveal](recordings/organizer-preview.gif)
 
@@ -37,6 +38,7 @@ To load another bank, add `--bank /path/to/bank`. That directory must contain a
 | Enter | Open the selected teaching step |
 | Left / Right or `<` / `>` | Step backward or forward |
 | `r` | Reveal the answer and final trace step |
+| `s` | Schedule the selected question |
 | `[` / `]` | Open the previous or next question |
 | Up / Down or `k` / `j` | Select a step, or scroll the focused pane |
 | Page Up / Page Down | Move ten steps or scroll ten rows |
@@ -66,14 +68,43 @@ cargo run --locked -- --question q3 --snapshot trace
 cargo run --locked -- --question q3 --snapshot reveal
 ```
 
+## Schedule a question
+
+Press `s`, then enter the meetup date (`YYYY-MM-DD`), room server URL, and an
+absolute directory outside this repository for the fallback deck and host sheet.
+Use Tab to move between fields and Backspace to edit. Enter opens a confirmation
+screen; `y` sends the request. Escape cancels the form or returns to editing.
+Use a terminal at least 110 × 36 for the full confirmation and result.
+
+The scheduler needs the pipeline's Python 3.12 environment at
+`pipeline/.venv/bin/python`. Set `POPQUIZ_PYTHON` to an absolute executable path
+to use another prepared environment. Export `POPQUIZ_ADMIN_TOKEN` in the terminal
+before launching; the form never asks for it or puts it in command arguments.
+See [pipeline setup and scheduling](../../pipeline/README.md).
+
+Scheduling reloads the record and refuses an unverified, unaccepted, unaffirmed,
+or previously used question. The result includes the scheduler's refusal or the
+server's acknowledgement and generated file paths. The date determines option
+order through the existing scheduler. A successful request may replace an
+existing scheduled record and fallback files; the confirmation says so.
+
+While a request runs, wait for the result. Closing the terminal does not undo a
+submitted request. If the result says the room holds the record but fallback
+writing failed, resolve that file problem before resubmitting. Scheduling does
+not start a room or mark a question used. The TUI does not sync the used ledger.
+
+![Scheduling against a local test server](recordings/scheduling.gif)
+
+This recording uses a temporary bank and test server, not a live meetup.
+
 ## Current limits
 
 The [generation plan](GENERATION_PLAN.md) covers offline batches, verification,
 duplicate checks, and opening new candidates in this preview. It also separates
 future review decisions from generation and scheduling.
 
-This prototype previews existing questions. Generation, editing, review decisions,
-explanation approval, scheduling, and projector preview are not implemented.
+This prototype previews and schedules existing questions. Generation, editing,
+review decisions, explanation approval, and projector preview are not implemented.
 
 Choices appear in bank order. Their letters can differ from the meetup's
 date-based order. The preview does not check whether a question has already been
