@@ -72,9 +72,12 @@ cargo run --locked -- --question q3 --snapshot reveal
 
 Press `s`, then enter the meetup date (`YYYY-MM-DD`), room server URL, and an
 absolute directory outside this repository for the fallback deck and host sheet.
-Use Tab to move between fields and Backspace to edit. Enter opens a confirmation
+Use Tab or Up/Down to move between fields and Backspace to edit. Left/Right
+are ignored in the form. Ctrl/Alt shortcuts are ignored except Ctrl-C to quit.
+Enter opens a confirmation
 screen; `y` sends the request. Escape cancels the form or returns to editing.
 Use a terminal at least 110 × 36 for the full confirmation and result.
+Page Up/Down scroll the form, confirmation, or result when space is limited.
 
 The scheduler needs the pipeline's Python 3.12 environment at
 `pipeline/.venv/bin/python`. Set `POPQUIZ_PYTHON` to an absolute executable path
@@ -122,6 +125,10 @@ legibility in the actual projector view before using a question at a meetup.
 The preview uses Ratatui 0.30.2 and Crossterm. It shares answer derivation and
 receipt rendering with the `room` crate. Snapshots and rendering tests use
 Ratatui's `TestBackend`.
+
+From the repository root, `just test-organizer` runs the tests, Clippy, and
+formatting checks. It is included in `just test` and CI; `just setup` fetches its
+locked dependencies. Tests exercise terminal key events as well as app actions.
 
 ```sh
 cargo test --locked

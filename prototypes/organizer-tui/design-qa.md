@@ -4,7 +4,7 @@
 
 ## Reference and capture
 
-- Selected reference: `/Users/michellerojas/.codex/generated_images/01a11448-1877-7670-9e66-13068358757f/exec-36597161-451e-4847-868d-0ff4ca020af4.png` (1487 × 1058).
+- Selected reference: the user-selected Step navigator concept image (1487 × 1058).
 - Actual capture: [recordings/step-navigator.png](recordings/step-navigator.png) (1490 × 1058).
 - Terminal: 136 columns × 41 rows; q3, teaching step 2, Steps focus.
 - Capture method: running Ratatui binary in a pseudo-terminal, recorded as asciicast and rendered with agg at font size 18. The reference and actual capture were inspected together.
@@ -21,7 +21,9 @@ Terminal adaptations: typography follows terminal cells; the focused pane has
 an amber border instead of boxing the selected row. The source highlight covers
 the code text. Reveal is anchored at the bottom of the rail. Text is denser than
 the mockup, and pane titles use native borders. The header says PROTOTYPE.
-“Pause here” replaces “Pause and discuss” so speaking is optional.
+Navigator labels now use the first sentence of each authored note, consistently
+across candidates. Long labels are clipped to the rail; the full note remains
+in the narration pane. Speaking remains optional.
 
 The initial capture inherited NO_COLOR and omitted the focus colors. Removing
 that variable for the recording fixed the capture; the app still respects it.
