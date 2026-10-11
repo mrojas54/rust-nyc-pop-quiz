@@ -60,7 +60,7 @@ const _: fn(UsedRecord) = |UsedRecord { meetup_date: _, room_id: _, released_at:
 const _: fn(UsedEntry) = |UsedEntry { club: _, question_id: _, used: _ }| {};
 
 /// The used-question ledger. In memory, append-only; its only writer is the
-/// release transition in `rooms.rs` (G-10), which `tests/used.rs` checks by
+/// release transition in `rooms/state.rs` (G-10), which `tests/used.rs` checks by
 /// scanning the source.
 #[derive(Default)]
 pub struct UsedLedger {

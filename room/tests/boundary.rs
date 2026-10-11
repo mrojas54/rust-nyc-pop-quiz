@@ -1,7 +1,7 @@
 //! AC-61's in-crate half: the seal, as the source states it.
 //!
 //! The `compile_fail` doctests in `src/models/phase.rs`, `src/models/answers.rs` and
-//! `src/rooms.rs` prove the boundary as another crate sees it — each paired
+//! `src/rooms/room.rs` prove the boundary as another crate sees it — each paired
 //! with a twin that compiles and differs only in the forbidden line, so each
 //! can fail for one reason only. What a doctest cannot see is a hole opened
 //! *inside* the crate: a `pub(crate)` constructor for the witness, a second
@@ -150,9 +150,9 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         ("models/answers.rs", "pub struct Vault"),
         ("models/answers.rs", "pub struct Verdict"),
         ("models/answers.rs", "pub struct Scheduled"),
-        ("rooms.rs", "pub struct Room "),
-        ("rooms.rs", "struct Frozen"),
-        ("rooms.rs", "pub struct Opened"),
+        ("rooms/room.rs", "pub struct Room "),
+        ("rooms/room.rs", "struct Frozen"),
+        ("rooms/room.rs", "pub struct Opened"),
     ];
     for (file, decl) in sealed_types {
         let text = src(file);
@@ -190,16 +190,16 @@ fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
             assert!(!code.contains(".vault"), "{name} reaches into the vault");
             assert!(!code.contains("Vault::"), "{name} names the vault");
         }
-        if name != "rooms.rs" {
+        if name != "rooms/room.rs" {
             assert!(!code.contains(".question.open("), "{name} opens a question");
         }
         // phase.rs binds a local `machine` inside `apply`, which is the machine.
-        if name != "rooms.rs" && name != "models/phase.rs" {
+        if name != "rooms/room.rs" && name != "models/phase.rs" {
             assert!(!code.contains("machine ="), "{name} assigns a machine");
         }
     }
-    // In rooms.rs, `machine` is assigned once — in `act`, from `apply`.
-    let rooms = code(&src("rooms.rs"));
+    // In rooms/room.rs, `machine` is assigned once — in `act`, from `apply`.
+    let rooms = code(&src("rooms/room.rs"));
     assert_eq!(rooms.matches("self.machine =").count(), 1);
     let act = block(&rooms, "pub fn act(");
     assert!(act.contains("apply(State::Room(self.machine.clone()), command)?"));

@@ -63,8 +63,14 @@ the next section still work as written.
 
 ```
 src/
-  lib.rs  rooms.rs  copy.rs        the crate root, the room record and its writes, SPEC §11's strings
-  rooms/create.rs                  create a room, run it again
+  lib.rs  copy.rs                  the crate root; SPEC §11's strings
+  rooms/                           the room itself
+    mod.rs      the sealed-record doctests, the re-exports, the small shared types
+    room.rs     the room record and the writes the phase machine drives
+    state.rs    AppState: every room on this machine, the clock, the ledger, the sockets' token map
+    seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
+    errors.rs   RoomError, AnswerError, Joined, Scheduling
+    create.rs   create a room, run it again
   host/                            the organizer
     auth.rs  discord.rs              the create check (G-9); Discord sign-in and the role check
   connections/                     the audience
