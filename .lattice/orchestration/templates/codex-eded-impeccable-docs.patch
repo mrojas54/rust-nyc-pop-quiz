@@ -1,0 +1,1318 @@
+diff --git a/DESIGN.md b/DESIGN.md
+index 913829d..1223422 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -1,3 +1,111 @@
++---
++name: Rust NYC Pop Quiz
++description: Projector-first Rust quiz, phone as buzzer.
++colors:
++  white: "#ffffff"
++  gray-50: "#f8f9fa"
++  gray-100: "#e9ecef"
++  gray-200: "#dee2e6"
++  gray-300: "#cbd5e0"
++  gray-500: "#718096"
++  gray-600: "#4a5568"
++  gray-800: "#2d3748"
++  amber-300: "#faf089"
++  amber-500: "#d69e2e"
++  amber-600: "#b7791f"
++  amber-700: "#945c0a"
++  green-500: "#38a169"
++  red-500: "#e53e3e"
++  orange-500: "#dd6b20"
++  blue-500: "#3182ce"
++  green-50: "#f0fff4"
++  red-50: "#fef2f2"
++  orange-50: "#fffaf0"
++  blue-50: "#ebf8ff"
++  bg-primary: "#f8f9fa"
++  bg-secondary: "#e9ecef"
++  bg-tertiary: "#dee2e6"
++  bg-input: "#ffffff"
++  text-primary: "#2d3748"
++  text-secondary: "#4a5568"
++  text-muted: "#718096"
++  accent-primary: "#d69e2e"
++  accent-secondary: "#b7791f"
++  accent-hover: "#945c0a"
++  accent-subtle: "#faf089"
++  border-default: "#cbd5e0"
++  border-focus: "#d69e2e"
++  success: "#38a169"
++  error: "#e53e3e"
++  warning: "#dd6b20"
++  info: "#3182ce"
++  success-subtle: "#f0fff4"
++  error-subtle: "#fef2f2"
++  warning-subtle: "#fffaf0"
++  info-subtle: "#ebf8ff"
++  focus-ring: "#945c0a"
++  success-text: "#276749"
++typography:
++  display:
++    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
++    fontSize: "36px"
++    fontWeight: 400
++    lineHeight: 1.2
++  title:
++    fontFamily: "'Instrument Serif',Georgia,'Times New Roman',serif"
++    fontSize: "24px"
++    fontWeight: 400
++    lineHeight: 1.2
++  body:
++    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
++    fontSize: "14px"
++    lineHeight: 1.6
++  label:
++    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
++    fontSize: "12px"
++    letterSpacing: "0.08em"
++  code:
++    fontFamily: "'Cascadia Mono','SF Mono',Monaco,'Roboto Mono',Consolas,'Courier New',monospace"
++    fontSize: "13px"
++    lineHeight: 1.6
++rounded:
++  radius: "4px"
++spacing:
++  space-1: "4px"
++  space-2: "8px"
++  space-3: "12px"
++  space-4: "16px"
++  space-6: "24px"
++  space-8: "32px"
++  space-12: "48px"
++  space-16: "64px"
++  panel-pad: "24px"
++  panel-pad-compact: "16px"
++components:
++  button:
++    backgroundColor: "{colors.bg-input}"
++    textColor: "{colors.text-primary}"
++    rounded: "{rounded.radius}"
++    padding: "10px 18px"
++  button-hover:
++    backgroundColor: "{colors.bg-tertiary}"
++  button-primary:
++    backgroundColor: "{colors.accent-primary}"
++    textColor: "{colors.gray-800}"
++    rounded: "{rounded.radius}"
++    padding: "10px 18px"
++  button-primary-hover:
++    backgroundColor: "{colors.accent-hover}"
++    textColor: "{colors.white}"
++  panel:
++    backgroundColor: "{colors.bg-secondary}"
++    rounded: "{rounded.radius}"
++    padding: "{spacing.panel-pad-compact}"
++  source-well:
++    backgroundColor: "{colors.bg-input}"
++    textColor: "{colors.text-primary}"
++    rounded: "{rounded.radius}"
++---
+ # Design — Rust NYC Pop Quiz
+ 
+ **Status: binding. Written 2026-09-03 at the close of the T-20 drive and made
+@@ -15,7 +123,32 @@ confirmed it by driving all three: *"C is it."* Directions A (hands, no phones)
+ and B (phone-first) stay in `prototypes/` as built comparisons for October's
+ field notes, not as candidates.
+ 
+-## What the design serves
++## Overview
++
++**Creative North Star: "A well-made terminal"** — the existing metaphor from
++`PHILOSOPHY.md`, preserved rather than replaced.
++
++Nostalgic and technical: muted greys, warm amber, monospace controls and data,
++and serif headings. The shared system stays quiet so the Rust program and the
++room’s understanding carry the experience.
++
++**Key Characteristics:**
++
++- Projector-first, phone as buzzer.
++- Light surfaces, white source wells, restrained depth.
++- Counts rather than personal verdicts.
++- Host-paced trace, with colour reserved for reading phases.
++
++Documentation merge (2026-10-02): canonical sections and machine-readable
++values extracted from `web/shared/tokens.css`, `web/shared/components.css`,
++`web/shared/fonts.css`, and the surface stylesheets. CSS remains the executable
++token source; YAML resolves CSS aliases to literal values because primitives
++cannot reference other primitives. Component references retain semantic names.
++The original binding decisions and their evidence remain below, reorganized
++without rewriting. This merge does not establish new aesthetic choices or
++claim a live visual or venue-readability verification.
++
++### What the design serves
+ 
+ `PHILOSOPHY.md`'s one thing: *the quiz is a pretext, the understanding is the
+ product, and the room gets there by working through it together.* Every screen
+@@ -30,63 +163,55 @@ shaping:
+   the wall the source must *fit*, because container-scroll was a phone escape
+   hatch and A-4 took the phone away.
+ 
+-## The three surfaces
++## Colors
+ 
+-| Surface | Who sees it | What it carries |
+-|---|---|---|
+-| **The wall** | the whole room | brand line top-left; the join strip; the source, line-numbered, full-width; five options beneath in two columns; the split as bars with counts; the trace; the reveal; the handover |
+-| **The buzzer** | a participant, on their own phone | the room code as the room's identity; five letters; *Show me a hint*; after the split, a **count** beside their letter, never a ✗; at the end, *nothing about you was recorded* |
+-| **The host phone** | the host | one button per phase transition; `←` `→` to step the trace; the read-aloud script at the reveal; **no answer preview** (§7) |
++Muted technical greys provide the ground; warm amber marks emphasis and
++interaction. The frontmatter retains the source token names and exact values.
+ 
+-Neither source nor trace is ever rendered on a participant device (AC-32 as
+-rewritten). The buzzer is deliberately dull.
++### Primary
+ 
+-## The segment, in seven phases
++- **Warm amber** (`accent-primary`): primary controls, emphasis, trace edges.
++- **Deep amber** (`accent-secondary`, `accent-hover`): links and hover states.
++- **Pale amber** (`accent-subtle`): the trace focus region and company counts.
+ 
+-The order **repeat → resolve → release** is the mechanism, not a preference
+-(AC-97). Host controls step it; nothing else does.
++### Neutral
+ 
+-| # | Phase | Wall | Buzzer | Host phone |
+-|---|---|---|---|---|
+-| 1 | **Title** | *Time for a pop quiz.* One line. Join strip: *join @ ‹short link›* | code, waiting | *Put it on the screen* |
+-| 2 | **Question live** | source in colour, options beneath, *join @ ‹link›*, no timer | A–E, *Show me a hint* (private — the host is not told) | *Close answers* |
+-| 3 | **Answers closed** | *answers are closed*, nothing else | locked | *Show the room its split* |
+-| 4 | **The split** | five bars with counts, *N of M in the room answered*, **no answer** | your letter gets a count: *N of us read it the same way* | the walk-through button |
+-| 5 | **Work through it** | *Let's walk it. Still no answer. Nobody has to say anything.* Trace stepped by the host — highlight-and-dim, *Step N of M*, **no colour, no ✓, no receipt** | unchanged | `←` `→`, the words for each step |
+-| 6 | **Reveal** | ✓ on the correct option; the most-chosen wrong answer named and counted; the receipt; the trace steppable again | count stays a count | *Read it aloud* — the three-beat script |
+-| 7 | **Released** | *Let's go to the bar.* The link, at 40px, and a QR. Nothing competes with it | *nothing about you was recorded* | *Release the room*, then *Run it again* |
++- **Paper grey** (`bg-primary`): the page ground.
++- **Panel grey** (`bg-secondary`) and **inset grey** (`bg-tertiary`): containers and hover surfaces.
++- **White** (`bg-input`): source wells and input fields.
++- **Technical charcoal** (`text-primary`), **slate** (`text-secondary`), and
++  **muted slate** (`text-muted`): body, secondary information, and metadata.
++- **Soft slate** (`border-default`): boundaries and dividers.
+ 
+-The client, from the host's chair, on phase 5: *"as the host i liked setting
+-the pace."* On 6 and 7: *"love it."*
++### Semantic signals
+ 
+-**The reveal script has three beats**, and the order is the point: what
+-happened, plain enough for a beginner to repeat (AC-44); why *N of us* read it
+-the other way, with the count, which is the beat that makes being wrong ordinary;
+-then what to remember, the real decision, which carries on at the
+-bar. This makes `explanation` three fields rather than one; `SPEC.md` §3.1
+-carries the model (`what`, a `why_tempting` per incorrect option, `takeaway`).
++Success, error, warning, and information each have a foreground and subtle
++background token. They communicate state with words, glyphs, or border changes;
++they are not extra brand accents. Rust syntax colours are component-scoped in
++`web/shared/components.css`, not a global accent palette.
+ 
+-## Voice
++**The Accessible Companion Rule.** Surface styles opt into `focus-ring` (deep
++amber) and `success-text` (dark green), leaving inherited house-brand tokens
++unchanged. The source flags `text-muted` as unsuitable for normal small body
++text; retain it as documented metadata, not a general text default.
+ 
+-Every string is written to be said by a host standing in front of people, and
+-to talk **to** the person who got it wrong, never **about** them. In practice:
++## Typography
+ 
+-- **Short declaratives, lower-case where the room reads them.** *answers are
+-  closed.* *join @ …* *Let's walk it.*
+-- **Counts, not verdicts.** *N of us read it the same way.* Never *wrong*,
+-  never ✗, never a score. Correct gets a ✓ because that is a fact about the
+-  answer.
+-- **No instruction to speak, ever** (AC-98). *Nobody has to say anything* is
+-  the only sentence about talking, and it releases rather than asks. Two
+-  earlier lines — *someone from each, why?* and *find someone who picked
+-  something else* — were written, cut, and are recorded as the shape to avoid.
+-- **The client's own lines where they exist.** *Time for a pop quiz.* *Let's go
+-  to the bar.* They beat anything written for them.
+-- **The verification receipt shows what was done** (§4): a short list of steps —
+-  compiled, ran five times, output never varied, Miri ran clean — with no
+-  sentence and no claim word. The rest is on take-it-home. Never more than was done.
++Fonts are vendored through `web/shared/fonts.css`, use `font-display: swap`,
++and require no font CDN (D-14). The frontmatter includes the full fallback stacks.
+ 
+-## Aesthetic
++- **Display:** Instrument Serif, regular, the shared h1 role.
++- **Title:** Instrument Serif, regular, the shared h2/h3 role.
++- **Body:** Cascadia Mono, shared body and control type.
++- **Label:** Cascadia Mono, small metadata; caps tracking only where the component applies it.
++- **Code:** Cascadia Mono, the shared well default for personal reading distance.
++
++**The Wall Measurement Rule.** The frontmatter code size is not a projector
++size. `web/shared/typemodel.js` derives and measures wall type from venue inputs.
++Serif stays confined to headings at 24px and above. The existing aesthetic
++statement below remains the binding account of the font pairing.
++
++### Aesthetic
+ 
+ Inherited from the **Rust NYC Design System** (the house brand, claude.ai/design
+ `d608a53a…`), not reinvented. `prototypes/_shared/tokens.css` §1 is its four
+@@ -110,7 +235,27 @@ token files verbatim.
+ - **Every prototype carries a persistent `PROTOTYPE` badge.** A mockup is
+   never mistakable for the product.
+ 
+-## The wall's type model
++## Layout
++
++The shared spacing scale and both panel padding tokens are in the frontmatter.
++Observed surface containers differ by task: the buzzer caps at 375px with 12px
++outer padding, the host phone uses the 480px container token and compact panel
++padding, and take-it-home caps its sheet at 760px with 16px horizontal page
++padding. Take-it-home has a compact layout at a 480px breakpoint. These are
++surface measurements, not a replacement global grid.
++
++### The three surfaces
++
++| Surface | Who sees it | What it carries |
++|---|---|---|
++| **The wall** | the whole room | brand line top-left; the join strip; the source, line-numbered, full-width; five options beneath in two columns; the split as bars with counts; the trace; the reveal; the handover |
++| **The buzzer** | a participant, on their own phone | the room code as the room's identity; five letters; *Show me a hint*; after the split, a **count** beside their letter, never a ✗; at the end, *nothing about you was recorded* |
++| **The host phone** | the host | one button per phase transition; `←` `→` to step the trace; the read-aloud script at the reveal; **no answer preview** (§7) |
++
++Neither source nor trace is ever rendered on a participant device (AC-32 as
++rewritten). The buzzer is deliberately dull.
++
++### The wall's type model
+ 
+ The wall **sizes itself to the question; legibility is the floor.** Nothing is
+ chosen by hand.
+@@ -135,21 +280,100 @@ At the venue guess: `q3` (5 lines) at ~22px, `q7` (69 characters) at 22.1px,
+ be 16:9) that set the real number. The wall lays out at 1120px design size and
+ scales as a unit.
+ 
+-## What is deliberately absent
++### Hypotheses this design rests on
+ 
+-- No code or trace on any phone. No timer on the wall. No scoreboard, name,
+-  account, or history (§6).
+-- No public hint: the hint is pulled privately on the buzzer and the host phone
+-  does not know (AC-48 as rewritten, touchpoint T-13). The host has no hint control.
+-- No answer preview for the host (§7).
+-- No ✗, anywhere. No congratulating anyone.
+-- No instruction to talk to anyone (AC-98).
+-- The room code is **off the wall**; the way in is a short link (AC-28 as
+-  rewritten). The code remains the room's identity on the phones.
+-- No answer-position balancing of any kind. The slot is drawn from the date
+-  (AC-23/23a/23b; `PHILOSOPHY.md` §2).
++- **Screen 15ft, back row 20ft.** A guess. The rehearsal (`mvp/PRACTICE-RUN.md`)
++  measures width, height and the distance to the last occupied row, and every
++  number in the type model moves with them.
++- **AC-91's 30 seconds.** The client had an opinion at 10 seconds on a question
++  she had seen many times; the real sample is an attendee's first look.
++- **Participation rate.** Never measured; it sizes the deadline burst (AC-52).
++
++## Elevation & Depth
++
++Product panels use one subtle card shadow (`0 1px 3px rgba(45,55,72,0.08)`)
++with tonal backgrounds and fine borders. Keep it structural and restrained.
++Device frames, browser chrome, and the prototype badge belong to review
++artifacts; their heavier shadows and striped badge are not product tokens.
++
++## Shapes
++
++The shared form language uses one gently squared corner (`radius`, 4px) and
++fine boundaries (`border-w`, 1px). Trace focus and provenance use stronger left
++edges; human-reviewed content uses a dashed edge. Circles for progress dots and
++prototype device-frame corners are scoped exceptions, not new panel radii.
++
++## Components
++
++### Buttons and fields
++
++White neutral buttons use technical charcoal text and an inset-grey hover.
++Primary buttons use warm amber, dark text, and a deep-amber hover with white
++text. Both variants use 10px × 18px padding and the shared corner radius.
++Host and buzzer controls reserve at least a 44px touch target in both axes.
++Disabled buttons halve opacity and use the not-allowed cursor. Buzzer focus
++uses a 3px deep-amber outline; host focus uses 2px, both offset by 2px.
++
++The buzzer’s room-code field uses centred uppercase monospace text, a white
++background, and 8px × 12px padding. It retains a visible deep-amber focus outline.
++
++### Panels, source, and trace
++
++Panels use the secondary ground, fine border, compact padding, and card shadow.
++Source wells are white, line-numbered, with a 2ch gutter and an internal scroll
++region on personal-reading surfaces. The wall measures fit instead. Trace focus
++uses a pale-amber ground and a 3px left edge; lines outside the focus dim to .32
++opacity. Progress states include a step number, not only dots or colour.
++
++Machine provenance uses a solid green edge; human-reviewed prose uses a dashed
++orange edge. These distinguish the evidence source, not the participant’s result.
++
++### The segment, in seven phases
++
++The order **repeat → resolve → release** is the mechanism, not a preference
++(AC-97). Host controls step it; nothing else does.
++
++| # | Phase | Wall | Buzzer | Host phone |
++|---|---|---|---|---|
++| 1 | **Title** | *Time for a pop quiz.* One line. Join strip: *join @ ‹short link›* | code, waiting | *Put it on the screen* |
++| 2 | **Question live** | source in colour, options beneath, *join @ ‹link›*, no timer | A–E, *Show me a hint* (private — the host is not told) | *Close answers* |
++| 3 | **Answers closed** | *answers are closed*, nothing else | locked | *Show the room its split* |
++| 4 | **The split** | five bars with counts, *N of M in the room answered*, **no answer** | your letter gets a count: *N of us read it the same way* | the walk-through button |
++| 5 | **Work through it** | *Let's walk it. Still no answer. Nobody has to say anything.* Trace stepped by the host — highlight-and-dim, *Step N of M*, **no colour, no ✓, no receipt** | unchanged | `←` `→`, the words for each step |
++| 6 | **Reveal** | ✓ on the correct option; the most-chosen wrong answer named and counted; the receipt; the trace steppable again | count stays a count | *Read it aloud* — the three-beat script |
++| 7 | **Released** | *Let's go to the bar.* The link, at 40px, and a QR. Nothing competes with it | *nothing about you was recorded* | *Release the room*, then *Run it again* |
++
++The client, from the host's chair, on phase 5: *"as the host i liked setting
++the pace."* On 6 and 7: *"love it."*
++
++**The reveal script has three beats**, and the order is the point: what
++happened, plain enough for a beginner to repeat (AC-44); why *N of us* read it
++the other way, with the count, which is the beat that makes being wrong ordinary;
++then what to remember, the real decision, which carries on at the
++bar. This makes `explanation` three fields rather than one; `SPEC.md` §3.1
++carries the model (`what`, a `why_tempting` per incorrect option, `takeaway`).
++
++### Voice
++
++Every string is written to be said by a host standing in front of people, and
++to talk **to** the person who got it wrong, never **about** them. In practice:
++
++- **Short declaratives, lower-case where the room reads them.** *answers are
++  closed.* *join @ …* *Let's walk it.*
++- **Counts, not verdicts.** *N of us read it the same way.* Never *wrong*,
++  never ✗, never a score. Correct gets a ✓ because that is a fact about the
++  answer.
++- **No instruction to speak, ever** (AC-98). *Nobody has to say anything* is
++  the only sentence about talking, and it releases rather than asks. Two
++  earlier lines — *someone from each, why?* and *find someone who picked
++  something else* — were written, cut, and are recorded as the shape to avoid.
++- **The client's own lines where they exist.** *Time for a pop quiz.* *Let's go
++  to the bar.* They beat anything written for them.
++- **The verification receipt shows what was done** (§4): a short list of steps —
++  compiled, ran five times, output never varied, Miri ran clean — with no
++  sentence and no claim word. The rest is on take-it-home. Never more than was done.
+ 
+-## Take it home
++### Take it home
+ 
+ The second surface, behind the link on the released wall: the last meetup's
+ question, alone, at the reader's own pace — the trace steppable both ways,
+@@ -157,7 +381,7 @@ the three-beat explanation, the receipt. §9's private pace lives here (touchpoi
+ wall host-stepped, phones step freely). It carries no room state, and
+ no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
+ 
+-## The design-system divergences, all deliberate
++### The design-system divergences, all deliberate
+ 
+ | Divergence | Why | Who carries it |
+ |---|---|---|
+@@ -165,16 +389,37 @@ no count — `tone-architect` settled the AC-95 conflict as D-12 (2026-09-03).
+ | Room code off the wall; a short link instead | the client's join strip; the link can carry the code | AC-28 rewritten |
+ | `explanation` becomes three fields | AC-44 needs a beat a beginner can repeat, and §9 needs the popular wrong answer named | `SPEC.md` §3.1 (`explains`), AC-95 as read by D-9 |
+ 
+-## Hypotheses this design rests on
++## Do's and Don'ts
+ 
+-- **Screen 15ft, back row 20ft.** A guess. The rehearsal (`mvp/PRACTICE-RUN.md`)
+-  measures width, height and the distance to the last occupied row, and every
+-  number in the type model moves with them.
+-- **AC-91's 30 seconds.** The client had an opinion at 10 seconds on a question
+-  she had seen many times; the real sample is an attendee's first look.
+-- **Participation rate.** Never measured; it sizes the deadline burst (AC-52).
++### Do
++
++- **Do** preserve the binding prototype decisions and their acceptance criteria.
++- **Do** measure projector source fit using the venue’s dimensions and back-row distance.
++- **Do** pair colour with text, a glyph, a count, or a structural signal.
++- **Do** vendor the brand fonts and respect reduced-motion preferences.
++
++### Don’t
++
++- **Don’t** add gradients, glass, bounce, or extra panel radii.
++- **Don’t** mark a participant wrong, introduce scores, or preview the answer to the host.
++- **Don’t** promote prototype-only chrome or the dim-room proposal into the light product contract.
++- **Don’t** balance correct-answer positions or treat a built deck as a run segment.
++
++### What is deliberately absent
++
++- No code or trace on any phone. No timer on the wall. No scoreboard, name,
++  account, or history (§6).
++- No public hint: the hint is pulled privately on the buzzer and the host phone
++  does not know (AC-48 as rewritten, touchpoint T-13). The host has no hint control.
++- No answer preview for the host (§7).
++- No ✗, anywhere. No congratulating anyone.
++- No instruction to talk to anyone (AC-98).
++- The room code is **off the wall**; the way in is a short link (AC-28 as
++  rewritten). The code remains the room's identity on the phones.
++- No answer-position balancing of any kind. The slot is drawn from the date
++  (AC-23/23a/23b; `PHILOSOPHY.md` §2).
+ 
+-## For the build
++### For the build
+ 
+ The converged take is reproduced **one-to-one**: every designed control present,
+ even if it only toasts *not yet implemented (AC-x)*. The prototype, not this
+diff --git a/.impeccable/config.json b/.impeccable/config.json
+new file mode 100644
+index 0000000..747d7b3
+--- /dev/null
++++ b/.impeccable/config.json
+@@ -0,0 +1,3 @@
++{
++  "buildPath": "code"
++}
+diff --git a/.impeccable/design.json b/.impeccable/design.json
+new file mode 100644
+index 0000000..48d7318
+--- /dev/null
++++ b/.impeccable/design.json
+@@ -0,0 +1,487 @@
++{
++  "schemaVersion": 2,
++  "generatedAt": "2026-10-03T00:06:43.138085+00:00",
++  "title": "Design System: Rust NYC Pop Quiz",
++  "extensions": {
++    "shadows": [
++      {
++        "name": "shadow-card",
++        "value": "0 1px 3px rgba(45,55,72,0.08)",
++        "purpose": "Restrained product panel depth."
++      }
++    ],
++    "motion": [],
++    "breakpoints": [
++      {
++        "name": "home-compact",
++        "value": "480px"
++      }
++    ],
++    "colorMeta": {
++      "white": {
++        "displayName": "white",
++        "role": "neutral"
++      },
++      "gray-50": {
++        "displayName": "gray-50",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "gray-100": {
++        "displayName": "gray-100",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "gray-200": {
++        "displayName": "gray-200",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "gray-300": {
++        "displayName": "gray-300",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "gray-500": {
++        "displayName": "gray-500",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "gray-600": {
++        "displayName": "gray-600",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "gray-800": {
++        "displayName": "gray-800",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "amber-300": {
++        "displayName": "amber-300",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "amber-500": {
++        "displayName": "amber-500",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "amber-600": {
++        "displayName": "amber-600",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "amber-700": {
++        "displayName": "amber-700",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "green-500": {
++        "displayName": "green-500",
++        "role": "semantic"
++      },
++      "red-500": {
++        "displayName": "red-500",
++        "role": "semantic"
++      },
++      "orange-500": {
++        "displayName": "orange-500",
++        "role": "semantic"
++      },
++      "blue-500": {
++        "displayName": "blue-500",
++        "role": "semantic"
++      },
++      "green-50": {
++        "displayName": "green-50",
++        "role": "semantic"
++      },
++      "red-50": {
++        "displayName": "red-50",
++        "role": "semantic"
++      },
++      "orange-50": {
++        "displayName": "orange-50",
++        "role": "semantic"
++      },
++      "blue-50": {
++        "displayName": "blue-50",
++        "role": "semantic"
++      },
++      "bg-primary": {
++        "displayName": "bg-primary",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "bg-secondary": {
++        "displayName": "bg-secondary",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "bg-tertiary": {
++        "displayName": "bg-tertiary",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "bg-input": {
++        "displayName": "bg-input",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "text-primary": {
++        "displayName": "text-primary",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "text-secondary": {
++        "displayName": "text-secondary",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "text-muted": {
++        "displayName": "text-muted",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "accent-primary": {
++        "displayName": "accent-primary",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "accent-secondary": {
++        "displayName": "accent-secondary",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "accent-hover": {
++        "displayName": "accent-hover",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "accent-subtle": {
++        "displayName": "accent-subtle",
++        "role": "primary",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "border-default": {
++        "displayName": "border-default",
++        "role": "neutral",
++        "tonalRamp": [
++          "#2d3748",
++          "#4a5568",
++          "#718096",
++          "#cbd5e0",
++          "#dee2e6",
++          "#e9ecef",
++          "#f8f9fa",
++          "#ffffff"
++        ]
++      },
++      "border-focus": {
++        "displayName": "border-focus",
++        "role": "neutral",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "success": {
++        "displayName": "success",
++        "role": "semantic"
++      },
++      "error": {
++        "displayName": "error",
++        "role": "semantic"
++      },
++      "warning": {
++        "displayName": "warning",
++        "role": "semantic"
++      },
++      "info": {
++        "displayName": "info",
++        "role": "semantic"
++      },
++      "success-subtle": {
++        "displayName": "success-subtle",
++        "role": "semantic"
++      },
++      "error-subtle": {
++        "displayName": "error-subtle",
++        "role": "semantic"
++      },
++      "warning-subtle": {
++        "displayName": "warning-subtle",
++        "role": "semantic"
++      },
++      "info-subtle": {
++        "displayName": "info-subtle",
++        "role": "semantic"
++      },
++      "focus-ring": {
++        "displayName": "focus-ring",
++        "role": "semantic",
++        "tonalRamp": [
++          "#945c0a",
++          "#b7791f",
++          "#d69e2e",
++          "#faf089"
++        ]
++      },
++      "success-text": {
++        "displayName": "success-text",
++        "role": "semantic"
++      }
++    }
++  },
++  "components": [
++    {
++      "name": "Neutral button",
++      "kind": "button",
++      "description": "Extracted from existing web surface styles.",
++      "html": "<button class=\"ds-btn\">Close answers</button>",
++      "css": ".ds-btn {font-family:var(--font-mono);font-size:var(--text-sm);min-height:var(--touch-target);min-width:var(--touch-target);padding:10px 18px;border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);cursor:pointer;} .ds-btn:hover {background:var(--bg-tertiary)} .ds-btn:focus-visible {outline:2px solid var(--focus-ring);outline-offset:2px} .ds-btn:disabled {opacity:.5;cursor:not-allowed}",
++      "refersTo": "button"
++    },
++    {
++      "name": "Primary button",
++      "kind": "button",
++      "description": "Extracted from existing web surface styles.",
++      "html": "<button class=\"ds-primary\">Put it on the screen</button>",
++      "css": ".ds-primary {font-family:var(--font-mono);font-size:var(--text-sm);min-height:var(--touch-target);min-width:var(--touch-target);padding:10px 18px;border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);cursor:pointer;background:var(--accent-primary);border-color:var(--accent-primary);color:var(--gray-800);font-weight:600} .ds-primary:hover {background:var(--accent-hover);border-color:var(--accent-hover);color:#ffffff} .ds-primary:focus-visible {outline:2px solid var(--focus-ring);outline-offset:2px} .ds-primary:disabled {opacity:.5;cursor:not-allowed}",
++      "refersTo": "button-primary"
++    },
++    {
++      "name": "Room code",
++      "kind": "input",
++      "description": "Extracted from existing web surface styles.",
++      "html": "<label class=\"ds-label\">Room code <input class=\"ds-input\" value=\"RUST\" aria-label=\"Room code\"></label>",
++      "css": ".ds-label {font-family:var(--font-mono)} .ds-input {font-family:var(--font-mono);font-size:28px;letter-spacing:0.2em;width:100%;min-width:var(--touch-target);padding:8px 12px;text-align:center;text-transform:uppercase;background:var(--bg-input);color:var(--text-primary);border:2px solid var(--text-muted);border-radius:var(--radius);min-height:var(--touch-target)} .ds-input:focus-visible {outline:3px solid var(--focus-ring);outline-offset:2px}"
++    },
++    {
++      "name": "Panel",
++      "kind": "card",
++      "description": "Extracted from existing web surface styles.",
++      "html": "<section class=\"ds-panel\">Room controls</section>",
++      "css": ".ds-panel {font-family:var(--font-mono);background:var(--bg-secondary);border:var(--border-w) solid var(--border-default);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:var(--panel-pad-compact)}",
++      "refersTo": "panel"
++    },
++    {
++      "name": "Source well",
++      "kind": "custom",
++      "description": "Extracted from existing web surface styles.",
++      "html": "<div class=\"ds-src\"><pre class=\"ds-pre\"><span class=\"ds-ln\">1</span>fn main() {}</pre></div>",
++      "css": ".ds-src {border:var(--border-w) solid var(--border-default);border-radius:var(--radius);background:var(--bg-input);font-family:var(--font-mono)} .ds-pre {margin:0;padding:var(--space-4);font-family:var(--font-mono);font-size:13px;line-height:1.6;color:var(--text-primary);overflow-x:auto} .ds-ln {display:inline-block;width:2ch;margin-right:1.5ch;text-align:right;color:var(--text-muted)}",
++      "refersTo": "source-well"
++    },
++    {
++      "name": "Human provenance",
++      "kind": "chip",
++      "description": "Extracted from existing web surface styles.",
++      "html": "<span class=\"ds-provenance\">Human reviewed</span>",
++      "css": ".ds-provenance {display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-caps);font-weight:600;color:#9c4221}"
++    }
++  ],
++  "narrative": {
++    "northStar": "A well-made terminal",
++    "overview": "Nostalgic and technical: muted greys, warm amber, monospace controls and data,\nand serif headings. The shared system stays quiet so the Rust program and the\nroom\u2019s understanding carry the experience.",
++    "keyCharacteristics": [
++      "Projector-first, phone as buzzer.",
++      "Light surfaces, white source wells, restrained depth.",
++      "Counts rather than personal verdicts.",
++      "Host-paced trace, with colour reserved for reading phases."
++    ],
++    "rules": [
++      {
++        "name": "The Accessible Companion Rule",
++        "body": "Surface styles opt into `focus-ring` (deep\namber) and `success-text` (dark green), leaving inherited house-brand tokens\nunchanged. The source flags `text-muted` as unsuitable for normal small body\ntext; retain it as documented metadata, not a general text default.",
++        "section": "colors"
++      },
++      {
++        "name": "The Wall Measurement Rule",
++        "body": "The frontmatter code size is not a projector\nsize. `web/shared/typemodel.js` derives and measures wall type from venue inputs.\nSerif stays confined to headings at 24px and above. The existing aesthetic\nstatement below remains the binding account of the font pairing.",
++        "section": "typography"
++      }
++    ],
++    "dos": [
++      "**Do** preserve the binding prototype decisions and their acceptance criteria.",
++      "**Do** measure projector source fit using the venue\u2019s dimensions and back-row distance.",
++      "**Do** pair colour with text, a glyph, a count, or a structural signal.",
++      "**Do** vendor the brand fonts and respect reduced-motion preferences."
++    ],
++    "donts": [
++      "**Don\u2019t** add gradients, glass, bounce, or extra panel radii.",
++      "**Don\u2019t** mark a participant wrong, introduce scores, or preview the answer to the host.",
++      "**Don\u2019t** promote prototype-only chrome or the dim-room proposal into the light product contract.",
++      "**Don\u2019t** balance correct-answer positions or treat a built deck as a run segment."
++    ]
++  }
++}
+diff --git a/PRODUCT.md b/PRODUCT.md
+new file mode 100644
+index 0000000..f14e33d
+--- /dev/null
++++ b/PRODUCT.md
+@@ -0,0 +1,202 @@
++# Product — Rust NYC Pop Quiz
++
++<!-- impeccable:product-schema 1 -->
++
++## Platform
++
++web
++
++The room display, participant buzzer, host controls, and take-home page are web
++surfaces. The organizer's offline pipeline runs locally; mobile web remains web.
++
++## Users
++
++- **Attendees:** Rust NYC meetup participants, including newcomers, who read a
++  program on the projector, vote privately on their phone, and work through the
++  explanation together. Participation never obliges anyone to speak.
++- **Hosts:** organizers who lead one question, control the room's pace, and read
++  the explanation aloud. Hosts receive no answer preview.
++- **Question organizers:** people who prepare and verify candidates, review
++  explanations and traces, affirm questions, maintain reserve, and schedule the
++  segment. These are jobs; one person may perform several of them.
++- **Take-home readers:** attendees revisiting the last question at their own pace.
++
++## Product Purpose
++
++The quiz is a pretext. The understanding is the product, and the room gets there
++by working through it together. Success means a beginner can explain the solution
++to someone else (AC-44), with room for the conversation to continue afterward.
++
++Run one fresh Rust program-output question in the last 3–5 minutes of the meetup.
++The previous public question bank became familiar enough that the segment was
++abandoned. New supply must preserve the need to read and reason, rather than
++replace memorized questions with learnable answer shortcuts.
++
++## Positioning
++
++Two decoupled mechanisms support the segment:
++
++1. **Offline supply:** generate candidates in batches, verify them with the pinned
++   Rust toolchain and Miri, check duplicates and structural tells, obtain organizer
++   affirmation, and keep a private reserve. Freshness is a supply problem.
++2. **Live room:** join by link or code, read the projector, answer anonymously,
++   see the room's split, follow a host-paced trace, reveal, and release the room.
++
++The answer comes from executing the program. The anonymous split precedes the
++answer so attendees see that others made the same reading before the reveal.
++This is a volunteer-run community segment, with no revenue model, scoreboard,
++certification, or participant learning-history product.
++
++## Operating Context
++
++The source and live trace are on the projector. Participant phones carry voting,
++a private hint, and phase feedback. The host phone carries phase controls,
++trace stepping, and the reveal script. Take-it-home supports independent reading
++and trace stepping after the segment, without live room counts.
++
++The phase order is title/idle → live → closed → split → work → reveal → released.
++The host sets the pace. The reveal script explains what happened, why the room's
++most-chosen incorrect option was a reasonable reading, and what to remember.
++
++The live implementation uses Rust (`axum` and `tokio`) with Fly.io as the chosen
++host. Frontends use plain HTML/CSS/JavaScript and vendored brand fonts. The local
++pipeline uses Python and `uv`, JSON question records, and a Docker verification
++sandbox. These describe repository implementation and architectural decisions;
++they do not certify the currently deployed service.
++
++A scheduled question must also have a local single-file wall fallback and a
++plain-text host sheet so the segment can proceed without the room service.
++Question generation is never required on meetup day.
++
++## Capabilities and Constraints
++
++### Durable contract
++
++- One question per meetup, scheduled last. Building a deck does not mean the
++  segment ran and must not retire a question.
++- Correct answers derive from machine-written verification records, never a
++  manually authored answer field. Preserve recorded provenance and missing
++  legacy facts; do not back-fill observations that were never made.
++- Miri checks executed paths. Repeated identical runs are evidence of
++  determinism, not a universal guarantee.
++- No published answer-category distribution or history-based answer balancing.
++  Correct-answer position depends on the date alone. Audits examine the generator
++  without changing tonight's position.
++- No participant accounts, names, scores, leaderboard, or lasting per-person
++  record. Ephemeral sessions support voting; anonymous totals expire with the
++  room. Organizer authentication is a separate boundary.
++- Source and trace are absent from live participant payloads. Answer, receipt,
++  explanation, and resolving trace information obey the phase-specific secrecy
++  boundaries in `SPEC.md`; the host receives no preview.
++- Hints are requested privately; the host is not told who needed one. A person's
++  choice receives a company count, never an incorrect marker.
++- Organizer hosting is authorized by the configured Discord organizer role ID.
++  Administrator status alone cannot bypass that role check.
++- Scheduling requires organizer affirmation. A successful verifier run alone
++  does not approve explanation quality or make a question ready for the room.
++
++### Implementation snapshot — 2026-10-02
++
++This inventory is based on source inspected in this checkout. It is not a live
++Lattice board, a fresh test result, or a deployment/readiness certification.
++Refresh it against source and accepted work before treating it as current status.
++
++| Area | Implemented source | Remaining work or boundary |
++|---|---|---|
++| Live segment | Phase machine, sessions, answer updates, WebSockets, wall, buzzer, host controls | Human walkthrough and deployed/venue checks remain separate gates |
++| Organizer access | Discord OAuth, organizer-role checks, token refresh handling | Real account and environment validation cannot be inferred from source |
++| Release and follow-up | Used-question ledger and take-home snapshot; take-home web surface | Verify real release, durable ledger consistency, and reader experience |
++| Offline fallback | One-file wall builder, keyboard driver, host-sheet generation | Scheduling integration and offline operator walkthrough |
++| Verification | Bank schema, migration, pinned sandbox runner, verifier, receipts | Complete reviewed supply workflow; preserve legacy provenance |
++| Freshness and fit | Dedupe, date-only slot mechanism, bank audit and fit logic | Dedupe documents unresolved false-match findings; do not claim the normalized-AST contract is satisfied |
++| Generation | `pipeline/src/popquiz/generate.py` is an empty scaffold | T-16 batch generation and candidate cost reporting |
++| Organizer review | `pipeline/src/popquiz/review.py` is an empty scaffold | T-18 accept/reject/edit/reverify and recorded affirmation |
++| Scheduling and sync | Server-side authenticated admin channel exists; `schedule.py` is an empty scaffold | T-20 publish affirmed questions, build fallback, sync usage, report reserve |
++| Operational finish | Test harnesses, copy checks, and technical documentation exist | T-23 whole-tree guardrail audit, T-24 organizer runbook, and human checkpoints |
++
++### Planned Lattice work
++
++`BUILDPLAN.md`, `SPEC.md`, and `EVALUATION.md` define the build contract, not a
++completion ledger. Keep T-16 generation, T-18 review, and T-20 scheduling/sync in
++product scope until the organizer can prepare and run a segment end to end.
++Resolve T-17 dedupe's documented correctness limitations rather than equating
++its implementation with acceptance. Finish the T-23 guardrail audit and T-24
++organizer runbook against the resulting product.
++
++Readiness includes rehearsal with actual projector dimensions and back-row
++distance, a timed review of the first batch, take-home reading on a personal
++phone, deployed burst/smoke checks, and a real meetup with field notes. Test
++success, source presence, and a built fallback each establish narrower facts.
++
++### Open operational evidence
++
++The rehearsal measurements, review throughput, first-look reading time,
++participation rate, live ledger consistency, available affirmed reserve, and
++human checkpoint outcomes require current evidence. No numeric success claim or
++completed checkpoint is established by this product record. The generator's
++near-duplicate threshold needs calibration against real batches.
++
++## Brand Commitments
++
++Use the Rust NYC identity and the existing binding `DESIGN.md` and converged
++projector-first prototypes. Existing visual decisions are preserved; this record
++adds no palette, typography, or surface design.
++
++Write copy to be read aloud by a host, in short concrete sentences. Speak to the
++person who chose an incorrect option, never about them. Use counts rather than
++personal verdicts. Preserve the established lines “Time for a pop quiz,” “Let's
++walk it,” and “Let's go to the bar.” Never congratulate winners or require an
++attendee to explain their choice publicly.
++
++The organizer carries operating cost, as recorded in BUILDPLAN's T-21 client
++answer. Historical economics estimates are not current prices or budgets.
++
++## Evidence on Hand
++
++- `PHILOSOPHY.md`: purpose, participant social contract, freshness, verification
++  limits, and durable principles. Later client amendments supersede old wording.
++- `sequence/USER_STORIES.md`: stable acceptance-criteria IDs and amendment history.
++- `sequence/run-state.md`: Tone arc decisions and human touchpoints; historical
++  entries are not a live completion board.
++- `SPEC.md`, `BUILDPLAN.md`, `EVALUATION.md`: behavior, build work, and acceptance.
++- `DESIGN.md`, `prototypes/C-projector-first.html`, and
++  `prototypes/take-it-home.html`: confirmed visual direction and comparisons.
++- `room/src/`, `web/`, and `pipeline/src/popquiz/`: implementation evidence.
++- `bank/questions/`, `bank/schema/`, and `bank/fixtures/`: question records and
++  verification/receipt fixtures. Record presence does not establish affirmation.
++- `docs/demo/`: saved local-run screenshots referenced by README, not proof of
++  current deployment or venue legibility.
++- `mvp/PRACTICE-RUN.md` and `mvp/FIELD-NOTES-TEMPLATE.md`: rehearsal and field
++  evidence instruments. The hand-run `mvp/` deck remains an explicitly labeled MVP.
++
++Where `PRD.md` conflicts with the research synthesis and later client decisions,
++use the later contract. The synthesis itself retains historical wording; the
++amended purpose in `PHILOSOPHY.md` governs. Do not invent testimonials, attendance
++results, question approvals, or successful deployments from these artifacts.
++
++## Product Principles
++
++1. **Understanding together is success.** One question leaves time and a place
++   for the explanation to continue beyond the segment.
++2. **Freshness includes the mechanism.** Avoid remembered questions and
++   learnable structural shortcuts; never enforce historical answer balance.
++3. **The machine establishes the answer; people affirm the teaching.** Separate
++   executed evidence from explanation quality and preserve both provenances.
++4. **Being wrong is ordinary.** Show the split before the answer, protect
++   anonymity, make help private, and never oblige someone to speak.
++5. **Prefer the smaller mechanism that survives the room.** Prepare supply
++   offline, measure real use, and retain a runnable offline fallback.
++
++## Accessibility & Inclusion
++
++Newcomers are part of the intended audience. A quiet attendee can participate
++fully without speaking, exposing their answer, or announcing a need for help.
++
++The contract requires keyboard access, polite phase and hint announcements,
++WCAG AA contrast for text and essential UI, touch targets of at least 44px,
++reduced-motion support, and signals that do not depend on colour alone.
++
++Code must not cause horizontal page scrolling. Personal-reading surfaces may
++use an internal code scroll container; the projector must measure fit and
++legibility against the room, visibly report clipping, and retain a readable
++floor. Venue measurements are evidence to collect, not constants to invent.
+diff --git a/docs/audits/impeccable-2026-10-02.md b/docs/audits/impeccable-2026-10-02.md
+new file mode 100644
+index 0000000..ee14d33
+--- /dev/null
++++ b/docs/audits/impeccable-2026-10-02.md
+@@ -0,0 +1,152 @@
++# Impeccable technical audit — 2026-10-02
++
++## Implementation integrity verdict
++
++**Pass, with isolated documentation gaps.** The implementation expresses the
++projector-first product: phase-specific source colouring, anonymous counts,
++private hints, a host-paced trace, and evidence provenance. The shared token
++system and surface-specific accessibility companions are intentional.
++
++No application code was changed. Findings below are recommendations, not fixes.
++
++## Audit health score
++
++Scores describe the bounded checks below, not full WCAG conformance or meetup readiness.
++
++| Dimension | Score / 4 | Key finding |
++|---|---:|---|
++| Accessibility | 3 | Take-home heading structure skips from h1 to h3 |
++| Performance | 3 | Brand fonts are relatively large TTF assets |
++| Responsive design | 3 | Sampled phone states fit; full phase/zoom/device matrix remains untested |
++| Theming | 3 | Strong shared tokens; component-scoped literals remain |
++| Implementation integrity | 3 | Documented typography ramp omits intentional implementation sizes |
++| **Total** | **15/20** | **Good — address weak dimensions** |
++
++**Verified issues:** P0: 0; P1: 0; P2: 3; P3: 0.
++No blocking defect was established in the sampled states.
++
++## Evidence and limits
++
++- Read PRODUCT.md, the binding design decisions, source styles/renderers,
++  project run-state and the relevant phase/accessibility contracts.
++- Ran `node --test 'web/test/*.test.js'`: **271 passed, 0 failed, 0 skipped**.
++  These include contrast, keyboard/focus preservation, announcements, secrecy,
++  touch-size CSS and reduced-motion checks. The custom test DOM does no layout.
++- Ran the bundled Impeccable detector once over `web/`. Exit 2 indicates findings;
++  it also reported an unresolved `/join/buzzer.css` stylesheet path. Its HTML
++  route resolution is incomplete; no missing production stylesheet is inferred.
++- Used the existing `web/test/a11y/browser.html` harness in the Codex in-app
++  browser on a loopback server. Inspected buzzer join/live, host idle, home initial
++  trace, and wall idle. The harness supplies room fixtures, not real Discord or
++  server behavior. It is not deployed smoke testing.
++- Requested a 320×640 viewport override. The browser reported **291 CSS px**
++  inner width, so the measurements apply to that reported width, not a certified
++  320px device. Sampled buzzer, host and home document scrollWidth equalled
++  innerWidth. Buzzer letter targets measured about 267×56.7px; host Start was
++  about 259×44px; home trace buttons were about 44×44px. Subpixel values near
++  43.999px are rounding of the 44px CSS minimum, not a target-size finding.
++- Inspected the saved host-reveal screenshot and compared its font, palette,
++  borders and provenance treatment with current source. It is historical visual
++  evidence, not a fresh capture of every phase.
++- Did not test screen-reader speech, physical touch, text zoom/reflow, reduced
++  motion at the OS setting, all phases at multiple widths, mobile browser engines,
++  live performance timings, deployed cache headers, or projector venue legibility.
++  The wall idle browser view does not establish source fit.
++
++## Detailed findings
++
++### [P2] Take-home explanation skips a heading level
++
++**Location:** `web/home/home.js:110–121` (`beatsHtml`).
++**Category:** Accessibility.
++
++The browser heading tree starts with the question h1, followed by explanation
++h3 headings; the next h2 is “Walk it yourself.” There is no h2 parent for the
++explanation beats. Heading navigation presents an unclear hierarchy to readers
++using assistive technology.
++
++**Standard:** Heading hierarchy best practice supporting WCAG 1.3.1. A skipped
++level alone does not establish a WCAG failure.
++
++**Recommendation:** Give the explanation a meaningful h2 parent or use h2 for
++its top-level beats, preserving their existing visual styling and copy.
++**Suggested command:** `$impeccable harden`.
++
++### [P2] Font delivery has avoidable transfer cost
++
++**Location:** `web/shared/fonts.css:19–47`; `web/shared/fonts/`.
++**Category:** Performance.
++
++The regular Cascadia Mono TTF occupies about 620 KiB and its italic face about
++464 KiB; the two Instrument Serif TTFs occupy about 72 KiB each. Faces are loaded
++on demand, so this is available asset size, not a claim that every page downloads
++all four. The large regular monospace face adds cold-load work on attendee phones
++and increases the size of inlined offline artifacts. `font-display: swap` already
++keeps text visible while fonts load.
++
++**Standard:** No specific WCAG failure; no measured latency or Core Web Vitals
++failure is claimed.
++
++**Recommendation:** Evaluate locally generated WOFF2 versions of the same
++licensed fonts. Preserve required Rust symbols, variable weight coverage,
++self-hosting and offline operation. Compare bytes and measured font swap/refit
++before replacing the TTF sources.
++**Suggested command:** `$impeccable optimize`.
++
++### [P2] Machine-readable type documentation understates the implementation
++
++**Location:** `DESIGN.md` frontmatter typography; `web/shared/tokens.css`
++(`text-3xl`); `web/buzzer/buzzer.css:52–69`; `web/wall/wall.css`.
++**Category:** Implementation integrity / documentation.
++
++The merged frontmatter lists 12, 13, 14, 24 and 36px roles but omits the existing
++30px shared token and intentional surface roles such as the 28px room code and
++46px voting letters. The detector therefore reports existing implementation as
++off-ramp. New agents could incorrectly “fix” established layouts to satisfy the
++incomplete documentation. This gap was introduced by the documentation merge;
++it is not evidence that these components need restyling.
++
++**Recommendation:** Document reused surface-specific roles and distinguish the
++wall's measured type from static phone/read sizes. Preserve the current code and
++binding prototype decisions; do not force all surfaces onto the body ramp.
++**Suggested command:** `$impeccable document`.
++
++## Detector findings reviewed in context
++
++- **Side-tab accents:** not defects here. Solid machine edges, dashed human
++  provenance, trace focus, and company counts are established signal channels.
++  Colour is supplemented by text, shape or glyphs. Generic anti-pattern advice
++  does not supersede this product's contract.
++- **Font-size advisories:** many are legitimate surface-specific values or wall
++  sizes. The documentation gap above is the actionable finding; these are not
++  independent layout defects.
++- **Reduced-motion kill rules:** host has a 0.01ms guard, but currently has no
++  animation whose feedback would be lost. Phase changes and labels persist.
++  No motion sensitivity defect is established from that pattern alone.
++- **Hard-coded colours:** shared syntax/provenance colours and literals matching
++  existing house tokens warrant classification, not a new palette. Light-only v1
++  is binding; lack of product dark mode is not a finding. The prototype dim-room
++  proposal is not an implemented product theme to certify.
++
++## Patterns and positive findings
++
++The main gap is between broad machine checks and intentional surface decisions.
++Keep component and phase context in future audits instead of normalizing every
++literal or accented border mechanically.
++
++Maintain native named controls, focus restoration after repaint, a separate
++polite announcement region, 44px control minimums, meaningful selected states,
++self-hosted font fallbacks, internal code scrolling on the reading surface,
++source-fit measurement on the wall, and phase-gated syntax colour. The bounded
++wall refit loop is required legibility work, not unbounded layout thrashing.
++
++## Recommended actions
++
++1. **[P2] `$impeccable harden`** — repair take-home heading semantics.
++2. **[P2] `$impeccable optimize`** — measure and reduce font transfer cost.
++3. **[P2] `$impeccable document`** — complete intentional typography roles.
++4. **`$impeccable polish`** — confirm the affected surfaces in one bounded final
++   browser pass after fixes.
++
++You can ask me to run these one at a time, all at once, or in any order you prefer.
++Re-run `$impeccable audit` after fixes to assess the remaining issues.
