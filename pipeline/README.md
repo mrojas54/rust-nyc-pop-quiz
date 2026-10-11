@@ -77,9 +77,12 @@ A run that is killed resumes with `--run-id <id>`: it picks up the batch already
 submitted and never pays for a second one.
 
 The model's own idea of what a program prints is never written as an answer: there
-is no field for it, the trace is left empty for the organizer to write once the
-verifier has run, and option order means nothing (the night's order is drawn from
-the date). `pipeline/src/popquiz/generate.py`'s docstring has the reasons.
+is no field for it, and option order means nothing (the night's order is drawn from
+the date). The model drafts the trace's steps, which the organizer checks at review
+like the beats; it never writes the last step's `stdout` row. A `stdout` value it
+offers is discarded and the report says so, and `just verify` writes the row from
+what the program printed. `pipeline/src/popquiz/generate.py`'s docstring has the
+reasons.
 
 ## Scheduling a meetup
 

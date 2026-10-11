@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import io
 import json
 import math
 import socket
@@ -824,6 +825,9 @@ def test_a_drafted_trace_is_emitted_with_no_stdout_and_the_discard_is_reported(t
     assert MODEL_CLAIM not in path.read_text(encoding="utf-8")
     assert MODEL_CLAIM not in json.dumps(report)
     assert rows["c01"]["discarded"] == ["step 4: a stdout value, which only the verifier writes"]
+    printed = io.StringIO()
+    generate.print_report(report, printed)
+    assert "[discarded: step 4: a stdout value" in printed.getvalue()
 
 
 def test_a_does_not_compile_draft_has_no_stdout_row(tmp_path):

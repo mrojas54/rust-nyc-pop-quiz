@@ -1086,6 +1086,8 @@ def print_report(report: Mapping[str, Any], out: Any = None) -> None:
             line += f" -> {row['path']}"
         else:
             line += f" ({'; '.join(row['reasons'])})"
+        if row.get("discarded"):
+            line += f" [discarded: {'; '.join(row['discarded'])}]"
         line += f" | {row['input_tokens']} in / {row['output_tokens']} out, ${row['cost_usd']:.4f}, {row['wall_clock_s']} s"
         print(line, file=out)
     totals = report["totals"]
