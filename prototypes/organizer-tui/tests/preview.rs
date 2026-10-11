@@ -30,7 +30,7 @@ fn schedule_form_does_not_treat_typing_as_preview_shortcuts() {
 fn selecting_a_step_waits_for_enter_before_changing_the_trace() {
     let screen = snapshot(&['t', 'j'], 120, 40);
     assert!(screen.contains("Steps / FOCUS"));
-    assert!(screen.contains("> 2 Compare neighbours"));
+    assert!(screen.contains("> 2 dedup makes one pass"));
     assert!(screen.contains("Step 1 of 6"));
     let jumped = snapshot(&['t', 'j', '\n'], 120, 40);
     assert!(jumped.contains("Step 2 of 6"));
@@ -152,21 +152,27 @@ fn cli_reports_an_unknown_candidate_without_entering_terminal_mode() {
 #[test]
 fn real_key_events_preserve_form_fields_and_ignore_modified_shortcuts() {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use organizer_preview::{App, capture, default_bank};
+    use organizer_preview::{capture, default_bank, App};
     let mut app = App::load(&default_bank(), Some("q3")).unwrap();
     for modifiers in [KeyModifiers::CONTROL, KeyModifiers::ALT] {
         for c in ['r', 's', 'q'] {
             assert!(app.handle_event(KeyEvent::new(KeyCode::Char(c), modifiers)));
         }
     }
-    assert!(capture(&mut app, 120, 40).unwrap().contains("Question preview"));
+    assert!(capture(&mut app, 120, 40)
+        .unwrap()
+        .contains("Question preview"));
     app.handle('s');
-    for c in "2026-10-15".chars() { app.handle(c); }
+    for c in "2026-10-15".chars() {
+        app.handle(c);
+    }
     for code in [KeyCode::Left, KeyCode::Right, KeyCode::Down, KeyCode::Up] {
         app.handle_event(KeyEvent::new(code, KeyModifiers::NONE));
     }
     app.handle('\t');
-    for c in "https://example.test\t/tmp/review-fallback\n".chars() { app.handle(c); }
+    for c in "https://example.test\t/tmp/review-fallback\n".chars() {
+        app.handle(c);
+    }
     app.handle_event(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL));
     app.handle_event(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::ALT));
     let screen = capture(&mut app, 120, 40).unwrap();

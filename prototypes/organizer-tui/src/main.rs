@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event};
 use organizer_preview::{capture, default_bank, App, Result};
 use std::{
     env,
@@ -53,27 +53,7 @@ fn main() -> Result<()> {
                 continue;
             }
             if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-                if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-                    break;
-                }
-                let action = match key.code {
-                    KeyCode::Char(c) => Some(c),
-                    KeyCode::Left => Some('<'),
-                    KeyCode::Right => Some('>'),
-                    KeyCode::Up => Some('k'),
-                    KeyCode::Down => Some('j'),
-                    KeyCode::PageUp => Some('K'),
-                    KeyCode::PageDown => Some('J'),
-                    KeyCode::Tab => Some('\t'),
-                    KeyCode::Enter => Some('\n'),
-                    KeyCode::Backspace => Some('\u{8}'),
-                    KeyCode::Esc => Some('\u{1b}'),
-                    _ => None,
-                };
-                if action.is_some_and(|key| !app.handle(key)) {
+                if !app.handle_event(key) {
                     break;
                 }
             }
