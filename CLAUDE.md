@@ -16,7 +16,8 @@ room.
 | [`sequence/run-state.md`](sequence/run-state.md) | Where the Tone arc is. **Read on every invoke.** |
 | [`sequence/research/00-synthesis.md`](sequence/research/00-synthesis.md) | Phase 2 fold-back — what the research changed and why the shape is what it is. |
 | [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate, attendees. |
-| [`mvp/README.md`](mvp/README.md) | The hand-run projector deck. How to run it at a meetup. |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | **How to run the segment on the built room**: schedule, host, sync. |
+| [`mvp/README.md`](mvp/README.md) | The retired hand-run projector deck. Still read for *The shape*; its practice-run and field-notes templates are still used. |
 | [`docs/adr/`](docs/adr/) | Architecture decision records, with diagrams. ADR-0001: several clubs share one room server (D-26). |
 
 ## Standing of `PRD.md`
@@ -47,10 +48,12 @@ Two decoupled components:
   dedupe → organizer review → a growing private bank. No deadline.
 - **Live room app** — join by code, read code, answer, reveal, aggregate.
 
-Plus **`mvp/`** — a self-contained HTML projector deck, no server, already
-running real questions. Not the product; it says `MVP` on it. Build the deck the
-segment actually runs with `--only <qid>`; the multi-question form is for
-reviewing a batch.
+Plus **`mvp/`**: the hand-run HTML projector deck from before the room existed.
+**Retired 2026-10-11.** The room and `docs/RUNBOOK.md` run the segment, and the
+backup on the night is the static `<id>.html` that `just schedule` writes, not
+the deck. Don't build decks. `mvp/` stays for its templates
+(`PRACTICE-RUN.md`, `FIELD-NOTES-TEMPLATE.md`), *The shape* in its README, and
+the `answer-history.json` record.
 
 ## House rules
 
@@ -65,11 +68,13 @@ reviewing a batch.
   elimination, and enforced balance makes every fifth meetup certain. Uneven
   counts and repeated letters are correct; do not "fix" them.
   `mvp/answer-history.json` is a **record**, never an input.
-- **A built deck is not a run segment.** `answer-history.json` is written by
-  `build_deck.py` at **build** time, so building a deck for a meetup that then
-  does not happen falsely retires a question — it happened on 2026-08-12 and was
-  rolled back by hand. `AC-92` asks for what each meetup *used*; no code
-  currently satisfies that. Before trusting the ledger, confirm the segment ran.
+- **A question is used when its room is released** (AC-92, G-10). The room
+  writes the used record at release and `just sync` brings it into the bank
+  (`room/src/used.rs`). Building a schedule, a fallback or a deck uses nothing,
+  and neither does reaching reveal. The ledger lives in memory until synced, so
+  sync before the room restarts. The retired deck's `build_deck.py` still writes
+  `answer-history.json` at **build** time, which falsely retired q3 on 2026-08-12
+  (rolled back by hand); that is one more reason not to build decks.
 - **The build audits the generator, not the sequence**, in both tails — too even
   means someone reintroduced balancing. An audit that can change tonight's
   output is a rule, and rules leak. This area has regressed four times,
