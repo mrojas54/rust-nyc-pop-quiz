@@ -1,5 +1,19 @@
 # Organizer TUI prototype validation
 
+## Reveal safeguard — 2026-10-11
+
+RED commit `958af8a`; GREEN commit `cffb58f`.
+
+`just test-organizer` passed: 29 tests (11 unit, 18 integration), Clippy with
+warnings denied, and formatting. Regression coverage checks single-press answer
+isolation, second-press reveal, cancellation by other keys including ignored
+terminal events, held-key repeats, and the 40 × 14 prompt. The narrow-screen
+assertion normalizes whitespace because the prompt wraps. Explicit
+`--snapshot reveal` remains supported and has a CLI regression test.
+
+The real-terminal recording was refreshed to pause on the armed prompt before
+the second press. No scheduler or bank behavior changed in this follow-up.
+
 ## Review fixes — 2026-10-11
 
 RED commit `237c863`; GREEN commit `7e7cef4`.
