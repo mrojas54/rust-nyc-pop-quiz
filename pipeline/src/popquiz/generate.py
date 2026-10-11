@@ -119,6 +119,7 @@ DEFAULT_POLL_INTERVAL_S = 60.0
 #: Where candidates land by default: a directory per run under `bank/candidates/`, the
 #: home of candidates waiting for `verify`. Never `bank/questions/`.
 DEFAULT_OUT = audit.DEFAULT_REPO / "bank" / "candidates"
+QUESTIONS_DIR = audit.DEFAULT_REPO / "bank" / "questions"
 
 RUN_SUBDIR = "_run"
 STATE_FILE = "state.json"
@@ -434,6 +435,9 @@ def check_spend(requests: Sequence[Mapping[str, Any]], cap_usd: float | None, fi
     A fixture run spends nothing, so it needs no cap; one given is still enforced.
     """
     worst = worst_case_usd(requests)
+    if cap_usd is not None and not (math.isfinite(cap_usd) and cap_usd > 0):
+        # `nan` compares false with everything, so `worst > nan` would let it through.
+        raise GenerateError(f"Refusing to submit: a spend cap is a positive amount, not {cap_usd}.")
     if cap_usd is None:
         if not fixture:
             raise GenerateError(NO_CAP)
@@ -879,9 +883,18 @@ def run(
         raise GenerateError(f"max_tokens is at least 1, not {max_tokens}.")
     cap = capacity(room)
     requests = build_requests(request, cap, model, max_tokens)
+    if Path(out).resolve().is_relative_to(QUESTIONS_DIR.resolve()):
+        raise GenerateError("Refusing to write candidates into bank/questions/; that is the bank.")
     run_dir = Path(out) / run_id
     state_path = run_dir / RUN_SUBDIR / STATE_FILE
-    identity = {"request": request.to_dict(), "model": model, "max_tokens": max_tokens}
+    # `fixture` is part of the identity so a replayed run id never resumes a real batch,
+    # nor a real one a fixture's.
+    identity = {
+        "request": request.to_dict(),
+        "model": model,
+        "max_tokens": max_tokens,
+        "fixture": fixture,
+    }
 
     worst: float | None = None
     if state_path.is_file():

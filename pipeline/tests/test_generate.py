@@ -163,6 +163,22 @@ def test_a_fixture_run_needs_no_cap_but_honours_one_given(tmp_path):
     assert client.submit_calls == 0
 
 
+@pytest.mark.parametrize("cap", [math.nan, math.inf, 0.0, -1.0])
+def test_a_cap_that_is_not_a_positive_amount_refuses(tmp_path, cap):
+    """`nan` compares false with everything, so a naive `worst > cap` passes it."""
+    built = []
+    with pytest.raises(GenerateError, match="a spend cap is a positive amount"):
+        generate.run(
+            RunRequest(count=3, difficulty=2, topics=TOPICS),
+            client_factory=lambda: built.append(1),
+            out=tmp_path,
+            run_id="n1",
+            fixture=False,
+            cap_usd=cap,
+        )
+    assert built == []
+
+
 def test_the_worst_case_reads_max_tokens_from_the_requests_built():
     request = RunRequest(count=2, difficulty=2, topics=TOPICS)
     cap = generate.capacity()
@@ -717,6 +733,33 @@ def test_ac2_a_rerun_with_a_different_request_is_refused(tmp_path):
     go(tmp_path, replay("clean"))
     with pytest.raises(GenerateError, match="different request"):
         go(tmp_path, replay("clean"), request=RunRequest(count=3, difficulty=3, topics=TOPICS))
+
+
+def test_ac2_a_fixture_run_id_never_resumes_as_a_paid_run_nor_the_reverse(tmp_path):
+    go(tmp_path, replay("clean"))
+    paid = replay("clean")
+    with pytest.raises(GenerateError, match="different request"):
+        go(tmp_path, paid, fixture=False, cap_usd=10.0)
+    assert paid.submit_calls == 0
+
+    go(tmp_path, replay("clean"), fixture=False, cap_usd=10.0, run_id="p1")
+    with pytest.raises(GenerateError, match="different request"):
+        go(tmp_path, replay("clean"), run_id="p1")
+
+
+def test_candidates_are_never_written_into_bank_questions(tmp_path, monkeypatch):
+    questions = tmp_path / "bank" / "questions"
+    monkeypatch.setattr(generate, "QUESTIONS_DIR", questions)
+    for out in (questions, questions / "sub"):
+        with pytest.raises(GenerateError, match="bank/questions"):
+            generate.run(
+                RunRequest(count=3, difficulty=2, topics=TOPICS),
+                client_factory=lambda: replay("clean"),
+                out=out,
+                run_id="q1",
+                fixture=True,
+            )
+    assert not questions.exists()
 
 
 def test_ac2_a_finished_run_rerun_changes_nothing(tmp_path):
