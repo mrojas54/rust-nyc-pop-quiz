@@ -58,13 +58,21 @@ next move does not repeat the silent weakening.
 **Harder / accepted:** a new route file or a new `rooms/` file is picked up by
 the walk with no edit; a rule that hard-codes a file must change with it. A
 non-recursive `read_dir` in a new test would repeat the mistake: prefer
-`common::routes_source()` or a recursive walk.
+`common::room_sources(skip)` (every `.rs` under `room/src`) or
+`common::route_files()` (the route files, one text each).
 
 ## Action Items
 
 1. [x] Make the four scans recursive; add `routes_source()` (PR #66)
 2. [x] Re-point the rules to `pipeline.rs`, `room.rs`, `open.rs`, `state.rs`
-3. [ ] Prefer a shared walk helper in `tests/common` for new scans
+3. [x] Shared walk helper: `common::room_sources` and `common::route_files`; the
+   old copies in `boundary`, `used`, `admin`, `lifecycle`, `twins` and
+   `no_fallback_route` use it. `auth.rs`'s `shipped_files` still walks
+   `.github/` and the manifests, which are not `.rs` under `src/`.
+4. [x] The AC-67 scan reads all of `connections.rs`, and the admin-token rule
+   treats all of `pipeline.rs` as the admin block, so neither rests on markers.
+5. [x] The canary parses each route file on its own (no span runs into the next
+   file).
 
 ## Where it lives
 

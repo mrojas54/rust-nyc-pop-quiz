@@ -6,7 +6,11 @@
 //! borrows the public fields one by one and has no path to the vault. This is
 //! the only file that opens the vault (`tests/boundary.rs`).
 
-use super::*;
+use crate::answers::{Middle, Revealed};
+use crate::phase::Phase;
+use crate::question::PublicQuestion;
+
+use super::{Fit, Room, Totals};
 
 /// What a room shows once it is in `reveal`: the vault's contents and §4.5's
 /// verdict, borrowed from the room so they cannot outlive the phase.

@@ -1,6 +1,8 @@
 //! What a room request can come back with.
 
-use super::*;
+use crate::auth::{CreateRefusal, Denied};
+use crate::lifecycle::Ended;
+use crate::phase::{Phase, Refused};
 
 /// Why a room request did not happen.
 #[derive(Debug, PartialEq, Eq)]

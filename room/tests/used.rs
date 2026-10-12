@@ -115,24 +115,7 @@ fn ac92_scheduling_questions_writes_nothing() {
 fn g10_the_release_transition_is_the_only_writer() {
     let src = common::repo().join("room/src");
     let mut writers = Vec::new();
-    let mut files = Vec::new();
-    let mut dirs = vec![src.clone()];
-    while let Some(d) = dirs.pop() {
-        for entry in std::fs::read_dir(&d).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                dirs.push(path);
-            } else {
-                files.push(path);
-            }
-        }
-    }
-    for path in files {
-        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-            continue;
-        }
-        let name = path.strip_prefix(&src).unwrap().to_string_lossy().replace('\\', "/");
-        let text = std::fs::read_to_string(&path).unwrap();
+    for (name, text) in common::room_sources(&[]) {
         for (n, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
             if code.contains(".append(") || code.contains("UsedRecord {") && !code.contains("struct") && !code.contains("|UsedRecord") {
@@ -153,15 +136,11 @@ fn g10_the_release_transition_is_the_only_writer() {
     let parting = state[act..].find("if let Some(parting) = room.take_parting()").map(|i| i + act);
     assert!(parting.is_some_and(|p| p < append), "the append is not behind take_parting");
     // The parting is set once in the whole `rooms` module, and only in room.rs.
-    let mut sets = 0;
-    for entry in std::fs::read_dir(src.join("rooms")).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-            continue;
-        }
-        let text = std::fs::read_to_string(&path).unwrap();
-        sets += text.matches("self.parting = Some(").count();
-    }
+    let sets: usize = common::room_sources(&[])
+        .iter()
+        .filter(|(name, _)| name.starts_with("rooms/"))
+        .map(|(_, text)| text.matches("self.parting = Some(").count())
+        .sum();
     assert_eq!(sets, 1);
     let released_arm = room.find("Phase::Released => {").unwrap();
     let set = room.find("self.parting = Some(").unwrap();
