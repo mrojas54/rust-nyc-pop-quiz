@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 10,
+  "comment_count": 11,
   "complexity": "medium",
   "created_at": "2026-10-12T12:34:31Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Behaviour-preserving refactor of room/src per the client's plan and proposed MADR (attached; copies in .lattice/orchestration/plans/). Ordered as the plan orders it:\n1. Baseline from origin/main (4946538 at minting).\n2. Discord separation: host/discord.rs keeps OAuth, organizer sessions, refresh coordination, authorization and retry orchestration; private host/discord/config.rs (settings, secrets, retry policy, logging types; public paths kept by re-export) and private host/discord/http.rs (transport, encoding, parsing and their tests; pub(super) only where the parent needs it).\n3. Participant extraction: private rooms/participants.rs takes AppState::join, answer, leave, buzzer_for, session_count, set_live_counts and the SessionTokens impl (state.rs:312-486 on main). pub use state::AppState and every signature unchanged; no new public fields, forwarding methods or service layer.\n4. Interfaces and semantics preserved: paths, signatures, payloads, errors and error order, lock scopes and ordering, async/sync boundaries; no new dependencies.\n5. Navigation docs: responsibility map and operation guide in existing module docs; organizer session vs room-host session; the six invariant comments beside their code.\n6. Validate from room/: cargo fmt --check; cargo test --offline --locked; cargo test --offline --locked --test lifecycle -- --ignored test_full_ (AC-69 with auth down); cargo check --offline --locked --all-targets --all-features; git diff --check.\n7. One refactoring-specialist review (.claude/agents/refactoring-specialist.md) plus at most one re-review; blockers after that stop for direction.\nOut of scope: burst-report, frozen spike code, actor conversion, persistence, service/repository layers.\nAcceptance: the plan's seven criteria; the diff holds only this refactor and its docs.\nOrchestrator notes: (a) the plan's checkpoint draft (Discord split + a premature burst-report split) is in no reachable worktree or branch, so step 2 is written fresh from main and nothing burst-report is touched; (b) state.rs is 486 lines after #77's rustfmt, not 454; (c) ADR convention is docs/adr/NNNN-slug.md, next free 0005; ADR-0002 (group the room source by who uses it) is the related prior decision; the MADR is promoted only when the client accepts it; (d) touches no file PQ-23 touches; land before the held room tickets (PQ-47, PQ-55, PQ-59, PQ-60, PQ-63).",
-  "done_at": null,
+  "done_at": "2026-10-12T20:20:40Z",
   "evidence_refs": [
     {
       "id": "art_01M4R1Q0PF5G557847K6ZAGD3Q",
@@ -41,14 +41,14 @@
     }
   ],
   "id": "task_01M4R1PZYT7D4TP6R69538CX6F",
-  "last_event_id": "ev_01M4RQEPPSSR64KJB6QS2JWGYT",
-  "last_status_changed_at": "2026-10-12T15:14:44Z",
+  "last_event_id": "ev_01M4RWCJCDMR9362PKH2AN3FQW",
+  "last_status_changed_at": "2026-10-12T20:20:40Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-71",
-  "status": "review",
+  "status": "done",
   "tags": [
     "room",
     "refactor",
@@ -56,6 +56,6 @@
   ],
   "title": "Live-room refactor: split the Discord backend and extract participant operations",
   "type": "chore",
-  "updated_at": "2026-10-12T18:54:28Z",
+  "updated_at": "2026-10-12T20:20:40Z",
   "urgency": null
 }
