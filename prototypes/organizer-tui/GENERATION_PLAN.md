@@ -43,7 +43,7 @@ These paths and stub states were checked in this worktree. This plan follows
    They never show the answer category, output, resolving note, or receipt.
 5. Use `t` for the teaching trace, Tab for pane focus, and arrows to rehearse.
    The final resolving step remains unavailable through normal navigation.
-   Press `r` twice to reveal the answer, explanation, and verification evidence.
+   Press `r`, then Enter to reveal the answer, explanation, and verification evidence.
 6. Return to the batch to inspect another candidate. A failed row opens its
    failure details rather than pretending it is a reviewable question.
 

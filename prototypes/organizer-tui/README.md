@@ -37,7 +37,7 @@ To load another bank, add `--bank /path/to/bank`. That directory must contain a
 | Tab | Move focus between steps, source, and narration |
 | Enter | Open the selected teaching step |
 | Left / Right or `<` / `>` | Step backward or forward |
-| `r`, then `r` again | Arm reveal, then show the answer and final trace step |
+| `r`, then Enter | Arm reveal, then show the answer and final trace step |
 | `s` | Schedule the selected question |
 | `[` / `]` | Open the previous or next question |
 | Up / Down or `k` / `j` | Select a step, or scroll the focused pane |
@@ -55,10 +55,10 @@ opens that step. Left and Right step through the walkthrough immediately.
 The focused pane has an amber border and a `FOCUS` label.
 
 In the teaching trace, navigation stops before the final step. Press `r` to arm
-reveal, then press `r` again to see that step, the answer,
+reveal, then press Enter to see that step, the answer,
 the explanation, why the other choices are tempting, and the verification receipt.
-The first press shows “Press r again to reveal the answer. Esc cancels.” Any
-other key disarms reveal. This safeguard also applies from the question preview.
+The first press shows “Press Enter to reveal the answer. Esc cancels.” Any
+other key except repeated `r` disarms reveal. Repeated `r` never confirms. This safeguard also applies from the question preview.
 Switching questions returns to the question view.
 
 ## Print a preview
@@ -131,7 +131,9 @@ Ratatui's `TestBackend`.
 
 From the repository root, `just test-organizer` runs the tests, Clippy, and
 formatting checks. It is included in `just test` and CI; `just setup` fetches its
-locked dependencies. Tests exercise terminal key events as well as app actions.
+locked dependencies. Tests exercise terminal key events as well as app actions. The recipe also runs
+stdlib-only Python PTY regressions on macOS/Linux for both legacy repeat bytes
+and enhanced keyboard events, including protocol restoration.
 
 ```sh
 cargo test --locked
