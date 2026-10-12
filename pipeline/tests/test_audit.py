@@ -869,6 +869,21 @@ def copy_bank(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
+def test_gap24_the_reserve_counts_only_a_bound_affirmation(tmp_path: pathlib.Path) -> None:
+    """The audit reads the gate itself: q3's digest-less hand affirmation is out of
+    the reserve (RULING PQ-23, client, 2026-10-12), a bound one is in, and an edit
+    after binding takes it out again. On a copy of the bank, never the bank."""
+    questions = copy_bank(tmp_path) / "bank" / "questions"
+    path = questions / "q3.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert "affirmed_digest" not in record["review"]
+    assert not audit.in_reserve(bank.question_from_dict(record))
+    record["review"]["affirmed_digest"] = bank.affirmation_digest(bank.question_from_dict(record))
+    assert audit.in_reserve(bank.question_from_dict(record))
+    record["explains"]["what"] += " Edited after affirmation."
+    assert not audit.in_reserve(bank.question_from_dict(record))
+
+
 def test_the_command_line_writes_its_report_under_bank_audit(
     tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
