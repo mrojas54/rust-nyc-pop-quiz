@@ -7,6 +7,14 @@ description: Reconcile project tickets across Lattice, Linear, or other trackers
 
 Produce a briefing that lets the user decide what is ready, what remains, and what to do next. Start with the delivery verdict and its strongest evidence or limiting uncertainty. Keep project completion, validation coverage, and operational readiness distinct.
 
+## Scope and availability
+
+This is a general-purpose reporting skill stored here for project-local Codex discovery in `.agents/skills/`. Claude Code uses `.claude/skills/` and does not automatically load this copy; explicitly read this file when using it there.
+
+Repository run guardrails take precedence over this workflow. When progress requires user input or a prerequisite changes the agreed scope, record the blocker and stop as those guardrails require.
+
+Computer History, tracker connectors (including Linear), and a Lattice CLI or board are optional capabilities, not bundled dependencies. Discover what is available and relevant before using it. If a relevant source is missing, name the coverage gap and qualify the verdict; never imply it was checked. Use available direct evidence without installing tools, creating a board, or resuming orchestration.
+
 ## Establish scope and freshness
 
 Infer the project, repository, milestone, and deadline from the request and current context. Ask only if ambiguity would materially change the assessment; continue independent reads meanwhile. Read applicable repository instructions and current planning artifacts.
