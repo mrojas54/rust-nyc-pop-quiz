@@ -15,6 +15,13 @@
 //! The binary serves the Discord backend ([`crate::serving_state`]). The test
 //! implementation lives in `tests/common`. SPEC §8.2's M1 stand-in was a third
 //! backend here until T-10 deleted it.
+//!
+//! **Which credential is which.** `authorize_create` checks an *organizer
+//! session*, minted by Discord sign-in; `authorize_host` checks a room's
+//! *host session*, minted with that room (both described in [`crate::host`]).
+//! Discord's own access and refresh tokens are never a bearer here: they stay
+//! inside [`crate::discord`]. A participant's session token belongs to
+//! `connections/` and never reaches this seam (AC-67).
 
 use std::future::Future;
 use std::pin::Pin;

@@ -21,6 +21,7 @@ impl AppState {
     // T-04b: joins, answers and leaves. Each runs under the one `rooms` lock
     // and writes `present` and `answered_live` through `Room::set_live_counts`
     // before letting go, so the counts and the sessions are never seen apart.
+    // Invariant: a session change and its live counts share one `rooms` lock.
     // ----------------------------------------------------------------------
 
     /// Join by code (§4.1). Any phase from `idle` to `reveal` admits a join;
@@ -110,6 +111,9 @@ impl AppState {
         let now = self.now();
         let rooms = lock(&self.rooms);
         let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
+        // Invariant: pre-reveal isolation. The payload carries this session's
+        // own letter and nothing about any other; `view::buzzer_for` builds it
+        // from the public view until the room is in `reveal` (AC-57, AC-61).
         let yours = entry.sessions.answer_of(token).ok_or(RoomError::Denied)?;
         if let Some(why) = entry.room.ended(now) {
             return Err(RoomError::Ended(why));

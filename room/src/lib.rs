@@ -20,7 +20,8 @@
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`auth`] — the `HostAuth` seam (G-9): the one create check.
 //! - [`discord`] — its implementation: Discord sign-in, the organizer records
-//!   (§3.5) and the role-ID check at creation (§8, T-10).
+//!   (§3.5) and the role-ID check at creation (§8, T-10); its configuration
+//!   and HTTP transport are private submodules.
 //! - [`copy`] — SPEC §11's strings, mirrored from `web/shared/copy.js`.
 //! - [`ws`] — the transport: one broadcast per room to the wall, the buzzers
 //!   and the host, and reconnect with the same session token (T-04c).

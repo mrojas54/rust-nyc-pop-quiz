@@ -241,6 +241,8 @@ impl AppState {
         question: Scheduled,
     ) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
+        // Invariant: `questions`, then `rooms`, the order `create_for` takes
+        // them in too; nothing takes them the other way round.
         let mut questions = lock(&self.questions);
         let rooms = lock(&self.rooms);
         // Whether a question has been run is a fact about a club too, so that
@@ -274,6 +276,8 @@ impl AppState {
     ) -> Result<(), RoomError> {
         let mut rooms = lock(&self.rooms);
         let entry = rooms.get_mut(room_id).ok_or(RoomError::NotFound)?;
+        // Invariant: the host check comes before anything about the room's
+        // end is said, so only the room's host learns that it ended.
         self.auth.authorize_host(&entry.room, bearer)?;
         if let Some(why) = entry.room.ended(now) {
             return Err(RoomError::Ended(why));
@@ -289,6 +293,8 @@ impl AppState {
         }
         // T-11: the release transition's side effects, under the same lock as
         // the transition itself. The used record's one writer (G-10).
+        // Invariant: release, clearing the sessions, the used record and the
+        // take-it-home snapshot happen together, with `rooms` held throughout.
         if let Some(parting) = room.take_parting() {
             sessions.release();
             self.used.append(UsedEntry {

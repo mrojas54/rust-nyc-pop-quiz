@@ -18,6 +18,28 @@
 //! - [`Room::revision`] — bumped on every change; T-04c broadcasts on it.
 //! - [`crate::view`] — the three projections T-04c pushes down the socket.
 //!
+//! ## Where things are
+//!
+//! | File | Holds |
+//! |---|---|
+//! | `room.rs` | One room's record and the transitions the phase machine drives |
+//! | `open.rs` | The one way to the answers: [`Room::open`], [`Room::public`] |
+//! | `state.rs` | [`AppState`]'s fields and setup, scheduling, host commands and release, the read paths, expiry |
+//! | `participants.rs` | Join, answer, leave, one session's buzzer payload, the session and live counts, the socket's token map |
+//! | `create.rs` | *Create a room* and *Run it again* |
+//! | `seams.rs` · `errors.rs` · `lifecycle.rs` | What sessions plug in; the error types; the clock and §4.6's bounds |
+//!
+//! Every file above is an `impl` of the one [`AppState`] or a type it holds:
+//! one state, one `rooms` lock, split by who calls it.
+//!
+//! | Operation | Main path |
+//! |---|---|
+//! | Sign in | `server/routes/host.rs` → [`crate::discord::Discord::begin`] / [`finish`](crate::discord::Discord::finish) |
+//! | Create a room | host route → [`HostAuth::authorize_create`](crate::auth::HostAuth::authorize_create) (the organizer session, Discord) → [`AppState::create_room_checked`] (`create.rs`) |
+//! | Host command | host route → [`AppState::act`]: the room's host session, then [`Room::act`] and release's side effects (`state.rs`) |
+//! | Join or answer | participant route → [`AppState::join`] / [`AppState::answer`] → sessions and live counts under the one `rooms` lock (`participants.rs`) |
+//! | Expire a room | the reaper (`server/reaper.rs`) → [`AppState::sweep`] → removal and a tombstone (`state.rs`) |
+//!
 //! **The one way to the answers** is [`Room::open`], which asks the machine for
 //! a [`crate::phase::RevealWitness`] and returns `None` in every phase but
 //! `reveal`. There is no getter for the question's vault. [`Room::public`]
