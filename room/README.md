@@ -324,7 +324,7 @@ is not the Fly secret.
 ## Lifecycle and what outlives a room (T-11)
 
 SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/server/lifecycle.rs`, `src/models/used.rs`,
-and the release and sweep paths in `src/rooms.rs`.
+and the release and sweep paths in `src/rooms/`.
 
 **How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
 Before that, a room closes for inactivity after `IDLE_QUIET` (30 min, `idle`) or
@@ -737,7 +737,7 @@ builders receive a `PublicView`, which has no path to the vault.
 The proof is in two halves, and neither is "we reviewed it":
 
 1. **`compile_fail` doctests**, in `src/models/phase.rs`, `src/models/answers.rs` and
-   `src/rooms.rs`, cover six attempts to cross the boundary:
+   `src/rooms/mod.rs`, cover six attempts to cross the boundary:
    - forge a witness;
    - forge a machine in `reveal`;
    - read a room's question;

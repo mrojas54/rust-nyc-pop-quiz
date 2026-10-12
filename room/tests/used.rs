@@ -131,7 +131,7 @@ fn g10_the_release_transition_is_the_only_writer() {
         if path.extension().and_then(|e| e.to_str()) != Some("rs") {
             continue;
         }
-        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let name = path.strip_prefix(&src).unwrap().to_string_lossy().replace('\\', "/");
         let text = std::fs::read_to_string(&path).unwrap();
         for (n, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
@@ -142,7 +142,7 @@ fn g10_the_release_transition_is_the_only_writer() {
     }
     // One `append` and the one `UsedRecord` it appends, both in rooms/state.rs.
     assert_eq!(writers.len(), 2, "{writers:#?}");
-    assert!(writers.iter().all(|(f, _, _)| f == "state.rs"), "{writers:#?}");
+    assert!(writers.iter().all(|(f, _, _)| f == "rooms/state.rs"), "{writers:#?}");
     assert!(writers.iter().any(|(_, _, c)| c.starts_with("self.used.append(")), "{writers:#?}");
     // And that call sits in `AppState::act`, behind the release transition's
     // parting, which only `Room::act`'s `Released` arm (rooms/room.rs) builds.
@@ -155,7 +155,11 @@ fn g10_the_release_transition_is_the_only_writer() {
     // The parting is set once in the whole `rooms` module, and only in room.rs.
     let mut sets = 0;
     for entry in std::fs::read_dir(src.join("rooms")).unwrap() {
-        let text = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
         sets += text.matches("self.parting = Some(").count();
     }
     assert_eq!(sets, 1);

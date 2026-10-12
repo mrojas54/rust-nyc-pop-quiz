@@ -49,22 +49,23 @@ impl Default for Urls {
     }
 }
 
-/// One room. Every field is private; each has one writer (§3.4).
+/// One room. No field is public (§3.4). Fields a sibling file reads are
+/// `pub(super)`; the six none of them reads are private to this file.
 pub struct Room {
     pub(super) id: String,
     pub(super) code: String,
     pub(super) join_url: String,
     // D-26: which club's room this is, and the zone its meetup date is read in.
     pub(super) club: ClubSlug,
-    pub(super) zone: Zone,
+    zone: Zone,
     pub(super) question_id: String,
     pub(super) question: Arc<Scheduled>,
     pub(super) machine: Machine,
     pub(super) host_session: String,
     pub(super) host_resume_url: String,
     pub(super) organizer: OrganizerId,
-    pub(super) created_at: SystemTime,
-    pub(super) expires_at: SystemTime,
+    created_at: SystemTime,
+    expires_at: SystemTime,
     pub(super) present: u32,
     pub(super) answered_live: u32,
     pub(super) frozen: Option<Frozen>,
@@ -73,12 +74,12 @@ pub struct Room {
     // strength of that ending. From then on it stays ended at any `now`.
     pub(super) latched_end: Option<Ended>,
     pub(super) fit: Option<Fit>,
-    pub(super) revision: u64,
+    revision: u64,
     // T-11: §4.6's quiet clock, written by `create` and every host action.
-    pub(super) last_host_action: SystemTime,
+    last_host_action: SystemTime,
     // T-11: what the release transition built while it still held the reveal
     // witness, until `AppState::act` takes it under the same lock.
-    pub(super) parting: Option<Parting>,
+    parting: Option<Parting>,
 }
 
 /// T-11: what a room leaves behind at release — the take-it-home snapshot and
