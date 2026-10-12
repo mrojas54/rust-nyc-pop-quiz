@@ -291,6 +291,16 @@ fn ac67_no_participant_route_touches_the_auth_module() {
         .collect::<Vec<_>>()
         .join("\n");
     participant.push(("connections/ws.rs outside the host arm", transport));
+    // The route that registers all three sockets (the T-04c block in
+    // `server/routes/mod.rs`) is one loop over `Viewer::ALL`, so it is scanned
+    // whole: it may forward to `ws::upgrade` and nothing more.
+    let table = common::route_files().into_iter().find(|(n, _)| n == "mod.rs").expect("routes/mod.rs").1;
+    let from = table.find("// T-04c routes").expect("the T-04c block opens");
+    let to = table.find("// end T-04c routes").expect("the T-04c block closes");
+    assert!(from < to, "the T-04c block opens before it closes");
+    let sockets: String = table[from..to].lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
+    assert!(sockets.contains("ws::upgrade"), "the block still registers the sockets");
+    participant.push(("server/routes/mod.rs T-04c block", sockets));
     for f in ["room/src/connections/sessions.rs", "web/buzzer/buzzer.js", "web/buzzer/index.html"] {
         participant.push((f, std::fs::read_to_string(repo().join(f)).unwrap()));
     }
