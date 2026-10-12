@@ -111,13 +111,13 @@ impl AppState {
         let now = self.now();
         let rooms = lock(&self.rooms);
         let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
-        // Invariant: pre-reveal isolation. The payload carries this session's
-        // own letter and nothing about any other; `view::buzzer_for` builds it
-        // from the public view until the room is in `reveal` (AC-57, AC-61).
         let yours = entry.sessions.answer_of(token).ok_or(RoomError::Denied)?;
         if let Some(why) = entry.room.ended(now) {
             return Err(RoomError::Ended(why));
         }
+        // Invariant: pre-reveal isolation. The payload carries this session's
+        // own letter and nothing about any other; `view::buzzer_for` builds it
+        // from the public view until the room is in `reveal` (AC-57, AC-61).
         Ok(crate::view::buzzer_for(&entry.room, yours))
     }
 
