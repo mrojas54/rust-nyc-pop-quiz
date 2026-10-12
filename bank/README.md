@@ -100,8 +100,9 @@ Through `python -m popquiz.review`, usually from the organizer TUI's review
 screen (`v`); see `pipeline/README.md` § Reviewing. Never by hand. An affirmation
 records `affirmed_by`, `affirmed_at` and `affirmed_digest`, a SHA-256 of the
 text the organizer read (source, choices and why each tempts, hint, explanation,
-trace). An edit to any of it sets `review.status` to `edited` and clears the
-affirmation; a record whose digest no longer matches is loadable but unaffirmed,
+trace). An edit to any of it clears the affirmation and, on an accepted record,
+sets `review.status` to `edited`; a rejected or unreviewed record keeps its
+status, since editing is not accepting. A record whose digest no longer matches is loadable but unaffirmed,
 so `schedule` and the reserve skip it (GAP-24). A digest-less affirmation, q3's
 included, is unbound and counts nowhere; affirming the record again binds it.
 The digest binds an affirmation to its text; it does not authenticate who wrote

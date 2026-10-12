@@ -50,7 +50,7 @@ subprocess. `--bank` has no default.
 | `accept [--checked-quote SPAN]…` | `status: accepted`. Refused while the answer does not derive, or while quoted text that is not a printed line is unchecked (AC-73) |
 | `reject --reason TEXT` | `status: rejected` and the reason; clears any affirmation. `reasons` lists them (AC-19) |
 | `difficulty LEVEL` | `difficulty_judged`, 1 to 5 (AC-88) |
-| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit sets `status: edited` and clears the affirmation; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
+| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit clears the affirmation; an accepted record becomes `status: edited` (still accepted), and a rejected or unreviewed one keeps its status; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
 | `reverify` | Nothing itself; runs `verify` on the record as it stands |
 | `affirm [--by NAME]` | `affirmed_by`, `affirmed_at` and `affirmed_digest`. The name comes from `--by` or `POPQUIZ_ORGANIZER`; there is no default (AC-72, G-12) |
 
