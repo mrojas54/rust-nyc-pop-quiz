@@ -271,10 +271,11 @@ change too.
   someone re-affirms it in time. To prevent this, check affirmation when
   `just schedule` runs, hours before, not only at creation. The static
   `<id>.html` that `just schedule` writes is the fallback either way.
-- *A legacy question has no digest.* Under PQ-23's rule it counts as
-  affirmed only when `verified.legacy` is true. If the room reads the rule differently from the
-  review CLI, the two disagree on which questions may run. The room should
-  call the same rule, not reimplement it.
+- *A question was affirmed before digests existed (q3).* An affirmation
+  without a digest is refused everywhere, so the room refuses q3 until an
+  organizer re-affirms it (Michelle's PQ-23 ruling, 2026-10-12). If the room
+  reads the rule differently from the review CLI, the two disagree on which
+  questions may run. The room must call the same rule, not reimplement it.
 - *Affirmation is mistaken for security.* It is a person's sign-off, stored
   in the private bank, not a signature the room can verify. Anyone who can
   write to the bank can write an affirmation. It guards against shipping an
