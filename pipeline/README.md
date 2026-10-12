@@ -57,9 +57,9 @@ subprocess. `--bank` has no default.
 Review never writes `verified` or the trace's `stdout` row; only the verifier
 does (AC-7). The digest binds an affirmation to the text it affirmed, so
 `schedule` and the reserve refuse a question edited after affirming (GAP-24). A
-digest-less affirmation on a legacy record (q3) still counts, shown as
-*affirmed (unbound, before GAP-24)*. Trope warnings come from `copylint` and
-block nothing (D-23). Exit status: 0 done, 1 refused with one sentence and the
+digest-less affirmation counts on no record, q3's hand affirmation included: it
+is shown as unbound, and `affirm` binds it again (RULING PQ-23, 2026-10-12).
+Trope warnings come from `copylint` and block nothing (D-23). Exit status: 0 done, 1 refused with one sentence and the
 record unchanged, 2 unreadable input.
 
 ## Generating
