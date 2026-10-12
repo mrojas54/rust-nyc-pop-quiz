@@ -205,19 +205,19 @@ projector.
 ### The target layout (item 6)
 
 **What it buys, by example.** A contributor at a hack night wants to change
-how a vote is counted. They open `quiz_session/rooms/participants/vote.rs`.
+how a vote is counted. They open `quiz_session/participant/vote.rs`.
 They do not need to know that voting is `AppState::answer`, or that it
 lived in `state.rs`.
 
 **What it costs.**
-- Paths get deep: `popquiz/src/quiz_session/rooms/participants/vote.rs` is
-  five folders down.
+- Paths get deeper: `popquiz/src/quiz_session/participant/vote.rs` is
+  four folders down.
 - About 30 files move in one ticket. `git log` and `git blame` need
   `--follow` per file, and bisecting a bug across the move lands on a commit
   that touched everything.
 - `super` changes meaning for every file that moves a level. Each
   `pub(super)` item needs checking, not only the `random_bytes` and `hex`
-  case found so far.
+  case and `Room`'s fields found so far.
 
 **How it could fail.**
 | Failure | How it shows | What guards it |
@@ -385,39 +385,42 @@ popquiz/src/
   lib.rs                 re-exports keep every public path that exists today
   copy.rs
   quiz_session/
-    mod.rs               declares models and rooms; owns no type      [default 1]
-    models/              mod, question, answers, club, phase, used, view
-                         (no quiz_session.rs, no room.rs)              [default 1]
-    rooms/
-      room.rs            Room stays here                               [default 2]
-      state.rs           AppState stays here                           [default 2]
-      mod.rs, open.rs, seams.rs, errors.rs, lifecycle.rs
-      host/              mod, auth, create, discord/{mod, config, http}
-      participants/      mod, join, vote, leave, buzzer, counts, tokens
-  connections/           mod, requestlog, sessions, ws; outside quiz_session  [default 3]
-  server/                main, mod, admin, config, reaper, routes/*; outside   [default 3]
+    mod.rs               the quiz session's module; declares the rest, owns no type
+    state_manager.rs     AppState (was rooms/state.rs)
+    open.rs, seams.rs, errors.rs, lifecycle.rs   (were in rooms/)
+    models/              mod, question, answers, club, phase, used, view,
+                         rooms (Room, was rooms/room.rs)
+    host/                mod, auth, create, discord/{mod, config, http}
+    participant/         mod, join, vote, leave, buzzer, counts, tokens
+  connections/           mod, requestlog, sessions, ws
+  server/                main, mod, admin, config, reaper, routes/*
 ```
 
-**Proposed defaults, awaiting Michelle's yes.** The three marked lines were
-filled in without an explicit decision. They are the proposal for item 6,
-not yet agreed:
+**Decided by Michelle, 2026-10-12.** This replaces the three defaults the
+earlier draft proposed:
 
-1. No `models/quiz_session.rs` and no `models/room.rs`;
-   `quiz_session/mod.rs` is the quiz session's module.
-2. `Room` stays in `rooms/room.rs` and `AppState` in `rooms/state.rs`.
-3. `connections/` and `server/` stay outside `quiz_session`.
+1. `quiz_session/mod.rs` is the quiz session's module. There is no
+   `models/quiz_session.rs`. (Default kept.)
+2. The `rooms/` folder goes away. `Room` moves to `models/rooms.rs`;
+   `AppState` moves to `quiz_session/state_manager.rs`; `host/` and
+   `participant/` sit directly under `quiz_session/`, and the remaining
+   `rooms/` files move up beside them. (Default replaced.)
+3. `connections/` and `server/` stay outside `quiz_session`. They are the
+   socket layer and the binary, not the session. (Default kept; not
+   contested.)
 
-The reasons for each follow.
+**Still open:** whether the type follows the file and becomes
+`StateManager`. The file name is settled. Keeping the type `AppState` leaves
+every caller, the tests and the CLI untouched; renaming it is its own commit
+in the item 6 ticket, never mixed with a move.
 
-- **`AppState` stays in `rooms/state.rs`.** Its `pub(super)` fields reach
-  every module under `rooms/`, including the new `host/` and
-  `participants/`, so no field or lock is opened wider.
-- **`Room` stays in `rooms/room.rs`.** About 15 of its fields are
-  `pub(super)` and read by its `rooms/` siblings, and the scan tests name the
-  path. There is no `models/room.rs` and no `models/quiz_session.rs`:
-  `quiz_session/mod.rs` is the quiz session's module.
-- **`connections/` and `server/` stay outside `quiz_session`.** They are the
-  socket layer and the binary, not the session.
+- **Visibility does not widen.** Today `Room`'s 26 `pub(super)` items and
+  `AppState`'s fields are visible across `rooms/`, which holds every session
+  module. Under `quiz_session/` the same set is `quiz_session` and its
+  children. `AppState`'s `pub(super)` from `state_manager.rs` reaches exactly
+  that. `Room` sits one level deeper, in `models/`, where `pub(super)` would
+  stop at `models/`, so its items become `pub(in crate::quiz_session)`: the
+  same modules as today, named instead of implied.
 - **Participants split by operation.** `join` and `vote` (the `answer`
   operation) are Michelle's names; `leave` matches them. `buzzer`, `counts`
   and `tokens` (the `SessionTokens` impl) are nouns.
@@ -425,9 +428,12 @@ The reasons for each follow.
 What the moves must handle:
 
 - `rooms/room.rs` imports `random_bytes` and `hex` through `super::create`.
-  Under `host/`, `super` no longer reaches them, so they move to `rooms/`.
+  With `create` under `host/` and `Room` under `models/`, they move up to
+  `quiz_session/` where both can reach them.
 - `lib.rs` re-exports every public path in use today (`room::phase`,
   `room::rooms::AppState`, `room::discord::Settings` and the rest).
+- `room::rooms::AppState` and `room::rooms::Room` keep working through
+  re-exports, though `rooms/` is gone.
 - The scan tests that name source paths get path updates only, never a
   weaker rule: `tests/auth.rs`, `one_room.rs`, `used.rs`, `boundary.rs`,
   `twins.rs` and the walk in `tests/common/mod.rs`.
