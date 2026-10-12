@@ -51,7 +51,11 @@ pub trait Sessions: Send {
     }
     /// Last write wins (§4.3). `None` if the token names no session. The
     /// caller has already asked [`super::Room::accepts_answers`].
-    fn upsert(&mut self, _token: &str, _letter: crate::question::Letter) -> Option<crate::question::Letter> {
+    fn upsert(
+        &mut self,
+        _token: &str,
+        _letter: crate::question::Letter,
+    ) -> Option<crate::question::Letter> {
         None
     }
     /// The session's saved answer; `None` if the token names no session.

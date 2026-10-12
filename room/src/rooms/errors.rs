@@ -59,7 +59,6 @@ pub enum Scheduling {
     Replaced,
 }
 
-
 // T-04b: what the participant routes hand back.
 
 /// A successful join: the token, once, and the caller's buzzer view.
@@ -79,7 +78,10 @@ pub enum AnswerError {
     /// room was released.
     UnknownSession,
     /// Not `live`: refused, with the saved answer restated (§4.3).
-    Refused { phase: Phase, saved: Option<crate::question::Letter> },
+    Refused {
+        phase: Phase,
+        saved: Option<crate::question::Letter>,
+    },
     /// T-11: the room has ended.
     Ended(Ended),
 }

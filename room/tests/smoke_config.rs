@@ -25,10 +25,22 @@ fn config(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
     // are about the other two variables, so it is always supplied. The name is
     // assembled so this file never spells it.
     let token_var = ["HOST", "DEV", "TOKEN"].join("_");
-    let mut all: Vec<(String, String)> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    let mut all: Vec<(String, String)> = pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
     all.push((token_var, "a-test-value".into()));
     // T-10: every build needs the four Discord variables too (ids are digits).
-    all.extend(room::config::DISCORD_VARS.iter().map(|v| (v.to_string(), if v.ends_with("SECRET") { "a-test-value".into() } else { "1234".into() })));
+    all.extend(room::config::DISCORD_VARS.iter().map(|v| {
+        (
+            v.to_string(),
+            if v.ends_with("SECRET") {
+                "a-test-value".into()
+            } else {
+                "1234".into()
+            },
+        )
+    }));
     // Every build needs the admin token too (T-25).
     all.push((room::admin::VAR.to_string(), "a-test-value".into()));
     Config::from_vars(move |name| all.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
@@ -50,7 +62,10 @@ fn nothing_set_is_the_local_default() {
 fn port_binds_every_interface_as_fly_needs() {
     let c = config(&[("PORT", "8080")]).unwrap();
     assert_eq!(c.bind, addr("0.0.0.0:8080"));
-    assert_eq!(c.urls.base, "http://127.0.0.1:8080", "no public URL: the loopback on the same port");
+    assert_eq!(
+        c.urls.base, "http://127.0.0.1:8080",
+        "no public URL: the loopback on the same port"
+    );
 }
 
 #[test]
@@ -67,15 +82,27 @@ fn a_bad_port_is_refused_by_name() {
 #[test]
 fn the_public_url_is_the_base_of_every_link() {
     for (raw, base) in [
-        ("https://rustnyc-popquiz.fly.dev", "https://rustnyc-popquiz.fly.dev"),
-        ("https://rustnyc-popquiz.fly.dev/", "https://rustnyc-popquiz.fly.dev"),
-        ("  https://popquiz.rustnyc.org  ", "https://popquiz.rustnyc.org"),
+        (
+            "https://rustnyc-popquiz.fly.dev",
+            "https://rustnyc-popquiz.fly.dev",
+        ),
+        (
+            "https://rustnyc-popquiz.fly.dev/",
+            "https://rustnyc-popquiz.fly.dev",
+        ),
+        (
+            "  https://popquiz.rustnyc.org  ",
+            "https://popquiz.rustnyc.org",
+        ),
         ("http://127.0.0.1:8099", "http://127.0.0.1:8099"),
         ("http://[::1]:3000", "http://[::1]:3000"),
     ] {
         let c = config(&[("PORT", "8080"), ("POPQUIZ_PUBLIC_URL", raw)]).unwrap();
         assert_eq!(c.urls.base, base, "{raw:?}");
-        assert_eq!(c.urls.home, TAKE_IT_HOME, "take-it-home is §13's page, whatever the room's host");
+        assert_eq!(
+            c.urls.home, TAKE_IT_HOME,
+            "take-it-home is §13's page, whatever the room's host"
+        );
     }
 }
 
@@ -94,7 +121,10 @@ fn a_public_url_with_anything_after_the_host_is_refused() {
     ] {
         match config(&[("POPQUIZ_PUBLIC_URL", bad)]) {
             Err(ConfigError::PublicUrl(v)) => assert_eq!(v, bad),
-            other => panic!("POPQUIZ_PUBLIC_URL={bad:?}: {:?}", other.map(|c| c.urls.base)),
+            other => panic!(
+                "POPQUIZ_PUBLIC_URL={bad:?}: {:?}",
+                other.map(|c| c.urls.base)
+            ),
         }
     }
 }
@@ -110,7 +140,14 @@ async fn configured_room() -> (axum::Router, serde_json::Value) {
     let c = config(&[("PORT", "8080"), ("POPQUIZ_PUBLIC_URL", PUBLIC)]).unwrap();
     let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], c.urls));
     let app = room::router_with(state);
-    let (status, created) = http(&app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({ "question_id": "q3" }))).await;
+    let (status, created) = http(
+        &app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({ "question_id": "q3" })),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     (app, created)
 }
@@ -122,7 +159,10 @@ async fn ac28_the_join_link_carries_the_public_host_and_the_code() {
     let id = created["id"].as_str().unwrap();
     assert_eq!(created["join_url"], format!("{PUBLIC}/{code}"));
     assert!(
-        created["host_resume_url"].as_str().unwrap().starts_with(&format!("{PUBLIC}/host/{id}#")),
+        created["host_resume_url"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("{PUBLIC}/host/{id}#")),
         "{}",
         created["host_resume_url"]
     );
@@ -130,7 +170,14 @@ async fn ac28_the_join_link_carries_the_public_host_and_the_code() {
     let (_, wall) = http(&app, Method::GET, &format!("/rooms/{id}/wall"), None, None).await;
     assert_eq!(wall["join"], format!("join @ {PUBLIC}/{code}"));
     let host = created["host_session"].as_str().unwrap();
-    let (status, _) = http(&app, Method::POST, &format!("/rooms/{id}/put-on-screen"), Some(host), None).await;
+    let (status, _) = http(
+        &app,
+        Method::POST,
+        &format!("/rooms/{id}/put-on-screen"),
+        Some(host),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let (_, wall) = http(&app, Method::GET, &format!("/rooms/{id}/wall"), None, None).await;
     assert_eq!(wall["join"], format!("join @ {PUBLIC}/{code}"));
@@ -144,19 +191,40 @@ async fn ac28_the_short_link_and_the_typed_code_both_join() {
 
     // The short link's path is the code; it lands on the join form with the
     // code carried.
-    let path = created["join_url"].as_str().unwrap().strip_prefix(PUBLIC).unwrap().to_string();
+    let path = created["join_url"]
+        .as_str()
+        .unwrap()
+        .strip_prefix(PUBLIC)
+        .unwrap()
+        .to_string();
     let res = app
         .clone()
-        .oneshot(Request::builder().method(Method::GET).uri(&path).body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
-    assert_eq!(res.headers()[header::LOCATION], format!("/join?code={code}"));
+    assert_eq!(
+        res.headers()[header::LOCATION],
+        format!("/join?code={code}")
+    );
 
     // Joining with the carried code, and with the code as a person types it.
     let typed = format!("  {} ", code.to_lowercase());
     for as_given in [code.to_string(), typed] {
-        let (status, joined) = http(&app, Method::POST, "/join", None, Some(json!({ "code": as_given }))).await;
+        let (status, joined) = http(
+            &app,
+            Method::POST,
+            "/join",
+            None,
+            Some(json!({ "code": as_given })),
+        )
+        .await;
         assert_eq!(status, StatusCode::CREATED, "{as_given:?}: {joined}");
         assert_eq!(joined["room_id"], id);
     }

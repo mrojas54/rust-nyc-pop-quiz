@@ -68,13 +68,21 @@ pub(super) async fn run_again(
     headers: HeaderMap,
     Json(body): Json<QuestionBody>,
 ) -> Response {
-    match state.run_again_checked(&id, bearer(&headers), &body.question_id, state.now()).await {
+    match state
+        .run_again_checked(&id, bearer(&headers), &body.question_id, state.now())
+        .await
+    {
         Ok(created) => (StatusCode::CREATED, Json(created)).into_response(),
         Err(e) => failure(e),
     }
 }
 
-pub(super) async fn act(state: Arc<AppState>, id: String, headers: HeaderMap, command: Command) -> Response {
+pub(super) async fn act(
+    state: Arc<AppState>,
+    id: String,
+    headers: HeaderMap,
+    command: Command,
+) -> Response {
     let token = bearer(&headers);
     let result = state
         .act(&id, token, command, state.now())
@@ -104,7 +112,11 @@ fn state_cookie(headers: &HeaderMap) -> Option<&str> {
         .iter()
         .filter_map(|v| v.to_str().ok())
         .flat_map(|v| v.split(';'))
-        .find_map(|c| c.trim().strip_prefix(crate::discord::STATE_COOKIE)?.strip_prefix('='))
+        .find_map(|c| {
+            c.trim()
+                .strip_prefix(crate::discord::STATE_COOKIE)?
+                .strip_prefix('=')
+        })
 }
 
 fn cookie_attributes(state: &AppState) -> &'static str {
@@ -176,16 +188,33 @@ async fn signed_in(
     };
     let get = |k: &str| q.get(k).map(String::as_str);
     let finish = discord
-        .finish(get("state"), state_cookie(&headers), get("code"), get("error").is_some())
+        .finish(
+            get("state"),
+            state_cookie(&headers),
+            get("code"),
+            get("error").is_some(),
+        )
         .await;
-    let spent = Some(format!("{}=; Max-Age=0; {}", crate::discord::STATE_COOKIE, cookie_attributes(&state)));
+    let spent = Some(format!(
+        "{}=; Max-Age=0; {}",
+        crate::discord::STATE_COOKIE,
+        cookie_attributes(&state)
+    ));
     match finish {
         Finish::Refused => StatusCode::BAD_REQUEST.into_response(),
         Finish::Unavailable => StatusCode::SERVICE_UNAVAILABLE.into_response(),
-        Finish::Declined { question, club } => see_other(&format!("/host?question={question}{}", club_param(&club)), spent),
-        Finish::SignedIn { question, club, session } => {
-            see_other(&format!("/host?question={question}{}#{session}", club_param(&club)), spent)
-        }
+        Finish::Declined { question, club } => see_other(
+            &format!("/host?question={question}{}", club_param(&club)),
+            spent,
+        ),
+        Finish::SignedIn {
+            question,
+            club,
+            session,
+        } => see_other(
+            &format!("/host?question={question}{}#{session}", club_param(&club)),
+            spent,
+        ),
     }
 }
 
@@ -231,8 +260,14 @@ pub(super) fn host_pages(mut router: Router<Arc<AppState>>) -> Router<Arc<AppSta
     router = router
         .route("/host", get(html))
         .route("/host/{room_id}", get(html))
-        .route("/host/host.js", get(|| async { asset(HOST_JS, "text/javascript; charset=utf-8") }))
-        .route("/host/host.css", get(|| async { asset(HOST_CSS, "text/css; charset=utf-8") }));
+        .route(
+            "/host/host.js",
+            get(|| async { asset(HOST_JS, "text/javascript; charset=utf-8") }),
+        )
+        .route(
+            "/host/host.css",
+            get(|| async { asset(HOST_CSS, "text/css; charset=utf-8") }),
+        );
     router
 }
 // end T-07 pages --------------------------------------------------------

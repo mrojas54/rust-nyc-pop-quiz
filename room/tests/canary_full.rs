@@ -17,9 +17,9 @@
 //! T-25's admin push (§8.3). With `CANARY_URL` set, this suite says so and
 //! fails rather than scanning a local room under a deployed name.
 
-mod common;
 #[path = "canary_scan/mod.rs"]
 mod canary_scan;
+mod common;
 
 use canary_scan::*;
 use common::*;
@@ -47,7 +47,10 @@ async fn over_real_sockets_two_rooms_and_the_reconnect_path() {
     let first = walk_room(
         &server,
         Start::Question("canary"),
-        Options { run_again_with: Some("canary-dnc"), reconnect: true },
+        Options {
+            run_again_with: Some("canary-dnc"),
+            reconnect: true,
+        },
     )
     .await;
     assert_the_plants_arrived(&first);
@@ -56,7 +59,15 @@ async fn over_real_sockets_two_rooms_and_the_reconnect_path() {
 
     // Room two: the room *Run it again* made, walked the whole way too.
     let next = first.next_room.clone().expect("run it again made a room");
-    let second = walk_room(&server, Start::Room(next), Options { run_again_with: None, reconnect: true }).await;
+    let second = walk_room(
+        &server,
+        Start::Room(next),
+        Options {
+            run_again_with: None,
+            reconnect: true,
+        },
+    )
+    .await;
     assert_the_plants_arrived(&second);
     assert_eq!(second.reveal_wall["reveal"]["correct"], "D");
     assert!(second.seen.has(Surface::Wall, Phase::Reveal, &p.error_code));

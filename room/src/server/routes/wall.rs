@@ -39,22 +39,74 @@ const CSS: &str = "text/css; charset=utf-8";
 const JS: &str = "text/javascript; charset=utf-8";
 
 const WALL_ASSETS: &[Asset] = &[
-    ("wall.js", JS, include_str!("../../../../web/wall/wall.js").as_bytes()),
-    ("wall.css", CSS, include_str!("../../../../web/wall/wall.css").as_bytes()),
-    ("qr.js", JS, include_str!("../../../../web/wall/qr.js").as_bytes()),
+    (
+        "wall.js",
+        JS,
+        include_str!("../../../../web/wall/wall.js").as_bytes(),
+    ),
+    (
+        "wall.css",
+        CSS,
+        include_str!("../../../../web/wall/wall.css").as_bytes(),
+    ),
+    (
+        "qr.js",
+        JS,
+        include_str!("../../../../web/wall/qr.js").as_bytes(),
+    ),
 ];
 
 const SHARED_ASSETS: &[Asset] = &[
-    ("tokens.css", CSS, include_str!("../../../../web/shared/tokens.css").as_bytes()),
-    ("fonts.css", CSS, include_str!("../../../../web/shared/fonts.css").as_bytes()),
-    ("components.css", CSS, include_str!("../../../../web/shared/components.css").as_bytes()),
-    ("dom.js", JS, include_str!("../../../../web/shared/dom.js").as_bytes()),
-    ("phase.js", JS, include_str!("../../../../web/shared/phase.js").as_bytes()),
-    ("check.js", JS, include_str!("../../../../web/shared/check.js").as_bytes()),
-    ("well.js", JS, include_str!("../../../../web/shared/well.js").as_bytes()),
-    ("trace.js", JS, include_str!("../../../../web/shared/trace.js").as_bytes()),
-    ("typemodel.js", JS, include_str!("../../../../web/shared/typemodel.js").as_bytes()),
-    ("copy.js", JS, include_str!("../../../../web/shared/copy.js").as_bytes()),
+    (
+        "tokens.css",
+        CSS,
+        include_str!("../../../../web/shared/tokens.css").as_bytes(),
+    ),
+    (
+        "fonts.css",
+        CSS,
+        include_str!("../../../../web/shared/fonts.css").as_bytes(),
+    ),
+    (
+        "components.css",
+        CSS,
+        include_str!("../../../../web/shared/components.css").as_bytes(),
+    ),
+    (
+        "dom.js",
+        JS,
+        include_str!("../../../../web/shared/dom.js").as_bytes(),
+    ),
+    (
+        "phase.js",
+        JS,
+        include_str!("../../../../web/shared/phase.js").as_bytes(),
+    ),
+    (
+        "check.js",
+        JS,
+        include_str!("../../../../web/shared/check.js").as_bytes(),
+    ),
+    (
+        "well.js",
+        JS,
+        include_str!("../../../../web/shared/well.js").as_bytes(),
+    ),
+    (
+        "trace.js",
+        JS,
+        include_str!("../../../../web/shared/trace.js").as_bytes(),
+    ),
+    (
+        "typemodel.js",
+        JS,
+        include_str!("../../../../web/shared/typemodel.js").as_bytes(),
+    ),
+    (
+        "copy.js",
+        JS,
+        include_str!("../../../../web/shared/copy.js").as_bytes(),
+    ),
 ];
 
 const FONT_ASSETS: &[Asset] = &[
@@ -126,7 +178,11 @@ struct FitBody {
     fit: String,
 }
 
-async fn record_fit(State(state): State<Arc<AppState>>, Path(id): Path<String>, Json(body): Json<FitBody>) -> Response {
+async fn record_fit(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<FitBody>,
+) -> Response {
     use crate::rooms::Fit;
     let fit = match body.fit.as_str() {
         "fits" => Fit::Fits,
@@ -145,10 +201,19 @@ pub(super) fn wall_pages(router: Router<Arc<AppState>>) -> Router<Arc<AppState>>
     router
         .route("/rooms/{id}/fit", axum::routing::put(record_fit))
         .route("/wall/{room_id}", get(wall_page))
-        .route("/wall/wall.js", get(|| async { asset(WALL_ASSETS, "wall.js") }))
-        .route("/wall/wall.css", get(|| async { asset(WALL_ASSETS, "wall.css") }))
+        .route(
+            "/wall/wall.js",
+            get(|| async { asset(WALL_ASSETS, "wall.js") }),
+        )
+        .route(
+            "/wall/wall.css",
+            get(|| async { asset(WALL_ASSETS, "wall.css") }),
+        )
         .route("/wall/qr.js", get(|| async { asset(WALL_ASSETS, "qr.js") }))
-        .route("/shared/{file}", get(|Path(file): Path<String>| async move { asset(SHARED_ASSETS, &file) }))
+        .route(
+            "/shared/{file}",
+            get(|Path(file): Path<String>| async move { asset(SHARED_ASSETS, &file) }),
+        )
         .route(
             "/shared/fonts/{file}",
             get(|Path(file): Path<String>| async move { asset(FONT_ASSETS, &file) }),

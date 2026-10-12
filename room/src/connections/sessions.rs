@@ -53,6 +53,7 @@ pub struct Session {
 
 // AC-57, at compile time: this pattern names every field and has no `..`, so
 // adding a field to `Session` stops the crate compiling.
+#[rustfmt::skip]
 const _: fn(Session) = |Session { token: _, answer: _ }| {};
 
 /// Why a join did not happen: SPEC §4.1's six failure states.
@@ -179,7 +180,9 @@ impl Sessions for SessionMap {
     }
 
     fn answer_of(&self, token: &str) -> Option<Option<Letter>> {
-        self.sessions.get(&Token(token.to_string())).map(|s| s.answer)
+        self.sessions
+            .get(&Token(token.to_string()))
+            .map(|s| s.answer)
     }
 
     fn leave(&mut self, token: &str) -> bool {
@@ -189,7 +192,11 @@ impl Sessions for SessionMap {
     fn counts(&self) -> LiveCounts {
         LiveCounts {
             present: self.sessions.len() as u32,
-            answered_live: self.sessions.values().filter(|s| s.answer.is_some()).count() as u32,
+            answered_live: self
+                .sessions
+                .values()
+                .filter(|s| s.answer.is_some())
+                .count() as u32,
         }
     }
 
@@ -201,10 +208,15 @@ impl Sessions for SessionMap {
 
     fn session_id(&self, token: &str) -> Option<SessionId> {
         let token = Token(token.to_string());
-        self.sessions.contains_key(&token).then(|| self.id_of(&token))
+        self.sessions
+            .contains_key(&token)
+            .then(|| self.id_of(&token))
     }
 
     fn saved_by_id(&self, id: SessionId) -> Option<Option<Letter>> {
-        self.sessions.values().find(|s| self.id_of(&s.token) == id).map(|s| s.answer)
+        self.sessions
+            .values()
+            .find(|s| self.id_of(&s.token) == id)
+            .map(|s| s.answer)
     }
 }

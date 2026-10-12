@@ -12,8 +12,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use room::answers::{self, Scheduled};
-use room::club::ClubSlug;
 use room::auth::{decided, CreateCheck, CreateRefusal, HostAuth, OrganizerId};
+use room::club::ClubSlug;
 use room::rooms::{CloseSnapshot, Sessions, Totals};
 use serde_json::Value;
 
@@ -30,7 +30,11 @@ pub const LA_ONLY: &str = "la-only-credential";
 pub struct TestAuth;
 
 impl HostAuth for TestAuth {
-    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>, club: &'a ClubSlug) -> CreateCheck<'a> {
+    fn authorize_create<'a>(
+        &'a self,
+        bearer: Option<&'a str>,
+        club: &'a ClubSlug,
+    ) -> CreateCheck<'a> {
         decided(match bearer {
             Some(ORGANIZER) => Ok(OrganizerId("organizer-1".into())),
             Some(OTHER_ORGANIZER) => Ok(OrganizerId("organizer-2".into())),
@@ -67,9 +71,15 @@ impl Sessions for FakeSessions {
 pub fn route_files() -> Vec<(String, String)> {
     let mut files: Vec<(String, String)> = room_sources(&[])
         .into_iter()
-        .filter_map(|(name, text)| name.strip_prefix("server/routes/").map(|rel| (rel.to_string(), text)))
+        .filter_map(|(name, text)| {
+            name.strip_prefix("server/routes/")
+                .map(|rel| (rel.to_string(), text))
+        })
         .collect();
-    assert!(files.iter().any(|(n, _)| n == "mod.rs"), "server/routes/mod.rs");
+    assert!(
+        files.iter().any(|(n, _)| n == "mod.rs"),
+        "server/routes/mod.rs"
+    );
     files.sort_by(|a, b| (a.0 != "mod.rs", &a.0).cmp(&(b.0 != "mod.rs", &b.0)));
     files
 }
@@ -77,7 +87,11 @@ pub fn route_files() -> Vec<(String, String)> {
 /// The route files joined, for scans that only look for a string somewhere in
 /// them. Never parse spans out of this: use [`route_files`].
 pub fn routes_source() -> String {
-    route_files().into_iter().map(|(_, t)| t).collect::<Vec<_>>().join("\n")
+    route_files()
+        .into_iter()
+        .map(|(_, t)| t)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn repo() -> PathBuf {
@@ -95,7 +109,11 @@ pub fn room_sources(skip: &[&str]) -> Vec<(String, String)> {
     while let Some(dir) = stack.pop() {
         for entry in std::fs::read_dir(&dir).unwrap() {
             let path = entry.unwrap().path();
-            let rel = path.strip_prefix(&src).unwrap().to_string_lossy().replace('\\', "/");
+            let rel = path
+                .strip_prefix(&src)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
             if path.is_dir() {
                 if !skip.contains(&rel.as_str()) {
                     stack.push(path);
@@ -107,7 +125,12 @@ pub fn room_sources(skip: &[&str]) -> Vec<(String, String)> {
         }
     }
     out.sort();
-    assert!(out.len() > 10, "found {} sources under {}", out.len(), src.display());
+    assert!(
+        out.len() > 10,
+        "found {} sources under {}",
+        out.len(),
+        src.display()
+    );
     out
 }
 
@@ -185,7 +208,10 @@ pub fn planted_dnc() -> Value {
     // The does-not-compile option (D) is now the correct one, so the output
     // option that was (E) needs its own middle beat.
     v["options"][4]["why_tempting"] = plant_why("E").into();
-    v["options"][3].as_object_mut().unwrap().remove("why_tempting");
+    v["options"][3]
+        .as_object_mut()
+        .unwrap()
+        .remove("why_tempting");
     v
 }
 
@@ -206,12 +232,18 @@ pub fn walk<'a>(v: &'a Value, out: &mut Vec<(&'a str, &'a Value)>) {
 pub fn keys_named<'a>(v: &'a Value, name: &str) -> Vec<&'a Value> {
     let mut all = Vec::new();
     walk(v, &mut all);
-    all.into_iter().filter(|(k, _)| *k == name).map(|(_, v)| v).collect()
+    all.into_iter()
+        .filter(|(k, _)| *k == name)
+        .map(|(_, v)| v)
+        .collect()
 }
 
 /// Every object anywhere in `v` that has a `name` equal to `stdout`.
 pub fn stdout_rows(v: &Value) -> usize {
-    keys_named(v, "name").iter().filter(|n| n.as_str() == Some("stdout")).count()
+    keys_named(v, "name")
+        .iter()
+        .filter(|n| n.as_str() == Some("stdout"))
+        .count()
 }
 
 // T-04b: an in-process driver for the participant routes.
@@ -240,7 +272,9 @@ pub async fn http(
     .unwrap();
     let res = app.clone().oneshot(req).await.unwrap();
     let status = res.status();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let json = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     (status, json)
 }
@@ -304,7 +338,12 @@ impl TestTokens {
     }
 
     pub fn gone_count(&self, session: u64) -> usize {
-        self.gone.lock().unwrap().iter().filter(|s| s.0 == session).count()
+        self.gone
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|s| s.0 == session)
+            .count()
     }
 }
 
@@ -325,7 +364,8 @@ impl SessionTokens for TestTokens {
     }
 }
 
-pub type Socket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+pub type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 /// The room served on `127.0.0.1:0` through `room::ws::serve`, with the
 /// transport layered on. HTTP goes in-process through the same router (the
@@ -349,7 +389,11 @@ impl Live {
     }
 
     pub async fn start_with(configure: impl FnOnce(Transport) -> Transport) -> Live {
-        let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()));
+        let state = Arc::new(AppState::new(
+            Arc::new(TestAuth),
+            vec![q3()],
+            Urls::default(),
+        ));
         let tokens = Arc::new(TestTokens::default());
         let transport = configure(Transport::new(state.clone(), tokens.clone()));
         let app = room::router_with(state.clone()).layer(axum::Extension(transport.clone()));
@@ -365,7 +409,13 @@ impl Live {
         }
     }
 
-    pub async fn call(&self, method: Method, uri: &str, bearer: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
+    pub async fn call(
+        &self,
+        method: Method,
+        uri: &str,
+        bearer: Option<&str>,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let mut req = Request::builder().method(method).uri(uri);
         if let Some(b) = bearer {
             req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
@@ -379,15 +429,26 @@ impl Live {
         .unwrap();
         let res = self.app.clone().oneshot(req).await.unwrap();
         let status = res.status();
-        let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
-        let json = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
+        let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let json = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap()
+        };
         (status, json)
     }
 
     pub async fn create(&self) -> LiveRoom {
         let id = q3_json()["id"].as_str().unwrap().to_string();
         let (status, created) = self
-            .call(Method::POST, "/rooms", Some(ORGANIZER), Some(serde_json::json!({ "question_id": id })))
+            .call(
+                Method::POST,
+                "/rooms",
+                Some(ORGANIZER),
+                Some(serde_json::json!({ "question_id": id })),
+            )
             .await;
         assert_eq!(status, StatusCode::CREATED, "{created}");
         LiveRoom {
@@ -398,9 +459,14 @@ impl Live {
 
     /// A host action through its HTTP route.
     pub async fn act(&self, room: &LiveRoom, slug: &str) -> StatusCode {
-        self.call(Method::POST, &format!("/rooms/{}/{slug}", room.id), Some(&room.host), None)
-            .await
-            .0
+        self.call(
+            Method::POST,
+            &format!("/rooms/{}/{slug}", room.id),
+            Some(&room.host),
+            None,
+        )
+        .await
+        .0
     }
 
     pub fn url(&self, room: &LiveRoom, viewer: &str) -> String {
@@ -409,7 +475,9 @@ impl Live {
 
     /// Open a socket; send `{"t":"attach","token"}` if a token is given.
     pub async fn open(&self, room: &LiveRoom, viewer: &str, token: Option<&str>) -> Socket {
-        let (mut socket, _) = tokio_tungstenite::connect_async(self.url(room, viewer)).await.unwrap();
+        let (mut socket, _) = tokio_tungstenite::connect_async(self.url(room, viewer))
+            .await
+            .unwrap();
         if let Some(token) = token {
             let attach = serde_json::json!({ "t": "attach", "token": token }).to_string();
             socket.send(Message::text(attach)).await.unwrap();
@@ -432,8 +500,12 @@ pub async fn next(socket: &mut Socket, wait: Duration) -> Next {
         match tokio::time::timeout(wait, socket.next()).await {
             Err(_) => return Next::Nothing,
             Ok(None) | Ok(Some(Err(_))) => return Next::Closed(None),
-            Ok(Some(Ok(Message::Text(text)))) => return Next::Frame(serde_json::from_str(&text).unwrap()),
-            Ok(Some(Ok(Message::Close(frame)))) => return Next::Closed(frame.map(|f| u16::from(f.code))),
+            Ok(Some(Ok(Message::Text(text)))) => {
+                return Next::Frame(serde_json::from_str(&text).unwrap())
+            }
+            Ok(Some(Ok(Message::Close(frame)))) => {
+                return Next::Closed(frame.map(|f| u16::from(f.code)))
+            }
             Ok(Some(Ok(_))) => continue,
         }
     }
@@ -629,7 +701,10 @@ pub fn canary_question_dnc() -> Value {
         "compile_error_code": [p.error_code],
     });
     v["options"][4]["why_tempting"] = p.why[4].clone().into();
-    v["options"][3].as_object_mut().unwrap().remove("why_tempting");
+    v["options"][3]
+        .as_object_mut()
+        .unwrap()
+        .remove("why_tempting");
     v
 }
 
@@ -677,7 +752,8 @@ pub struct Clocked {
 impl Clocked {
     pub fn new() -> Clocked {
         let clock = ManualClock::new(meetup_evening());
-        let state = AppState::new(Arc::new(TestAuth), vec![q3(), q3_again()], Urls::default()).with_clock(clock.clone());
+        let state = AppState::new(Arc::new(TestAuth), vec![q3(), q3_again()], Urls::default())
+            .with_clock(clock.clone());
         Clocked {
             state: Arc::new(state),
             clock,
@@ -691,8 +767,12 @@ impl Clocked {
     }
 
     pub fn act(&self, room: &Created, action: HostAction) -> Result<(), room::rooms::RoomError> {
-        self.state
-            .act(&room.id, Some(&room.host_session), Command::Host(action), self.clock.now())
+        self.state.act(
+            &room.id,
+            Some(&room.host_session),
+            Command::Host(action),
+            self.clock.now(),
+        )
     }
 
     pub fn walk(&self, room: &Created, actions: &[HostAction]) {

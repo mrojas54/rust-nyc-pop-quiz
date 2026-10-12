@@ -33,10 +33,16 @@ const WAIT: Duration = Duration::from_secs(2);
 
 /// A GET through the router, as text: `(status, headers, body)`.
 async fn get(app: &axum::Router, uri: &str) -> (StatusCode, HeaderMap, String) {
-    let req = Request::builder().method(Method::GET).uri(uri).body(Body::empty()).unwrap();
+    let req = Request::builder()
+        .method(Method::GET)
+        .uri(uri)
+        .body(Body::empty())
+        .unwrap();
     let res = app.clone().oneshot(req).await.unwrap();
     let (status, headers) = (res.status(), res.headers().clone());
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
     (status, headers, String::from_utf8(bytes.to_vec()).unwrap())
 }
 
@@ -45,7 +51,11 @@ fn content_type(headers: &HeaderMap) -> &str {
 }
 
 fn app() -> (axum::Router, Arc<AppState>) {
-    let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()));
+    let state = Arc::new(AppState::new(
+        Arc::new(TestAuth),
+        vec![q3()],
+        Urls::default(),
+    ));
     (room::router_with(state.clone()), state)
 }
 
@@ -55,8 +65,19 @@ async fn the_page_and_its_assets_serve() {
     let (status, headers, page) = get(&app, "/join").await;
     assert_eq!(status, StatusCode::OK);
     assert!(content_type(&headers).starts_with("text/html"));
-    for asset in ["/shared/tokens.css", "/shared/components.css", "/shared/dom.js", "/shared/copy.js", "/shared/check.js", "/join/buzzer.css", "/join/buzzer.js"] {
-        assert!(page.contains(&format!("\"{asset}\"")), "the page loads {asset}");
+    for asset in [
+        "/shared/tokens.css",
+        "/shared/components.css",
+        "/shared/dom.js",
+        "/shared/copy.js",
+        "/shared/check.js",
+        "/join/buzzer.css",
+        "/join/buzzer.js",
+    ] {
+        assert!(
+            page.contains(&format!("\"{asset}\"")),
+            "the page loads {asset}"
+        );
     }
     assert!(page.contains("id=\"buzzer\""));
 
@@ -70,27 +91,49 @@ async fn the_page_and_its_assets_serve() {
 
     // The page shares its path with the join itself.
     let room = host_room(&app).await;
-    let (status, joined) = http(&app, Method::POST, "/join", None, Some(json!({ "code": room.code }))).await;
+    let (status, joined) = http(
+        &app,
+        Method::POST,
+        "/join",
+        None,
+        Some(json!({ "code": room.code })),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{joined}");
 }
 
 #[tokio::test]
 async fn ac28_the_short_link_carries_the_code_to_the_page() {
     let (app, _) = app();
-    let (status, created) = http(&app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({ "question_id": "q3" }))).await;
+    let (status, created) = http(
+        &app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({ "question_id": "q3" })),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     let code = created["code"].as_str().unwrap();
     let join_url = created["join_url"].as_str().unwrap();
-    let path = join_url.strip_prefix(&Urls::default().base).expect("join_url is under the base");
+    let path = join_url
+        .strip_prefix(&Urls::default().base)
+        .expect("join_url is under the base");
     assert_eq!(path, format!("/{code}"));
 
     let (status, headers, _) = get(&app, path).await;
     assert_eq!(status, StatusCode::SEE_OTHER);
-    assert_eq!(headers[header::LOCATION], format!("/join?code={code}").as_str());
+    assert_eq!(
+        headers[header::LOCATION],
+        format!("/join?code={code}").as_str()
+    );
     // Typed in lower case, the link still lands on the code.
     let (status, headers, _) = get(&app, &path.to_ascii_lowercase()).await;
     assert_eq!(status, StatusCode::SEE_OTHER);
-    assert_eq!(headers[header::LOCATION], format!("/join?code={code}").as_str());
+    assert_eq!(
+        headers[header::LOCATION],
+        format!("/join?code={code}").as_str()
+    );
 
     // Not a code (too short; O, 0, I and 1 are not in the alphabet): no page.
     for path in ["/abc", "/NOPE10", "/ABCDEFG"] {
@@ -117,12 +160,21 @@ impl Wired {
         let url = format!("ws://{}/rooms/{}/ws/buzzer", self.addr, room.id);
         let (mut socket, _) = tokio_tungstenite::connect_async(url).await.unwrap();
         let attach = json!({ "t": "attach", "token": token }).to_string();
-        futures_util::SinkExt::send(&mut socket, Message::text(attach)).await.unwrap();
+        futures_util::SinkExt::send(&mut socket, Message::text(attach))
+            .await
+            .unwrap();
         socket
     }
 
     async fn act(&self, room: &HostedRoom, slug: &str) {
-        let (status, body) = http(&self.app, Method::POST, &format!("/rooms/{}/{slug}", room.id), Some(&room.host), None).await;
+        let (status, body) = http(
+            &self.app,
+            Method::POST,
+            &format!("/rooms/{}/{slug}", room.id),
+            Some(&room.host),
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK, "{slug}: {body}");
     }
 }
@@ -146,7 +198,11 @@ fn replay(events: &[Value]) -> Vec<Value> {
         .write_all(Value::from(events.to_vec()).to_string().as_bytes())
         .unwrap();
     let out = child.wait_with_output().unwrap();
-    assert!(out.status.success(), "replay failed: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "replay failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     serde_json::from_slice::<Vec<Value>>(&out.stdout).unwrap()
 }
 
@@ -154,7 +210,13 @@ fn replay(events: &[Value]) -> Vec<Value> {
 /// any trace step's words, nor a key that could hold them.
 fn assert_no_source_or_trace(what: &str, text: &str) {
     let q = q3_json();
-    for line in q["source"].as_str().unwrap().lines().map(str::trim).filter(|l| l.len() > 3) {
+    for line in q["source"]
+        .as_str()
+        .unwrap()
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.len() > 3)
+    {
         assert!(!text.contains(line), "{what} carries source: {line}");
     }
     for step in q["trace"]["steps"].as_array().unwrap() {
@@ -170,20 +232,42 @@ fn assert_no_source_or_trace(what: &str, text: &str) {
 /// A–E, each `n · p%` as sent — with only its own letter marked, and the ✓
 /// only on the correct letter's row, only at reveal.
 fn assert_bars(html: &str, split: &Value, yours: &str, correct: Option<&str>, at: &str) {
-    let bars = split.as_array().unwrap_or_else(|| panic!("{at}: the frame carries no split"));
+    let bars = split
+        .as_array()
+        .unwrap_or_else(|| panic!("{at}: the frame carries no split"));
     assert_eq!(bars.len(), 5, "{at}");
     let rows: Vec<&str> = html.split("<div class=\"bar-row").skip(1).collect();
     assert_eq!(rows.len(), 5, "{at}: five bars drawn");
     for (row, bar) in rows.iter().zip(bars) {
         let letter = bar["letter"].as_str().unwrap();
         let row = &row[..row.find("</span></div>").unwrap()];
-        assert!(row.contains(&format!("data-bar=\"{letter}\"")), "{at}: wall order");
-        assert!(row.contains(&format!("{} · {}%", bar["count"], bar["percent"])), "{at}: {letter}'s count as sent");
-        assert!(row.contains(&format!("width:{}%", bar["percent"])), "{at}: {letter}'s bar width");
-        assert_eq!(row.starts_with(" is-yours"), letter == yours, "{at}: {letter} marked as the phone's own");
-        assert_eq!(row.contains("rn-correct"), Some(letter) == correct, "{at}: the ✓ on {letter}");
+        assert!(
+            row.contains(&format!("data-bar=\"{letter}\"")),
+            "{at}: wall order"
+        );
+        assert!(
+            row.contains(&format!("{} · {}%", bar["count"], bar["percent"])),
+            "{at}: {letter}'s count as sent"
+        );
+        assert!(
+            row.contains(&format!("width:{}%", bar["percent"])),
+            "{at}: {letter}'s bar width"
+        );
+        assert_eq!(
+            row.starts_with(" is-yours"),
+            letter == yours,
+            "{at}: {letter} marked as the phone's own"
+        );
+        assert_eq!(
+            row.contains("rn-correct"),
+            Some(letter) == correct,
+            "{at}: the ✓ on {letter}"
+        );
     }
-    assert!(html.contains(&format!("you said <b>{yours}</b>")), "{at}: the glyph's label");
+    assert!(
+        html.contains(&format!("you said <b>{yours}</b>")),
+        "{at}: the glyph's label"
+    );
 }
 
 #[tokio::test]
@@ -195,7 +279,14 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
 
     // The link: the page reads ?code= and joins.
     events.push(json!({ "type": "boot", "search": format!("?code={}", room.code.to_ascii_lowercase()), "stored": null }));
-    let (status, joined) = http(&w.app, Method::POST, "/join", None, Some(json!({ "code": room.code }))).await;
+    let (status, joined) = http(
+        &w.app,
+        Method::POST,
+        "/join",
+        None,
+        Some(json!({ "code": room.code })),
+    )
+    .await;
     seen.push(("join response".into(), joined.to_string()));
     events.push(json!({ "type": "joined", "status": status.as_u16(), "body": joined }));
     let token = joined["token"].as_str().unwrap().to_string();
@@ -217,7 +308,14 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     let uri = format!("/rooms/{}/answer", room.id);
     for letter in ["A", "C"] {
         events.push(json!({ "type": "tap", "letter": letter }));
-        let (status, body) = http(&w.app, Method::PUT, &uri, Some(&token), Some(json!({ "letter": letter }))).await;
+        let (status, body) = http(
+            &w.app,
+            Method::PUT,
+            &uri,
+            Some(&token),
+            Some(json!({ "letter": letter })),
+        )
+        .await;
         seen.push(("answer response".into(), body.to_string()));
         events.push(json!({ "type": "answered", "status": status.as_u16(), "body": body }));
         if letter == "A" {
@@ -257,7 +355,10 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     let at = |i: usize| &shown[i];
     let find = |kind: &str, phase: &str| -> usize {
         (0..events.len())
-            .find(|&i| events[i]["type"] == kind && (phase.is_empty() || events[i]["frame"]["phase"] == phase))
+            .find(|&i| {
+                events[i]["type"] == kind
+                    && (phase.is_empty() || events[i]["frame"]["phase"] == phase)
+            })
             .unwrap_or_else(|| panic!("no {kind} {phase}"))
     };
 
@@ -270,31 +371,50 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
 
     // Each tap sent exactly its letter; each response left exactly the saved
     // state the server holds (AC-35).
-    let taps: Vec<usize> = (0..events.len()).filter(|&i| events[i]["type"] == "tap").collect();
+    let taps: Vec<usize> = (0..events.len())
+        .filter(|&i| events[i]["type"] == "tap")
+        .collect();
     assert_eq!(at(taps[0])["puts"], json!(["A"]));
     assert_eq!(at(taps[0])["submit"], "saving");
     assert_eq!(at(taps[1])["puts"], json!(["C"]));
-    let answered: Vec<usize> = (0..events.len()).filter(|&i| events[i]["type"] == "answered").collect();
+    let answered: Vec<usize> = (0..events.len())
+        .filter(|&i| events[i]["type"] == "answered")
+        .collect();
     assert_eq!(at(answered[1])["saved"], "C");
     assert_eq!(at(answered[1])["submit"], "saved");
-    assert!(at(answered[1])["html"].as_str().unwrap().contains("saved — C"));
+    assert!(at(answered[1])["html"]
+        .as_str()
+        .unwrap()
+        .contains("saved — C"));
 
     // The hint came from the held frame: no request.
     let hint = find("hint", "");
     assert_eq!(at(hint)["effects"], json!(["announce"]));
-    assert!(at(hint)["html"].as_str().unwrap().contains(live["hint"]["text"].as_str().unwrap()));
+    assert!(at(hint)["html"]
+        .as_str()
+        .unwrap()
+        .contains(live["hint"]["text"].as_str().unwrap()));
 
     // Closed: the saved answer restated; a later tap sends nothing (AC-58).
     let closed = find("frame", "closed");
     assert_eq!(at(closed)["phase"], "closed");
-    assert!(at(closed)["html"].as_str().unwrap().contains("you said <b>C</b>"));
+    assert!(at(closed)["html"]
+        .as_str()
+        .unwrap()
+        .contains("you said <b>C</b>"));
     assert_eq!(at(taps[2])["puts"], json!([]));
-    assert!(shown.iter().skip(closed).all(|s| s["puts"] == json!([])), "nothing is sent after close");
+    assert!(
+        shown.iter().skip(closed).all(|s| s["puts"] == json!([])),
+        "nothing is sent after close"
+    );
 
     // Dropped: paused, the answer named safe (AC-37).
     let dropped = find("closed", "");
     assert_eq!(at(dropped)["conn"], "paused");
-    assert!(at(dropped)["html"].as_str().unwrap().contains("paused — reconnecting… your answer C is safe"));
+    assert!(at(dropped)["html"]
+        .as_str()
+        .unwrap()
+        .contains("paused — reconnecting… your answer C is safe"));
 
     // Back in `split`: attached, the saved answer from the server's map. The
     // phone computes no count (`count` stays null); since PQ-37 (HC-0) it
@@ -303,9 +423,21 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     assert_eq!(at(split)["conn"], "attached");
     assert_eq!(at(split)["saved"], "C");
     assert_eq!(at(split)["count"], Value::Null);
-    assert_bars(at(split)["html"].as_str().unwrap(), &back["split"], "C", None, "split");
+    assert_bars(
+        at(split)["html"].as_str().unwrap(),
+        &back["split"],
+        "C",
+        None,
+        "split",
+    );
     let work = find("frame", "work");
-    assert_bars(at(work)["html"].as_str().unwrap(), &phases[0]["split"], "C", None, "work");
+    assert_bars(
+        at(work)["html"].as_str().unwrap(),
+        &phases[0]["split"],
+        "C",
+        None,
+        "work",
+    );
 
     // Reveal: the server's correct letter, marked, and never a mark against C.
     let rv = find("frame", "reveal");
@@ -316,8 +448,15 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
     assert_bars(html, &reveal["split"], "C", Some(correct), "reveal");
     let released = at(find("frame", "released"));
     assert_eq!(released["phase"], "released");
-    assert!(!released["html"].as_str().unwrap().contains("bar-row"), "released: no bars");
-    assert_eq!(phases[2].get("split"), None, "released: the frame carries no split");
+    assert!(
+        !released["html"].as_str().unwrap().contains("bar-row"),
+        "released: no bars"
+    );
+    assert_eq!(
+        phases[2].get("split"),
+        None,
+        "released: the frame carries no split"
+    );
 
     // G-8, AC-32: nothing a phone received, and nothing it renders, carries
     // the source or the trace.
@@ -341,15 +480,25 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
 #[tokio::test]
 #[ignore = "a browser harness for validation, not a test"]
 async fn serve_for_browser() {
-    let port: u16 = std::env::var("BUZZER_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3106);
-    let secs: u64 = std::env::var("BUZZER_SECS").ok().and_then(|p| p.parse().ok()).unwrap_or(1200);
+    let port: u16 = std::env::var("BUZZER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(3106);
+    let secs: u64 = std::env::var("BUZZER_SECS")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(1200);
     let base = format!("http://127.0.0.1:{port}");
-    let urls = Urls { base: base.clone(), home: format!("{base}/home") };
+    let urls = Urls {
+        base: base.clone(),
+        home: format!("{base}/home"),
+    };
     let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], urls));
-    let app = axum::Router::new()
-        .merge(room::router_with(state));
+    let app = axum::Router::new().merge(room::router_with(state));
     let room = host_room(&app).await;
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .unwrap();
     println!("BUZZER {base}/{}", room.code);
     println!("ROOM {}", room.id);
     println!("HOST {}", room.host);

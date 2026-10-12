@@ -35,8 +35,10 @@ fn new_room() -> Room {
 fn drive(room: &mut Room, phase: Phase, totals: [u32; 5]) {
     while room.phase() != phase {
         let action = room.phase().next_action();
-        room.act(Command::Host(action), t0(), || CloseSnapshot::from_totals(totals))
-            .unwrap_or_else(|r| panic!("{r:?}"));
+        room.act(Command::Host(action), t0(), || {
+            CloseSnapshot::from_totals(totals)
+        })
+        .unwrap_or_else(|r| panic!("{r:?}"));
     }
 }
 
@@ -47,13 +49,18 @@ fn a_new_room_has_the_shape_of_section_3_4() {
     assert_eq!(room.code(), "ABC234");
     assert_eq!(room.question_id(), "q3");
     assert_eq!(room.id().len(), 32);
-    assert_eq!(room.expires_at().duration_since(room.created_at()).unwrap(), ROOM_LIFETIME);
+    assert_eq!(
+        room.expires_at().duration_since(room.created_at()).unwrap(),
+        ROOM_LIFETIME
+    );
     assert_eq!(ROOM_LIFETIME, Duration::from_secs(4 * 3600));
     assert_eq!(room.released_at(), None);
     assert!(room.open().is_none());
     assert!(room.public().frozen.is_none());
     assert_eq!(room.public().join_url, "http://127.0.0.1:3000/ABC234");
-    assert!(room.host_resume_url().starts_with(&format!("http://127.0.0.1:3000/host/{}#", room.id())));
+    assert!(room
+        .host_resume_url()
+        .starts_with(&format!("http://127.0.0.1:3000/host/{}#", room.id())));
 }
 
 #[test]
@@ -91,20 +98,38 @@ fn the_host_session_never_rotates() {
 #[test]
 fn the_wall_shows_joined_then_joined_and_answered_and_neither_after_live() {
     let mut room = new_room();
-    room.set_live_counts(LiveCounts { present: 4, answered_live: 0 });
+    room.set_live_counts(LiveCounts {
+        present: 4,
+        answered_live: 0,
+    });
     let idle = view::wall(&room, &Urls::default());
     assert_eq!(idle.joined.as_deref(), Some("Joined: 4"));
     assert_eq!(idle.answered, None);
 
     drive(&mut room, Phase::Live, [0; 5]);
-    room.set_live_counts(LiveCounts { present: 12, answered_live: 9 });
+    room.set_live_counts(LiveCounts {
+        present: 12,
+        answered_live: 9,
+    });
     let live = view::wall(&room, &Urls::default());
     assert_eq!(live.joined.as_deref(), Some("Joined: 12"));
     assert_eq!(live.answered.as_deref(), Some("Answered: 9"));
-    room.set_live_counts(LiveCounts { present: 13, answered_live: 10 });
-    assert_eq!(view::wall(&room, &Urls::default()).answered.as_deref(), Some("Answered: 10"));
+    room.set_live_counts(LiveCounts {
+        present: 13,
+        answered_live: 10,
+    });
+    assert_eq!(
+        view::wall(&room, &Urls::default()).answered.as_deref(),
+        Some("Answered: 10")
+    );
 
-    for phase in [Phase::Closed, Phase::Split, Phase::Work, Phase::Reveal, Phase::Released] {
+    for phase in [
+        Phase::Closed,
+        Phase::Split,
+        Phase::Work,
+        Phase::Reveal,
+        Phase::Released,
+    ] {
         drive(&mut room, phase, [1, 2, 3, 2, 2]);
         let wall = view::wall(&room, &Urls::default());
         assert_eq!((wall.joined, wall.answered), (None, None), "{phase:?}");
@@ -116,7 +141,10 @@ fn closed_freezes_answered_and_totals_while_present_keeps_counting() {
     let mut room = new_room();
     drive(&mut room, Phase::Live, [0; 5]);
     assert!(room.accepts_answers());
-    room.set_live_counts(LiveCounts { present: 12, answered_live: 9 });
+    room.set_live_counts(LiveCounts {
+        present: 12,
+        answered_live: 9,
+    });
     assert_eq!(view::host(&room).answered, Some(9));
 
     let calls = Cell::new(0);
@@ -129,10 +157,17 @@ fn closed_freezes_answered_and_totals_while_present_keeps_counting() {
     assert_eq!(room.public().frozen, Some((9, [1, 5, 0, 0, 3])));
 
     // People keep arriving and leaving; the frozen numbers do not move.
-    room.set_live_counts(LiveCounts { present: 15, answered_live: 2 });
+    room.set_live_counts(LiveCounts {
+        present: 15,
+        answered_live: 2,
+    });
     for phase in [Phase::Closed, Phase::Split, Phase::Work, Phase::Reveal] {
         drive(&mut room, phase, [9, 9, 9, 9, 9]);
-        assert_eq!(room.public().frozen, Some((9, [1, 5, 0, 0, 3])), "{phase:?}");
+        assert_eq!(
+            room.public().frozen,
+            Some((9, [1, 5, 0, 0, 3])),
+            "{phase:?}"
+        );
         assert_eq!(room.public().present, 15);
         assert_eq!(view::host(&room).answered, Some(9));
     }
@@ -140,8 +175,14 @@ fn closed_freezes_answered_and_totals_while_present_keeps_counting() {
 
     let split = view::wall(&room, &Urls::default()).split.unwrap();
     assert_eq!(split.line, "9 of 15 in the room answered");
-    assert_eq!(split.bars.iter().map(|b| b.count).collect::<Vec<_>>(), [1, 5, 0, 0, 3]);
-    assert_eq!(split.bars.iter().map(|b| b.percent).collect::<Vec<_>>(), [11, 56, 0, 0, 33]);
+    assert_eq!(
+        split.bars.iter().map(|b| b.count).collect::<Vec<_>>(),
+        [1, 5, 0, 0, 3]
+    );
+    assert_eq!(
+        split.bars.iter().map(|b| b.percent).collect::<Vec<_>>(),
+        [11, 56, 0, 0, 33]
+    );
 }
 
 #[test]
@@ -156,12 +197,23 @@ fn a_split_with_no_answers_shows_empty_bars() {
 #[test]
 fn released_at_is_written_by_release_and_nothing_else() {
     let mut room = new_room();
-    for phase in [Phase::Live, Phase::Closed, Phase::Split, Phase::Work, Phase::Reveal] {
+    for phase in [
+        Phase::Live,
+        Phase::Closed,
+        Phase::Split,
+        Phase::Work,
+        Phase::Reveal,
+    ] {
         drive(&mut room, phase, [0; 5]);
         assert_eq!(room.released_at(), None, "{phase:?}");
     }
     let later = t0() + Duration::from_secs(600);
-    room.act(Command::Host(HostAction::ReleaseRoom), later, || unreachable!()).unwrap();
+    room.act(
+        Command::Host(HostAction::ReleaseRoom),
+        later,
+        || unreachable!(),
+    )
+    .unwrap();
     assert_eq!(room.released_at(), Some(later));
     assert!(room.open().is_none(), "the answers close again at release");
 }
@@ -179,10 +231,16 @@ fn only_reveal_opens_the_answers() {
 fn every_change_bumps_the_revision() {
     let mut room = new_room();
     let r0 = room.revision();
-    room.set_live_counts(LiveCounts { present: 1, answered_live: 0 });
+    room.set_live_counts(LiveCounts {
+        present: 1,
+        answered_live: 0,
+    });
     let r1 = room.revision();
     assert!(r1 > r0);
-    room.set_live_counts(LiveCounts { present: 1, answered_live: 0 });
+    room.set_live_counts(LiveCounts {
+        present: 1,
+        answered_live: 0,
+    });
     assert_eq!(room.revision(), r1, "no change, no broadcast");
     drive(&mut room, Phase::Live, [0; 5]);
     assert!(room.revision() > r1);
@@ -199,7 +257,11 @@ fn verdict(totals: [u32; 5]) -> (view::WallPayload, view::HostPayload, Option<(L
         Middle::Nobody => None,
     };
     drop(opened);
-    (view::wall(&room, &Urls::default()), view::host(&room), middle)
+    (
+        view::wall(&room, &Urls::default()),
+        view::host(&room),
+        middle,
+    )
 }
 
 fn assert_agree(totals: [u32; 5], expected: Option<(Letter, u32)>) {
@@ -211,9 +273,15 @@ fn assert_agree(totals: [u32; 5], expected: Option<(Letter, u32)>) {
         Some((letter, n)) => {
             assert_eq!(wall_middle.letter, Some(letter));
             assert_eq!(wall_middle.count, Some(n));
-            assert_eq!(wall_middle.line, format!("{n} of us said {}", letter.as_str()));
+            assert_eq!(
+                wall_middle.line,
+                format!("{n} of us said {}", letter.as_str())
+            );
             // The host names the same option, with the same count.
-            assert_eq!(host_middle.heading, format!("Why {n} of us said {}", letter.as_str()));
+            assert_eq!(
+                host_middle.heading,
+                format!("Why {n} of us said {}", letter.as_str())
+            );
             assert!(host_middle.text.is_some_and(|t| !t.is_empty()));
         }
         None => {
@@ -271,7 +339,10 @@ fn work_shows_steps_up_to_m_minus_2_and_reveal_the_rest() {
         assert_eq!(step.at, trace.at);
         assert_eq!(step.note, trace.step.note);
         last_note = step.note;
-        if room.act(Command::Step(Step::Forward), t0(), || unreachable!()).is_err() {
+        if room
+            .act(Command::Step(Step::Forward), t0(), || unreachable!())
+            .is_err()
+        {
             break;
         }
     }
@@ -279,7 +350,8 @@ fn work_shows_steps_up_to_m_minus_2_and_reveal_the_rest() {
     let steps = q["trace"]["steps"].as_array().unwrap();
     assert_eq!(last_note, steps[4]["note"].as_str().unwrap());
 
-    room.act(Command::Host(HostAction::Reveal), t0(), || unreachable!()).unwrap();
+    room.act(Command::Host(HostAction::Reveal), t0(), || unreachable!())
+        .unwrap();
     let wall = view::wall(&room, &Urls::default());
     let trace = wall.trace.unwrap();
     assert_eq!(trace.at, m - 1);
@@ -289,6 +361,11 @@ fn work_shows_steps_up_to_m_minus_2_and_reveal_the_rest() {
     assert_eq!(receipt.heading, "How we know");
     assert_eq!(
         receipt.lines,
-        ["✓ Compiled", "✓ Ran 5 times", "✓ Output never varied", "✓ Miri ran clean"]
+        [
+            "✓ Compiled",
+            "✓ Ran 5 times",
+            "✓ Output never varied",
+            "✓ Miri ran clean"
+        ]
     );
 }

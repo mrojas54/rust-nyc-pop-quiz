@@ -89,7 +89,10 @@ fn emit(line: Value) {
 /// Tests only: keep every line from now on, beside standard error. Nothing is
 /// kept unless a test asks, so a serving room never accumulates its log.
 pub fn start_capture() {
-    CAPTURE.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(Vec::new);
+    CAPTURE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get_or_insert_with(Vec::new);
 }
 
 /// The captured lines about `room`, parsed. Empty unless [`start_capture`] ran.
@@ -106,7 +109,11 @@ pub fn captured(room: &str) -> Vec<Value> {
 
 /// Every captured line, raw — for scans that look for secrets in all of them.
 pub fn captured_all() -> Vec<String> {
-    CAPTURE.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_default()
+    CAPTURE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .unwrap_or_default()
 }
 
 /// This room's counters so far.
@@ -126,13 +133,17 @@ pub fn server_error(room: Option<&str>, counted: bool, route: &'static str, stat
     if let (Some(room), true) = (room, counted) {
         counts().entry(room.to_string()).or_default().failed += 1;
     }
-    emit(json!({ "event": "participant_request_failed", "room": room, "route": route, "kind": "server_error", "status": status }));
+    emit(
+        json!({ "event": "participant_request_failed", "room": room, "route": route, "kind": "server_error", "status": status }),
+    );
 }
 
 /// An attached buzzer socket that broke while `room` was in `phase`.
 pub fn socket_dropped(room: &str, phase: Value) {
     counts().entry(room.to_string()).or_default().failed += 1;
-    emit(json!({ "event": "participant_request_failed", "room": room, "route": "buzzer_socket", "kind": "socket_dropped", "phase": phase }));
+    emit(
+        json!({ "event": "participant_request_failed", "room": room, "route": "buzzer_socket", "kind": "socket_dropped", "phase": phase }),
+    );
 }
 
 /// The room ended: its summary line, once, and its counters dropped. A room
@@ -143,12 +154,17 @@ pub fn ended(room: &str, how: &'static str) {
         return; // already summarized at release, or never used
     }
     let c = c.unwrap_or_default();
-    emit(json!({ "event": "participant_requests", "room": room, "failed": c.failed, "total": c.total, "ended": how }));
+    emit(
+        json!({ "event": "participant_requests", "room": room, "failed": c.failed, "total": c.total, "ended": how }),
+    );
 }
 
 /// Which participant route a request is, and the room id in its path. `None`
 /// for everything else (host routes, pages, the wall, the admin channel).
-pub fn participant_route<'a>(method: &Method, path: &'a str) -> Option<(&'static str, Option<&'a str>)> {
+pub fn participant_route<'a>(
+    method: &Method,
+    path: &'a str,
+) -> Option<(&'static str, Option<&'a str>)> {
     let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
     match (method, segments.as_slice()) {
         (&Method::POST, ["join"]) => Some(("join", None)),
@@ -166,7 +182,10 @@ pub fn running(state: &AppState, room: &str) -> bool {
 
 /// The phase of a room that exists and has not been released.
 pub fn running_phase(state: &AppState, room: &str) -> Option<crate::phase::Phase> {
-    state.with_room(room, |r| r.phase()).ok().filter(|p| *p != crate::phase::Phase::Released)
+    state
+        .with_room(room, |r| r.phase())
+        .ok()
+        .filter(|p| *p != crate::phase::Phase::Released)
 }
 
 /// `POST /rooms/{id}/release` — the host's release, whose `200` ends the room.
@@ -182,7 +201,11 @@ fn release_of<'a>(method: &Method, path: &'a str) -> Option<&'a str> {
 /// that exists (a successful join is counted by its handler, which alone
 /// knows the room), logs every `5xx` among them, and writes the summary when
 /// a release succeeds.
-pub(crate) async fn layer(State(state): State<Arc<AppState>>, request: Request, next: Next) -> Response {
+pub(crate) async fn layer(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
     let response = next.run(request).await;
@@ -212,9 +235,18 @@ mod tests {
 
     #[test]
     fn only_the_participant_routes_are_counted() {
-        assert_eq!(participant_route(&Method::POST, "/join"), Some(("join", None)));
-        assert_eq!(participant_route(&Method::PUT, "/rooms/abc/answer"), Some(("answer", Some("abc"))));
-        assert_eq!(participant_route(&Method::GET, "/rooms/abc/buzzer"), Some(("buzzer_state", Some("abc"))));
+        assert_eq!(
+            participant_route(&Method::POST, "/join"),
+            Some(("join", None))
+        );
+        assert_eq!(
+            participant_route(&Method::PUT, "/rooms/abc/answer"),
+            Some(("answer", Some("abc")))
+        );
+        assert_eq!(
+            participant_route(&Method::GET, "/rooms/abc/buzzer"),
+            Some(("buzzer_state", Some("abc")))
+        );
         for (m, p) in [
             (Method::GET, "/join"),
             (Method::GET, "/rooms/abc/ws/buzzer"),
@@ -238,7 +270,13 @@ mod tests {
         request(room);
         server_error(Some(room), true, "answer", 503);
         socket_dropped(room, json!("live"));
-        assert_eq!(counts_for(room), Counts { failed: 2, total: 2 });
+        assert_eq!(
+            counts_for(room),
+            Counts {
+                failed: 2,
+                total: 2
+            }
+        );
         ended(room, "released");
         assert_eq!(counts_for(room), Counts::default());
         // Gone after a release says nothing more. (Capture may already be on
@@ -256,12 +294,21 @@ mod tests {
         server_error(Some(room), false, "answer", 500);
         let lines = captured(room);
         assert_eq!(lines.len(), 1, "the line names the room it was about");
-        assert_eq!((lines[0]["kind"].as_str(), lines[0]["status"].as_u64()), (Some("server_error"), Some(500)));
-        assert_eq!(counts_for(room), Counts::default(), "and no counter was reopened");
+        assert_eq!(
+            (lines[0]["kind"].as_str(), lines[0]["status"].as_u64()),
+            (Some("server_error"), Some(500))
+        );
+        assert_eq!(
+            counts_for(room),
+            Counts::default(),
+            "and no counter was reopened"
+        );
         assert!(!counts().contains_key(room));
         // A `/join` names no room.
         server_error(None, false, "join", 502);
-        assert!(captured_all().iter().any(|l| l.contains(r#""room":null"#) && l.contains(r#""route":"join""#)));
+        assert!(captured_all()
+            .iter()
+            .any(|l| l.contains(r#""room":null"#) && l.contains(r#""route":"join""#)));
     }
 
     #[test]

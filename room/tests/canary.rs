@@ -21,17 +21,17 @@
 //! fields only the old scan used): the host screen per phase, the host routes
 //! and their denials, creation, and *Run it again*.
 
-mod common;
 #[path = "canary_scan/mod.rs"]
 mod canary_scan;
+mod common;
 
 use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use axum::Router;
-use common::*;
 use canary_scan::*;
+use common::*;
 use room::phase::{Command, HostAction, Phase};
 use room::rooms::{AppState, Urls};
 use serde_json::{json, Value};
@@ -70,7 +70,13 @@ fn harness() -> Harness {
     }
 }
 
-async fn call(app: &Router, method: Method, uri: &str, bearer: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
+async fn call(
+    app: &Router,
+    method: Method,
+    uri: &str,
+    bearer: Option<&str>,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
     let mut req = Request::builder().method(method).uri(uri);
     if let Some(b) = bearer {
         req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
@@ -84,8 +90,14 @@ async fn call(app: &Router, method: Method, uri: &str, bearer: Option<&str>, bod
     .unwrap();
     let res = app.clone().oneshot(req).await.unwrap();
     let status = res.status();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
-    let json = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let json = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).unwrap()
+    };
     (status, json)
 }
 
@@ -95,7 +107,14 @@ struct Hosted {
 }
 
 async fn create(app: &Router, question: &str) -> Hosted {
-    let (status, created) = call(app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": question}))).await;
+    let (status, created) = call(
+        app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": question})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     Hosted {
         id: created["id"].as_str().unwrap().into(),
@@ -104,7 +123,14 @@ async fn create(app: &Router, question: &str) -> Hosted {
 }
 
 async fn command(app: &Router, room: &Hosted, c: Command) -> (StatusCode, Value) {
-    call(app, Method::POST, &format!("/rooms/{}/{}", room.id, c.slug()), Some(&room.session), None).await
+    call(
+        app,
+        Method::POST,
+        &format!("/rooms/{}/{}", room.id, c.slug()),
+        Some(&room.session),
+        None,
+    )
+    .await
 }
 
 #[tokio::test]
@@ -112,7 +138,14 @@ async fn the_host_screen_names_its_phase_and_one_action() {
     let h = harness();
     let room = create(&h.app, "q3").await;
     for phase in Phase::ALL {
-        let (_, host) = call(&h.app, Method::GET, &format!("/rooms/{}/host", room.id), Some(&room.session), None).await;
+        let (_, host) = call(
+            &h.app,
+            Method::GET,
+            &format!("/rooms/{}/host", room.id),
+            Some(&room.session),
+            None,
+        )
+        .await;
         assert_eq!(host["label"], phase.host_label());
         assert_eq!(host["primary"]["label"], phase.next_action().label());
         assert_eq!(host["primary"]["action"], phase.next_action().slug());
@@ -140,39 +173,95 @@ async fn every_host_route_exists_and_nothing_moves_without_the_host() {
     }
 
     // No route for anything else — there is nothing to skip with.
-    let (status, _) = call(&h.app, Method::POST, &format!("/rooms/{}/skip", room.id), Some(&room.session), None).await;
+    let (status, _) = call(
+        &h.app,
+        Method::POST,
+        &format!("/rooms/{}/skip", room.id),
+        Some(&room.session),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // No credential, a wrong one, or the organizer's create credential: 401,
     // and the room has not moved.
     for bearer in [None, Some("not-the-session"), Some(ORGANIZER)] {
-        let (status, body) = call(&h.app, Method::POST, &format!("/rooms/{}/put-on-screen", room.id), bearer, None).await;
+        let (status, body) = call(
+            &h.app,
+            Method::POST,
+            &format!("/rooms/{}/put-on-screen", room.id),
+            bearer,
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(body, Value::Null, "a denial says nothing");
-        let (status, _) = call(&h.app, Method::GET, &format!("/rooms/{}/host", room.id), bearer, None).await;
+        let (status, _) = call(
+            &h.app,
+            Method::GET,
+            &format!("/rooms/{}/host", room.id),
+            bearer,
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
-    let (_, wall) = call(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
+    let (_, wall) = call(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/wall", room.id),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(wall["phase"], "idle");
 
     // Out of order: refused with a reason, still idle.
     let (status, body) = command(&h.app, &room, Command::Host(HostAction::Reveal)).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(body["reason"], "Reveal isn't next. Start comes next.");
-    let (_, wall) = call(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
+    let (_, wall) = call(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/wall", room.id),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(wall["phase"], "idle");
 }
 
 #[tokio::test]
 async fn creation_needs_the_create_credential_and_a_scheduled_question() {
     // What the binary ships: DenyAll, nothing scheduled.
-    let (status, _) = call(&room::router(), Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": "q3"}))).await;
+    let (status, _) = call(
+        &room::router(),
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
     let h = harness();
-    let (status, _) = call(&h.app, Method::POST, "/rooms", None, Some(json!({"question_id": "q3"}))).await;
+    let (status, _) = call(
+        &h.app,
+        Method::POST,
+        "/rooms",
+        None,
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
-    let (status, body) = call(&h.app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": "q99"}))).await;
+    let (status, body) = call(
+        &h.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q99"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(body["reason"], "No question is scheduled with that id.");
 }
@@ -184,35 +273,105 @@ async fn run_it_again_makes_a_new_room_and_never_reruns_the_question() {
     let again = format!("/rooms/{}/run-it-again", room.id);
 
     // Before release it is not the next action.
-    let (status, _) = call(&h.app, Method::POST, &again, Some(ORGANIZER), Some(json!({"question_id": "planted"}))).await;
+    let (status, _) = call(
+        &h.app,
+        Method::POST,
+        &again,
+        Some(ORGANIZER),
+        Some(json!({"question_id": "planted"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
 
     for phase in &Phase::ALL[..6] {
         command(&h.app, &room, Command::Host(phase.next_action())).await;
     }
-    let (_, wall) = call(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
+    let (_, wall) = call(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/wall", room.id),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(wall["phase"], "released");
 
     // Only the organizer who created the room; never the same question.
-    let (status, _) = call(&h.app, Method::POST, &again, Some(OTHER_ORGANIZER), Some(json!({"question_id": "planted"}))).await;
+    let (status, _) = call(
+        &h.app,
+        Method::POST,
+        &again,
+        Some(OTHER_ORGANIZER),
+        Some(json!({"question_id": "planted"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
-    let (status, _) = call(&h.app, Method::POST, &again, Some(&room.session), Some(json!({"question_id": "planted"}))).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "the host session is not a create credential");
-    let (status, body) = call(&h.app, Method::POST, &again, Some(ORGANIZER), Some(json!({"question_id": "q3"}))).await;
+    let (status, _) = call(
+        &h.app,
+        Method::POST,
+        &again,
+        Some(&room.session),
+        Some(json!({"question_id": "planted"})),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the host session is not a create credential"
+    );
+    let (status, body) = call(
+        &h.app,
+        Method::POST,
+        &again,
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
-    assert_eq!(body["reason"], "That question has already been run. Pick another.");
-    let (status, _) = call(&h.app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": "q3"}))).await;
+    assert_eq!(
+        body["reason"],
+        "That question has already been run. Pick another."
+    );
+    let (status, _) = call(
+        &h.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT, "nor through plain creation");
 
-    let (status, created) = call(&h.app, Method::POST, &again, Some(ORGANIZER), Some(json!({"question_id": "planted"}))).await;
+    let (status, created) = call(
+        &h.app,
+        Method::POST,
+        &again,
+        Some(ORGANIZER),
+        Some(json!({"question_id": "planted"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     assert_ne!(created["id"], json!(room.id));
     assert_ne!(created["host_session"], json!(room.session));
     let new_room = created["id"].as_str().unwrap();
-    let (_, wall) = call(&h.app, Method::GET, &format!("/rooms/{new_room}/wall"), None, None).await;
+    let (_, wall) = call(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{new_room}/wall"),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(wall["phase"], "idle");
     // The old room is done: still released.
-    let (_, wall) = call(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
+    let (_, wall) = call(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/wall", room.id),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(wall["phase"], "released");
 }
 
@@ -238,49 +397,150 @@ fn the_rules_catch_a_planted_leak() {
     let mut reversed = bars([1, 0, 0, 0, 0]);
     reversed.as_array_mut().unwrap().reverse();
     let cases: Vec<(Surface, Phase, Value)> = vec![
-        (Surface::Buzzer, Phase::Live, json!({"phase": "live", "hint": {"text": p.hint}, "source": p.source})),
-        (Surface::Host, Phase::Live, json!({"phase": "live", "note": p.resolving})),
-        (Surface::Wall, Phase::Work, json!({"phase": "work", "colour": false, "why": p.why[1]})),
-        (Surface::Wall, Phase::Split, json!({"phase": "split", "x": p.correct})),
-        (Surface::Host, Phase::Idle, json!({"phase": "idle", "x": p.hint})),
-        (Surface::Wall, Phase::Reveal, json!({"phase": "reveal", "x": p.admin})),
-        (Surface::Wall, Phase::Work, json!({"phase": "work", "colour": false, "trace": {"at": 5}})),
-        (Surface::Wall, Phase::Work, json!({"phase": "work", "colour": true})),
-        (Surface::Buzzer, Phase::Reveal, json!({"phase": "reveal", "x": p.notes[0]})),
+        (
+            Surface::Buzzer,
+            Phase::Live,
+            json!({"phase": "live", "hint": {"text": p.hint}, "source": p.source}),
+        ),
+        (
+            Surface::Host,
+            Phase::Live,
+            json!({"phase": "live", "note": p.resolving}),
+        ),
+        (
+            Surface::Wall,
+            Phase::Work,
+            json!({"phase": "work", "colour": false, "why": p.why[1]}),
+        ),
+        (
+            Surface::Wall,
+            Phase::Split,
+            json!({"phase": "split", "x": p.correct}),
+        ),
+        (
+            Surface::Host,
+            Phase::Idle,
+            json!({"phase": "idle", "x": p.hint}),
+        ),
+        (
+            Surface::Wall,
+            Phase::Reveal,
+            json!({"phase": "reveal", "x": p.admin}),
+        ),
+        (
+            Surface::Wall,
+            Phase::Work,
+            json!({"phase": "work", "colour": false, "trace": {"at": 5}}),
+        ),
+        (
+            Surface::Wall,
+            Phase::Work,
+            json!({"phase": "work", "colour": true}),
+        ),
+        (
+            Surface::Buzzer,
+            Phase::Reveal,
+            json!({"phase": "reveal", "x": p.notes[0]}),
+        ),
         (Surface::Page, Phase::Idle, json!({"x": p.what})),
         // T-12: the no-release /last carrying a beat before the release.
         (Surface::TakeHome, Phase::Work, json!({"x": p.what})),
-        (Surface::Wall, Phase::Released, json!({"phase": "released", "x": p.source})),
-        (Surface::Wall, Phase::Closed, json!({"phase": "closed", "values": [{"name": "stdout", "now": "-"}]})),
+        (
+            Surface::Wall,
+            Phase::Released,
+            json!({"phase": "released", "x": p.source}),
+        ),
+        (
+            Surface::Wall,
+            Phase::Closed,
+            json!({"phase": "closed", "values": [{"name": "stdout", "now": "-"}]}),
+        ),
         // PQ-37, the mutation check: the phone's split planted in `live` (the
         // room's votes while answers are open), in `closed`, and after release…
-        (Surface::Buzzer, Phase::Live, json!({"phase": "live", "split": bars([1, 0, 0, 0, 0])})),
-        (Surface::Buzzer, Phase::Closed, json!({"phase": "closed", "split": bars([1, 0, 0, 0, 0])})),
-        (Surface::Buzzer, Phase::Released, json!({"phase": "released", "split": bars([1, 0, 0, 0, 0])})),
+        (
+            Surface::Buzzer,
+            Phase::Live,
+            json!({"phase": "live", "split": bars([1, 0, 0, 0, 0])}),
+        ),
+        (
+            Surface::Buzzer,
+            Phase::Closed,
+            json!({"phase": "closed", "split": bars([1, 0, 0, 0, 0])}),
+        ),
+        (
+            Surface::Buzzer,
+            Phase::Released,
+            json!({"phase": "released", "split": bars([1, 0, 0, 0, 0])}),
+        ),
         // …inside a join response in `live`…
-        (Surface::Buzzer, Phase::Live, json!({"token": "t", "buzzer": {"phase": "live", "split": bars([1, 0, 0, 0, 0])}})),
+        (
+            Surface::Buzzer,
+            Phase::Live,
+            json!({"token": "t", "buzzer": {"phase": "live", "split": bars([1, 0, 0, 0, 0])}}),
+        ),
         // …and, from the split on, an entry carrying more than letter, count
         // and percent, four bars, or bars out of order.
-        (Surface::Buzzer, Phase::Split, json!({"phase": "split", "split": [
+        (
+            Surface::Buzzer,
+            Phase::Split,
+            json!({"phase": "split", "split": [
             {"letter": "A", "count": 1, "percent": 100, "text": "x"},
             {"letter": "B", "count": 0, "percent": 0}, {"letter": "C", "count": 0, "percent": 0},
-            {"letter": "D", "count": 0, "percent": 0}, {"letter": "E", "count": 0, "percent": 0}]})),
-        (Surface::Buzzer, Phase::Work, json!({"phase": "work", "split": four})),
-        (Surface::Buzzer, Phase::Reveal, json!({"phase": "reveal", "split": reversed})),
+            {"letter": "D", "count": 0, "percent": 0}, {"letter": "E", "count": 0, "percent": 0}]}),
+        ),
+        (
+            Surface::Buzzer,
+            Phase::Work,
+            json!({"phase": "work", "split": four}),
+        ),
+        (
+            Surface::Buzzer,
+            Phase::Reveal,
+            json!({"phase": "reveal", "split": reversed}),
+        ),
     ];
     for (surface, phase, v) in cases {
         let caught = std::panic::catch_unwind(|| {
-            check(&mut Seen::default(), surface, phase, &v.to_string(), Some(&v), "self-test");
+            check(
+                &mut Seen::default(),
+                surface,
+                phase,
+                &v.to_string(),
+                Some(&v),
+                "self-test",
+            );
         });
-        assert!(caught.is_err(), "the rules let {v} through as {surface:?} in {phase:?}");
+        assert!(
+            caught.is_err(),
+            "the rules let {v} through as {surface:?} in {phase:?}"
+        );
     }
     // …and a clean live buzzer passes.
-    let clean = json!({"phase": "live", "hint": {"text": p.hint}, "letters": ["A", "B", "C", "D", "E"]});
-    check(&mut Seen::default(), Surface::Buzzer, Phase::Live, &clean.to_string(), Some(&clean), "self-test");
+    let clean =
+        json!({"phase": "live", "hint": {"text": p.hint}, "letters": ["A", "B", "C", "D", "E"]});
+    check(
+        &mut Seen::default(),
+        Surface::Buzzer,
+        Phase::Live,
+        &clean.to_string(),
+        Some(&clean),
+        "self-test",
+    );
     // …and a clean split, in each phase that may carry one.
-    for (phase, name) in [(Phase::Split, "split"), (Phase::Work, "work"), (Phase::Reveal, "reveal")] {
+    for (phase, name) in [
+        (Phase::Split, "split"),
+        (Phase::Work, "work"),
+        (Phase::Reveal, "reveal"),
+    ] {
         let clean = json!({"phase": name, "split": bars([2, 1, 0, 0, 1])});
-        check(&mut Seen::default(), Surface::Buzzer, phase, &clean.to_string(), Some(&clean), "self-test");
+        check(
+            &mut Seen::default(),
+            Surface::Buzzer,
+            phase,
+            &clean.to_string(),
+            Some(&clean),
+            "self-test",
+        );
     }
 }
 
@@ -304,16 +564,20 @@ fn bars(totals: [u32; 5]) -> Value {
 /// casts, not program output.
 #[tokio::test]
 async fn the_phone_and_the_wall_show_one_split() {
-    for totals in [[0, 0, 0, 0, 0], [5, 4, 3, 2, 1], [0, 0, 7, 0, 0], [1, 1, 1, 0, 0]] {
+    for totals in [
+        [0, 0, 0, 0, 0],
+        [5, 4, 3, 2, 1],
+        [0, 0, 7, 0, 0],
+        [1, 1, 1, 0, 0],
+    ] {
         let sessions = FakeSessions::default();
         *sessions.totals.lock().unwrap() = totals;
         let answered: u32 = totals.iter().sum();
         let state = Arc::new(
-            AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default())
-                .with_sessions({
-                    let s = sessions.clone();
-                    move || Box::new(s.clone())
-                }),
+            AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()).with_sessions({
+                let s = sessions.clone();
+                move || Box::new(s.clone())
+            }),
         );
         let app = room::router_with(state.clone());
         let room = create(&app, "q3").await;
@@ -321,25 +585,60 @@ async fn the_phone_and_the_wall_show_one_split() {
         for phase in Phase::ALL {
             if phase == Phase::Live {
                 state
-                    .set_live_counts(&room.id, room::rooms::LiveCounts { present: answered + 2, answered_live: answered })
+                    .set_live_counts(
+                        &room.id,
+                        room::rooms::LiveCounts {
+                            present: answered + 2,
+                            answered_live: answered,
+                        },
+                    )
                     .unwrap();
             }
-            let (_, wall) = call(&app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
-            let (_, buzzer) = call(&app, Method::GET, &format!("/rooms/{}/buzzer", room.id), None, None).await;
+            let (_, wall) = call(
+                &app,
+                Method::GET,
+                &format!("/rooms/{}/wall", room.id),
+                None,
+                None,
+            )
+            .await;
+            let (_, buzzer) = call(
+                &app,
+                Method::GET,
+                &format!("/rooms/{}/buzzer", room.id),
+                None,
+                None,
+            )
+            .await;
             assert_eq!(buzzer["phase"], wall["phase"]);
             let at = format!("{totals:?} in {}", phase_name(phase));
             match phase {
                 Phase::Split | Phase::Reveal => {
-                    assert_eq!(buzzer["split"], wall["split"]["bars"], "{at}: the phone's split is not the wall's");
-                    assert_eq!(buzzer["split"], bars(totals), "{at}: the bars are the votes cast");
+                    assert_eq!(
+                        buzzer["split"], wall["split"]["bars"],
+                        "{at}: the phone's split is not the wall's"
+                    );
+                    assert_eq!(
+                        buzzer["split"],
+                        bars(totals),
+                        "{at}: the bars are the votes cast"
+                    );
                     if let Some(s) = &at_split {
                         assert_eq!(&buzzer["split"], s, "{at}: the split moved after it froze");
                     }
                     at_split = Some(buzzer["split"].clone());
                 }
                 Phase::Work => {
-                    assert_eq!(wall.get("split"), None, "the wall shows the trace in work, not the bars");
-                    assert_eq!(Some(&buzzer["split"]), at_split.as_ref(), "{at}: the phone's split is not the one the wall showed");
+                    assert_eq!(
+                        wall.get("split"),
+                        None,
+                        "the wall shows the trace in work, not the bars"
+                    );
+                    assert_eq!(
+                        Some(&buzzer["split"]),
+                        at_split.as_ref(),
+                        "{at}: the phone's split is not the one the wall showed"
+                    );
                 }
                 _ => assert_eq!(buzzer.get("split"), None, "{at}: the phone carries a split"),
             }
@@ -356,12 +655,23 @@ async fn the_phone_and_the_wall_show_one_split() {
 async fn every_phase_every_surface_the_answer_stays_sealed_until_reveal() {
     // AC-32, AC-47, AC-48, AC-58, AC-60, AC-79, AC-97, G-3, G-4, G-8.
     let server = Server::start(Http::InProcess).await;
-    let e = walk_room(&server, Start::Question("canary"), Options { run_again_with: None, reconnect: false }).await;
+    let e = walk_room(
+        &server,
+        Start::Question("canary"),
+        Options {
+            run_again_with: None,
+            reconnect: false,
+        },
+    )
+    .await;
     assert_the_plants_arrived(&e);
     let p = plants();
     // The correct option is E, and at reveal the wall's final step prints it.
     assert_eq!(e.reveal_wall["reveal"]["correct"], "E");
-    assert!(e.seen.has(Surface::Wall, Phase::Reveal, &p.receipt), "the wall's receipt carries the planted run count");
+    assert!(
+        e.seen.has(Surface::Wall, Phase::Reveal, &p.receipt),
+        "the wall's receipt carries the planted run count"
+    );
     assert!(e.reveal_wall.to_string().contains(&p.correct));
     assert_eq!(e.reveal_buzzer["correct"], "E");
 }
@@ -371,13 +681,30 @@ async fn the_receipt_plant_stays_sealed_until_reveal_does_not_compile() {
     // The same walk on the does-not-compile twin: the receipt carries the
     // planted error code, and only from reveal (G-3, AC-60).
     let server = Server::start(Http::InProcess).await;
-    let e = walk_room(&server, Start::Question("canary-dnc"), Options { run_again_with: None, reconnect: false }).await;
+    let e = walk_room(
+        &server,
+        Start::Question("canary-dnc"),
+        Options {
+            run_again_with: None,
+            reconnect: false,
+        },
+    )
+    .await;
     assert_the_plants_arrived(&e);
     let p = plants();
     assert_eq!(e.reveal_wall["reveal"]["correct"], "D");
     let lines = &e.reveal_wall["reveal"]["receipt"]["lines"];
-    assert_eq!(lines, &json!(["✓ Compiler refused it", format!("✓ Error {}", p.error_code), "✓ Nothing ran"]));
-    assert!(e.seen.has(Surface::RenderedWall, Phase::Reveal, &p.error_code));
+    assert_eq!(
+        lines,
+        &json!([
+            "✓ Compiler refused it",
+            format!("✓ Error {}", p.error_code),
+            "✓ Nothing ran"
+        ])
+    );
+    assert!(e
+        .seen
+        .has(Surface::RenderedWall, Phase::Reveal, &p.error_code));
 }
 
 // --------------------------------------------------------------------------
@@ -390,11 +717,16 @@ async fn the_receipt_plant_stays_sealed_until_reveal_does_not_compile() {
 #[tokio::test]
 async fn the_admin_rule_catches_a_planted_token() {
     let p = plants();
-    let state = Arc::new(AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default()));
+    let state = Arc::new(AppState::new(
+        Arc::new(TestAuth),
+        Vec::new(),
+        Urls::default(),
+    ));
     let token = room::admin::AdminToken::from_var(Some(p.admin.clone())).unwrap();
     let leaky = room::router_with_admin(state, token).layer(axum::middleware::map_response(
         |mut r: axum::response::Response| async move {
-            r.headers_mut().insert("x-leak", plants().admin.parse().unwrap());
+            r.headers_mut()
+                .insert("x-leak", plants().admin.parse().unwrap());
             r
         },
     ));
@@ -409,16 +741,25 @@ async fn the_admin_rule_catches_a_planted_token() {
         let res = leaky.clone().oneshot(request(bearer)).await.unwrap();
         let seen = format!("{}\n{:?}", res.status(), res.headers());
         let caught = std::panic::catch_unwind(|| check_admin(&seen, "self-test: a leaky router"));
-        assert!(caught.is_err(), "check_admin let the planted token through: {seen}");
+        assert!(
+            caught.is_err(),
+            "check_admin let the planted token through: {seen}"
+        );
     }
     // …and the same request against the real router passes.
     let honest = room::router_with_admin(
-        Arc::new(AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default())),
+        Arc::new(AppState::new(
+            Arc::new(TestAuth),
+            Vec::new(),
+            Urls::default(),
+        )),
         room::admin::AdminToken::from_var(Some(p.admin.clone())).unwrap(),
     );
     let res = honest.oneshot(request(Some(&p.admin))).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
     check_admin(&String::from_utf8_lossy(&body), "the real router");
 }
 
@@ -432,13 +773,26 @@ async fn the_binary_logs_no_admin_token() {
     use std::process::{Command as Process, Stdio};
 
     let p = plants();
-    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
     let mut child = Process::new(env!("CARGO_BIN_EXE_room"))
         .env_clear()
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .env("PORT", port.to_string())
         // T-10: the four Discord variables, which every build needs.
-        .envs(room::config::DISCORD_VARS.iter().map(|v| (*v, if v.ends_with("SECRET") { "a-test-value" } else { "1234" })))
+        .envs(room::config::DISCORD_VARS.iter().map(|v| {
+            (
+                *v,
+                if v.ends_with("SECRET") {
+                    "a-test-value"
+                } else {
+                    "1234"
+                },
+            )
+        }))
         .env(room::admin::VAR, &p.admin)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -447,17 +801,42 @@ async fn the_binary_logs_no_admin_token() {
     let addr: std::net::SocketAddr = ([127, 0, 0, 1], port).into();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while tokio::net::TcpStream::connect(addr).await.is_err() {
-        assert!(std::time::Instant::now() < deadline, "the room binary never listened on {addr}");
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the room binary never listened on {addr}"
+        );
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
 
     let record = canary_question();
-    let pushed = tcp_request(addr, "PUT", "/admin/questions/canary", Some(&p.admin), Some(record.clone())).await;
-    assert_eq!(pushed.status, 201, "the right token schedules: {}", pushed.text());
+    let pushed = tcp_request(
+        addr,
+        "PUT",
+        "/admin/questions/canary",
+        Some(&p.admin),
+        Some(record.clone()),
+    )
+    .await;
+    assert_eq!(
+        pushed.status,
+        201,
+        "the right token schedules: {}",
+        pushed.text()
+    );
     for (method, uri, bearer, body) in [
-        ("PUT", "/admin/questions/canary", Some("not-the-admin-token"), Some(record.clone())),
+        (
+            "PUT",
+            "/admin/questions/canary",
+            Some("not-the-admin-token"),
+            Some(record.clone()),
+        ),
         ("GET", "/admin/used", None, None),
-        ("GET", "/admin/nothing-here", Some("not-the-admin-token"), None),
+        (
+            "GET",
+            "/admin/nothing-here",
+            Some("not-the-admin-token"),
+            None,
+        ),
     ] {
         let r = tcp_request(addr, method, uri, bearer, body).await;
         assert_eq!((r.status, r.body.len()), (401, 0), "{method} {uri}");
@@ -471,9 +850,22 @@ async fn the_binary_logs_no_admin_token() {
     child.kill().unwrap();
     child.wait().unwrap();
     let mut log = String::new();
-    child.stdout.take().unwrap().read_to_string(&mut log).unwrap();
-    child.stderr.take().unwrap().read_to_string(&mut log).unwrap();
-    assert!(log.contains("room listening"), "the scan read the binary's log: {log:?}");
+    child
+        .stdout
+        .take()
+        .unwrap()
+        .read_to_string(&mut log)
+        .unwrap();
+    child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut log)
+        .unwrap();
+    assert!(
+        log.contains("room listening"),
+        "the scan read the binary's log: {log:?}"
+    );
     check_admin(&log, "the room binary's stdout and stderr");
 
     // Without the token: no start, the variable named, no value echoed.
@@ -484,8 +876,15 @@ async fn the_binary_logs_no_admin_token() {
         .env(room::admin::VAR, "")
         .output()
         .unwrap();
-    assert_eq!(refused.status.code(), Some(2), "the room refuses to start without the token");
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "the room refuses to start without the token"
+    );
     let said = String::from_utf8_lossy(&refused.stderr);
-    assert!(said.contains(room::admin::VAR), "the refusal names the variable: {said}");
+    assert!(
+        said.contains(room::admin::VAR),
+        "the refusal names the variable: {said}"
+    );
     check_admin(&said, "the startup refusal");
 }

@@ -134,13 +134,22 @@ pub(super) fn buzzer_pages(mut router: Router<Arc<AppState>>) -> Router<Arc<AppS
             .into_response()
     }
     async fn buzzer_page() -> Response {
-        asset("text/html; charset=utf-8", include_str!("../../../../web/buzzer/index.html"))
+        asset(
+            "text/html; charset=utf-8",
+            include_str!("../../../../web/buzzer/index.html"),
+        )
     }
     async fn buzzer_js() -> Response {
-        asset("text/javascript; charset=utf-8", include_str!("../../../../web/buzzer/buzzer.js"))
+        asset(
+            "text/javascript; charset=utf-8",
+            include_str!("../../../../web/buzzer/buzzer.js"),
+        )
     }
     async fn buzzer_css() -> Response {
-        asset("text/css; charset=utf-8", include_str!("../../../../web/buzzer/buzzer.css"))
+        asset(
+            "text/css; charset=utf-8",
+            include_str!("../../../../web/buzzer/buzzer.css"),
+        )
     }
     // Only a well-formed room code redirects, so this never answers for a
     // path that is not one (`/host`, `/last`, …); those are 404 here.

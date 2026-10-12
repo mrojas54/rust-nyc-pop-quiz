@@ -60,12 +60,21 @@ async fn get_text(app: &Router, uri: &str) -> (StatusCode, String, String) {
         .get(header::CONTENT_TYPE)
         .map(|v| v.to_str().unwrap().to_string())
         .unwrap_or_default();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
     (status, ty, String::from_utf8(bytes.to_vec()).unwrap())
 }
 
 async fn create(app: &Router, question: &str) -> (String, String, String) {
-    let (status, created) = http(app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": question}))).await;
+    let (status, created) = http(
+        app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": question})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     (
         created["id"].as_str().unwrap().into(),
@@ -75,17 +84,26 @@ async fn create(app: &Router, question: &str) -> (String, String, String) {
 }
 
 async fn host_view(app: &Router, id: &str, session: &str) -> Value {
-    let (status, v) = http(app, Method::GET, &format!("/rooms/{id}/host"), Some(session), None).await;
+    let (status, v) = http(
+        app,
+        Method::GET,
+        &format!("/rooms/{id}/host"),
+        Some(session),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{v}");
     v
 }
 
 fn phase_of(v: &Value) -> Phase {
     let name = v["phase"].as_str().unwrap();
-    let i = ["idle", "live", "closed", "split", "work", "reveal", "released"]
-        .iter()
-        .position(|p| *p == name)
-        .unwrap();
+    let i = [
+        "idle", "live", "closed", "split", "work", "reveal", "released",
+    ]
+    .iter()
+    .position(|p| *p == name)
+    .unwrap();
     Phase::ALL[i]
 }
 
@@ -107,7 +125,11 @@ async fn the_pages_serve_and_everything_they_reference_serves() {
                 );
                 let (status, ty, _) = get_text(&app, target).await;
                 assert_eq!(status, StatusCode::OK, "{target}");
-                let want = if target.ends_with(".css") { "text/css" } else { "text/javascript" };
+                let want = if target.ends_with(".css") {
+                    "text/css"
+                } else {
+                    "text/javascript"
+                };
                 assert!(ty.starts_with(want), "{target}: {ty}");
                 refs += 1;
             }
@@ -128,16 +150,33 @@ async fn the_page_that_reads_a_credential_is_never_cached_or_referred() {
 
 /// The host's pre-reveal rules for one page or payload (G-3, AC-47).
 fn scan_pre_reveal(at: &str, text: &str) {
-    for plant in [PLANT_RESOLVING_NOTE, PLANT_WHAT, PLANT_TAKEAWAY, PLANT_MIDDLE_STDOUT, PLANT_HINT] {
+    for plant in [
+        PLANT_RESOLVING_NOTE,
+        PLANT_WHAT,
+        PLANT_TAKEAWAY,
+        PLANT_MIDDLE_STDOUT,
+        PLANT_HINT,
+    ] {
         assert!(!text.contains(plant), "{at}: carries {plant}");
     }
     for letter in ["A", "B", "C", "D", "E"] {
-        assert!(!text.contains(&plant_why(letter)), "{at}: carries why_tempting {letter}");
+        assert!(
+            !text.contains(&plant_why(letter)),
+            "{at}: carries why_tempting {letter}"
+        );
     }
     assert!(!text.contains('✓'), "{at}: carries a ✓");
     if let Ok(v) = serde_json::from_str::<Value>(text) {
         assert_eq!(stdout_rows(&v), 0, "{at}: a stdout row");
-        for key in ["correct", "read_aloud", "receipt", "reveal", "why_tempting", "explains", "mark"] {
+        for key in [
+            "correct",
+            "read_aloud",
+            "receipt",
+            "reveal",
+            "why_tempting",
+            "explains",
+            "mark",
+        ] {
             assert!(keys_named(&v, key).is_empty(), "{at}: has a {key:?} key");
         }
     }
@@ -153,7 +192,14 @@ async fn ac47_no_page_or_payload_the_host_sees_carries_the_answer_before_reveal(
     // beat has an incorrect option to name.
     let mut tokens = Vec::new();
     for _ in 0..3 {
-        let (status, joined) = http(&app, Method::POST, "/join", None, Some(json!({"code": code}))).await;
+        let (status, joined) = http(
+            &app,
+            Method::POST,
+            "/join",
+            None,
+            Some(json!({"code": code})),
+        )
+        .await;
         assert_eq!(status, StatusCode::CREATED, "{joined}");
         tokens.push(joined["token"].as_str().unwrap().to_string());
     }
@@ -167,7 +213,10 @@ async fn ac47_no_page_or_payload_the_host_sees_carries_the_answer_before_reveal(
         let (_, _, js) = get_text(&app, "/host/host.js").await;
         if phase == Phase::Reveal {
             let s = v.to_string();
-            assert!(s.contains(PLANT_WHAT) && s.contains(PLANT_TAKEAWAY), "reveal carries the script: {s}");
+            assert!(
+                s.contains(PLANT_WHAT) && s.contains(PLANT_TAKEAWAY),
+                "reveal carries the script: {s}"
+            );
             assert!(!keys_named(&v, "read_aloud").is_empty());
         } else {
             scan_pre_reveal(&at, &v.to_string());
@@ -181,8 +230,14 @@ async fn ac47_no_page_or_payload_the_host_sees_carries_the_answer_before_reveal(
 
         if phase == Phase::Live {
             for (t, letter) in tokens.iter().zip(["A", "B", "C"]) {
-                let (status, _) =
-                    http(&app, Method::PUT, &format!("/rooms/{id}/answer"), Some(t), Some(json!({"letter": letter}))).await;
+                let (status, _) = http(
+                    &app,
+                    Method::PUT,
+                    &format!("/rooms/{id}/answer"),
+                    Some(t),
+                    Some(json!({"letter": letter})),
+                )
+                .await;
                 assert_eq!(status, StatusCode::OK);
             }
         }
@@ -190,7 +245,14 @@ async fn ac47_no_page_or_payload_the_host_sees_carries_the_answer_before_reveal(
             break;
         }
         let slug = v["primary"]["action"].as_str().unwrap().to_string();
-        let (status, body) = http(&app, Method::POST, &format!("/rooms/{id}/{slug}"), Some(&session), None).await;
+        let (status, body) = http(
+            &app,
+            Method::POST,
+            &format!("/rooms/{id}/{slug}"),
+            Some(&session),
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK, "{slug}: {body}");
         acted = Some(body);
     }
@@ -205,7 +267,10 @@ async fn ac45_ac49_each_phase_offers_one_action_and_the_room_accepts_only_that_o
         let v = host_view(&app, &id, &session).await;
         let phase = phase_of(&v);
         assert_eq!(v["label"], phase.host_label(), "AC-49: the phase label");
-        assert!(v["code"].as_str().is_some_and(|c| c.len() == 6), "AC-49: the code");
+        assert!(
+            v["code"].as_str().is_some_and(|c| c.len() == 6),
+            "AC-49: the code"
+        );
         let primary = v["primary"]["action"].as_str().unwrap().to_string();
         assert_eq!(primary, phase.next_action().slug());
         seen.push(primary.clone());
@@ -216,27 +281,67 @@ async fn ac45_ac49_each_phase_offers_one_action_and_the_room_accepts_only_that_o
             if a.slug() == primary || matches!(a, HostAction::CreateRoom | HostAction::RunItAgain) {
                 continue;
             }
-            let (status, _) = http(&app, Method::POST, &format!("/rooms/{id}/{}", a.slug()), Some(&session), None).await;
+            let (status, _) = http(
+                &app,
+                Method::POST,
+                &format!("/rooms/{id}/{}", a.slug()),
+                Some(&session),
+                None,
+            )
+            .await;
             assert_eq!(status, StatusCode::CONFLICT, "{} in {phase:?}", a.slug());
         }
-        assert_eq!(phase_of(&host_view(&app, &id, &session).await), phase, "a refusal moved the room");
+        assert_eq!(
+            phase_of(&host_view(&app, &id, &session).await),
+            phase,
+            "a refusal moved the room"
+        );
 
         if phase == Phase::Released {
             // *Run it again* is a new room, on the organizer's credential and
             // a question not yet run; the host session alone cannot do it.
-            let (status, _) = http(&app, Method::POST, &format!("/rooms/{id}/run-it-again"), Some(&session), Some(json!({"question_id": "q3"}))).await;
+            let (status, _) = http(
+                &app,
+                Method::POST,
+                &format!("/rooms/{id}/run-it-again"),
+                Some(&session),
+                Some(json!({"question_id": "q3"})),
+            )
+            .await;
             assert_eq!(status, StatusCode::UNAUTHORIZED);
-            let (status, again) = http(&app, Method::POST, &format!("/rooms/{id}/run-it-again"), Some(ORGANIZER), Some(json!({"question_id": "q3"}))).await;
+            let (status, again) = http(
+                &app,
+                Method::POST,
+                &format!("/rooms/{id}/run-it-again"),
+                Some(ORGANIZER),
+                Some(json!({"question_id": "q3"})),
+            )
+            .await;
             assert_eq!(status, StatusCode::CREATED, "{again}");
             assert_ne!(again["id"], json!(id));
             break;
         }
-        let (status, _) = http(&app, Method::POST, &format!("/rooms/{id}/{primary}"), Some(&session), None).await;
+        let (status, _) = http(
+            &app,
+            Method::POST,
+            &format!("/rooms/{id}/{primary}"),
+            Some(&session),
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK, "{primary} in {phase:?}");
     }
     assert_eq!(
         seen,
-        ["put-on-screen", "close-answers", "show-split", "walk-it", "reveal", "release", "run-it-again"]
+        [
+            "put-on-screen",
+            "close-answers",
+            "show-split",
+            "walk-it",
+            "reveal",
+            "release",
+            "run-it-again"
+        ]
     );
 }
 
@@ -285,7 +390,14 @@ async fn ac50_the_resume_link_attaches_a_second_device_and_both_control_the_room
         assert_eq!(live.act(&room, slug).await, StatusCode::OK, "{slug}");
     }
     until(&mut two, |f| f["phase"] == "released").await;
-    let (status, _) = live.call(Method::GET, &format!("/rooms/{}/host", room.id), Some(&room.host), None).await;
+    let (status, _) = live
+        .call(
+            Method::GET,
+            &format!("/rooms/{}/host", room.id),
+            Some(&room.host),
+            None,
+        )
+        .await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -293,7 +405,14 @@ async fn ac50_the_resume_link_attaches_a_second_device_and_both_control_the_room
 async fn ac46_the_host_socket_counts_move_while_live() {
     let live = Live::start().await;
     let room = live.create().await;
-    let (_, created) = live.call(Method::GET, &format!("/rooms/{}/host", room.id), Some(&room.host), None).await;
+    let (_, created) = live
+        .call(
+            Method::GET,
+            &format!("/rooms/{}/host", room.id),
+            Some(&room.host),
+            None,
+        )
+        .await;
     let code = created["code"].as_str().unwrap().to_string();
     let mut host = live.open(&room, "host", Some(&room.host)).await;
     frame(&mut host, WAIT).await;
@@ -303,17 +422,29 @@ async fn ac46_the_host_socket_counts_move_while_live() {
 
     let mut tokens = Vec::new();
     for _ in 0..2 {
-        let (status, joined) = live.call(Method::POST, "/join", None, Some(json!({"code": code}))).await;
+        let (status, joined) = live
+            .call(Method::POST, "/join", None, Some(json!({"code": code})))
+            .await;
         assert_eq!(status, StatusCode::CREATED, "{joined}");
         tokens.push(joined["token"].as_str().unwrap().to_string());
     }
     let (status, _) = live
-        .call(Method::PUT, &format!("/rooms/{}/answer", room.id), Some(&tokens[0]), Some(json!({"letter": "A"})))
+        .call(
+            Method::PUT,
+            &format!("/rooms/{}/answer", room.id),
+            Some(&tokens[0]),
+            Some(json!({"letter": "A"})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     until(&mut host, |f| f["present"] == 2 && f["answered"] == 1).await;
     let (status, _) = live
-        .call(Method::PUT, &format!("/rooms/{}/answer", room.id), Some(&tokens[1]), Some(json!({"letter": "B"})))
+        .call(
+            Method::PUT,
+            &format!("/rooms/{}/answer", room.id),
+            Some(&tokens[1]),
+            Some(json!({"letter": "B"})),
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     until(&mut host, |f| f["present"] == 2 && f["answered"] == 2).await;

@@ -238,7 +238,11 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
             "phase": room.phase.as_str(),
             "capacity": state.capacity,
         });
-        if socket.send(Message::Text(hello.to_string().into())).await.is_err() {
+        if socket
+            .send(Message::Text(hello.to_string().into()))
+            .await
+            .is_err()
+        {
             return;
         }
     }
@@ -394,8 +398,10 @@ async fn handle_frame(
                     // Clamped: unbounded, one frame asking for gigabytes would
                     // take the 256 MB machine down mid-run, and the run would
                     // look like a server that could not take the load.
-                    let pad_len = (frame.get("pad_bytes").and_then(Value::as_u64).unwrap_or(2048)
-                        as usize)
+                    let pad_len = (frame
+                        .get("pad_bytes")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(2048) as usize)
                         .min(MAX_PAD_BYTES);
                     let payload = json!({
                         "t": "reveal",

@@ -40,7 +40,9 @@ pub const SPEND_BANK_FLAG: &str = "--spend-bank-question";
 /// A harness id: q3's record scheduled under a name no bank question has
 /// (`burst-q3`, `smoke-q3`), so releasing it retires nothing.
 pub fn is_harness_id(id: &str) -> bool {
-    ["burst-", "smoke-"].iter().any(|p| id.len() > p.len() && id.starts_with(p))
+    ["burst-", "smoke-"]
+        .iter()
+        .any(|p| id.len() > p.len() && id.starts_with(p))
 }
 
 /// Refuse a bank question off loopback unless [`SPEND_BANK_FLAG`] was given.
@@ -96,18 +98,26 @@ impl Target {
         } else if let Some(r) = url.strip_prefix("http://") {
             (false, r)
         } else {
-            return Err(format!("{url:?}: the URL must start with http:// or https://"));
+            return Err(format!(
+                "{url:?}: the URL must start with http:// or https://"
+            ));
         };
         if rest.is_empty() || rest.contains(['/', '?', '#', '@']) {
             return Err(format!("{url:?}: give the room's scheme and host only"));
         }
         let (host, port) = match rest.rsplit_once(':') {
-            Some((h, p)) if !h.ends_with(']') || rest.starts_with('[') => {
-                (h.to_string(), p.parse().map_err(|_| format!("{url:?}: bad port"))?)
-            }
+            Some((h, p)) if !h.ends_with(']') || rest.starts_with('[') => (
+                h.to_string(),
+                p.parse().map_err(|_| format!("{url:?}: bad port"))?,
+            ),
             _ => (rest.to_string(), if tls { 443 } else { 80 }),
         };
-        let target = Target { tls, host, port, base: url.to_string() };
+        let target = Target {
+            tls,
+            host,
+            port,
+            base: url.to_string(),
+        };
         // The organizer session rides every host request: never in cleartext
         // across a network. Plain http stays for a room on this machine.
         if !tls && !target.is_loopback() {
@@ -124,7 +134,12 @@ impl Target {
     }
 
     pub fn ws_url(&self, path: &str) -> String {
-        format!("{}://{}:{}{path}", if self.tls { "wss" } else { "ws" }, self.host, self.port)
+        format!(
+            "{}://{}:{}{path}",
+            if self.tls { "wss" } else { "ws" },
+            self.host,
+            self.port
+        )
     }
 
     pub fn connect_host(&self) -> &str {
@@ -135,7 +150,9 @@ impl Target {
     /// the harness, and its numbers are never the deployed substrate's.
     pub fn is_loopback(&self) -> bool {
         let h = self.connect_host();
-        h == "localhost" || h.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+        h == "localhost"
+            || h.parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
     }
 
     /// The TLS client for an `https` target (rustls with ring, Mozilla's
@@ -143,8 +160,11 @@ impl Target {
     pub fn tls_connector(&self) -> Option<tokio_rustls::TlsConnector> {
         let _ = rustls::crypto::ring::default_provider().install_default();
         self.tls.then(|| {
-            let roots = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-            let mut config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+            let roots =
+                rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+            let mut config = rustls::ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth();
             config.alpn_protocols = vec![b"http/1.1".to_vec()];
             tokio_rustls::TlsConnector::from(Arc::new(config))
         })
@@ -206,7 +226,13 @@ impl Http {
                     .map_err(|e| format!("{}: {e}", t.host))?;
                 let tls = tokio::time::timeout(CONNECT_TIMEOUT, connector.connect(name, tcp))
                     .await
-                    .map_err(|_| format!("TLS to {}: no handshake within {}s", t.host, CONNECT_TIMEOUT.as_secs()))?;
+                    .map_err(|_| {
+                        format!(
+                            "TLS to {}: no handshake within {}s",
+                            t.host,
+                            CONNECT_TIMEOUT.as_secs()
+                        )
+                    })?;
                 Box::new(tls.map_err(|e| format!("TLS to {}: {e}", t.host))?)
             }
         };
@@ -218,13 +244,27 @@ impl Http {
         self.conn.is_some()
     }
 
-    pub async fn call(&mut self, method: &str, path: &str, bearer: Option<&str>, body: Option<&Value>) -> Result<Resp, String> {
+    pub async fn call(
+        &mut self,
+        method: &str,
+        path: &str,
+        bearer: Option<&str>,
+        body: Option<&Value>,
+    ) -> Result<Resp, String> {
         if self.conn.is_none() {
             self.open().await?;
         }
-        let result = match tokio::time::timeout(self.read_timeout, self.exchange(method, path, bearer, body)).await {
+        let result = match tokio::time::timeout(
+            self.read_timeout,
+            self.exchange(method, path, bearer, body),
+        )
+        .await
+        {
             Ok(r) => r,
-            Err(_) => Err(format!("no response within {}s", self.read_timeout.as_secs_f64())),
+            Err(_) => Err(format!(
+                "no response within {}s",
+                self.read_timeout.as_secs_f64()
+            )),
         };
         if result.is_err() {
             self.conn = None;
@@ -232,7 +272,13 @@ impl Http {
         result.map_err(|e| format!("{method} {path}: {e}"))
     }
 
-    async fn exchange(&mut self, method: &str, path: &str, bearer: Option<&str>, body: Option<&Value>) -> Result<Resp, String> {
+    async fn exchange(
+        &mut self,
+        method: &str,
+        path: &str,
+        bearer: Option<&str>,
+        body: Option<&Value>,
+    ) -> Result<Resp, String> {
         let mut req = format!(
             "{method} {path} HTTP/1.1\r\nHost: {}\r\nUser-Agent: popquiz-harness\r\nAccept: */*\r\n",
             self.target.host_header()
@@ -251,7 +297,10 @@ impl Http {
         req.push_str(&payload);
 
         let conn = self.conn.as_mut().expect("opened");
-        conn.get_mut().write_all(req.as_bytes()).await.map_err(|e| e.to_string())?;
+        conn.get_mut()
+            .write_all(req.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
         conn.get_mut().flush().await.map_err(|e| e.to_string())?;
 
         let mut line = String::new();
@@ -284,12 +333,19 @@ impl Http {
         } else if let Some(n) = headers.get("content-length") {
             let n: usize = n.parse().map_err(|_| format!("bad content-length {n:?}"))?;
             body.resize(n, 0);
-            conn.read_exact(&mut body).await.map_err(|e| e.to_string())?;
+            conn.read_exact(&mut body)
+                .await
+                .map_err(|e| e.to_string())?;
         } else if !(status == 204 || status == 304 || (100..200).contains(&status)) {
-            conn.read_to_end(&mut body).await.map_err(|e| e.to_string())?;
+            conn.read_to_end(&mut body)
+                .await
+                .map_err(|e| e.to_string())?;
             self.conn = None;
         }
-        if headers.get("connection").is_some_and(|v| v.eq_ignore_ascii_case("close")) {
+        if headers
+            .get("connection")
+            .is_some_and(|v| v.eq_ignore_ascii_case("close"))
+        {
             self.conn = None;
         }
         Ok(Resp {
@@ -302,33 +358,51 @@ impl Http {
 
 /// A TCP connection to the target, under [`CONNECT_TIMEOUT`], with Nagle off.
 async fn connect(t: &Target) -> Result<TcpStream, String> {
-    let tcp = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect((t.connect_host(), t.port)))
-        .await
-        .map_err(|_| format!("connect {}:{}: timed out after {}s", t.host, t.port, CONNECT_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("connect {}:{}: {e}", t.host, t.port))?;
+    let tcp = tokio::time::timeout(
+        CONNECT_TIMEOUT,
+        TcpStream::connect((t.connect_host(), t.port)),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "connect {}:{}: timed out after {}s",
+            t.host,
+            t.port,
+            CONNECT_TIMEOUT.as_secs()
+        )
+    })?
+    .map_err(|e| format!("connect {}:{}: {e}", t.host, t.port))?;
     tcp.set_nodelay(true).map_err(|e| e.to_string())?;
     Ok(tcp)
 }
 
-pub async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u8>) -> Result<(), String> {
+pub async fn read_chunked<R: AsyncBufReadExt + Unpin>(
+    r: &mut R,
+    out: &mut Vec<u8>,
+) -> Result<(), String> {
     let mut line = String::new();
     loop {
         line.clear();
         r.read_line(&mut line).await.map_err(|e| e.to_string())?;
         let size_hex = line.trim().split(';').next().unwrap_or("");
-        let size = usize::from_str_radix(size_hex, 16).map_err(|_| format!("bad chunk size {line:?}"))?;
+        let size =
+            usize::from_str_radix(size_hex, 16).map_err(|_| format!("bad chunk size {line:?}"))?;
         if size == 0 {
             // Trailers, if any, end at a blank line.
             loop {
                 line.clear();
-                if r.read_line(&mut line).await.map_err(|e| e.to_string())? == 0 || line.trim().is_empty() {
+                if r.read_line(&mut line).await.map_err(|e| e.to_string())? == 0
+                    || line.trim().is_empty()
+                {
                     return Ok(());
                 }
             }
         }
         let start = out.len();
         out.resize(start + size, 0);
-        r.read_exact(&mut out[start..]).await.map_err(|e| e.to_string())?;
+        r.read_exact(&mut out[start..])
+            .await
+            .map_err(|e| e.to_string())?;
         let mut crlf = [0u8; 2];
         r.read_exact(&mut crlf).await.map_err(|e| e.to_string())?;
     }
@@ -337,7 +411,10 @@ pub async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u
 /// Wait for the room to answer `GET /join`. The first request also waits out
 /// a stopped machine's start (Fly starts it on the first request after a
 /// stop or a deploy).
-pub async fn wait_for_room(target: &Arc<Target>, tls: &Option<tokio_rustls::TlsConnector>) -> Result<(), String> {
+pub async fn wait_for_room(
+    target: &Arc<Target>,
+    tls: &Option<tokio_rustls::TlsConnector>,
+) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
         let mut http = Http::new(target, tls);
@@ -393,17 +470,26 @@ impl Drop for Watcher {
 }
 
 pub async fn open_ws(target: &Target, path: &str, attach: Option<&str>) -> Result<Ws, String> {
-    let tcp = connect(target).await.map_err(|e| format!("{e} (for {path})"))?;
+    let tcp = connect(target)
+        .await
+        .map_err(|e| format!("{e} (for {path})"))?;
     let (mut ws, _) = tokio::time::timeout(
         CONNECT_TIMEOUT,
         tokio_tungstenite::client_async_tls_with_config(target.ws_url(path), tcp, None, None),
     )
     .await
-    .map_err(|_| format!("socket {path}: no upgrade within {}s", CONNECT_TIMEOUT.as_secs()))?
+    .map_err(|_| {
+        format!(
+            "socket {path}: no upgrade within {}s",
+            CONNECT_TIMEOUT.as_secs()
+        )
+    })?
     .map_err(|e| format!("socket {path}: {e}"))?;
     if let Some(token) = attach {
         let msg = json!({ "t": "attach", "token": token }).to_string();
-        ws.send(Message::Text(msg.into())).await.map_err(|e| format!("attach {path}: {e}"))?;
+        ws.send(Message::Text(msg.into()))
+            .await
+            .map_err(|e| format!("attach {path}: {e}"))?;
     }
     Ok(ws)
 }
@@ -441,7 +527,11 @@ pub fn watch(mut ws: Ws, on_frame: Option<OnFrame>) -> Watcher {
 }
 
 /// Wait until every watcher has seen `phase`; the arrival instants, in order.
-pub async fn all_reach(watchers: &[&Watcher], phase: &str, wait: Duration) -> Result<Vec<Instant>, String> {
+pub async fn all_reach(
+    watchers: &[&Watcher],
+    phase: &str,
+    wait: Duration,
+) -> Result<Vec<Instant>, String> {
     let deadline = Instant::now() + wait;
     loop {
         let arrived: Vec<Option<Instant>> = watchers.iter().map(|w| w.arrived(phase)).collect();
@@ -450,7 +540,10 @@ pub async fn all_reach(watchers: &[&Watcher], phase: &str, wait: Duration) -> Re
         }
         if Instant::now() > deadline {
             let missing = arrived.iter().filter(|a| a.is_none()).count();
-            let closed = watchers.iter().filter(|w| w.seen.lock().unwrap().closed).count();
+            let closed = watchers
+                .iter()
+                .filter(|w| w.seen.lock().unwrap().closed)
+                .count();
             return Err(format!(
                 "{missing} of {} sockets never saw `{phase}` within {}s ({closed} closed)",
                 watchers.len(),
@@ -469,7 +562,8 @@ pub fn explain(e: &str) -> String {
     // Connection-level failures, a socket that stopped hearing the room, or a
     // host action on the room answered 404. Not a create's 404 or 409: those
     // are the question or the session, and say so themselves.
-    let connection = e.contains("closed before a response") || e.contains("connect ") || e.contains("never saw");
+    let connection =
+        e.contains("closed before a response") || e.contains("connect ") || e.contains("never saw");
     let room_404 = e.contains(": 404") && !e.starts_with("create");
     let gone = connection || room_404;
     if gone {
@@ -510,18 +604,40 @@ mod tests {
     #[test]
     fn targets() {
         let t = Target::parse("https://rustnyc-popquiz.fly.dev/").unwrap();
-        assert_eq!((t.tls, t.host.as_str(), t.port, t.base.as_str()), (true, "rustnyc-popquiz.fly.dev", 443, "https://rustnyc-popquiz.fly.dev"));
+        assert_eq!(
+            (t.tls, t.host.as_str(), t.port, t.base.as_str()),
+            (
+                true,
+                "rustnyc-popquiz.fly.dev",
+                443,
+                "https://rustnyc-popquiz.fly.dev"
+            )
+        );
         assert_eq!(t.host_header(), "rustnyc-popquiz.fly.dev");
-        assert_eq!(t.ws_url("/rooms/a/ws/wall"), "wss://rustnyc-popquiz.fly.dev:443/rooms/a/ws/wall");
+        assert_eq!(
+            t.ws_url("/rooms/a/ws/wall"),
+            "wss://rustnyc-popquiz.fly.dev:443/rooms/a/ws/wall"
+        );
         assert!(!t.is_loopback());
         let t = Target::parse("http://127.0.0.1:3000").unwrap();
-        assert_eq!((t.tls, t.port, t.host_header().as_str()), (false, 3000, "127.0.0.1:3000"));
+        assert_eq!(
+            (t.tls, t.port, t.host_header().as_str()),
+            (false, 3000, "127.0.0.1:3000")
+        );
         assert!(t.is_loopback());
-        assert!(Target::parse("http://localhost:8080").unwrap().is_loopback());
+        assert!(Target::parse("http://localhost:8080")
+            .unwrap()
+            .is_loopback());
         let t = Target::parse("http://[::1]:8080").unwrap();
         assert_eq!(t.connect_host(), "::1");
         assert!(t.is_loopback());
-        for bad in ["x.fly.dev", "https://x.fly.dev/path", "https://", "ws://x", "http://h:port"] {
+        for bad in [
+            "x.fly.dev",
+            "https://x.fly.dev/path",
+            "https://",
+            "ws://x",
+            "http://h:port",
+        ] {
             assert!(Target::parse(bad).is_err(), "{bad:?}");
         }
     }

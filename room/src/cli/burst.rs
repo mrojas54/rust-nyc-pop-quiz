@@ -59,7 +59,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde_json::{json, Value};
 
 use client::{
-    all_reach, create_refused, explain, millis, open_ws, question_allowed, wait_for_room, watch, Http, Target, Watcher, LETTERS, MAX_PARTICIPANTS,
+    all_reach, create_refused, explain, millis, open_ws, question_allowed, wait_for_room, watch,
+    Http, Target, Watcher, LETTERS, MAX_PARTICIPANTS,
 };
 use numbers::{Cycle, Exit, Measured};
 
@@ -158,7 +159,9 @@ pub fn parse_args(argv: &[String]) -> Result<Args, String> {
     let mut a = Args::default();
     let mut it = argv.iter();
     let num = |flag: &str, v: Option<&String>| -> Result<u64, String> {
-        v.ok_or(format!("{flag} needs a value"))?.parse().map_err(|_| format!("{flag} wants a number"))
+        v.ok_or(format!("{flag} needs a value"))?
+            .parse()
+            .map_err(|_| format!("{flag} wants a number"))
     };
     while let Some(flag) = it.next() {
         match flag.as_str() {
@@ -169,7 +172,13 @@ pub fn parse_args(argv: &[String]) -> Result<Args, String> {
                     return Err(format!("--participants must be 1 to {MAX_PARTICIPANTS}"));
                 }
             }
-            "--question" => a.question = it.next().filter(|q| !q.is_empty()).ok_or("--question needs an id")?.clone(),
+            "--question" => {
+                a.question = it
+                    .next()
+                    .filter(|q| !q.is_empty())
+                    .ok_or("--question needs an id")?
+                    .clone()
+            }
             "--seed" => a.seed = num(flag, it.next())?,
             "--out" => a.out = Some(it.next().ok_or("--out needs a path")?.clone()),
             "--cycles" => a.cycles = num(flag, it.next())? as usize,
@@ -183,7 +192,11 @@ pub fn parse_args(argv: &[String]) -> Result<Args, String> {
                     Some("uniform") => vec![Shape::Uniform],
                     Some("spike") => vec![Shape::Spike],
                     Some("both") => vec![Shape::Uniform, Shape::Spike],
-                    other => return Err(format!("--burst-shape wants uniform, spike or both, not {other:?}")),
+                    other => {
+                        return Err(format!(
+                            "--burst-shape wants uniform, spike or both, not {other:?}"
+                        ))
+                    }
                 }
             }
             "-h" | "--help" => return Err(USAGE.into()),
@@ -294,7 +307,12 @@ fn harness_side(e: &str) -> bool {
 /// (their connections kept open), every answered write, the harness errors
 /// (a write that could not reach the room), and the writes the room never
 /// answered.
-async fn write_stage(people: Vec<Person>, plans: Vec<Plan>, start: Instant, room: &str) -> (Vec<Person>, Vec<Wrote>, Vec<String>, Unanswered) {
+async fn write_stage(
+    people: Vec<Person>,
+    plans: Vec<Plan>,
+    start: Instant,
+    room: &str,
+) -> (Vec<Person>, Vec<Wrote>, Vec<String>, Unanswered) {
     let tasks = people.into_iter().zip(plans).map(|(mut p, plan)| {
         let path = format!("/rooms/{room}/answer");
         tokio::spawn(async move {
@@ -305,7 +323,15 @@ async fn write_stage(people: Vec<Person>, plans: Vec<Plan>, start: Instant, room
                 let at = start + offset;
                 tokio::time::sleep_until(at.into()).await;
                 let sent = Instant::now();
-                let r = p.http.call("PUT", &path, Some(&p.token), Some(&json!({ "letter": LETTERS[l] }))).await;
+                let r = p
+                    .http
+                    .call(
+                        "PUT",
+                        &path,
+                        Some(&p.token),
+                        Some(&json!({ "letter": LETTERS[l] })),
+                    )
+                    .await;
                 let took = sent.elapsed();
                 match r {
                     Ok(r) => {
@@ -313,7 +339,12 @@ async fn write_stage(people: Vec<Person>, plans: Vec<Plan>, start: Instant, room
                         if acked {
                             p.saved = Some(l);
                         }
-                        wrote.push(Wrote { offset, ms: millis(took), lag_ms: millis(sent.saturating_duration_since(at)), acked });
+                        wrote.push(Wrote {
+                            offset,
+                            ms: millis(took),
+                            lag_ms: millis(sent.saturating_duration_since(at)),
+                            acked,
+                        });
                     }
                     Err(e) if harness_side(&e) => errors.push(e),
                     Err(e) => {
@@ -367,12 +398,22 @@ fn ulimit_nofile() -> u64 {
 }
 
 fn now_unix_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// A host action; `Err` unless the room answered `200`.
 async fn act(host: &mut Http, room: &str, session: &str, slug: &str) -> Result<Value, String> {
-    let r = host.call("POST", &format!("/rooms/{room}/{slug}"), Some(session), None).await?;
+    let r = host
+        .call(
+            "POST",
+            &format!("/rooms/{room}/{slug}"),
+            Some(session),
+            None,
+        )
+        .await?;
     let body = r.json();
     if r.status != 200 {
         return Err(format!("{slug}: {} {body}", r.status));
@@ -416,7 +457,11 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
     match args.connection_cap {
         Some(cap) => eprintln!(
             "· expected peak connections {peak} vs cap {cap}{}",
-            if peak as u64 > cap { " — OVER: the proxy would refuse some participants; this run cannot be a result for AC-53" } else { "" }
+            if peak as u64 > cap {
+                " — OVER: the proxy would refuse some participants; this run cannot be a result for AC-53"
+            } else {
+                ""
+            }
         ),
         None => eprintln!("· expected peak connections {peak} (loopback: no proxy cap)"),
     }
@@ -426,7 +471,14 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
 
     eprintln!("· Create a room on {}", args.question);
     let mut host_http = Http::new(&target, &tls);
-    let r = host_http.call("POST", "/rooms", Some(token), Some(&json!({ "question_id": args.question }))).await?;
+    let r = host_http
+        .call(
+            "POST",
+            "/rooms",
+            Some(token),
+            Some(&json!({ "question_id": args.question })),
+        )
+        .await?;
     let created = r.json();
     match r.status {
         201 => {}
@@ -435,12 +487,23 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
         409 => return Err(create_refused(created["reason"].as_str().unwrap_or_default(), &args.question)),
         s => return Err(format!("create: {s} {created}")),
     }
-    let field = |k: &str| created[k].as_str().map(str::to_string).ok_or(format!("create: no {k} in the response"));
+    let field = |k: &str| {
+        created[k]
+            .as_str()
+            .map(str::to_string)
+            .ok_or(format!("create: no {k} in the response"))
+    };
     let (room, code, session) = (field("id")?, field("code")?, field("host_session")?);
     m.room_id = room.clone();
 
-    let wall = watch(open_ws(&target, &format!("/rooms/{room}/ws/wall"), None).await?, None);
-    let host = watch(open_ws(&target, &format!("/rooms/{room}/ws/host"), Some(&session)).await?, None);
+    let wall = watch(
+        open_ws(&target, &format!("/rooms/{room}/ws/wall"), None).await?,
+        None,
+    );
+    let host = watch(
+        open_ws(&target, &format!("/rooms/{room}/ws/host"), Some(&session)).await?,
+        None,
+    );
 
     eprintln!("· {n} participants join and attach");
     let joins = (0..n).map(|_| {
@@ -451,7 +514,9 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
             http.open().await?;
             let connect = millis(t.elapsed());
             let t = Instant::now();
-            let r = http.call("POST", "/join", None, Some(&json!({ "code": code }))).await?;
+            let r = http
+                .call("POST", "/join", None, Some(&json!({ "code": code })))
+                .await?;
             let join = millis(t.elapsed());
             let body = r.json();
             if r.status != 201 || body["room_id"] != room.as_str() {
@@ -459,7 +524,16 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
             }
             let token = body["token"].as_str().ok_or("join: no token")?.to_string();
             let ws = open_ws(&target, &format!("/rooms/{room}/ws/buzzer"), Some(&token)).await?;
-            Ok::<_, String>((Person { http, token, watcher: watch(ws, None), saved: None }, connect, join))
+            Ok::<_, String>((
+                Person {
+                    http,
+                    token,
+                    watcher: watch(ws, None),
+                    saved: None,
+                },
+                connect,
+                join,
+            ))
         })
     });
     let mut people = Vec::with_capacity(n);
@@ -475,7 +549,10 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
     }
     m.connected = people.len();
     if people.is_empty() {
-        return Err(format!("no participant could join: {}", m.errors.first().cloned().unwrap_or_default()));
+        return Err(format!(
+            "no participant could join: {}",
+            m.errors.first().cloned().unwrap_or_default()
+        ));
     }
     all_reach(&everyone(&wall, &host, &people), "idle", WAIT).await?;
 
@@ -492,7 +569,18 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
             stage += 1;
             eprintln!("· isolated burst: {} #{index}", shape.as_str());
             let plans: Vec<Plan> = (0..people.len())
-                .map(|who| vec![(Duration::from_millis(burst_offset_ms(seed, stage, who, shape, args.window_ms)), letter(seed, stage, who))])
+                .map(|who| {
+                    vec![(
+                        Duration::from_millis(burst_offset_ms(
+                            seed,
+                            stage,
+                            who,
+                            shape,
+                            args.window_ms,
+                        )),
+                        letter(seed, stage, who),
+                    )]
+                })
                 .collect();
             let start = Instant::now() + Duration::from_millis(200);
             let (back, wrote, errors, unanswered) = write_stage(people, plans, start, &room).await;
@@ -535,7 +623,10 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
                 plan.push((Duration::from_millis(at), letter(seed, stage, who)));
             }
             let off = burst_offset_ms(seed, deadline_stage, who, Shape::Uniform, args.window_ms);
-            plan.push((churn + gap + Duration::from_millis(off), letter(seed, deadline_stage, who)));
+            plan.push((
+                churn + gap + Duration::from_millis(off),
+                letter(seed, deadline_stage, who),
+            ));
             plan
         })
         .collect();
@@ -551,9 +642,14 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
     // churn write before it.
     let boundary = churn + gap;
     m.unanswered_writes += unanswered.offsets.len();
-    m.unanswered_deadline = unanswered.offsets.iter().filter(|o| **o >= boundary).count();
+    m.unanswered_deadline = unanswered
+        .offsets
+        .iter()
+        .filter(|o| **o >= boundary)
+        .count();
     m.unanswered_first.extend(unanswered.errors);
-    let (deadline, churned): (Vec<&Wrote>, Vec<&Wrote>) = wrote.iter().partition(|w| w.offset >= boundary);
+    let (deadline, churned): (Vec<&Wrote>, Vec<&Wrote>) =
+        wrote.iter().partition(|w| w.offset >= boundary);
     let churn_ms: Vec<f64> = churned.iter().map(|w| w.ms).collect();
     let deadline_ms: Vec<f64> = deadline.iter().map(|w| w.ms).collect();
     m.churn_ms = churn_ms;
@@ -574,7 +670,15 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
         let path = format!("/rooms/{room}/answer");
         tokio::spawn(async move {
             let other = LETTERS[(p.saved.unwrap_or(0) + 1) % 5];
-            let r = p.http.call("PUT", &path, Some(&p.token), Some(&json!({ "letter": other }))).await;
+            let r = p
+                .http
+                .call(
+                    "PUT",
+                    &path,
+                    Some(&p.token),
+                    Some(&json!({ "letter": other })),
+                )
+                .await;
             (p, r.map(|r| (r.status, r.json())))
         })
     });
@@ -601,21 +705,33 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
     eprintln!("· split: the totals are the final answers");
     act(&mut host_http, &room, &session, "show-split").await?;
     all_reach(&everyone(&wall, &host, &people), "split", WAIT).await?;
-    let first = people.first().and_then(|p| p.watcher.last("split")).unwrap_or(Value::Null);
+    let first = people
+        .first()
+        .and_then(|p| p.watcher.last("split"))
+        .unwrap_or(Value::Null);
     m.split_totals = serde_json::from_value(first["counts"]["totals"].clone()).ok();
     m.split_answered = first["counts"]["answered"].as_u64();
     m.split_disagreeing = people
         .iter()
-        .filter(|p| p.watcher.last("split").map(|f| f["counts"]["totals"] != json!(expected)).unwrap_or(true))
+        .filter(|p| {
+            p.watcher
+                .last("split")
+                .map(|f| f["counts"]["totals"] != json!(expected))
+                .unwrap_or(true)
+        })
         .count();
 
     eprintln!("· work, to M-2");
     let body = act(&mut host_http, &room, &session, "walk-it").await?;
     all_reach(&everyone(&wall, &host, &people), "work", WAIT).await?;
-    let steps = body["step"]["m"].as_u64().ok_or(format!("work: no step.m in {body}"))?;
+    let steps = body["step"]["m"]
+        .as_u64()
+        .ok_or(format!("work: no step.m in {body}"))?;
     let mut at = body["step"]["at"].as_u64().unwrap_or(0);
     while at + 2 < steps {
-        at = act(&mut host_http, &room, &session, "step-forward").await?["step"]["at"].as_u64().ok_or("step-forward: no step.at")?;
+        at = act(&mut host_http, &room, &session, "step-forward").await?["step"]["at"]
+            .as_u64()
+            .ok_or("step-forward: no step.at")?;
     }
 
     // AC-41: one broadcast, timed on this process's clock from the host's
@@ -628,7 +744,11 @@ pub async fn run(args: &Args, token: &str, invocation: String) -> Result<(Value,
     if let Err(e) = all_reach(&buzzers, "reveal", WAIT).await {
         m.errors.push(e);
     }
-    m.reveal_ms = buzzers.iter().filter_map(|w| w.arrived("reveal")).map(|a| millis(a.saturating_duration_since(t0))).collect();
+    m.reveal_ms = buzzers
+        .iter()
+        .filter_map(|w| w.arrived("reveal"))
+        .map(|a| millis(a.saturating_duration_since(t0)))
+        .collect();
 
     eprintln!("· released");
     act(&mut host_http, &room, &session, "release").await?;
@@ -649,7 +769,10 @@ async fn main() -> std::process::ExitCode {
             return std::process::ExitCode::from(2);
         }
     };
-    let Some(token) = std::env::var("POPQUIZ_ORGANIZER_SESSION").ok().filter(|t| !t.is_empty()) else {
+    let Some(token) = std::env::var("POPQUIZ_ORGANIZER_SESSION")
+        .ok()
+        .filter(|t| !t.is_empty())
+    else {
         eprintln!("burst: POPQUIZ_ORGANIZER_SESSION must be set in the environment (never on the command line): sign in at <url>/host and copy what follows the # in the address");
         return std::process::ExitCode::from(2);
     };
@@ -684,7 +807,11 @@ async fn main() -> std::process::ExitCode {
             let e = explain(&e);
             eprintln!("burst could not run: {e}");
             if let Some(path) = &args.out {
-                let _ = std::fs::write(path, json!({ "schema": numbers::SCHEMA, "could_not_run": e, "quotable": false }).to_string());
+                let _ = std::fs::write(
+                    path,
+                    json!({ "schema": numbers::SCHEMA, "could_not_run": e, "quotable": false })
+                        .to_string(),
+                );
             }
             std::process::ExitCode::from(2)
         }
@@ -702,13 +829,39 @@ mod tests {
     #[test]
     fn arguments() {
         let a = args("--url https://x.fly.dev --connection-cap 400").unwrap();
-        assert_eq!((a.participants, a.question.as_str(), a.cycles, a.churn_secs, a.window_ms), (200, "burst-q3", 2, 20, 2000));
+        assert_eq!(
+            (
+                a.participants,
+                a.question.as_str(),
+                a.cycles,
+                a.churn_secs,
+                a.window_ms
+            ),
+            (200, "burst-q3", 2, 20, 2000)
+        );
         assert_eq!((a.connection_cap, a.spend_bank), (Some(400), false));
         assert_eq!(a.shapes, vec![Shape::Uniform, Shape::Spike]);
         let a = args("--url http://127.0.0.1:9 --participants 12 --question burst-q3 --cycles 1 --burst-shape spike --churn-secs 3 --out r.json").unwrap();
-        assert_eq!((a.participants, a.question.as_str(), a.cycles, a.out.as_deref()), (12, "burst-q3", 1, Some("r.json")));
+        assert_eq!(
+            (
+                a.participants,
+                a.question.as_str(),
+                a.cycles,
+                a.out.as_deref()
+            ),
+            (12, "burst-q3", 1, Some("r.json"))
+        );
         assert_eq!(a.shapes, vec![Shape::Spike]);
-        for bad in ["", "--participants 5", "--url u --participants 0", "--url u --participants 201", "--url u --cycles 0", "--url u --burst-shape wide", "--url u --token t", "--url u --question"] {
+        for bad in [
+            "",
+            "--participants 5",
+            "--url u --participants 0",
+            "--url u --participants 201",
+            "--url u --cycles 0",
+            "--url u --burst-shape wide",
+            "--url u --token t",
+            "--url u --question",
+        ] {
             assert!(args(bad).is_err(), "{bad:?}");
         }
     }
@@ -722,9 +875,16 @@ mod tests {
             assert!(letter(9, 1, who) < 5);
         }
         // Reproducible from the seed, and not the same draw for every stage.
-        assert_eq!(burst_offset_ms(9, 3, 7, Shape::Uniform, 2000), burst_offset_ms(9, 3, 7, Shape::Uniform, 2000));
-        let a: Vec<u64> = (0..50).map(|w| burst_offset_ms(9, 1, w, Shape::Uniform, 2000)).collect();
-        let b: Vec<u64> = (0..50).map(|w| burst_offset_ms(9, 2, w, Shape::Uniform, 2000)).collect();
+        assert_eq!(
+            burst_offset_ms(9, 3, 7, Shape::Uniform, 2000),
+            burst_offset_ms(9, 3, 7, Shape::Uniform, 2000)
+        );
+        let a: Vec<u64> = (0..50)
+            .map(|w| burst_offset_ms(9, 1, w, Shape::Uniform, 2000))
+            .collect();
+        let b: Vec<u64> = (0..50)
+            .map(|w| burst_offset_ms(9, 2, w, Shape::Uniform, 2000))
+            .collect();
         assert_ne!(a, b);
     }
 }

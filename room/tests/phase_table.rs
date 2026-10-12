@@ -2,7 +2,9 @@
 
 mod common;
 
-use room::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State, Step, TraceLen};
+use room::phase::{
+    apply, Applied, Command, HostAction, Machine, Phase, Refused, State, Step, TraceLen,
+};
 
 fn create(m: usize) -> Machine {
     match apply(
@@ -40,16 +42,40 @@ fn at(phase: Phase, m: usize) -> Machine {
 /// Release, Run again, ←, →. `.` is refused; a phase name is where it goes;
 /// `step` stays in the phase and moves the trace; `new` is a new room.
 const TABLE: [(&str, [&str; 10]); 8] = [
-    ("unmade",   ["idle", ".",    ".",      ".",     ".",    ".",      ".",        ".",   ".",    "."   ]),
-    ("idle",     [".",    "live", ".",      ".",     ".",    ".",      ".",        ".",   ".",    "."   ]),
-    ("live",     [".",    ".",    "closed", ".",     ".",    ".",      ".",        ".",   ".",    "."   ]),
-    ("closed",   [".",    ".",    ".",      "split", ".",    ".",      ".",        ".",   ".",    "."   ]),
-    ("split",    [".",    ".",    ".",      ".",     "work", ".",      ".",        ".",   ".",    "."   ]),
+    (
+        "unmade",
+        ["idle", ".", ".", ".", ".", ".", ".", ".", ".", "."],
+    ),
+    (
+        "idle",
+        [".", "live", ".", ".", ".", ".", ".", ".", ".", "."],
+    ),
+    (
+        "live",
+        [".", ".", "closed", ".", ".", ".", ".", ".", ".", "."],
+    ),
+    (
+        "closed",
+        [".", ".", ".", "split", ".", ".", ".", ".", ".", "."],
+    ),
+    (
+        "split",
+        [".", ".", ".", ".", "work", ".", ".", ".", ".", "."],
+    ),
     // work enters at step 0: ← is refused, → steps.
-    ("work",     [".",    ".",    ".",      ".",     ".",    "reveal", ".",        ".",   ".",    "step"]),
+    (
+        "work",
+        [".", ".", ".", ".", ".", "reveal", ".", ".", ".", "step"],
+    ),
     // reveal enters at M-1: ← steps, → is refused.
-    ("reveal",   [".",    ".",    ".",      ".",     ".",    ".",      "released", ".",   "step", "."   ]),
-    ("released", [".",    ".",    ".",      ".",     ".",    ".",      ".",        "new", ".",    "."   ]),
+    (
+        "reveal",
+        [".", ".", ".", ".", ".", ".", "released", ".", "step", "."],
+    ),
+    (
+        "released",
+        [".", ".", ".", ".", ".", ".", ".", "new", ".", "."],
+    ),
 ];
 
 fn name(p: Phase) -> &'static str {
@@ -159,7 +185,10 @@ fn no_transition_skips_a_phase_and_reveal_needs_the_walk_through() {
 #[test]
 fn released_never_re_enters_the_room() {
     let released = at(Phase::Released, 5);
-    assert_eq!(act(&released, Command::Host(HostAction::RunItAgain)), Ok(Applied::NewRoom));
+    assert_eq!(
+        act(&released, Command::Host(HostAction::RunItAgain)),
+        Ok(Applied::NewRoom)
+    );
     for command in Command::all() {
         if let Ok(Applied::Room(m)) = act(&released, command) {
             panic!("released moved to {:?} on {command:?}", m.phase());
@@ -235,7 +264,13 @@ fn trace_step_bounds_on_the_shortest_trace() {
 
 #[test]
 fn steps_outside_work_and_reveal_are_refused_and_never_change_the_phase() {
-    for phase in [Phase::Idle, Phase::Live, Phase::Closed, Phase::Split, Phase::Released] {
+    for phase in [
+        Phase::Idle,
+        Phase::Live,
+        Phase::Closed,
+        Phase::Split,
+        Phase::Released,
+    ] {
         let m = at(phase, 5);
         assert_eq!(m.trace_step(), None);
         for s in Step::ALL {
@@ -252,7 +287,13 @@ fn steps_outside_work_and_reveal_are_refused_and_never_change_the_phase() {
 fn refusal_reasons_carry_no_forbidden_copy() {
     // SPEC §11's Forbidden row, applied to the machine's diagnostics too.
     let forbidden = [
-        "turn to", "volunteer", "find someone", "wrong", "incorrect", "✗", "argu",
+        "turn to",
+        "volunteer",
+        "find someone",
+        "wrong",
+        "incorrect",
+        "✗",
+        "argu",
     ];
     for row in 0..8 {
         let state = if row == 0 {

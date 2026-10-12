@@ -411,7 +411,9 @@ pub fn apply(state: State, command: Command) -> Result<Applied, Refused> {
                     Phase::Work => Some(0),
                     // …and the reveal enters at the one that prints.
                     Phase::Reveal => Some(len.last()),
-                    Phase::Idle | Phase::Live | Phase::Closed | Phase::Split | Phase::Released => None,
+                    Phase::Idle | Phase::Live | Phase::Closed | Phase::Split | Phase::Released => {
+                        None
+                    }
                 };
                 Ok(Applied::Room(Machine {
                     phase: next,

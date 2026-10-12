@@ -11,7 +11,9 @@ use crate::phase::{Command, Phase};
 use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
 
 use super::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
-use super::{Acted, AnswerError, Fit, Joined, LiveCounts, Room, RoomError, Scheduling, Sessions, Urls};
+use super::{
+    Acted, AnswerError, Fit, Joined, LiveCounts, Room, RoomError, Scheduling, Sessions, Urls,
+};
 
 // --------------------------------------------------------------------------
 // The rooms, in memory. No persistence (D-12: nothing outlives the room but
@@ -59,7 +61,6 @@ pub struct AppState {
     pub(super) discord: Option<Arc<crate::discord::Discord>>,
 }
 
-
 /// T-11: what is remembered of a room that expired or went quiet. Its id is
 /// the map's key; nothing else about it — no question, no person, no count.
 pub(super) struct Tombstone {
@@ -80,7 +81,12 @@ impl AppState {
             questions: Mutex::new(
                 questions
                     .into_iter()
-                    .map(|q| ((ClubSlug::default_club(), q.public().id().to_string()), Arc::new(q)))
+                    .map(|q| {
+                        (
+                            (ClubSlug::default_club(), q.public().id().to_string()),
+                            Arc::new(q),
+                        )
+                    })
                     .collect(),
             ),
             used: UsedLedger::default(),
@@ -231,23 +237,32 @@ impl AppState {
     /// [`AppState::schedule`] for `club` (D-26). The record is the question as
     /// arranged for that club's meetup, and only that club's room can hold it:
     /// another club's push of the same id is a different record.
-    pub fn schedule_for(&self, club: &ClubSlug, question: Scheduled) -> Result<Scheduling, RoomError> {
+    pub fn schedule_for(
+        &self,
+        club: &ClubSlug,
+        question: Scheduled,
+    ) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
         let mut questions = lock(&self.questions);
         let rooms = lock(&self.rooms);
         // Whether a question has been run is a fact about a club too, so that
         // refusal lives in `create_for`; a question one club has run is still
         // scheduled for the others.
-        if rooms.values().any(|e| &e.room.club == club && e.room.question_id() == id) {
+        if rooms
+            .values()
+            .any(|e| &e.room.club == club && e.room.question_id() == id)
+        {
             return Err(RoomError::Refused(format!(
                 "A room is running {id}; it can be replaced once that room is gone."
             )));
         }
         drop(rooms);
-        Ok(match questions.insert((club.clone(), id), Arc::new(question)) {
-            None => Scheduling::New,
-            Some(_) => Scheduling::Replaced,
-        })
+        Ok(
+            match questions.insert((club.clone(), id), Arc::new(question)) {
+                None => Scheduling::New,
+                Some(_) => Scheduling::Replaced,
+            },
+        )
     }
 
     /// A host command on a room, bearer-checked against the room's host
@@ -357,7 +372,10 @@ impl AppState {
         if entry.room.phase() == Phase::Released {
             return Err(JoinRefusal::AlreadyEnded);
         }
-        let token = entry.sessions.join(self.capacity).ok_or(JoinRefusal::Full)?;
+        let token = entry
+            .sessions
+            .join(self.capacity)
+            .ok_or(JoinRefusal::Full)?;
         entry.room.set_live_counts(entry.sessions.counts());
         Ok(Joined {
             room_id: entry.room.id.clone(),
@@ -378,7 +396,10 @@ impl AppState {
         let now = self.now();
         let mut rooms = lock(&self.rooms);
         let entry = rooms.get_mut(room_id).ok_or(AnswerError::NotFound)?;
-        let saved = entry.sessions.answer_of(token).ok_or(AnswerError::UnknownSession)?;
+        let saved = entry
+            .sessions
+            .answer_of(token)
+            .ok_or(AnswerError::UnknownSession)?;
         if let Some(why) = entry.room.ended(now) {
             return Err(AnswerError::Ended(why));
         }
@@ -388,7 +409,10 @@ impl AppState {
                 saved,
             });
         }
-        let saved = entry.sessions.upsert(token, letter).ok_or(AnswerError::UnknownSession)?;
+        let saved = entry
+            .sessions
+            .upsert(token, letter)
+            .ok_or(AnswerError::UnknownSession)?;
         entry.room.set_live_counts(entry.sessions.counts());
         Ok(saved)
     }
@@ -407,7 +431,11 @@ impl AppState {
     /// The buzzer payload for one session, carrying its own saved answer and
     /// nothing about any other. T-04c pushes this on re-attach. A token that
     /// names no session is `Denied`.
-    pub fn buzzer_for(&self, room_id: &str, token: &str) -> Result<crate::view::BuzzerPayload, RoomError> {
+    pub fn buzzer_for(
+        &self,
+        room_id: &str,
+        token: &str,
+    ) -> Result<crate::view::BuzzerPayload, RoomError> {
         let now = self.now();
         let rooms = lock(&self.rooms);
         let entry = rooms.get(room_id).ok_or(RoomError::NotFound)?;
@@ -440,7 +468,11 @@ impl crate::ws::SessionTokens for AppState {
     }
 
     /// Only that session's own answer (AC-57).
-    fn saved(&self, room_id: &str, session: crate::ws::SessionId) -> Option<crate::question::Letter> {
+    fn saved(
+        &self,
+        room_id: &str,
+        session: crate::ws::SessionId,
+    ) -> Option<crate::question::Letter> {
         let rooms = lock(&self.rooms);
         rooms.get(room_id)?.sessions.saved_by_id(session).flatten()
     }

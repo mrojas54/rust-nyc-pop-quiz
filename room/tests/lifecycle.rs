@@ -36,7 +36,12 @@ fn keep_busy(c: &Clocked, room: &room::rooms::Created, until: Duration) {
         let step = if forward { Step::Forward } else { Step::Back };
         forward = !forward;
         c.state
-            .act(&room.id, Some(&room.host_session), Command::Step(step), c.clock.now())
+            .act(
+                &room.id,
+                Some(&room.host_session),
+                Command::Step(step),
+                c.clock.now(),
+            )
             .unwrap();
     }
 }
@@ -53,24 +58,46 @@ fn ac69_a_room_is_gone_at_four_hours() {
     let token = join(&c, &room.code).unwrap();
     c.walk(&room, &[HostAction::PutOnScreen]);
     c.state.answer(&room.id, &token, Letter::B).unwrap();
-    c.walk(&room, &[HostAction::CloseAnswers, HostAction::ShowSplit, HostAction::WalkIt]);
+    c.walk(
+        &room,
+        &[
+            HostAction::CloseAnswers,
+            HostAction::ShowSplit,
+            HostAction::WalkIt,
+        ],
+    );
     keep_busy(&c, &room, ROOM_LIFETIME - SECOND);
     c.clock.set(created + ROOM_LIFETIME - SECOND);
-    assert!(join(&c, &room.code).is_ok(), "one second before four hours the room is open");
+    assert!(
+        join(&c, &room.code).is_ok(),
+        "one second before four hours the room is open"
+    );
 
     c.clock.set(created + ROOM_LIFETIME);
     // Refused on every touch before any sweep has run.
     assert_eq!(join(&c, &room.code), Err(JoinRefusal::AlreadyEnded));
-    assert_eq!(c.act(&room, HostAction::Reveal), Err(RoomError::Ended(Ended::Expired)));
-    assert_eq!(c.state.answer(&room.id, &token, Letter::A), Err(AnswerError::Ended(Ended::Expired)));
-    assert_eq!(c.state.buzzer_for(&room.id, &token).err(), Some(RoomError::Ended(Ended::Expired)));
+    assert_eq!(
+        c.act(&room, HostAction::Reveal),
+        Err(RoomError::Ended(Ended::Expired))
+    );
+    assert_eq!(
+        c.state.answer(&room.id, &token, Letter::A),
+        Err(AnswerError::Ended(Ended::Expired))
+    );
+    assert_eq!(
+        c.state.buzzer_for(&room.id, &token).err(),
+        Some(RoomError::Ended(Ended::Expired))
+    );
     assert_eq!(c.state.room_count(), 1, "nothing deletes but the sweep");
 
     // The sweep deletes it whole: record, sessions, totals.
     assert_eq!(c.state.sweep(c.clock.now()), vec![room.id.clone()]);
     assert_eq!(c.state.room_count(), 0);
     assert_eq!(c.state.session_count(&room.id), Err(RoomError::NotFound));
-    assert!(c.state.with_room(&room.id, |r| r.public().frozen).is_err(), "totals die with the room");
+    assert!(
+        c.state.with_room(&room.id, |r| r.public().frozen).is_err(),
+        "totals die with the room"
+    );
     assert_eq!(c.state.resolve(&room.id, &token), None);
     assert_eq!(c.state.ended_room(&room.id), Some(Ended::Expired));
     // A late join is told it ended, not that it never existed (AC-29).
@@ -85,10 +112,23 @@ fn ac69_the_bound_is_from_creation_whatever_the_host_does() {
     let c = Clocked::new();
     let created = c.clock.now();
     let room = c.create("q3");
-    c.walk(&room, &[HostAction::PutOnScreen, HostAction::CloseAnswers, HostAction::ShowSplit, HostAction::WalkIt]);
+    c.walk(
+        &room,
+        &[
+            HostAction::PutOnScreen,
+            HostAction::CloseAnswers,
+            HostAction::ShowSplit,
+            HostAction::WalkIt,
+        ],
+    );
     keep_busy(&c, &room, ROOM_LIFETIME);
     c.clock.set(created + ROOM_LIFETIME);
-    assert_eq!(c.state.with_room(&room.id, |r| r.ended(c.clock.now())).unwrap(), Some(Ended::Expired));
+    assert_eq!(
+        c.state
+            .with_room(&room.id, |r| r.ended(c.clock.now()))
+            .unwrap(),
+        Some(Ended::Expired)
+    );
 }
 
 #[test]
@@ -99,7 +139,10 @@ fn a_released_room_keeps_its_shell_until_four_hours_and_never_goes_quiet() {
     c.walk(&room, &TO_REVEAL);
     c.walk(&room, &[HostAction::ReleaseRoom]);
     c.clock.set(created + 3 * 60 * MINUTE);
-    assert!(c.state.sweep(c.clock.now()).is_empty(), "released is over, not quiet");
+    assert!(
+        c.state.sweep(c.clock.now()).is_empty(),
+        "released is over, not quiet"
+    );
     assert_eq!(c.state.room_count(), 1);
     assert_eq!(join(&c, &room.code), Err(JoinRefusal::AlreadyEnded));
     c.clock.set(created + ROOM_LIFETIME);
@@ -137,12 +180,18 @@ fn an_idle_room_closes_after_thirty_quiet_minutes() {
     assert!(c.state.sweep(c.clock.now()).is_empty());
     c.advance(SECOND);
     assert_eq!(join(&c, &room.code), Err(JoinRefusal::ClosedForInactivity));
-    assert_eq!(c.act(&room, HostAction::PutOnScreen), Err(RoomError::Ended(Ended::Inactive)));
+    assert_eq!(
+        c.act(&room, HostAction::PutOnScreen),
+        Err(RoomError::Ended(Ended::Inactive))
+    );
     assert_eq!(c.state.sweep(c.clock.now()), vec![room.id.clone()]);
     assert_eq!(c.state.room_count(), 0);
     assert_eq!(c.state.ended_room(&room.id), Some(Ended::Inactive));
     assert_eq!(join(&c, &room.code), Err(JoinRefusal::ClosedForInactivity));
-    assert!(c.state.used().all().is_empty(), "a room that never reaches release records nothing");
+    assert!(
+        c.state.used().all().is_empty(),
+        "a room that never reaches release records nothing"
+    );
 }
 
 #[test]
@@ -159,14 +208,21 @@ fn a_later_phase_closes_after_twenty_quiet_minutes() {
         let token = join(&c, &room.code).unwrap();
         c.walk(&room, phase_actions);
         c.advance(LATER_QUIET - SECOND);
-        assert!(c.state.buzzer_for(&room.id, &token).is_ok(), "{phase_actions:?}");
+        assert!(
+            c.state.buzzer_for(&room.id, &token).is_ok(),
+            "{phase_actions:?}"
+        );
         c.advance(SECOND);
         assert_eq!(
             c.state.buzzer_for(&room.id, &token).err(),
             Some(RoomError::Ended(Ended::Inactive)),
             "{phase_actions:?}"
         );
-        assert_eq!(c.state.sweep(c.clock.now()), vec![room.id.clone()], "{phase_actions:?}");
+        assert_eq!(
+            c.state.sweep(c.clock.now()),
+            vec![room.id.clone()],
+            "{phase_actions:?}"
+        );
     }
 }
 
@@ -188,9 +244,17 @@ fn a_refused_command_is_not_activity() {
     let c = Clocked::new();
     let room = c.create("q3");
     c.advance(10 * MINUTE);
-    assert!(matches!(c.act(&room, HostAction::Reveal), Err(RoomError::Refused(_))));
+    assert!(matches!(
+        c.act(&room, HostAction::Reveal),
+        Err(RoomError::Refused(_))
+    ));
     c.advance(IDLE_QUIET - 10 * MINUTE);
-    assert_eq!(c.state.with_room(&room.id, |r| r.ended(c.clock.now())).unwrap(), Some(Ended::Inactive));
+    assert_eq!(
+        c.state
+            .with_room(&room.id, |r| r.ended(c.clock.now()))
+            .unwrap(),
+        Some(Ended::Inactive)
+    );
 }
 
 #[test]
@@ -199,8 +263,12 @@ fn a_wrong_credential_on_an_ended_room_learns_nothing() {
     let room = c.create("q3");
     c.advance(IDLE_QUIET);
     assert_eq!(
-        c.state
-            .act(&room.id, Some("not-the-host"), Command::Host(HostAction::PutOnScreen), c.clock.now()),
+        c.state.act(
+            &room.id,
+            Some("not-the-host"),
+            Command::Host(HostAction::PutOnScreen),
+            c.clock.now()
+        ),
         Err(RoomError::Denied)
     );
 }
@@ -217,12 +285,26 @@ async fn ended_rooms_answer_through_the_routes() {
     let token = join(&c, &room.code).unwrap();
     c.advance(IDLE_QUIET);
 
-    let (status, v) = http(&app, Method::POST, "/join", None, Some(serde_json::json!({"code": room.code}))).await;
+    let (status, v) = http(
+        &app,
+        Method::POST,
+        "/join",
+        None,
+        Some(serde_json::json!({"code": room.code})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(v["refusal"], "closed_for_inactivity");
     assert_eq!(v["reason"], JoinRefusal::ClosedForInactivity.message());
 
-    let (status, v) = http(&app, Method::POST, &format!("/rooms/{}/put-on-screen", room.id), Some(&room.host_session), None).await;
+    let (status, v) = http(
+        &app,
+        Method::POST,
+        &format!("/rooms/{}/put-on-screen", room.id),
+        Some(&room.host_session),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT, "{v}");
     assert_eq!(v["refusal"], "closed_for_inactivity");
     assert_eq!(v["reason"], Ended::Inactive.host_reason());
@@ -239,10 +321,27 @@ async fn ended_rooms_answer_through_the_routes() {
     assert_eq!(v["refusal"], "closed_for_inactivity");
 
     c.state.sweep(c.clock.now());
-    let (status, v) = http(&app, Method::POST, "/join", None, Some(serde_json::json!({"code": room.code}))).await;
-    assert_eq!((status, v["refusal"].as_str()), (StatusCode::CONFLICT, Some("closed_for_inactivity")));
+    let (status, v) = http(
+        &app,
+        Method::POST,
+        "/join",
+        None,
+        Some(serde_json::json!({"code": room.code})),
+    )
+    .await;
+    assert_eq!(
+        (status, v["refusal"].as_str()),
+        (StatusCode::CONFLICT, Some("closed_for_inactivity"))
+    );
     // After the sweep the room is gone: its id is unknown, like any other.
-    let (status, _) = http(&app, Method::POST, &format!("/rooms/{}/put-on-screen", room.id), Some(&room.host_session), None).await;
+    let (status, _) = http(
+        &app,
+        Method::POST,
+        &format!("/rooms/{}/put-on-screen", room.id),
+        Some(&room.host_session),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -250,11 +349,22 @@ async fn ended_rooms_answer_through_the_routes() {
 async fn the_routes_read_the_one_clock() {
     let c = Clocked::new();
     let app = room::router_with(c.state.clone());
-    let (status, created) = http(&app, Method::POST, "/rooms", Some(ORGANIZER), Some(serde_json::json!({"question_id": "q3"}))).await;
+    let (status, created) = http(
+        &app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(serde_json::json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     let id = created["id"].as_str().unwrap();
     let expires = c.state.with_room(id, |r| r.expires_at()).unwrap();
-    assert_eq!(expires, c.clock.now() + ROOM_LIFETIME, "created_at is the clock's, not the OS's");
+    assert_eq!(
+        expires,
+        c.clock.now() + ROOM_LIFETIME,
+        "created_at is the clock's, not the OS's"
+    );
 }
 
 /// The sweep hands its ids to the transport, which closes the room's sockets
@@ -269,16 +379,23 @@ async fn a_swept_room_closes_its_sockets() {
     let addr = listener.local_addr().unwrap();
     tokio::spawn(room::ws::serve(listener, app));
     let room = c.create("q3");
-    let (mut wall, _) = tokio_tungstenite::connect_async(format!("ws://{addr}/rooms/{}/ws/wall", room.id))
-        .await
-        .unwrap();
-    assert_eq!(frame(&mut wall, Duration::from_secs(2)).await["phase"], "idle");
+    let (mut wall, _) =
+        tokio_tungstenite::connect_async(format!("ws://{addr}/rooms/{}/ws/wall", room.id))
+            .await
+            .unwrap();
+    assert_eq!(
+        frame(&mut wall, Duration::from_secs(2)).await["phase"],
+        "idle"
+    );
 
     c.advance(ROOM_LIFETIME);
     for id in c.state.sweep(c.clock.now()) {
         transport.changed(&id);
     }
-    assert_eq!(closed_with(&mut wall, Duration::from_secs(2)).await, Some(room::ws::close::ROOM_GONE));
+    assert_eq!(
+        closed_with(&mut wall, Duration::from_secs(2)).await,
+        Some(room::ws::close::ROOM_GONE)
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -295,12 +412,20 @@ fn ac56_nothing_per_person_survives_release() {
         c.state.answer(&room.id, t, l).unwrap();
     }
     c.walk(&room, &TO_REVEAL[1..]);
-    assert!(c.state.with_room(&room.id, |r| r.public().frozen).unwrap().is_some());
+    assert!(c
+        .state
+        .with_room(&room.id, |r| r.public().frozen)
+        .unwrap()
+        .is_some());
 
     c.walk(&room, &[HostAction::ReleaseRoom]);
 
     // By inspection of the state, not by the absence of a route.
-    assert_eq!(c.state.session_count(&room.id).unwrap(), 0, "every session is gone");
+    assert_eq!(
+        c.state.session_count(&room.id).unwrap(),
+        0,
+        "every session is gone"
+    );
     let (frozen, present, answered_live) = c
         .state
         .with_room(&room.id, |r| {
@@ -310,14 +435,29 @@ fn ac56_nothing_per_person_survives_release() {
         .unwrap();
     // The anonymous per-option totals stay with the shell until it expires
     // (AC-56: "only anonymous totals persist, and they expire with it").
-    assert_eq!(frozen, Some((3, [1, 2, 0, 0, 0])), "the anonymous totals stay");
-    assert_eq!((present, answered_live), (0, 0), "the live counts were the sessions'");
+    assert_eq!(
+        frozen,
+        Some((3, [1, 2, 0, 0, 0])),
+        "the anonymous totals stay"
+    );
+    assert_eq!(
+        (present, answered_live),
+        (0, 0),
+        "the live counts were the sessions'"
+    );
     for t in &tokens {
         assert_eq!(c.state.resolve(&room.id, t), None, "a token names nothing");
-        assert_eq!(c.state.buzzer_for(&room.id, t).err(), Some(RoomError::Denied));
+        assert_eq!(
+            c.state.buzzer_for(&room.id, t).err(),
+            Some(RoomError::Denied)
+        );
     }
     let host = c.state.with_room(&room.id, view::host).unwrap();
-    assert_eq!((host.present, host.answered), (0, Some(3)), "the host still reads the frozen count");
+    assert_eq!(
+        (host.present, host.answered),
+        (0, Some(3)),
+        "the host still reads the frozen count"
+    );
 }
 
 #[test]
@@ -330,11 +470,20 @@ fn ac56_the_totals_expire_with_the_released_room() {
     c.state.answer(&room.id, &token, Letter::E).unwrap();
     c.walk(&room, &TO_REVEAL[1..]);
     c.walk(&room, &[HostAction::ReleaseRoom]);
-    assert_eq!(c.state.with_room(&room.id, |r| r.public().frozen).unwrap(), Some((1, [0, 0, 0, 0, 1])));
-    assert_eq!(c.state.with_room(&room.id, |r| r.expires_at()).unwrap(), created + ROOM_LIFETIME);
+    assert_eq!(
+        c.state.with_room(&room.id, |r| r.public().frozen).unwrap(),
+        Some((1, [0, 0, 0, 0, 1]))
+    );
+    assert_eq!(
+        c.state.with_room(&room.id, |r| r.expires_at()).unwrap(),
+        created + ROOM_LIFETIME
+    );
     c.clock.set(created + ROOM_LIFETIME);
     assert_eq!(c.state.sweep(c.clock.now()), vec![room.id.clone()]);
-    assert!(c.state.with_room(&room.id, |r| r.public().frozen).is_err(), "gone with the room");
+    assert!(
+        c.state.with_room(&room.id, |r| r.public().frozen).is_err(),
+        "gone with the room"
+    );
 }
 
 #[test]
@@ -348,10 +497,28 @@ fn ac56_a_released_room_serves_no_question_content_and_no_count() {
     c.walk(&room, &[HostAction::ReleaseRoom]);
     let urls = c.state.urls().clone();
     for viewer in view::Viewer::ALL {
-        let v = c.state.with_room(&room.id, |r| view::project(r, viewer, &urls)).unwrap();
+        let v = c
+            .state
+            .with_room(&room.id, |r| view::project(r, viewer, &urls))
+            .unwrap();
         assert_eq!(v["phase"], "released");
-        for key in ["source", "options", "hint", "trace", "split", "counts", "read_aloud", "reveal", "correct", "step", "fit"] {
-            assert!(keys_named(&v, key).is_empty(), "{viewer:?} carries {key}: {v}");
+        for key in [
+            "source",
+            "options",
+            "hint",
+            "trace",
+            "split",
+            "counts",
+            "read_aloud",
+            "reveal",
+            "correct",
+            "step",
+            "fit",
+        ] {
+            assert!(
+                keys_named(&v, key).is_empty(),
+                "{viewer:?} carries {key}: {v}"
+            );
         }
     }
 }
@@ -377,10 +544,24 @@ fn ac56_the_survivors_carry_no_count() {
         walk(survivor, &mut all);
         for (k, v) in all {
             assert!(
-                !["totals", "count", "counts", "answered", "present", "middle", "split", "percent", "most_chosen"].contains(&k),
+                ![
+                    "totals",
+                    "count",
+                    "counts",
+                    "answered",
+                    "present",
+                    "middle",
+                    "split",
+                    "percent",
+                    "most_chosen"
+                ]
+                .contains(&k),
                 "a survivor carries {k}: {survivor}"
             );
-            assert!(!v.is_number(), "a survivor carries a number under {k}: {survivor}");
+            assert!(
+                !v.is_number(),
+                "a survivor carries a number under {k}: {survivor}"
+            );
         }
     }
 }
@@ -392,16 +573,36 @@ fn ac56_the_survivors_carry_no_count() {
 #[test]
 fn ac57_no_participant_identity_in_any_record() {
     let words = [
-        "nickname", "username", "user_name", "display_name", "email", "participant_id", "device", "device_id",
-        "user_agent", "ip_addr", "remote_addr", "score", "scores", "leaderboard", "history", "streak",
+        "nickname",
+        "username",
+        "user_name",
+        "display_name",
+        "email",
+        "participant_id",
+        "device",
+        "device_id",
+        "user_agent",
+        "ip_addr",
+        "remote_addr",
+        "score",
+        "scores",
+        "leaderboard",
+        "history",
+        "streak",
     ];
     // `cli/` holds the clients, as `bin/` did; this scan never read them.
     for (name, text) in common::room_sources(&["cli"]) {
         for (n, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap().trim();
             // A field or a binding: `name:` at the start of a declaration.
-            let Some((head, _)) = code.split_once(':') else { continue };
-            let field = head.trim().trim_start_matches("pub ").trim_start_matches("pub(crate) ").trim();
+            let Some((head, _)) = code.split_once(':') else {
+                continue;
+            };
+            let field = head
+                .trim()
+                .trim_start_matches("pub ")
+                .trim_start_matches("pub(crate) ")
+                .trim();
             assert!(
                 !words.contains(&field),
                 "{name}:{}: a field named {field:?}",
@@ -429,7 +630,18 @@ fn ac57_nothing_crosses_rooms_but_the_question() {
     let mut names: Vec<&str> = keys.into_iter().map(|(k, _)| k).collect();
     names.sort_unstable();
     names.dedup();
-    assert_eq!(names, ["club", "fit", "meetup_date", "question_id", "released_at", "room_id", "used"]);
+    assert_eq!(
+        names,
+        [
+            "club",
+            "fit",
+            "meetup_date",
+            "question_id",
+            "released_at",
+            "room_id",
+            "used"
+        ]
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -449,7 +661,10 @@ async fn test_full_ac69_open_room_runs_to_release_with_auth_down() {
     let (organizer, _) = rig.sign_in(rig.host()).await;
     let (status, created) = rig.create(Some(&organizer), "q3").await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
-    let (id, host) = (created["id"].as_str().unwrap().to_string(), created["host_session"].as_str().unwrap().to_string());
+    let (id, host) = (
+        created["id"].as_str().unwrap().to_string(),
+        created["host_session"].as_str().unwrap().to_string(),
+    );
     // A second room, left open, to watch the 4 h bound with Discord still down.
     let (_, other) = rig.create(Some(&organizer), "q3-again").await;
     let other = other["id"].as_str().unwrap().to_string();
@@ -459,24 +674,55 @@ async fn test_full_ac69_open_room_runs_to_release_with_auth_down() {
 
     // The open room runs to release: every host action, the host's view, a join.
     let code = created["code"].as_str().unwrap();
-    let (status, _) = rig.call(Method::POST, "/join", None, Some(json!({ "code": code }))).await;
+    let (status, _) = rig
+        .call(Method::POST, "/join", None, Some(json!({ "code": code })))
+        .await;
     assert_eq!(status, StatusCode::CREATED);
-    for slug in ["put-on-screen", "close-answers", "show-split", "walk-it", "reveal", "release"] {
+    for slug in [
+        "put-on-screen",
+        "close-answers",
+        "show-split",
+        "walk-it",
+        "reveal",
+        "release",
+    ] {
         rig.clock.advance(std::time::Duration::from_secs(5 * 60));
-        let (status, body) = rig.call(Method::POST, &format!("/rooms/{id}/{slug}"), Some(&host), None).await;
+        let (status, body) = rig
+            .call(
+                Method::POST,
+                &format!("/rooms/{id}/{slug}"),
+                Some(&host),
+                None,
+            )
+            .await;
         assert_eq!(status, StatusCode::OK, "{slug} with Discord down: {body}");
     }
-    assert_eq!(rig.state.with_room(&id, |r| r.phase()).unwrap(), Phase::Released);
+    assert_eq!(
+        rig.state.with_room(&id, |r| r.phase()).unwrap(),
+        Phase::Released
+    );
 
     // A new room cannot be created: Discord's check cannot run, and that is a
     // server error, never a denial.
     let (status, body) = rig.create(Some(&organizer), "q3-again").await;
-    assert_eq!((status, body), (StatusCode::SERVICE_UNAVAILABLE, serde_json::Value::Null));
+    assert_eq!(
+        (status, body),
+        (StatusCode::SERVICE_UNAVAILABLE, serde_json::Value::Null)
+    );
     let (status, _) = rig
-        .call(Method::POST, &format!("/rooms/{id}/run-it-again"), Some(&organizer), Some(json!({ "question_id": "q3-again" })))
+        .call(
+            Method::POST,
+            &format!("/rooms/{id}/run-it-again"),
+            Some(&organizer),
+            Some(json!({ "question_id": "q3-again" })),
+        )
         .await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(rig.mock.total_hits(), hits, "the mock is down; nothing reached it");
+    assert_eq!(
+        rig.mock.total_hits(),
+        hits,
+        "the mock is down; nothing reached it"
+    );
 
     // A room dies at 4 h, Discord or no Discord.
     rig.clock.advance(ROOM_LIFETIME);
