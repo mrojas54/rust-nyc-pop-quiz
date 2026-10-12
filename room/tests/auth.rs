@@ -282,7 +282,7 @@ fn ac65_the_member_record_is_read_for_roles_alone() {
         })
         .collect();
     files.sort();
-    for want in ["config.rs", "mod.rs"] {
+    for want in ["config.rs", "http.rs", "mod.rs"] {
         assert!(
             files.iter().any(|(n, _)| n == want),
             "the walk found no host/discord/{want}"
