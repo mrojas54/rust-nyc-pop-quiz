@@ -86,9 +86,11 @@ pinned verifier wrote their new records. q8's too-long option was a *distractor*
 so its answer stood, its program's tokens did not change, and only that one
 option was replaced. Each record's `review.reason` says what was re-authored and why.
 
-**Only q3 is affirmed**, by the client's hand edit of its review block (F-52),
-before affirmations carried a digest. The other migrated records have no
-`affirmed_by` / `affirmed_at`, so none of them can be scheduled (AC-72, G-12).
+**No record is affirmed.** q3 carries the client's hand edit of its review
+block (F-52), made before affirmations carried a digest, so it reads as unbound
+and does not schedule until an organizer affirms it again through
+`popquiz.review` (RULING PQ-23, 2026-10-12). The other migrated records have no
+`affirmed_by` / `affirmed_at`. None of them can be scheduled (AC-72, G-12).
 Their beats and traces were *drafted* — from the August explanation and the
 prototype the client loved — and are waiting for an organizer to read them.
 
@@ -100,10 +102,10 @@ records `affirmed_by`, `affirmed_at` and `affirmed_digest`, a SHA-256 of the
 text the organizer read (source, choices and why each tempts, hint, explanation,
 trace). An edit to any of it sets `review.status` to `edited` and clears the
 affirmation; a record whose digest no longer matches is loadable but unaffirmed,
-so `schedule` and the reserve skip it (GAP-24). A digest-less affirmation counts
-only on a `verified.legacy` record — today q3 — and is shown as *affirmed
-(unbound, before GAP-24)*. The digest binds an affirmation to its text; it does
-not authenticate who wrote it.
+so `schedule` and the reserve skip it (GAP-24). A digest-less affirmation, q3's
+included, is unbound and counts nowhere; affirming the record again binds it.
+The digest binds an affirmation to its text; it does not authenticate who wrote
+it.
 
 ## How a record is verified
 
