@@ -67,6 +67,7 @@ src/
   rooms/                           the room itself
     mod.rs      the sealed-record doctests, the re-exports, the small shared types
     room.rs     the room record and the writes the phase machine drives
+    open.rs     the one way to the answers: Room::open, Room::public, Opened, PublicView
     state.rs    AppState: every room on this machine, the clock, the ledger, the sockets' token map
     seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
     errors.rs   RoomError, AnswerError, Joined, Scheduling
