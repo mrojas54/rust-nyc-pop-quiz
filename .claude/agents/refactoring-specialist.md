@@ -1,6 +1,6 @@
 ---
 name: refactoring-specialist
-description: Use when code needs restructuring without changing behavior: splitting large modules or functions, removing duplication, clarifying names and boundaries, or moving files. Fits the Rust room server (room/), the Python pipeline (pipeline/) and the web client (web/). Not for new features or question content.
+description: "Use when code needs restructuring without changing behavior: splitting large modules or functions, removing duplication, clarifying names and boundaries, or moving files. Fits the Rust room server (room/), the Python pipeline (pipeline/) and the web client (web/). Not for new features or question content."
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
 ---
