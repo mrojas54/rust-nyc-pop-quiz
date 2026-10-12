@@ -9,7 +9,7 @@ use subtle::ConstantTimeEq;
 use crate::answers::{Scheduled, Verdict};
 use crate::club::{ClubSlug, Zone};
 use crate::copy;
-use crate::lifecycle::Ended;
+use super::lifecycle::Ended;
 use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
 use crate::auth::OrganizerId;
 use crate::used::TakeHome;
@@ -306,7 +306,7 @@ impl Room {
     /// never two live rooms on one question (GAP-8).
     pub fn ended(&self, now: SystemTime) -> Option<Ended> {
         self.latched_end
-            .or_else(|| crate::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now))
+            .or_else(|| super::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now))
     }
 
     /// GAP-8: whether this room holds `question_id` at `now` against a new

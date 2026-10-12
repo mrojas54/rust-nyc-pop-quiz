@@ -12,10 +12,10 @@
 //! `run_again` — ask [`verdict`] and refuse a room that has ended, so there is
 //! never a window in which an expired room admits a join, an answer or a host
 //! command. The read-only projections and the wall's `fit` writer do not ask:
-//! until the next sweep (at most [`REAP_EVERY`]) they still serve the room as
+//! until the next sweep (at most `server::reaper::REAP_EVERY`) they still serve the room as
 //! it last stood, which carries nothing a released room would not. Only
 //! [`crate::rooms::AppState::sweep`] deletes, and it hands
-//! back the ids it deleted so [`spawn_reaper`] can tell the transport, which
+//! back the ids it deleted so `server::reaper::spawn_reaper` can tell the transport, which
 //! closes those rooms' sockets with `4404` (`ws::close::ROOM_GONE`).
 //!
 //! **Time comes from a [`Clock`]**, never from `SystemTime::now()` inline:
@@ -26,7 +26,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use crate::phase::Phase;
-use crate::rooms::AppState;
 use crate::sessions::JoinRefusal;
 
 /// §4.6: a room in `idle` with no host action for this long closes.
@@ -39,10 +38,6 @@ pub const LATER_QUIET: Duration = Duration::from_secs(20 * 60);
 /// room *ended* or *went quiet* rather than that it never existed (AC-29).
 /// The memory is the code and the reason, nothing else.
 pub const ENDED_MEMORY: Duration = Duration::from_secs(4 * 60 * 60);
-
-/// How often the reaper sweeps. A room past its bound is refused on every
-/// touch before this; the sweep is only what deletes it and closes sockets.
-pub const REAP_EVERY: Duration = Duration::from_secs(30);
 
 /// Where the room reads the time.
 pub trait Clock: Send + Sync {
@@ -124,25 +119,4 @@ pub fn verdict(phase: Phase, expires_at: SystemTime, last_host_action: SystemTim
         Phase::Released => return None,
     };
     (quiet >= bound).then_some(Ended::Inactive)
-}
-
-/// Sweep every [`REAP_EVERY`] and tell the transport which rooms went. Does
-/// nothing outside a tokio runtime, so building a router in a plain `#[test]`
-/// starts no task. The task lives as long as its runtime (the transport holds
-/// the state, so there is no earlier moment at which the state is gone).
-pub fn spawn_reaper(state: Arc<AppState>, transport: crate::ws::Transport) {
-    let Ok(runtime) = tokio::runtime::Handle::try_current() else {
-        return;
-    };
-    runtime.spawn(async move {
-        let mut tick = tokio::time::interval(REAP_EVERY);
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        tick.tick().await;
-        loop {
-            tick.tick().await;
-            for id in state.sweep(state.now()) {
-                transport.changed(&id);
-            }
-        }
-    });
 }

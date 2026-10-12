@@ -7,7 +7,7 @@ use std::time::SystemTime;
 use crate::answers::Scheduled;
 use crate::auth::HostAuth;
 use crate::club::{ClubSlug, Clubs};
-use crate::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
+use super::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
 use crate::phase::{Command, Phase};
 use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
 
