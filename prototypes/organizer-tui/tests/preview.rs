@@ -240,3 +240,18 @@ fn real_key_events_preserve_form_fields_and_ignore_modified_shortcuts() {
     assert!(screen.contains("y Schedule"));
     assert!(!screen.contains("waiting for the room"));
 }
+
+#[test]
+fn legacy_repeated_press_events_cannot_confirm_reveal() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use organizer_preview::{App, capture, default_bank};
+    let mut app = App::load(&default_bank(), Some("q3")).unwrap();
+    for _ in 0..40 {
+        app.handle_event(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE));
+        let screen = capture(&mut app, 120, 50).unwrap();
+        assert!(!screen.contains("Correct answer"));
+        assert!(!screen.contains("How we know"));
+    }
+    app.handle_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert!(capture(&mut app, 120, 50).unwrap().contains("Correct answer"));
+}
