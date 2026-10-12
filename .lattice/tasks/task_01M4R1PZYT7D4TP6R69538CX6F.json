@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 8,
+  "comment_count": 10,
   "complexity": "medium",
   "created_at": "2026-10-12T12:34:31Z",
   "created_by": "agent:orchestrator",
@@ -33,10 +33,15 @@
       "id": "art_01M4RAWBS2N8QACK5XBEEFMK39",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M4RQEPJPY1N52QRE79CZTVNC",
+      "role": "review",
+      "source_type": "comment"
     }
   ],
   "id": "task_01M4R1PZYT7D4TP6R69538CX6F",
-  "last_event_id": "ev_01M4RBJZT78PNT9G2E7D12EWAE",
+  "last_event_id": "ev_01M4RQEPPSSR64KJB6QS2JWGYT",
   "last_status_changed_at": "2026-10-12T15:14:44Z",
   "priority": "medium",
   "relationships_out": [],
@@ -51,6 +56,6 @@
   ],
   "title": "Live-room refactor: split the Discord backend and extract participant operations",
   "type": "chore",
-  "updated_at": "2026-10-12T15:27:05Z",
+  "updated_at": "2026-10-12T18:54:28Z",
   "urgency": null
 }
