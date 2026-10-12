@@ -178,7 +178,7 @@ impl App {
             return true;
         }
         // Even ignored chords and navigation keys cancel an armed reveal.
-        if key.code != KeyCode::Char('r') || !key.modifiers.is_empty() {
+        if !matches!(key.code, KeyCode::Char('r') | KeyCode::Enter) || !key.modifiers.is_empty() {
             let cancel = self.reveal_armed && key.code == KeyCode::Esc;
             self.reveal_armed = false;
             if cancel {
@@ -222,7 +222,7 @@ impl App {
 
     /// Returns false only for an explicit quit action.
     pub fn handle(&mut self, key: char) -> bool {
-        if key != 'r' {
+        if !matches!(key, 'r' | '\n') {
             let cancel = self.reveal_armed && key == '\u{1b}';
             self.reveal_armed = false;
             if cancel {
@@ -285,13 +285,12 @@ impl App {
                 self.focus = Focus::Steps;
             }
             'r' => {
-                if self.mode == Mode::Reveal {
-                    return true;
-                }
-                if !self.reveal_armed {
+                if self.mode != Mode::Reveal {
                     self.reveal_armed = true;
-                    return true;
                 }
+                return true;
+            }
+            '\n' if self.reveal_armed => {
                 self.reveal_armed = false;
                 self.mode = Mode::Reveal;
                 self.step = total.saturating_sub(1);
@@ -449,7 +448,10 @@ impl App {
                         && self.step == q.trace.steps.len().saturating_sub(2)
                     {
                         add("", normal);
-                        add("Teaching steps complete. Press r twice to reveal.", heading);
+                        add(
+                            "Teaching steps complete. Press r, then Enter to reveal.",
+                            heading,
+                        );
                     }
                 } else {
                     add(
@@ -581,7 +583,7 @@ impl App {
             );
         }
         frame.render_widget(
-            Paragraph::new(format!("{} Reveal / press r twice", q.trace.steps.len()))
+            Paragraph::new(format!("{} Reveal / r then Enter", q.trace.steps.len()))
                 .style(Style::default().fg(if self.mode == Mode::Reveal {
                     AMBER
                 } else {
@@ -715,13 +717,13 @@ impl App {
             "Up/Down or j/k Scroll pane   PgUp/PgDn Page   Tab Focus   Esc Back"
         };
         let footer_text = if area.width < 80 {
-            "1 Question  t Trace  rr Reveal  q Quit\nTab Pane  j/k Move  Enter Jump  ? Help\n< > Step  [ ] Candidate  s Schedule".to_string()
+            "1 Question  t Trace  r Reveal  q Quit\nTab Pane  j/k Move  Enter Jump  ? Help\n< > Step  [ ] Candidate  s Schedule".to_string()
         } else {
-            format!("{hints}\n1 Question   Left/Right Step   rr Reveal   [ ] Candidate   ? Help   q Quit")
+            format!("{hints}\n1 Question   Left/Right Step   r Reveal   [ ] Candidate   ? Help   q Quit")
         };
         if self.reveal_armed {
             frame.render_widget(
-                Paragraph::new("Press r again to reveal the answer. Esc cancels.")
+                Paragraph::new("Press Enter to reveal the answer. Esc cancels.")
                     .wrap(ratatui::widgets::Wrap { trim: false })
                     .style(Style::default().fg(AMBER)),
                 footer,
@@ -743,7 +745,7 @@ impl App {
             ])
             .areas(row);
             frame.render_widget(Clear, modal);
-            frame.render_widget(Paragraph::new("1 Question    t Teaching trace\nTab: focus steps, source, narration\nj/k or arrows: select or scroll\nEnter: jump to selected teaching step\nLeft/Right: step immediately\nr twice: reveal final step and answer\n[ / ]: previous / next question\ns: schedule this question\nEsc: back or close help    q: quit\n? or Esc closes this help")
+            frame.render_widget(Paragraph::new("1 Question    t Teaching trace\nTab: focus steps, source, narration\nj/k or arrows: select or scroll\nEnter: jump to selected teaching step\nLeft/Right: step immediately\nr then Enter: reveal final step and answer\n[ / ]: previous / next question\ns: schedule this question\nEsc: back or close help    q: quit\n? or Esc closes this help")
                 .style(Style::default().fg(FG).bg(BG))
                 .block(Block::default().borders(Borders::ALL).title(" Keyboard help ").border_style(Style::default().fg(AMBER))), modal);
         }
@@ -822,7 +824,7 @@ mod tests {
         q.receipt.clear();
         q.legacy = false;
         app.handle('r');
-        app.handle('r');
+        app.handle('\n');
         let screen = capture(&mut app, 100, 80).unwrap();
         assert!(screen.contains("Unavailable from the recorded evidence"));
         assert!(screen.contains("No complete receipt recorded"));
@@ -832,7 +834,7 @@ mod tests {
     fn scroll_reaches_bottom_and_resize_preserves_navigation() {
         let mut app = App::load(&default_bank(), Some("q3")).unwrap();
         app.handle('r');
-        app.handle('r');
+        app.handle('\n');
         capture(&mut app, 40, 14).unwrap();
         let max_scroll = app.max_scroll;
         assert!(max_scroll > 0);

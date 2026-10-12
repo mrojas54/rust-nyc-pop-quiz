@@ -1,20 +1,20 @@
 use organizer_preview::snapshot;
 
 #[test]
-fn reveal_requires_two_consecutive_presses_and_any_other_key_disarms() {
+fn reveal_requires_enter_and_other_keys_disarm() {
     let screen = snapshot(&['r'], 120, 50);
-    assert!(screen.contains("Press r again to reveal the answer. Esc cancels."));
+    assert!(screen.contains("Press Enter to reveal the answer. Esc cancels."));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("How we know"));
-    assert!(snapshot(&['r', 'r'], 120, 50).contains("Correct answer"));
+    assert!(snapshot(&['r', '\n'], 120, 50).contains("Correct answer"));
     for key in ['\u{1b}', 'j', 't', '?', ']', 'x'] {
         let screen = snapshot(&['r', key], 120, 50);
-        assert!(!screen.contains("Press r again"));
+        assert!(!screen.contains("Press Enter"));
         assert!(!screen.contains("Correct answer"));
     }
     let screen = snapshot(&['r', 'x', 'r'], 120, 50);
     assert!(!screen.contains("Correct answer"));
-    assert!(screen.contains("Press r again"));
+    assert!(screen.contains("Press Enter"));
 }
 
 #[test]
@@ -28,9 +28,7 @@ fn ignored_terminal_keys_cancel_reveal_and_repeats_do_not_confirm() {
     ] {
         app.handle('r');
         app.handle_event(key);
-        assert!(!capture(&mut app, 120, 40)
-            .unwrap()
-            .contains("Press r again"));
+        assert!(!capture(&mut app, 120, 40).unwrap().contains("Press Enter"));
     }
     app.handle('r');
     app.handle_event(KeyEvent::new_with_kind(
@@ -39,7 +37,7 @@ fn ignored_terminal_keys_cancel_reveal_and_repeats_do_not_confirm() {
         KeyEventKind::Repeat,
     ));
     let screen = capture(&mut app, 40, 14).unwrap();
-    assert!(screen.contains("Press r again"));
+    assert!(screen.contains("Press Enter"));
     assert!(screen
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -60,7 +58,7 @@ fn explicit_reveal_snapshot_still_prints_the_answer() {
 
 #[test]
 fn stepping_back_from_reveal_returns_to_unspoiled_teaching() {
-    let screen = snapshot(&['r', 'r', '<'], 120, 50);
+    let screen = snapshot(&['r', '\n', '<'], 120, 50);
     assert!(screen.contains("Step 5 of 6"));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("How we know"));
@@ -113,7 +111,7 @@ fn list_navigation_cannot_enter_reveal() {
     keys.push('\n');
     let screen = snapshot(&keys, 120, 40);
     assert!(screen.contains("Step 5 of 6"));
-    assert!(screen.contains("6 Reveal / press r"));
+    assert!(screen.contains("6 Reveal / r then Enter"));
     assert!(!screen.contains("Correct answer"));
 }
 
@@ -147,7 +145,7 @@ fn teaching_trace_stops_before_the_resolving_step() {
     assert!(screen.contains("Pause here"));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("stdout:"));
-    keys.extend(['r', 'r']);
+    keys.extend(['r', '\n']);
     let screen = snapshot(&keys, 100, 60);
     assert!(screen.contains("Step 6 of 6"));
     assert!(screen.contains("Correct answer"));
@@ -164,10 +162,10 @@ fn trace_highlights_the_authored_step_and_shows_narration() {
 
 #[test]
 fn return_from_reveal_and_candidate_switch_reset_the_boundary() {
-    let screen = snapshot(&['r', 'r', 't'], 100, 36);
+    let screen = snapshot(&['r', '\n', 't'], 100, 36);
     assert!(screen.contains("Step 5 of 6"));
     assert!(!screen.contains("Correct answer"));
-    let screen = snapshot(&['r', 'r', ']'], 100, 36);
+    let screen = snapshot(&['r', '\n', ']'], 100, 36);
     assert!(screen.contains("q4"));
     assert!(!screen.contains("Correct answer"));
     assert!(!screen.contains("Step 6 of 6"));
@@ -190,7 +188,7 @@ fn preview_leaves_all_bank_files_unchanged() {
         .iter()
         .map(|path| std::fs::read(path).unwrap())
         .collect();
-    snapshot(&['t', '>', 'r', 'r', ']', '[', '1'], 100, 36);
+    snapshot(&['t', '>', 'r', '\n', ']', '[', '1'], 100, 36);
     for (path, expected) in paths.iter().zip(before) {
         assert_eq!(std::fs::read(path).unwrap(), expected);
     }
@@ -244,7 +242,7 @@ fn real_key_events_preserve_form_fields_and_ignore_modified_shortcuts() {
 #[test]
 fn legacy_repeated_press_events_cannot_confirm_reveal() {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use organizer_preview::{App, capture, default_bank};
+    use organizer_preview::{capture, default_bank, App};
     let mut app = App::load(&default_bank(), Some("q3")).unwrap();
     for _ in 0..40 {
         app.handle_event(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE));
@@ -253,5 +251,7 @@ fn legacy_repeated_press_events_cannot_confirm_reveal() {
         assert!(!screen.contains("How we know"));
     }
     app.handle_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(capture(&mut app, 120, 50).unwrap().contains("Correct answer"));
+    assert!(capture(&mut app, 120, 50)
+        .unwrap()
+        .contains("Correct answer"));
 }
