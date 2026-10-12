@@ -1,19 +1,23 @@
 """The organizer's review decisions (AC-19 to AC-22, AC-72, AC-73, AC-88, AC-95, G-12, GAP-24).
 
 Every test runs on a temporary copy of `tests/fixtures/review/`, never on
-`bank/questions/`; the module fixture at the bottom checks that the real bank is
-untouched afterwards. Re-verification runs on `StubRunner`'s recorded outputs,
-injected through `review.main(runner=...)`; the CLI itself has no way to ask for
-them, so outside a test it always reaches the pinned toolchain.
+`bank/questions/`; the module fixture below checks that every file under the real
+`bank/` is byte-identical afterwards. Re-verification runs on `StubRunner`'s
+recorded outputs, injected through `review.main(runner=...)`; the CLI itself has
+no way to ask for them, so outside a test it always reaches the pinned toolchain.
+
+Nothing here starts a process (`test_runner.py` holds `just test` to that); the
+TUI's own end-to-end test runs the CLI as a subprocess.
 """
 
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
-import os
+import runpy
 import shutil
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,14 +34,17 @@ NAME = "fixture-organizer"
 
 @pytest.fixture(scope="module", autouse=True)
 def the_real_bank_is_untouched():
-    def status() -> str:
-        return subprocess.run(
-            ["git", "status", "--porcelain", "bank/"], cwd=REPO, capture_output=True, text=True, check=True
-        ).stdout
+    def snapshot() -> dict[str, str]:
+        return {
+            str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted((REPO / "bank").rglob("*"))
+            if p.is_file()
+        }
 
-    before = status()
+    before = snapshot()
+    assert before, "the real bank was not found"
     yield
-    assert status() == before == ""
+    assert snapshot() == before
 
 
 @pytest.fixture
@@ -376,13 +383,12 @@ def test_ac7_review_names_verified_only_to_drop_it():
             assert isinstance(node.value, ast.Constant) and node.value.value is None
 
 
-def test_the_cli_runs_as_the_tui_runs_it(bank_dir):
-    """The organizer TUI starts `python -m popquiz.review` with an argument list."""
-    env = {k: v for k, v in os.environ.items() if k != review.ORGANIZER_ENV}
-    env["PYTHONPATH"] = str(REPO / "pipeline" / "src")
-    done = subprocess.run(
-        [os.sys.executable, "-m", "popquiz.review", "affirm", "q4", "--bank", str(bank_dir)],
-        capture_output=True, text=True, env=env, check=False,
-    )
-    assert done.returncode == 1
-    assert "Affirm needs your name" in done.stderr
+def test_the_cli_runs_as_the_tui_runs_it(bank_dir, monkeypatch, capsys):
+    """The organizer TUI starts `python -m popquiz.review` with an argument list;
+    this runs the same `__main__` in-process (the TUI's test spawns it for real)."""
+    monkeypatch.setattr(sys, "argv", ["popquiz.review", "affirm", "q4", "--bank", str(bank_dir)])
+    monkeypatch.delitem(sys.modules, "popquiz.review")  # run it fresh, as `-m` does
+    with pytest.raises(SystemExit) as done:
+        runpy.run_module("popquiz.review", run_name="__main__", alter_sys=True)
+    assert done.value.code == 1
+    assert "Affirm needs your name" in capsys.readouterr().err
