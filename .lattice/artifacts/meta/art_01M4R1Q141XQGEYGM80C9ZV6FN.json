@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-12T12:34:32Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4R1Q141XQGEYGM80C9ZV6FN",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4R1Q141XQGEYGM80C9ZV6FN.md",
+    "size_bytes": 7643
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "live-room-module-boundaries-madr.md",
+  "token_usage": null,
+  "type": "file"
+}

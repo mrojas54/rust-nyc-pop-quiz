@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-12T12:34:31Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M4R1Q0PF5G557847K6ZAGD3Q",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M4R1Q0PF5G557847K6ZAGD3Q.md",
+    "size_bytes": 7229
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "live-room-refactor-plan.md",
+  "token_usage": null,
+  "type": "file"
+}
