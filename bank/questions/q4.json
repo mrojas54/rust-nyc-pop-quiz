@@ -36,7 +36,139 @@
     "legacy": "Rust's / and % truncate toward zero, so -7 / 2 is -3, and the remainder takes the sign of the dividend: -1. div_euclid and rem_euclid floor instead, giving -4 with a remainder that is always non-negative: 1. Both are correct division -- they satisfy the same identity a == b * q + r -- they just make different choices about which way to round. If you have ever indexed into a ring buffer with a negative offset, you have met this bug."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "Two signed integers go in. The minus sign on the first one is what the whole question turns on.",
+        "values": [
+          {
+            "name": "a",
+            "was": "—",
+            "now": "-7"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          2,
+          3
+        ],
+        "note": "And a divisor of 2. Seven does not split evenly by two, so every operation on the next line has to decide what to do with the half.",
+        "values": [
+          {
+            "name": "b",
+            "was": "—",
+            "now": "2"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "Four numbers get worked out on this one line: two from the operators, two from the methods. Same inputs each time, so the question is whether the pairs agree.",
+        "values": []
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "/ throws the fraction away by rounding toward zero. -3.5 becomes -3, not -4.",
+        "values": [
+          {
+            "name": "a / b",
+            "was": "—",
+            "now": "-3"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "% is whatever is left over from that division, so it has to satisfy a == b * q + r. That gives -7 - (2 * -3) = -1. The remainder keeps the sign of a.",
+        "values": [
+          {
+            "name": "a % b",
+            "was": "—",
+            "now": "-1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "div_euclid rounds down instead of toward zero, so -3.5 becomes -4. The same division, rounded the other way. This is the step the whole question turns on.",
+        "values": [
+          {
+            "name": "a.div_euclid(b)",
+            "was": "—",
+            "now": "-4"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "rem_euclid is the leftover that goes with that rounding: -7 - (2 * -4) = 1. Never negative, which is the point of it.",
+        "values": [
+          {
+            "name": "a.rem_euclid(b)",
+            "was": "—",
+            "now": "1"
+          }
+        ]
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "All four are printed on one line, in the order they were written.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "-3 -1 | -4 1"
+          }
+        ]
+      }
+    ]
   },
   "verified": {
     "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
@@ -68,6 +200,6 @@
     "verifier_version": "popquiz-verify 7b1bc351e4dd"
   },
   "review": {
-    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the two printlns became one, so the program prints a single line and the machine re-verified the answer. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
+    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the two printlns became one, so the program prints a single line and the machine re-verified the answer. why_tempting beats drafted for every incorrect option. Trace drafted 2026-10-12 (eight steps, one pivot, stdout row copied from verified.stdout); it is unaffirmed and waits for an organizer to read it (SPEC 7.4). Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
   }
 }
