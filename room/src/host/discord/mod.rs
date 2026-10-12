@@ -55,12 +55,16 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::Deserialize;
-use subtle::ConstantTimeEq;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::auth::{decided, CreateCheck, CreateRefusal, HostAuth, OrganizerId};
 use crate::club::ClubSlug;
 use crate::lifecycle::{Clock, SystemClock};
+
+mod config;
+mod http;
+
+pub use config::{Endpoints, Log, Retry, Secret, Settings, Stderr};
+use http::{encode, form, Client, Req, Resp};
 
 /// The OAuth2 scopes, exactly SPEC §8's.
 pub const SCOPES: &str = "identify guilds.members.read";
@@ -83,109 +87,6 @@ const REFRESH_MARGIN: Duration = Duration::from_secs(60);
 
 const MAX_PENDING: usize = 256;
 const MAX_SESSIONS: usize = 1024;
-const MAX_BODY: usize = 64 * 1024;
-
-// --------------------------------------------------------------------------
-// Configuration.
-// --------------------------------------------------------------------------
-
-/// A secret string. No `Debug`, `Display` or `Clone`, so it cannot be
-/// formatted or copied into anything by accident.
-pub struct Secret(Box<str>);
-
-impl Secret {
-    pub fn new(value: String) -> Secret {
-        Secret(value.into_boxed_str())
-    }
-
-    fn expose(&self) -> &str {
-        &self.0
-    }
-
-    fn matches(&self, other: &str) -> bool {
-        bool::from(self.0.as_bytes().ct_eq(other.as_bytes()))
-    }
-}
-
-/// The Discord application and the guild it guards. Built by
-/// [`crate::config`] from the four `DISCORD_*` variables and the public URL.
-pub struct Settings {
-    pub client_id: String,
-    pub client_secret: Secret,
-    pub guild_id: String,
-    /// The clubs this server runs and each one's host role (D-26).
-    pub clubs: crate::club::Clubs,
-    /// `{POPQUIZ_PUBLIC_URL}{CALLBACK_PATH}`.
-    pub redirect_uri: String,
-}
-
-/// Where Discord is. [`Endpoints::discord`] in the binary; the tests' mock
-/// otherwise. Not configurable from the environment.
-pub struct Endpoints {
-    /// The API base, e.g. `https://discord.com/api/v10`.
-    pub api: String,
-    /// The consent screen, e.g. `https://discord.com/oauth2/authorize`.
-    pub authorize: String,
-}
-
-impl Endpoints {
-    pub fn discord() -> Endpoints {
-        Endpoints {
-            api: "https://discord.com/api/v10".into(),
-            authorize: "https://discord.com/oauth2/authorize".into(),
-        }
-    }
-
-    /// A Discord lookalike at `base` (`http://127.0.0.1:<port>`): the API under
-    /// `/api/v10`, the consent screen at `/oauth2/authorize`.
-    pub fn at(base: &str) -> Endpoints {
-        let base = base.trim_end_matches('/');
-        Endpoints {
-            api: format!("{base}/api/v10"),
-            authorize: format!("{base}/oauth2/authorize"),
-        }
-    }
-}
-
-/// How hard a check tries before it calls Discord unavailable.
-#[derive(Clone, Copy, Debug)]
-pub struct Retry {
-    /// Tries per Discord call, the first included.
-    pub attempts: u32,
-    /// The wait before the second try; doubled for each one after.
-    pub first_backoff: Duration,
-    /// One try's bound, connection to last byte.
-    pub per_attempt: Duration,
-    /// The whole check's bound, every call and wait included.
-    pub deadline: Duration,
-}
-
-impl Default for Retry {
-    fn default() -> Retry {
-        Retry {
-            attempts: 3,
-            first_backoff: Duration::from_millis(250),
-            per_attempt: Duration::from_secs(3),
-            deadline: Duration::from_secs(8),
-        }
-    }
-}
-
-/// Where the backend's log lines go. One line per Discord call: which call,
-/// its status or that there was none, and the attempt. Never a token, a
-/// header, a body, a code or a state.
-pub trait Log: Send + Sync {
-    fn line(&self, line: &str);
-}
-
-/// Standard error, which Fly collects.
-pub struct Stderr;
-
-impl Log for Stderr {
-    fn line(&self, line: &str) {
-        eprintln!("{line}");
-    }
-}
 
 // --------------------------------------------------------------------------
 // The records (SPEC §3.5).
@@ -462,6 +363,8 @@ impl HostAuth for Discord {
         let club = club.clone();
         Box::pin(async move {
             // Its own task: see "Refresh-token rotation" above.
+            // Invariant: a refresh survives the caller going away; dropping
+            // this future does not cancel the spawned check.
             match tokio::runtime::Handle::try_current() {
                 Ok(rt) => rt
                     .spawn(inner.check(user, club))
@@ -556,6 +459,8 @@ impl Inner {
         let refresh = self.refresh_lock(&user);
         let mut refreshed = false;
         {
+            // Invariant: one refresh per organizer at a time; a second check
+            // waits here and finds the record already rotated.
             let _one_at_a_time = refresh.lock().await;
             let (_, _, due) = self.access(&user).ok_or(CreateRefusal::Denied)?;
             if due {
@@ -699,282 +604,9 @@ impl Inner {
     }
 }
 
-// --------------------------------------------------------------------------
-// Encoding.
-// --------------------------------------------------------------------------
-
-/// Percent-encode everything but RFC 3986's unreserved characters.
-fn encode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
-
-/// `application/x-www-form-urlencoded`.
-fn form(pairs: &[(&str, &str)]) -> Vec<u8> {
-    pairs
-        .iter()
-        .map(|(k, v)| format!("{}={}", encode(k), encode(v)))
-        .collect::<Vec<_>>()
-        .join("&")
-        .into_bytes()
-}
-
-// --------------------------------------------------------------------------
-// HTTP/1.1: one request per connection, over TCP or TLS. Enough for three
-// Discord routes: Content-Length, chunked or to-EOF bodies, no redirects.
-// --------------------------------------------------------------------------
-
-struct Req {
-    method: &'static str,
-    url: String,
-    bearer: Option<Secret>,
-    form: Option<Vec<u8>>,
-}
-
-impl Req {
-    fn get(url: &str, bearer: &str) -> Req {
-        Req {
-            method: "GET",
-            url: url.to_string(),
-            bearer: Some(Secret::new(bearer.to_string())),
-            form: None,
-        }
-    }
-
-    fn form(url: &str, body: Vec<u8>) -> Req {
-        Req {
-            method: "POST",
-            url: url.to_string(),
-            bearer: None,
-            form: Some(body),
-        }
-    }
-}
-
-struct Resp {
-    status: u16,
-    retry_after: Option<String>,
-    body: Vec<u8>,
-}
-
-impl Resp {
-    fn json<T: for<'de> Deserialize<'de>>(&self) -> Option<T> {
-        serde_json::from_slice(&self.body).ok()
-    }
-
-    /// Discord's `Retry-After`, in seconds (fractions allowed), from the header
-    /// or else the body's `retry_after`.
-    fn retry_after(&self) -> Option<Duration> {
-        #[derive(Deserialize)]
-        struct Body {
-            retry_after: f64,
-        }
-        let secs = self
-            .retry_after
-            .as_deref()
-            .and_then(|v| v.trim().parse::<f64>().ok())
-            .or_else(|| self.json::<Body>().map(|b| b.retry_after))?;
-        (secs.is_finite() && secs >= 0.0).then(|| Duration::from_secs_f64(secs.min(3600.0)))
-    }
-}
-
-trait Io: AsyncRead + AsyncWrite + Unpin + Send {}
-impl<T: AsyncRead + AsyncWrite + Unpin + Send> Io for T {}
-
-struct Client {
-    tls: tokio_rustls::TlsConnector,
-}
-
-impl Client {
-    fn new() -> Client {
-        let roots =
-            rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .expect("ring supports the default protocol versions")
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-        config.alpn_protocols = vec![b"http/1.1".to_vec()];
-        Client {
-            tls: tokio_rustls::TlsConnector::from(Arc::new(config)),
-        }
-    }
-
-    async fn send(&self, req: &Req) -> std::io::Result<Resp> {
-        let bad =
-            |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidInput, why.to_string());
-        let (tls, rest) = if let Some(r) = req.url.strip_prefix("https://") {
-            (true, r)
-        } else if let Some(r) = req.url.strip_prefix("http://") {
-            (false, r)
-        } else {
-            return Err(bad("not an http(s) URL"));
-        };
-        let (authority, path) = rest.split_at(rest.find('/').unwrap_or(rest.len()));
-        let path = if path.is_empty() { "/" } else { path };
-        let default_port = if tls { 443 } else { 80 };
-        let (host, port) = match authority.strip_prefix('[') {
-            // `[::1]:8080`
-            Some(v6) => {
-                let (h, rest) = v6.split_once(']').ok_or_else(|| bad("bad host"))?;
-                match rest.strip_prefix(':') {
-                    Some(p) => (h, p.parse::<u16>().map_err(|_| bad("bad port"))?),
-                    None => (h, default_port),
-                }
-            }
-            None => match authority.split_once(':') {
-                Some((h, p)) => (h, p.parse::<u16>().map_err(|_| bad("bad port"))?),
-                None => (authority, default_port),
-            },
-        };
-        let tcp = tokio::net::TcpStream::connect((host, port)).await?;
-        tcp.set_nodelay(true)?;
-        let io: Box<dyn Io> = if tls {
-            let name = rustls::pki_types::ServerName::try_from(host.to_string())
-                .map_err(|_| bad("bad host"))?;
-            Box::new(self.tls.connect(name, tcp).await?)
-        } else {
-            Box::new(tcp)
-        };
-        let mut conn = BufReader::new(io);
-
-        let mut head = format!(
-            "{} {path} HTTP/1.1\r\nHost: {authority}\r\nUser-Agent: popquiz-room (https://popquiz.rustnyc.org, 1)\r\nAccept: application/json\r\nConnection: close\r\n",
-            req.method
-        );
-        if let Some(b) = &req.bearer {
-            head.push_str("Authorization: Bearer ");
-            head.push_str(b.expose());
-            head.push_str("\r\n");
-        }
-        let body: &[u8] = req.form.as_deref().unwrap_or(&[]);
-        if req.form.is_some() {
-            head.push_str("Content-Type: application/x-www-form-urlencoded\r\n");
-        }
-        if req.form.is_some() || req.method != "GET" {
-            head.push_str(&format!("Content-Length: {}\r\n", body.len()));
-        }
-        head.push_str("\r\n");
-        let w = conn.get_mut();
-        w.write_all(head.as_bytes()).await?;
-        w.write_all(body).await?;
-        w.flush().await?;
-
-        let proto =
-            |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string());
-        let mut line = String::new();
-        if conn.read_line(&mut line).await? == 0 {
-            return Err(proto("closed before a response"));
-        }
-        let status: u16 = line
-            .split_whitespace()
-            .nth(1)
-            .and_then(|s| s.parse().ok())
-            .ok_or_else(|| proto("bad status line"))?;
-        let (mut chunked, mut length, mut retry_after) = (false, None, None);
-        for _ in 0..200 {
-            line.clear();
-            conn.read_line(&mut line).await?;
-            let l = line.trim_end();
-            if l.is_empty() {
-                break;
-            }
-            if let Some((k, v)) = l.split_once(':') {
-                let v = v.trim();
-                match k.trim().to_ascii_lowercase().as_str() {
-                    "transfer-encoding" => chunked = v.to_ascii_lowercase().contains("chunked"),
-                    "content-length" => {
-                        length = Some(
-                            v.parse::<usize>()
-                                .map_err(|_| proto("bad content-length"))?,
-                        )
-                    }
-                    "retry-after" => retry_after = Some(v.to_string()),
-                    _ => {}
-                }
-            }
-        }
-        let mut body = Vec::new();
-        if chunked {
-            read_chunked(&mut conn, &mut body).await?;
-        } else if let Some(n) = length {
-            if n > MAX_BODY {
-                return Err(proto("body too large"));
-            }
-            body.resize(n, 0);
-            conn.read_exact(&mut body).await?;
-        } else {
-            (&mut conn)
-                .take(MAX_BODY as u64 + 1)
-                .read_to_end(&mut body)
-                .await?;
-            if body.len() > MAX_BODY {
-                return Err(proto("body too large"));
-            }
-        }
-        Ok(Resp {
-            status,
-            retry_after,
-            body,
-        })
-    }
-}
-
-async fn read_chunked<R: AsyncBufReadExt + Unpin>(
-    r: &mut R,
-    out: &mut Vec<u8>,
-) -> std::io::Result<()> {
-    let proto = |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string());
-    let mut line = String::new();
-    loop {
-        line.clear();
-        r.read_line(&mut line).await?;
-        let size = usize::from_str_radix(line.trim().split(';').next().unwrap_or(""), 16)
-            .map_err(|_| proto("bad chunk size"))?;
-        if size == 0 {
-            loop {
-                line.clear();
-                if r.read_line(&mut line).await? == 0 || line.trim().is_empty() {
-                    return Ok(());
-                }
-            }
-        }
-        if out.len() + size > MAX_BODY {
-            return Err(proto("body too large"));
-        }
-        let start = out.len();
-        out.resize(start + size, 0);
-        r.read_exact(&mut out[start..]).await?;
-        line.clear();
-        r.read_line(&mut line).await?;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn encode_leaves_unreserved_alone() {
-        assert_eq!(
-            encode("identify guilds.members.read"),
-            "identify%20guilds.members.read"
-        );
-        assert_eq!(
-            encode("http://localhost:3000/auth/discord/callback"),
-            "http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback"
-        );
-        assert_eq!(encode("a-b_c.d~e"), "a-b_c.d~e");
-    }
 
     #[test]
     fn question_ids() {
@@ -984,36 +616,5 @@ mod tests {
         for bad in ["", "q3#x", "q3&state=1", "../q", &"q".repeat(65)] {
             assert!(!is_question_id(bad), "{bad}");
         }
-    }
-
-    #[test]
-    fn retry_after_reads_the_header_then_the_body() {
-        let r = Resp {
-            status: 429,
-            retry_after: Some("0.25".into()),
-            body: b"{}".to_vec(),
-        };
-        assert_eq!(r.retry_after(), Some(Duration::from_millis(250)));
-        let r = Resp {
-            status: 429,
-            retry_after: None,
-            body: br#"{"retry_after": 1.5}"#.to_vec(),
-        };
-        assert_eq!(r.retry_after(), Some(Duration::from_millis(1500)));
-        let r = Resp {
-            status: 429,
-            retry_after: Some("soon".into()),
-            body: Vec::new(),
-        };
-        assert_eq!(r.retry_after(), None);
-    }
-
-    #[tokio::test]
-    async fn chunked_bodies() {
-        let raw = b"4\r\nWiki\r\n6;x=y\r\npedia \r\n0\r\nTrailer: t\r\n\r\n";
-        let mut r = BufReader::new(&raw[..]);
-        let mut out = Vec::new();
-        read_chunked(&mut r, &mut out).await.unwrap();
-        assert_eq!(out, b"Wikipedia ");
     }
 }

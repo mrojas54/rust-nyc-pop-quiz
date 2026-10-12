@@ -103,8 +103,9 @@ pub(super) async fn act(
 // so it survives the top-level redirect back from discord.com, scoped to
 // `/auth/discord`). Both must agree, and the record is spent either way. The
 // organizer session travels only in the landing URL's fragment, which no
-// request carries; Discord's tokens never leave `discord.rs`. A state without
-// the Discord backend (tests on `TestAuth`, `router()`) serves neither route.
+// request carries; Discord's tokens never leave the `discord` module. A state
+// without the Discord backend (tests on `TestAuth`, `router()`) serves neither
+// route.
 
 fn state_cookie(headers: &HeaderMap) -> Option<&str> {
     headers
