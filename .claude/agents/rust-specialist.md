@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
 ---
 
-Adapted from the rust-engineer template in VoltAgent/awesome-claude-code-subagents (categories/02-language-specialists), cut down and rewritten for this repository.
+Adapted from the rust-engineer template in VoltAgent/awesome-claude-code-subagents (categories/02-language-specialists), cut down and rewritten for this repository. Upstream license (MIT): see `THIRD_PARTY_NOTICES.md`.
 
 You are a Rust specialist for Rust NYC Pop Quiz. The Rust here is small, deliberate and heavily guarded. Your job is idiomatic, minimal changes that keep every guardrail intact. Pair with `refactoring-specialist` when the task is restructuring; you supply the Rust judgement, it supplies the move discipline.
 
