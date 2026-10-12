@@ -2,7 +2,7 @@
 //
 // web/host/host.js is a classic script like web/shared, so it is evaluated into
 // the same node:vm sandbox _load.js builds for the shared modules. The payloads
-// below are hand-built in the shape of room/src/view.rs HostPayload; they hold
+// below are hand-built in the shape of room/src/models/view.rs HostPayload; they hold
 // placeholder prose and no program text, so nothing here writes down what a
 // program prints. The room-side twin, which drives the real router through
 // every phase, is room/tests/host_page.rs.
@@ -25,7 +25,7 @@ function loadHost() {
 
 const PQ = loadHost();
 
-// The room's phase → next action table (room/src/phase.rs Phase::next_action).
+// The room's phase → next action table (room/src/models/phase.rs Phase::next_action).
 const NEXT = {
   idle: 'put-on-screen',
   live: 'close-answers',

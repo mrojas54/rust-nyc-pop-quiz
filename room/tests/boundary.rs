@@ -1,7 +1,7 @@
 //! AC-61's in-crate half: the seal, as the source states it.
 //!
-//! The `compile_fail` doctests in `src/phase.rs`, `src/answers.rs` and
-//! `src/rooms.rs` prove the boundary as another crate sees it — each paired
+//! The `compile_fail` doctests in `src/models/phase.rs`, `src/models/answers.rs` and
+//! `src/rooms/mod.rs` prove the boundary as another crate sees it — each paired
 //! with a twin that compiles and differs only in the forbidden line, so each
 //! can fail for one reason only. What a doctest cannot see is a hole opened
 //! *inside* the crate: a `pub(crate)` constructor for the witness, a second
@@ -12,33 +12,13 @@
 //! means to. The compiler checks the part that matters — field privacy — and
 //! this checks that nobody has quietly built a way around it.
 
+mod common;
+
 use std::path::PathBuf;
 
 fn src(name: &str) -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src").join(name);
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
-}
-
-fn all_sources() -> Vec<(String, String)> {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
-    let mut out = Vec::new();
-    let mut stack = vec![dir];
-    while let Some(d) = stack.pop() {
-        for entry in std::fs::read_dir(&d).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().is_some_and(|e| e == "rs") {
-                let name = path.strip_prefix(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src"))
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned();
-                out.push((name, std::fs::read_to_string(&path).unwrap()));
-            }
-        }
-    }
-    assert!(out.len() >= 8, "found {} source files", out.len());
-    out
 }
 
 /// The code of a file with comment lines removed (doc comments hold the
@@ -96,25 +76,25 @@ fn unsafe_is_forbidden_crate_wide() {
 
 #[test]
 fn the_witness_is_built_in_one_place() {
-    for (name, text) in all_sources() {
+    for (name, text) in common::room_sources(&[]) {
         let hits = code(&text).matches("RevealWitness {").count();
-        if name == "phase.rs" {
+        if name == "models/phase.rs" {
             // The struct definition, and the one construction in `revealed()`.
-            assert_eq!(hits, 1, "phase.rs builds RevealWitness {hits} times");
+            assert_eq!(hits, 1, "models/phase.rs builds RevealWitness {hits} times");
             assert_eq!(code(&text).matches("RevealWitness<'m> {").count(), 1);
         } else {
             assert_eq!(hits, 0, "{name} builds a RevealWitness");
         }
     }
     // And the one construction is inside `revealed`, under `Phase::Reveal`.
-    let phase = code(&src("phase.rs"));
+    let phase = code(&src("models/phase.rs"));
     let revealed = block(&phase, "pub fn revealed(&self)");
     assert!(revealed.contains("Phase::Reveal => Some(RevealWitness {"));
 }
 
 #[test]
 fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness() {
-    let answers = code(&src("answers.rs"));
+    let answers = code(&src("models/answers.rs"));
     let vault = block(&answers, "mod vault {");
     let found = fns(vault);
     let names: Vec<&str> = found.iter().map(|(n, _)| n.as_str()).collect();
@@ -135,7 +115,7 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
         assert!(!vault.contains(s), "vault exposes {s:?}");
     }
     // Declared once, privately.
-    let decls: usize = all_sources().iter().map(|(_, t)| code(t).matches("mod vault").count()).sum();
+    let decls: usize = common::room_sources(&[]).iter().map(|(_, t)| code(t).matches("mod vault").count()).sum();
     assert_eq!(decls, 1);
     assert!(!answers.contains("pub mod vault"));
     // T-12: take-it-home's reads (every why_tempting, the machine) leave the
@@ -147,13 +127,14 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
 #[test]
 fn nothing_sealed_can_be_printed_copied_or_serialized() {
     let sealed_types = [
-        ("answers.rs", "pub struct Vault"),
-        ("answers.rs", "pub struct Verdict"),
-        ("answers.rs", "pub struct Scheduled"),
-        ("rooms.rs", "pub struct Room "),
-        ("rooms.rs", "struct Frozen"),
-        ("rooms.rs", "pub struct Opened"),
+        ("models/answers.rs", "pub struct Vault"),
+        ("models/answers.rs", "pub struct Verdict"),
+        ("models/answers.rs", "pub struct Scheduled"),
+        ("rooms/room.rs", "pub struct Room "),
+        ("rooms/room.rs", "struct Frozen"),
+        ("rooms/open.rs", "pub struct Opened"),
     ];
+    let everything = common::room_sources(&[]);
     for (file, decl) in sealed_types {
         let text = src(file);
         let at = text.find(decl).unwrap_or_else(|| panic!("{decl} not in {file}"));
@@ -170,7 +151,7 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
             assert!(!line.contains("derive"), "{decl} in {file} derives: {line}");
         }
         let ty = decl.split_whitespace().last().unwrap();
-        for all in all_sources() {
+        for all in &everything {
             for tr in ["Debug", "Clone", "Copy", "Serialize"] {
                 assert!(
                     !code(&all.1).contains(&format!("{tr} for {ty}")),
@@ -184,22 +165,22 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
 
 #[test]
 fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
-    for (name, text) in all_sources() {
+    for (name, text) in common::room_sources(&[]) {
         let code = code(&text);
-        if name != "answers.rs" {
+        if name != "models/answers.rs" {
             assert!(!code.contains(".vault"), "{name} reaches into the vault");
             assert!(!code.contains("Vault::"), "{name} names the vault");
         }
-        if name != "rooms.rs" {
+        if name != "rooms/open.rs" {
             assert!(!code.contains(".question.open("), "{name} opens a question");
         }
         // phase.rs binds a local `machine` inside `apply`, which is the machine.
-        if name != "rooms.rs" && name != "phase.rs" {
+        if name != "rooms/room.rs" && name != "models/phase.rs" {
             assert!(!code.contains("machine ="), "{name} assigns a machine");
         }
     }
-    // In rooms.rs, `machine` is assigned once — in `act`, from `apply`.
-    let rooms = code(&src("rooms.rs"));
+    // In rooms/room.rs, `machine` is assigned once — in `act`, from `apply`.
+    let rooms = code(&src("rooms/room.rs"));
     assert_eq!(rooms.matches("self.machine =").count(), 1);
     let act = block(&rooms, "pub fn act(");
     assert!(act.contains("apply(State::Room(self.machine.clone()), command)?"));
@@ -212,7 +193,7 @@ fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
 
 #[test]
 fn the_pre_reveal_builders_never_see_the_opened_room() {
-    let view = code(&src("view.rs"));
+    let view = code(&src("models/view.rs"));
     let sealed = block(&view, "mod sealed {");
     for forbidden in ["Opened", ".open(", "Middle", "answers", "Room", "revealed"] {
         assert!(!sealed.contains(forbidden), "the pre-reveal builders mention {forbidden:?}");
@@ -225,5 +206,37 @@ fn the_pre_reveal_builders_never_see_the_opened_room() {
         let body = block(&view, p);
         assert!(body.contains("match room.open()"), "{p} does not branch on room.open()");
         assert!(body.contains("None => sealed::"), "{p}");
+    }
+}
+
+#[test]
+fn within_rooms_only_open_rs_names_the_sealed_answer_types() {
+    // `Revealed` and `Middle` are what the vault hands out. Of the room's files,
+    // only the one that opens a question may import or hold them (ADR-0003).
+    let mut seen_in_open = false;
+    for (name, text) in common::room_sources(&[]) {
+        if !name.starts_with("rooms/") {
+            continue;
+        }
+        let code = code(&text);
+        let names_them = ["Revealed", "Middle"].iter().any(|t| code.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| w == *t));
+        if name == "rooms/open.rs" {
+            seen_in_open = names_them;
+        } else {
+            assert!(!names_them, "{name} names Revealed or Middle; only rooms/open.rs may");
+        }
+    }
+    assert!(seen_in_open, "rooms/open.rs no longer names them: the rule has lost its subject");
+}
+
+#[test]
+fn lifecycle_docs_name_a_reaper_that_exists() {
+    // `rooms/lifecycle.rs` names the reaper in plain backticks (the module is
+    // crate-private, so rustdoc cannot link it). Keep those names true.
+    let doc = src("rooms/lifecycle.rs");
+    let reaper = src("server/reaper.rs");
+    for (name, decl) in [("REAP_EVERY", "pub const REAP_EVERY"), ("spawn_reaper", "pub fn spawn_reaper")] {
+        assert!(doc.contains(&format!("server::reaper::{name}")), "lifecycle.rs no longer mentions {name}");
+        assert!(reaper.contains(decl), "server/reaper.rs lost {decl}");
     }
 }

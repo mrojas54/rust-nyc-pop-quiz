@@ -60,8 +60,55 @@ impl Sessions for FakeSessions {
     }
 }
 
+/// The HTTP routes' source files, as (path under `server/routes/`, text):
+/// `mod.rs` first, then the rest in path order. Built from [`room_sources`], so
+/// a file in a subfolder of `routes/` is returned too. Scans that parse routes
+/// read each file on its own, so a span never runs on into the next file.
+pub fn route_files() -> Vec<(String, String)> {
+    let mut files: Vec<(String, String)> = room_sources(&[])
+        .into_iter()
+        .filter_map(|(name, text)| name.strip_prefix("server/routes/").map(|rel| (rel.to_string(), text)))
+        .collect();
+    assert!(files.iter().any(|(n, _)| n == "mod.rs"), "server/routes/mod.rs");
+    files.sort_by(|a, b| (a.0 != "mod.rs", &a.0).cmp(&(b.0 != "mod.rs", &b.0)));
+    files
+}
+
+/// The route files joined, for scans that only look for a string somewhere in
+/// them. Never parse spans out of this: use [`route_files`].
+pub fn routes_source() -> String {
+    route_files().into_iter().map(|(_, t)| t).collect::<Vec<_>>().join("\n")
+}
+
 pub fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
+}
+
+/// Every `.rs` file under `room/src`, as (path relative to `src/` with `/`
+/// separators, text), sorted by path. Directories named in `skip` are left out
+/// at the top of `src/` only (`cli/` holds clients, not the room). Guardrail
+/// scans read the tree through this, so a moved file cannot slip out of one.
+pub fn room_sources(skip: &[&str]) -> Vec<(String, String)> {
+    let src = repo().join("room/src");
+    let mut out = Vec::new();
+    let mut stack = vec![src.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            let rel = path.strip_prefix(&src).unwrap().to_string_lossy().replace('\\', "/");
+            if path.is_dir() {
+                if !skip.contains(&rel.as_str()) {
+                    stack.push(path);
+                }
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let text = std::fs::read_to_string(&path).unwrap();
+                out.push((rel, text));
+            }
+        }
+    }
+    out.sort();
+    assert!(out.len() > 10, "found {} sources under {}", out.len(), src.display());
+    out
 }
 
 pub fn q3_json() -> Value {

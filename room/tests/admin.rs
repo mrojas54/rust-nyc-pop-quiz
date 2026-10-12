@@ -283,30 +283,20 @@ fn src(file: &str) -> String {
     std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join(file)).unwrap()
 }
 
-fn sources() -> Vec<(String, String)> {
-    let mut out = Vec::new();
-    let mut stack = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];
-    while let Some(dir) = stack.pop() {
-        for e in std::fs::read_dir(dir).unwrap() {
-            let path = e.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().is_some_and(|x| x == "rs") {
-                let rel = path.strip_prefix(Path::new(env!("CARGO_MANIFEST_DIR")).join("src")).unwrap();
-                out.push((rel.to_string_lossy().replace('\\', "/"), std::fs::read_to_string(&path).unwrap()));
-            }
+/// The admin routes' file (`pipeline.rs`, all of it), and every other route
+/// file by name, so a failure names the file at fault.
+fn routes_split() -> (String, Vec<(String, String)>) {
+    let mut block = String::new();
+    let mut rest = Vec::new();
+    for (name, text) in common::route_files() {
+        if name == "pipeline.rs" {
+            block = text;
+        } else {
+            rest.push((name, text));
         }
     }
-    assert!(out.len() > 10, "found the sources");
-    out
-}
-
-/// `routes.rs`'s `// T-25 routes` block, and everything outside it.
-fn routes_split() -> (String, String) {
-    let s = src("routes.rs");
-    let start = s.find("// T-25 routes ---").expect("the T-25 block");
-    let end = s.find("// end T-25 routes ---").expect("the T-25 block ends");
-    (s[start..end].to_string(), format!("{}{}", &s[..start], &s[end..]))
+    assert!(block.contains("admin_routes"), "pipeline.rs holds the admin routes");
+    (block, rest)
 }
 
 #[test]
@@ -324,10 +314,12 @@ fn ac101_the_admin_prefix_is_served_to_the_check_alone() {
         assert!(block.contains(p), "the block serves {p}");
     }
     // Nothing outside the block serves under the prefix, or names the module.
-    assert!(!rest.contains("\"/admin"), "routes.rs serves /admin outside the T-25 block");
-    assert!(!rest.contains("admin::"), "routes.rs names the admin module outside the T-25 block");
+    for (name, text) in &rest {
+        assert!(!text.contains("\"/admin"), "server/routes/{name} serves /admin outside pipeline.rs");
+        assert!(!text.contains("admin::"), "server/routes/{name} names the admin module outside pipeline.rs");
+    }
     // `serve` checks before it reads anything.
-    let admin = src("admin.rs");
+    let admin = src("server/admin.rs");
     let serve = &admin[admin.find("pub async fn serve(").unwrap()..];
     let body = &serve[serve.find('{').unwrap() + 1..];
     let first = body.trim_start().lines().next().unwrap();
@@ -336,31 +328,33 @@ fn ac101_the_admin_prefix_is_served_to_the_check_alone() {
 
 #[test]
 fn ac101_g9_no_other_module_reads_the_token() {
-    for (file, text) in sources() {
+    for (file, text) in room_sources(&[]) {
         let names_var = text.contains(VAR);
         let names_type = text.contains("AdminToken");
         match file.as_str() {
-            "admin.rs" => assert!(names_var && names_type),
-            "config.rs" => assert!(names_type, "config reads it through admin"),
+            "server/admin.rs" => assert!(names_var && names_type),
+            "server/config.rs" => assert!(names_type, "config reads it through admin"),
             "lib.rs" => assert!(!names_var, "lib.rs wires the token and never names the variable"),
-            "routes.rs" => {
-                let (_, rest) = routes_split();
-                assert!(!names_var && !rest.contains("AdminToken"), "routes.rs names the token outside the T-25 block");
-            }
+            // The admin routes are their own file; the rest of the routes name nothing.
+            "server/routes/pipeline.rs" => assert!(!names_var && names_type),
             _ => assert!(!names_var && !names_type, "{file} names the admin token"),
         }
+    }
+    let (_, rest) = routes_split();
+    for (name, text) in &rest {
+        assert!(!text.contains("AdminToken"), "server/routes/{name} names the token outside pipeline.rs");
     }
     // The variable's name is a code literal in admin.rs alone; config.rs
     // refers to it as `admin::VAR`.
     let literal = format!("\"{VAR}\"");
-    for (file, text) in sources() {
-        assert_eq!(text.contains(&literal), file == "admin.rs", "{file}");
+    for (file, text) in room_sources(&[]) {
+        assert_eq!(text.contains(&literal), file == "server/admin.rs", "{file}");
     }
 }
 
 #[test]
 fn g9_one_constant_time_compare_and_no_log() {
-    let admin = src("admin.rs");
+    let admin = src("server/admin.rs");
     assert_eq!(admin.matches("ct_eq(").count(), 1, "one constant-time compare");
     assert_eq!(admin.matches("fn check(").count(), 1, "one check");
     assert!(!admin.contains("token =="), "the token is never compared with ==");
@@ -416,7 +410,7 @@ async fn ac101_no_participant_wall_host_or_auth_route_accepts_the_admin_token() 
 
 #[tokio::test]
 async fn ac61_a_pushed_answer_is_reachable_only_through_the_sealed_module() {
-    let admin_rs = src("admin.rs");
+    let admin_rs = src("server/admin.rs");
     for name in ["Revealed", "Witness", "witness", "verified", "correct", "stdout", "vault"] {
         assert!(!admin_rs.contains(name), "admin.rs names {name}");
     }

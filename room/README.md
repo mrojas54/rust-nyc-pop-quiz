@@ -37,7 +37,7 @@ the count. Open the wall at `/wall/{room_id}`, the same id as the host page's
 path. Phones (or other tabs) join at `/join`, or through the short link
 `/{code}`. The binary refuses to start if any of the four is unset or empty.
 
-The binary's environment (`src/config.rs`):
+The binary's environment (`src/server/config.rs`):
 
 | Variable | Unset | Set |
 |---|---|---|
@@ -54,6 +54,59 @@ The OAuth redirect URI is not a variable: it is `POPQUIZ_PUBLIC_URL` +
 
 The released wall's take-it-home link is SPEC §13's `https://popquiz.rustnyc.org/last`
 in every configuration, the same one the static fallback uses.
+
+## Source layout
+
+`room/src` is grouped by who uses the code. Every module is also re-exported at
+the crate root (`room::phase` is `room::models::phase`), so the module names in
+the next section still work as written.
+
+```
+src/
+  lib.rs  copy.rs                  the crate root; SPEC §11's strings
+  rooms/                           the room itself
+    mod.rs      the sealed-record doctests, the re-exports, the small shared types
+    room.rs     the room record and the writes the phase machine drives
+    open.rs     the one way to the answers: Room::open, Room::public, Opened, PublicView
+    state.rs    AppState: every room on this machine, the clock, the ledger, the sockets' token map
+    seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
+    errors.rs   RoomError, AnswerError, Joined, Scheduling
+    create.rs   create a room, run it again
+    lifecycle.rs  the clock seam, §4.6's bounds, `Ended` and `verdict` (reachable as `room::lifecycle`)
+  host/                            the organizer
+    auth.rs  discord.rs              the create check (G-9); Discord sign-in and the role check
+  connections/                     the audience
+    ws.rs  sessions.rs  requestlog.rs   sockets and one broadcast per room; participant sessions; AC-55's log
+  models/                          the data
+    phase.rs  answers.rs  question.rs  club.rs  view.rs  used.rs
+                                     the machine; the sealed answers; the public question; clubs;
+                                     the wall/buzzer/host payloads; the ledger and take-it-home
+  server/                          what the `room` binary serves
+    main.rs  config.rs  reaper.rs  admin.rs   the binary; its environment; the sweep task; the pipeline channel
+    routes/                          the HTTP surface, one file per user
+      mod.rs      shared helpers, the state query, the assembly (the socket layers go last)
+      host.rs     create, run again, host actions, Discord sign-in, the host phone's page
+      connections.rs  join, answer, the buzzer page
+      wall.rs     the wall page, shared assets, the fit report
+      pages.rs    take it home (`/last`) and the front door (`/`)
+      pipeline.rs the `/admin` routes, mounted on their own router
+  cli/                             the clients: smoke, burst, room_client, the spike
+```
+
+`models/view.rs` stays one file: the pre-reveal builders (`mod sealed`) are read
+as a single block by `tests/boundary.rs`, so the proof that they never see the
+opened room is one thing to review. Its header says where each part is.
+
+`tests/` stays flat, because Cargo builds each file as its own test. By group:
+
+| Group | Tests |
+|---|---|
+| host | `auth`, `host_page`, `clubs`, `one_room` |
+| connections | `sessions`, `transport`, `transport_full`, `requestlog`, `buzzer_page` |
+| models | `phase_table`, `room_record`, `boundary`, `used`, `take_home`, `twins` |
+| server | `admin`, `lifecycle`, `smoke_config`, `no_fallback_route`, `landing`, `wall_page` |
+| cli | `burst_report`, `harness_config`, `harness_rules`, `harness_full` |
+| whole room | `wiring`, `canary`, `canary_full`, `canary_scan/` |
 
 ## What is here
 
@@ -271,8 +324,8 @@ is not the Fly secret.
 
 ## Lifecycle and what outlives a room (T-11)
 
-SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/lifecycle.rs`, `src/used.rs`,
-and the release and sweep paths in `src/rooms.rs`.
+SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/rooms/lifecycle.rs`, `src/server/reaper.rs`, `src/models/used.rs`,
+and the release and sweep paths in `src/rooms/`.
 
 **How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
 Before that, a room closes for inactivity after `IDLE_QUIET` (30 min, `idle`) or
@@ -283,7 +336,7 @@ in between the bound and the sweep. **Only `AppState::sweep(now)` deletes.** It
 removes the room record and its sessions whole, and remembers `{code, why}` for
 `ENDED_MEMORY` (4 h) so a late join hears *already ended* / *closed for
 inactivity* rather than *unknown*, and so no new room reuses the code. The
-reaper (`lifecycle::spawn_reaper`, started by the router inside a tokio runtime)
+reaper (`server::reaper::spawn_reaper`, started by the router inside a tokio runtime)
 sweeps every 30 s and pokes the transport for each room it deleted.
 
 **Time comes from one clock.** `AppState::with_clock(Arc<dyn Clock>)`. The
@@ -443,7 +496,7 @@ deployed room, and does not discharge it.
 
 ## The transport (T-04c)
 
-`src/ws.rs`. One broadcast per room to the wall, the buzzers and the host, and
+`src/connections/ws.rs`. One broadcast per room to the wall, the buzzers and the host, and
 reconnect with the same session token.
 
 ### Sockets
@@ -490,13 +543,13 @@ phone skips superseded ones instead of lagging behind them, and no receiver can
 drop a reveal the way the spike's `broadcast` could (it had to count `Lagged`).
 The channel exists only while someone is subscribed.
 
-**What triggers a push.** `rooms.rs` has no change hook, and polling is out.
+**What triggers a push.** The `rooms/` module has no change hook, and polling is out.
 `Transport::changed(room_id)` publishes only if `Room::revision()` moved, so a
 poke that changed nothing sends nothing. It is called:
 
 - by the `notify` layer after every non-GET request under `/rooms/{id}/…` — all
   host actions, and any HTTP writer whose routes are registered **above the
-  `// T-04c routes` block in `routes.rs`, which must stay last** (`layer` wraps
+  `// T-04c routes` block in `routes/mod.rs`, which must stay last** (`layer` wraps
   only the routes already registered);
 - by the transport after each call into the session map;
 - by `POST /join` itself: its path names no room, so `notify` cannot poke it;
@@ -575,7 +628,7 @@ spike's frames:
 
 The three surfaces are pages the room serves beside its JSON. Each is plain
 HTML, CSS and JS from `web/<surface>/`, embedded at compile time
-(`include_str!`) in its ticket's own block of `routes.rs` — no new crate, no
+(`include_str!`) in its ticket's own block of `routes/` — no new crate, no
 `ServeDir`, nothing read from disk at run time, and a name not listed is `404`.
 
 | Path | What | Ticket |
@@ -684,8 +737,8 @@ builders receive a `PublicView`, which has no path to the vault.
 
 The proof is in two halves, and neither is "we reviewed it":
 
-1. **`compile_fail` doctests**, in `src/phase.rs`, `src/answers.rs` and
-   `src/rooms.rs`, cover six attempts to cross the boundary:
+1. **`compile_fail` doctests**, in `src/models/phase.rs`, `src/models/answers.rs` and
+   `src/rooms/mod.rs`, cover six attempts to cross the boundary:
    - forge a witness;
    - forge a machine in `reveal`;
    - read a room's question;
@@ -785,7 +838,7 @@ listener and the real session map:
   it equals its viewer's projection;
 - every page and every file the router serves (`/wall/{id}`, `/host`,
   `/host/{id}`, `/join`, `/join?code=`, `/{code}`'s redirect, every asset list
-  in `routes.rs`; fonts once per room and byte-compared at every stop);
+  in `routes/wall.rs`; fonts once per room and byte-compared at every stop);
 - the wall's frames as the served `wall.js` renders them (`PQ.Wall.html`, under
   `node`);
 - the **real buzzer page**: the served `buzzer.js` mounted under `node`
@@ -818,7 +871,7 @@ scan that saw nothing cannot pass. `the_rules_catch_a_planted_leak` checks the
 rules themselves against payloads the room must never send.
 
 **The route walk.** `canary_scan::route_table()` reads every `.route(` in
-`src/routes.rs`; a route that is neither driven nor on `UNSCANNED` fails
+`src/server/routes/` (all its files); a route that is neither driven nor on `UNSCANNED` fails
 `every_route_in_routes_rs_is_scanned_or_listed`. **Unscanned: none.**
 
 **test-full.** `canary_full.rs` runs the same walk with every HTTP request over a
@@ -960,7 +1013,7 @@ rooms, nothing used) on the next request. `docs/RUNBOOK.md` has the rest.
 Nothing else changes.
 
 **Smoke.** `just smoke <url> [--participants N] [--question ID] [--out PATH]`
-(`src/bin/smoke.rs`, behind the `smoke` feature) reads `POPQUIZ_ORGANIZER_SESSION` from the environment: the
+(`src/cli/smoke.rs`, behind the `smoke` feature) reads `POPQUIZ_ORGANIZER_SESSION` from the environment: the
 organizer session a signed-in host page holds — sign in at
 `<url>/host?question=q3`, and it is what follows the `#` in the address the
 page lands on. It lasts 12 hours and is one person's; every room it creates
@@ -1008,9 +1061,9 @@ follows it wipes every room in memory. The deployed workflow asks for that in
 words before it starts (*From CI*, below).
 
 `just burst <url> --connection-cap M [--participants N] [--question ID] [--out PATH]`
-(`src/bin/burst.rs`, behind the `burst` feature; `--help` lists the rest) puts
+(`src/cli/burst.rs`, behind the `burst` feature; `--help` lists the rest) puts
 200 participants on the room's own protocol, through the client smoke uses
-(`src/bin/room_client.rs`): joins by code, a buzzer socket each, answers as
+(`src/cli/room_client.rs`): joins by code, a buzzer socket each, answers as
 `PUT /rooms/{id}/answer` on kept-alive connections, phases through the host
 routes. One room, walked to release:
 
@@ -1023,7 +1076,7 @@ routes. One room, walked to release:
 
 The report is JSON on stdout (and `--out`), every raw sample in it. The rules
 are the spike's (*How it tries not to lie*, below), carried over in
-`src/bin/burst_report.rs`, which `tests/burst_report.rs` checks inside `just
+`src/cli/burst_report.rs`, which `tests/burst_report.rs` checks inside `just
 test` on recorded samples. Write latency starts on an already open connection,
 and the client's own scheduling delay is measured beside it, never added. A pass
 whose interval crosses its threshold is `MARGINAL` in words. Exit `0` pass, `1`
@@ -1146,7 +1199,7 @@ it.
 ## After a meetup (T-21, AC-55)
 
 AC-55 — failed participant requests under 0.1% across a session on venue wifi
-— is read from the room's own log (`src/requestlog.rs`). Each is one JSON line
+— is read from the room's own log (`src/connections/requestlog.rs`). Each is one JSON line
 on standard error, which Fly keeps:
 
 - `{"event":"participant_request_failed","room":…,"route":…,"kind":…,…}` — a

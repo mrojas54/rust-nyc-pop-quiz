@@ -397,16 +397,14 @@ fn the_proposed_block_is_copy_js_s_and_the_room_sends_none_of_it() {
         .collect();
     assert!(!js_row.is_empty(), "no PROPOSED-§11 keys parsed from copy.js");
     assert_eq!(rust_row, js_row);
-    let src = common::repo().join("room/src");
-    for entry in std::fs::read_dir(&src).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|e| e.to_str()) != Some("rs") || path.ends_with("copy.rs") {
+    // `cli/` holds the clients, as `bin/` did; this scan never read them.
+    for (file, text) in common::room_sources(&["cli"]) {
+        if file == "copy.rs" {
             continue;
         }
-        let text = std::fs::read_to_string(&path).unwrap();
         for key in &rust_row {
             let name = format!("copy::{}", key.to_uppercase());
-            assert!(!text.contains(&name), "{} uses {name}", path.display());
+            assert!(!text.contains(&name), "{file} uses {name}");
         }
     }
 }

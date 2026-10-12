@@ -8,27 +8,18 @@
 //! - the real router answers `404` to the paths either could have been served at,
 //!   including the static driver the fallback file inlines.
 
-use std::fs;
-use std::path::PathBuf;
+mod common;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use tower::ServiceExt;
 
-fn src() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")
-}
-
 /// Every string literal passed to `.route(` in the room's source, including
 /// the ones built with `format!` for the host actions.
 fn route_literals() -> Vec<String> {
     let mut out = Vec::new();
-    for entry in fs::read_dir(src()).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().is_none_or(|e| e != "rs") {
-            continue;
-        }
-        let text = fs::read_to_string(&path).unwrap();
+    // The room's own modules, in their groups; `cli/` holds clients, not routes.
+    for (_, text) in common::room_sources(&["cli"]) {
         for (i, _) in text.match_indices(".route(") {
             let rest = &text[i..];
             let end = rest.find(')').unwrap_or(rest.len());

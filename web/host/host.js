@@ -45,7 +45,7 @@
   var PQ = (root.PopQuiz = root.PopQuiz || {});
 
   /* The eight host actions (AC-45), by the route slug the room uses
-     (room/src/phase.rs HostAction::slug), to their §11 string. */
+     (room/src/models/phase.rs HostAction::slug), to their §11 string. */
   var ACTIONS = {
     "create": "host_action_create",
     "put-on-screen": "host_action_put_on_screen",
@@ -61,7 +61,7 @@
      phase transitions (SPEC §4). */
   var STEPS = { "step-back": "←", "step-forward": "→" };
 
-  /* Close codes after which reconnecting cannot help (room/src/ws.rs): the
+  /* Close codes after which reconnecting cannot help (room/src/connections/ws.rs): the
      credential was refused, or the room is gone. */
   var TERMINAL_CLOSES = [4401, 4404];
 

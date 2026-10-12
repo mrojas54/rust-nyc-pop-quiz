@@ -1,4 +1,4 @@
-//! AC-55's log (T-21, `src/requestlog.rs`): which participant requests count,
+//! AC-55's log (T-21, `src/connections/requestlog.rs`): which participant requests count,
 //! which count as failed, the summary at release, and that no line carries a
 //! secret. The real router with the real session map, sockets over loopback.
 //!

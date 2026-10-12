@@ -10,7 +10,7 @@
 
      frame(bake, state, counts)  the wall frame `view::wall` would send for this
                                  phase and step — a line-for-line mirror of
-                                 room/src/view.rs (sealed::wall, revealed::wall),
+                                 room/src/models/view.rs (sealed::wall, revealed::wall),
                                  every string from copy.js. The parity test holds
                                  it equal to the room's generated q3 frames.
 

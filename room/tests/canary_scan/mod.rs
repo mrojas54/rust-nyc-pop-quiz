@@ -11,7 +11,7 @@
 //!   three buzzers — drained until it equals the viewer's projection, so no
 //!   stop is scanned before its frame arrived;
 //! - every page and every file the router serves, found by walking
-//!   `src/routes.rs` itself ([`route_table`]);
+//!   `src/server/routes/` itself ([`route_table`]);
 //! - the wall's frames as the served `wall.js` renders them, and the real
 //!   buzzer page, mounted under `node` against the running room (`page.js`).
 //!
@@ -378,7 +378,7 @@ pub fn as_payload(frame: &Value) -> Value {
 }
 
 // --------------------------------------------------------------------------
-// The route walk: every path `src/routes.rs` registers.
+// The route walk: every path `src/server/routes/` registers.
 // --------------------------------------------------------------------------
 
 /// One registered route: its path pattern and the methods it serves.
@@ -443,24 +443,34 @@ pub fn canary_question_named(id: &str) -> Value {
 // end T-25 admin plant -----------------------------------------------------
 
 fn routes_rs() -> String {
-    std::fs::read_to_string(repo().join("room/src/routes.rs")).expect("room/src/routes.rs")
+    crate::common::routes_source()
 }
 
-/// Every route `routes.rs` registers, read from the file itself: each
-/// `.route(` literal (or `format!` over the three viewers, or the host-action
-/// family `room::host_routes()` returns) with the method handler it names.
-/// A route added to the file joins this list whether or not the canary knows
-/// it, and [`assert_every_route_is_scanned`] then fails. Textual, and scoped to
-/// this one file: a router `merge`d or `nest`ed from elsewhere would escape it,
-/// so a split router must extend this walk.
-pub fn route_table() -> BTreeSet<Route> {
-    let src = routes_rs();
-    let mut out = BTreeSet::new();
-    let mut rest = src.as_str();
+/// The `.route(` calls of one route file, each the text up to the next call in
+/// that file or the file's end.
+fn route_calls(file: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut rest = file;
     while let Some(at) = rest.find(".route(") {
         rest = &rest[at + ".route(".len()..];
         let call_end = rest.find(".route(").unwrap_or(rest.len());
-        let call = &rest[..call_end];
+        out.push(&rest[..call_end]);
+    }
+    out
+}
+
+/// Every route `server/routes/` registers, read from its source: each
+/// `.route(` literal (or `format!` over the three viewers, or the host-action
+/// family `room::host_routes()` returns) with the method handler it names.
+/// A route added there joins this list whether or not the canary knows it, and
+/// [`assert_every_route_is_scanned`] then fails. Textual, and scoped to that
+/// directory (read file by file by `common::route_files`): a router `merge`d or
+/// `nest`ed from elsewhere would escape it, so a split router must extend this
+/// walk. Each file is parsed on its own.
+pub fn route_table() -> BTreeSet<Route> {
+    let files = crate::common::route_files();
+    let mut out = BTreeSet::new();
+    for (file_name, call) in files.iter().flat_map(|(name, text)| route_calls(text).into_iter().map(move |c| (name, c))) {
         let trimmed = call.trim_start();
         // T-25: `any(` is the admin prefix's one entry point.
         let method = ["get(", "post(", "put(", "axum::routing::put(", "axum::routing::get(", "axum::routing::any("]
@@ -487,7 +497,7 @@ pub fn route_table() -> BTreeSet<Route> {
         } else if trimmed.starts_with("&path") {
             room::host_routes().into_iter().map(|(_, p)| p).collect()
         } else {
-            panic!("routes.rs registers a route the canary cannot read: {}", &trimmed[..trimmed.len().min(80)]);
+            panic!("server/routes/{file_name} registers a route the canary cannot read: {}", &trimmed[..trimmed.len().min(80)]);
         };
         // `&path` is registered twice (run-it-again, and every other action);
         // both are POST.
@@ -500,17 +510,18 @@ pub fn route_table() -> BTreeSet<Route> {
 }
 
 /// The files `/shared/{file}` and `/shared/fonts/{file}` serve, read from the
-/// `include_*!` lines in `routes.rs`.
+/// `include_*!` lines of each route file on its own.
 pub fn served_files(dir: &str) -> Vec<String> {
-    let src = routes_rs();
     let needle = format!("../../web/{dir}/");
     let mut out = Vec::new();
-    let mut rest = src.as_str();
-    while let Some(at) = rest.find(&needle) {
-        rest = &rest[at + needle.len()..];
-        let name = &rest[..rest.find('"').unwrap()];
-        if !name.contains('/') {
-            out.push(name.to_string());
+    for (_, text) in crate::common::route_files() {
+        let mut rest = text.as_str();
+        while let Some(at) = rest.find(&needle) {
+            rest = &rest[at + needle.len()..];
+            let name = &rest[..rest.find('"').unwrap()];
+            if !name.contains('/') {
+                out.push(name.to_string());
+            }
         }
     }
     out
