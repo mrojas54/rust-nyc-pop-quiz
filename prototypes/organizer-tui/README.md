@@ -130,6 +130,10 @@ choice change re-verifies with the pinned rustc and Miri, which can take
 minutes. If the verifier rejects an edit, the bank is unchanged and the result
 says where your edit file is kept. Closing review reloads the preview.
 
+[A recorded walk-through](recordings/review-gate.cast) accepts, affirms, edits,
+re-verifies and re-affirms a question on a temporary copy of the review
+fixtures; see [validation](docs/VALIDATION.md).
+
 ## Current limits
 
 The [generation plan](docs/GENERATION_PLAN.md) covers offline batches, verification,
