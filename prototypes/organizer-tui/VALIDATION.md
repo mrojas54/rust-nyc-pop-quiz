@@ -1,5 +1,26 @@
 # Organizer TUI prototype validation
 
+## Legacy terminal repeat fix — 2026-10-11
+
+Reproduced the review finding against `ffd734b`: ordinary repeated Press events
+bypass the old two-`r` check. RED commit `5c8c6a9` records that regression.
+The fix uses `r` then Enter on every terminal, independently of event reporting.
+Supported terminals also receive a paired keyboard-protocol push/pop requesting
+disambiguation and event types.
+
+`just test-organizer` passed: 30 Rust tests, Clippy with warnings denied,
+formatting, a locked offline build, and both committed Python PTY cases:
+
+- Legacy PTY: no capability response; twenty repeated `r` bytes keep the answer
+  and evidence hidden. Enter reveals, and the process exits successfully.
+- Enhanced PTY: responds to capability discovery, observes event-reporting
+  activation, sends a press followed by twenty repeat events, then Enter.
+  Repeats cannot reveal; Enter does. Exit emits the protocol pop command.
+
+These cases use the actual executable and are now part of `just test` and CI.
+The earlier synthetic Repeat test alone did not establish legacy-terminal
+safety; its prior claim below is superseded by this fix and PTY evidence.
+
 ## Reveal safeguard — 2026-10-11
 
 RED commit `958af8a`; GREEN commit `cffb58f`.
