@@ -127,12 +127,133 @@ across tightly coupled fragments. **Rejected.**
 
 ## Trade-off Analysis
 
-The split is paid for in `pub(super)` keywords and one more file to open
-when a request crosses config, transport and authorization. It buys
-reviewability: a sign-in change no longer sits in a diff beside a TLS
-client, and a join change no longer sits beside release. Keeping state
-ownership and locks unchanged means the existing behavioural tests prove the
-same things they proved before.
+The split costs `pub(super)` keywords and one more file to open when a
+request crosses config, transport and authorization. In return it is easier
+to review. A sign-in change no longer sits in a diff beside a TLS client,
+and a join change no longer sits beside release. State ownership and locks
+are unchanged, so the existing behavioural tests prove what they proved
+before.
+
+The sections below test each decision against a real night: one meetup, one
+question, a room of attendees on their phones, and an organizer at the
+projector.
+
+### The split in this change
+
+**What it buys, by example.**
+- *Discord returns 429s during sign-in.* The fix to the retry loop is a diff
+  in `discord/mod.rs` alone. Before, a reviewer read it inside a 1,019-line
+  file that also held the TLS client, and could not tell at a glance that the
+  transport was untouched.
+- *Attendees report that their buzzer shows the wrong count.* The counts and
+  the buzzer payload are in `participants.rs`, beside the invariant comment
+  on what the payload may carry before reveal. Before, they sat between the
+  sweep and release.
+
+**What it costs.**
+- `AppState` is now implemented in three files. Someone reading `join` sees
+  one `rooms` lock and does not see, on the same screen, that `act` holds the
+  same lock through release.
+- `rooms/` siblings share `pub(super)` fields. Any of them can change a
+  `Room` without going through `Room::act`.
+
+**How it could fail.**
+| Failure | Night it shows up | What guards it |
+|---|---|---|
+| A new function in `participants.rs` takes `rooms` and then `questions`, the reverse of `schedule_for` and `create_for` | The organizer replaces the scheduled question while attendees are joining. Both requests wait on each other, and the room stops answering on the projector. | The invariant comment only. No test checks lock order. A reviewer has to look for it. |
+| A participant operation sets a room's phase directly through a `pub(super)` field | A late joiner's request moves the room past reveal without the host. | The ADR-0004 scans pin the used record's one writer, not every phase change. Review is the guard. |
+| A debug line in `http.rs` prints a `Req`, including its `Authorization` header | An organizer's Discord token lands in the Fly.io logs. | `Secret` stays inside `host::discord`, but once it becomes a header string, the type no longer protects it. `http.rs` must never format a request. |
+| Release is split so that clearing sessions happens outside the `rooms` lock | A phone reconnecting at the moment of release gets a session in a released room, and its answer is never counted. | The invariant comment in `act`, and the release tests that check sessions are cleared. |
+
+### The target layout (item 6)
+
+**What it buys, by example.** A contributor at a hack night wants to change
+how a vote is counted. They open `quiz_session/rooms/participants/vote.rs`.
+They do not need to know that voting is `AppState::answer`, or that it
+lived in `state.rs`.
+
+**What it costs.**
+- Paths get deep: `popquiz/src/quiz_session/rooms/participants/vote.rs` is
+  five folders down.
+- About 30 files move in one ticket. `git log` and `git blame` need
+  `--follow` per file, and bisecting a bug across the move lands on a commit
+  that touched everything.
+- `super` changes meaning for every file that moves a level. Each
+  `pub(super)` item needs checking, not only the `random_bytes` and `hex`
+  case found so far.
+
+**How it could fail.**
+| Failure | How it shows | What guards it |
+|---|---|---|
+| A public path is not re-exported from `lib.rs` | Tests or the CLI fail to compile | Loud, and caught by `cargo test`. Safe. |
+| An intra-doc link still names the old path | `cargo doc` warns; the docs link nowhere | Quiet. Run `cargo doc` in the move's checks and treat new warnings as failures. |
+| A scan test is pointed at a folder that is now empty or misspelled | The scan finds no files and passes, checking nothing | Each scan must assert it found the files it names, as the AC-65 scan does after this change. |
+| The move and a behaviour change share a commit | A reviewer cannot tell a moved line from a changed one | Moves are moves, as in this change: identical bodies, proven in the PR. |
+
+### The club slug as id, and `rustnyc` (item 8)
+
+**What it buys.** One name for a club everywhere: links, the OAuth state,
+`Room.club` and the used ledger. There is no lookup table and nothing to
+keep in sync.
+
+**What it costs.** Renaming a club means changing its key everywhere it
+appears.
+
+**How it could fail.**
+- *The rename ships before the ledger is migrated.* At the next meetup,
+  questions already used under `nyc` look unused under `rustnyc`. The
+  schedule can pick one, and the regulars recognise a question they have
+  already answered. That breaks the freshness the bank exists for
+  (`PHILOSOPHY.md`).
+- *An organizer's bookmarked host link still says `?club=nyc`.* The server
+  answers as it does for any club it does not run: the same refusal as a
+  missing role (AC-103). On the night, the host is locked out and does not
+  know why.
+- *The room restarts between release and `just sync`.* The used ledger lives
+  in memory until synced. That is true today, but a migration deploy is a
+  restart at exactly that moment.
+
+**What the ticket must include.** Accept `nyc` as an alias for at least one
+release. Rewrite the ledger and the bank's used records in the same deploy.
+Run `just sync` before the deploy restarts the room.
+
+### The room uses affirmations (item 9)
+
+**What it buys.** A question reaches the projector only if an organizer has
+signed off on it as it is now, and the session records who did. Tonight that
+is a convention. After item 9 the room enforces it.
+
+**What it costs.** The room depends on the review CLI (PQ-23) and the format
+of the bank's affirmation. A change to the affirmation digest becomes a room
+change too.
+
+**How it could fail.**
+- *An organizer fixes a typo in a hint on the afternoon of the meetup.* The
+  edit changes the digest, so the affirmation goes stale. At room creation the
+  room refuses the question, and there is no question that night unless
+  someone re-affirms it in time. To prevent this, check affirmation when
+  `just schedule` runs, hours before, not only at creation. The static
+  `<id>.html` that `just schedule` writes is the fallback either way.
+- *A legacy question has no digest.* Under PQ-23's rule it counts as
+  affirmed only when `verified.legacy` is true. If the room reads the rule differently from the
+  review CLI, the two disagree on which questions may run. The room should
+  call the same rule, not reimplement it.
+- *Affirmation is mistaken for security.* It is a person's sign-off, stored
+  in the private bank, not a signature the room can verify. Anyone who can
+  write to the bank can write an affirmation. It guards against shipping an
+  unreviewed question, not against an attacker.
+
+### Hosts and clubs through Discord roles
+
+**What it buys.** No user table. Whoever holds a club's role can host it, and
+removing the role in Discord removes the access.
+
+**How it could fail.** *Discord is down on the night.* A room that is already
+open runs to release (AC-69), but a new room cannot be created, because
+creation checks the role live. Creating the room early does not fully solve
+this: a room waiting to start goes quiet after 30 minutes with no host action
+(`docs/RUNBOOK.md`). The window is the half hour before the segment, and the
+static `<id>.html` is the fallback outside it.
 
 ## Consequences
 
