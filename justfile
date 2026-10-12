@@ -42,8 +42,9 @@ setup:
 [parallel]
 test: test-room test-pipeline test-web test-organizer
 
-# Builds and tests the room crate with whatever cargo this machine has.
+# Checks formatting (room/rustfmt.toml), then builds and tests the room crate with whatever cargo this machine has.
 test-room:
+    cd room && cargo fmt --check
     cd room && cargo test --offline --locked
 
 # Organizer UI stays checked against the room API it imports.
