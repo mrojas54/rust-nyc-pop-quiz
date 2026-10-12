@@ -105,7 +105,7 @@ This recording uses a temporary bank and test server, not a live meetup.
 
 ## Current limits
 
-The [generation plan](GENERATION_PLAN.md) covers offline batches, verification,
+The [generation plan](docs/GENERATION_PLAN.md) covers offline batches, verification,
 duplicate checks, and opening new candidates in this preview. It also separates
 future review decisions from generation and scheduling.
 
@@ -141,5 +141,5 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-See [VALIDATION.md](VALIDATION.md) for test results. This Cargo package is built
+See [VALIDATION.md](docs/VALIDATION.md) for test results. This Cargo package is built
 separately from the live room and is not included in its deployment.

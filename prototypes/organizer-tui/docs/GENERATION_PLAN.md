@@ -23,8 +23,8 @@ candidate open in this TUI. It does not schedule a question or open a live room.
 | Record format | `../../pipeline/src/popquiz/bank.py` | Reuse the schema; keep job state outside question records |
 
 These paths and stub states were checked in this worktree. This plan follows
-[SPEC §7](../../SPEC.md#7-the-pipeline), T-16/T-18 in
-[BUILDPLAN.md](../../BUILDPLAN.md), and [PHILOSOPHY.md](../../PHILOSOPHY.md).
+[SPEC §7](../../../SPEC.md#7-the-pipeline), T-16/T-18 in
+[BUILDPLAN.md](../../../BUILDPLAN.md), and [PHILOSOPHY.md](../../../PHILOSOPHY.md).
 
 ## Organizer flow
 

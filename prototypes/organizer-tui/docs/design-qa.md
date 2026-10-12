@@ -5,7 +5,7 @@
 ## Reference and capture
 
 - Selected reference: the user-selected Step navigator concept image (1487 × 1058).
-- Actual capture: [recordings/step-navigator.png](recordings/step-navigator.png) (1490 × 1058).
+- Actual capture: [recordings/step-navigator.png](../recordings/step-navigator.png) (1490 × 1058).
 - Terminal: 136 columns × 41 rows; q3, teaching step 2, Steps focus.
 - Capture method: running Ratatui binary in a pseudo-terminal, recorded as asciicast and rendered with agg at font size 18. The reference and actual capture were inspected together.
 
