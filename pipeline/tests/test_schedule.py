@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from popquiz import audit, fallback, schedule
-from popquiz.bank import correct_index, load_question, question_to_dict
+from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, question_from_dict, question_to_dict
 from popquiz.slot import slot_for_day
 
 REPO = Path(__file__).resolve().parents[2]
@@ -45,6 +45,12 @@ def affirm(bank_dir: Path, qid: str, **review) -> None:
     fields = {"status": "accepted", "affirmed_by": "fixture-organizer", "affirmed_at": "2026-10-04T15:00:00Z"}
     fields.update(review)
     data["review"] = {k: v for k, v in {**data.get("review", {}), **fields}.items() if v is not None}
+    # Bound to the text, as `popquiz.review affirm` records it (GAP-24), unless the
+    # test says otherwise or the block is only half an affirmation.
+    if "affirmed_digest" not in review and {"affirmed_by", "affirmed_at"} <= data["review"].keys():
+        data["review"]["affirmed_digest"] = affirmation_digest(question_from_dict(data))
+    elif "affirmed_digest" in data["review"] and not {"affirmed_by", "affirmed_at"} <= data["review"].keys():
+        del data["review"]["affirmed_digest"]
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -53,7 +59,7 @@ def as_drafted(bank_dir: Path, qid: str) -> None:
     path = bank_dir / "questions" / f"{qid}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     data.pop("used", None)
-    data["review"] = {k: v for k, v in data.get("review", {}).items() if k not in ("status", "affirmed_by", "affirmed_at")}
+    data["review"] = {k: v for k, v in data.get("review", {}).items() if k not in ("status", "affirmed_by", "affirmed_at", "affirmed_digest")}
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -246,6 +252,42 @@ def test_ac72_an_affirmed_question_not_accepted_is_refused(bank, room, tmp_path,
     assert_refused(schedule_q3(bank, out), capsys, fake, out, "not been accepted")
 
 
+def test_gap24_a_question_edited_after_affirmation_is_refused(affirmed, room, tmp_path, capsys):
+    """GAP-24: the affirmation covers the text it was given to. A hand edit of a beat
+    afterwards leaves who and when in place, and the gate refuses it anyway."""
+    path = affirmed / "questions" / "q3.json"
+    data = json.loads(path.read_text())
+    data["explains"]["what"] += " Edited after affirmation."
+    path.write_text(json.dumps(data))
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    assert_refused(schedule_q3(affirmed, out), capsys, fake, out, "its text changed after that")
+    assert not audit.in_reserve(load_question(affirmed, "q3"))
+
+
+def test_gap24_a_hand_typed_affirmation_on_a_verified_record_is_refused(bank, room, tmp_path, capsys):
+    """M12b: who and when typed into a record the verifier wrote, with no digest,
+    names no text."""
+    affirm(bank, "q4", affirmed_digest=None)
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    code = run("schedule", "q4", "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
+    assert_refused(code, capsys, fake, out, "not what was affirmed")
+    assert not audit.in_reserve(load_question(bank, "q4"))
+
+
+def test_gap24_q3s_hand_affirmation_is_unbound_and_refused(bank, room, tmp_path, capsys):
+    """RULING PQ-23 (client, 2026-10-12): q3 was affirmed by hand before the digest
+    existed (F-52). That affirmation no longer counts, so q3 leaves the reserve until
+    the organizer affirms it again through `popquiz.review`."""
+    q3 = load_question(bank, "q3")
+    assert q3.review.affirmed_digest is None
+    assert not is_affirmed(q3) and not audit.in_reserve(q3)
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    assert_refused(schedule_q3(bank, out), capsys, fake, out, "not what was affirmed")
+
+
 def test_g10_a_used_question_is_refused(affirmed, room, tmp_path, capsys):
     path = affirmed / "questions" / "q3.json"
     data = json.loads(path.read_text())
@@ -268,20 +310,23 @@ def test_g12_a_question_with_no_verified_record_is_refused(affirmed, room, tmp_p
 
 def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_path, capsys):
     """Read from the committed records, not typed: each one an organizer has not
-    affirmed is refused with nothing sent or written, and q3, affirmed by F-52,
-    schedules. The next affirmation moves a record from one side to the other
-    without touching this test."""
+    affirmed is refused with nothing sent or written, and each one affirmed and
+    bound to its text schedules. q3's digest-less hand affirmation (F-52) is
+    refused as unbound until it is affirmed again. The next affirmation moves a
+    record from one side to the other without touching this test."""
     for q in schedule.load_bank(bank):
         out = tmp_path / q.id
         fake = room((201, {"id": q.id, "scheduled": "new"}))
         code = run("schedule", q.id, "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
-        if q.review is None or not q.review.affirmed():
+        state = affirmation_state(q)
+        if state == "unbound":
+            assert_refused(code, capsys, fake, out, "not what was affirmed")
+        elif not is_affirmed(q):
             assert_refused(code, capsys, fake, out, "unaffirmed question cannot be scheduled")
         else:
             capsys.readouterr()
             assert code == 0, q.id
             assert len(fake.requests) == 1 and out.exists(), q.id
-    assert schedule.refusal(load_question(BANK, "q3")) is None
 
 
 def test_g12_the_gate_agrees_with_the_reserve(affirmed):
@@ -752,6 +797,7 @@ def test_ac102_a_record_the_fallback_refuses_is_refused_before_any_request(affir
     data = json.loads(path.read_text())
     data["trace"]["steps"] = data["trace"]["steps"][-1:]
     path.write_text(json.dumps(data))
+    affirm(affirmed, "q3")  # bound to the shortened trace, so the fallback is what refuses
     fake = room((201, {"scheduled": "new"}))
     out = tmp_path / "out"
     assert schedule_q3(affirmed, out) == 1

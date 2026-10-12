@@ -3,8 +3,8 @@
 Preview a Rust quiz question and rehearse its teaching trace in the terminal.
 Read the code and choices, step through the explanation, then reveal the answer.
 
-The preview reads questions from the bank without changing them. Scheduling is
-an explicit action that sends the selected question to a room server.
+The preview reads questions from the bank without changing them. Review
+decisions and scheduling are explicit actions, each run through the pipeline.
 
 ![Question preview, teaching trace, and answer reveal](recordings/organizer-preview.gif)
 
@@ -39,6 +39,7 @@ To load another bank, add `--bank /path/to/bank`. That directory must contain a
 | Left / Right or `<` / `>` | Step backward or forward |
 | `r`, then Enter | Arm reveal, then show the answer and final trace step |
 | `s` | Schedule the selected question |
+| `v` | Review the selected question (shows the answer) |
 | `[` / `]` | Open the previous or next question |
 | Up / Down or `k` / `j` | Select a step, or scroll the focused pane |
 | Page Up / Page Down | Move ten steps or scroll ten rows |
@@ -103,14 +104,44 @@ not start a room or mark a question used. The TUI does not sync the used ledger.
 
 This recording uses a temporary bank and test server, not a live meetup.
 
+## Review a question
+
+Press `v`. The first screen warns that review shows the answer; Enter continues.
+The review screen shows the record's status, affirmation, difficulty, any
+near-duplicate, the source, the choices with the machine-derived answer, the
+explanation and hint with any trope warnings beside them, the receipt, quoted
+output checks, and what blocks accepting or affirming. States are written out
+in words.
+
+| Key | Decision |
+| --- | --- |
+| `a` | Accept. Quoted text that is not a printed line is listed; `y` records that you checked it |
+| `x` | Reject. Type a reason, then Enter |
+| `d`, then `1`–`5` | Record the difficulty you judged |
+| `e` | Edit in `$VISUAL` or `$EDITOR`. There is no default editor |
+| `A` | Affirm, as the name in `POPQUIZ_ORGANIZER`. Without it the affirmation is refused |
+| `j` / `k`, Page Up / Page Down | Scroll |
+| Escape | Cancel, or close review |
+
+Every decision waits for `y`. The screen runs `python -m popquiz.review`
+([pipeline review](../../pipeline/README.md#reviewing)), which writes the
+record; the TUI writes no file. An edit clears any affirmation, and a source or
+choice change re-verifies with the pinned rustc and Miri, which can take
+minutes. If the verifier rejects an edit, the bank is unchanged and the result
+says where your edit file is kept. Closing review reloads the preview.
+
+[A recorded walk-through](recordings/review-gate.cast) accepts, affirms, edits,
+re-verifies and re-affirms a question on a temporary copy of the review
+fixtures; see [validation](docs/VALIDATION.md).
+
 ## Current limits
 
 The [generation plan](docs/GENERATION_PLAN.md) covers offline batches, verification,
-duplicate checks, and opening new candidates in this preview. It also separates
-future review decisions from generation and scheduling.
+duplicate checks, and opening new candidates in this preview.
 
-This prototype previews and schedules existing questions. Generation, editing,
-review decisions, explanation approval, and projector preview are not implemented.
+This prototype previews, reviews and schedules existing questions. Generation,
+editing the trace's structure, and projector preview are not implemented. The
+review screen is plain text.
 
 Choices appear in bank order. Their letters can differ from the meetup's
 date-based order. The preview does not check whether a question has already been

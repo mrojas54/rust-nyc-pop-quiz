@@ -869,6 +869,21 @@ def copy_bank(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
+def test_gap24_the_reserve_counts_only_a_bound_affirmation(tmp_path: pathlib.Path) -> None:
+    """The audit reads the gate itself: q3's digest-less hand affirmation is out of
+    the reserve (RULING PQ-23, client, 2026-10-12), a bound one is in, and an edit
+    after binding takes it out again. On a copy of the bank, never the bank."""
+    questions = copy_bank(tmp_path) / "bank" / "questions"
+    path = questions / "q3.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert "affirmed_digest" not in record["review"]
+    assert not audit.in_reserve(bank.question_from_dict(record))
+    record["review"]["affirmed_digest"] = bank.affirmation_digest(bank.question_from_dict(record))
+    assert audit.in_reserve(bank.question_from_dict(record))
+    record["explains"]["what"] += " Edited after affirmation."
+    assert not audit.in_reserve(bank.question_from_dict(record))
+
+
 def test_the_command_line_writes_its_report_under_bank_audit(
     tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -895,6 +910,8 @@ def test_a_flagged_question_in_the_reserve_fails_the_run(
     wrong = next(o for o in record["options"] if o["kind"] == "output" and "why_tempting" in o)
     wrong["text"] = "x" * 48
     record["review"].update(status="accepted", affirmed_by="organizer", affirmed_at="2026-09-21T20:00:00Z")
+    # Bound to the text as it now stands, the way `popquiz.review affirm` records it (GAP-24).
+    record["review"]["affirmed_digest"] = bank.affirmation_digest(bank.question_from_dict(record))
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
     assert audit.main(["--repo", str(repo), "--date", "2026-09-21"]) == 1
@@ -919,7 +936,7 @@ def test_strict_fails_on_any_flag(tmp_path: pathlib.Path) -> None:
     repo = copy_bank(tmp_path)
     path = repo / "bank" / "questions" / "q7.json"
     record = json.loads(path.read_text(encoding="utf-8"))
-    for field in ("status", "affirmed_by", "affirmed_at"):
+    for field in ("status", "affirmed_by", "affirmed_at", "affirmed_digest"):
         record["review"].pop(field, None)
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 

@@ -37,7 +37,30 @@ so the interpreter and every dependency are the same everywhere.
 | `audit` | `bank-audit` — uniformity in both tails, the enumerated tells, fit | T-19 |
 | `schedule` | `popquiz schedule`: the affirm gate, the date's arrangement, the push, and the static fallback with its host sheet; `popquiz sync`: the used ledger pulled back; the reserve count, trend and warning | T-20 |
 
-`review` is an empty stub.
+## Reviewing
+
+`python -m popquiz.review <command> <id> --bank DIR` records the organizer's
+decisions on one question. It is the only writer of a review decision; the
+organizer TUI's review screen (`v`, `prototypes/organizer-tui`) runs it as a
+subprocess. `--bank` has no default.
+
+| Command | What it records |
+|---|---|
+| `show` | Nothing; prints the review report as JSON |
+| `accept [--checked-quote SPAN]…` | `status: accepted`. Refused while the answer does not derive, or while quoted text that is not a printed line is unchecked (AC-73) |
+| `reject --reason TEXT` | `status: rejected` and the reason; clears any affirmation. `reasons` lists them (AC-19) |
+| `difficulty LEVEL` | `difficulty_judged`, 1 to 5 (AC-88) |
+| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit clears the affirmation; an accepted record becomes `status: edited` (still accepted), and a rejected or unreviewed one keeps its status; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
+| `reverify` | Nothing itself; runs `verify` on the record as it stands |
+| `affirm [--by NAME]` | `affirmed_by`, `affirmed_at` and `affirmed_digest`. The name comes from `--by` or `POPQUIZ_ORGANIZER`; there is no default (AC-72, G-12) |
+
+Review never writes `verified` or the trace's `stdout` row; only the verifier
+does (AC-7). The digest binds an affirmation to the text it affirmed, so
+`schedule` and the reserve refuse a question edited after affirming (GAP-24). A
+digest-less affirmation counts on no record, q3's hand affirmation included: it
+is shown as unbound, and `affirm` binds it again (RULING PQ-23, 2026-10-12).
+Trope warnings come from `copylint` and block nothing (D-23). Exit status: 0 done, 1 refused with one sentence and the
+record unchanged, 2 unreadable input.
 
 ## Generating
 

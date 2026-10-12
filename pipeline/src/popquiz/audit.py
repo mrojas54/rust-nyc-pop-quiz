@@ -1227,8 +1227,10 @@ def is_accepted(question: Question) -> bool:
 
 def in_reserve(question: Question, club: str = DEFAULT_CLUB) -> bool:
     """SPEC 3.3: accepted, affirmed and unused *by this club* (D-26) - what
-    scheduling can pick tonight for it."""
-    return is_accepted(question) and question.review.affirmed() and question.used_by(club) is None
+    scheduling can pick tonight for it. Affirmed means `bank.is_affirmed`: an
+    affirmation whose text changed since, or one bound to no text, does not count
+    (GAP-24)."""
+    return is_accepted(question) and bank.is_affirmed(question) and question.used_by(club) is None
 
 
 def answer_is_ub(question: Question) -> bool:

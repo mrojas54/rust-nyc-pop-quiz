@@ -188,6 +188,11 @@ class Review:
     rejection. `reason` is required when rejecting and is readable by the
     generator's next run; the MVP migration also uses it to say what a question
     needs before it can be affirmed, which is exactly the audience that field has.
+
+    `affirmed_digest` binds an affirmation to the text it affirmed (GAP-24); see
+    `affirmation_digest`. `quotes_checked` holds the quoted spans the organizer
+    checked and attested are not a claim about the output (AC-73). Only
+    `popquiz.review` writes any of these.
     """
 
     status: ReviewStatus | None = None
@@ -195,13 +200,17 @@ class Review:
     difficulty_judged: int | None = None
     affirmed_by: str | None = None
     affirmed_at: str | None = None
+    affirmed_digest: str | None = None
+    quotes_checked: tuple[str, ...] | None = None
     near_duplicate_of: str | None = None
 
     def affirmed(self) -> bool:
-        """Whether an organizer has affirmed this question (SPEC 7.4, G-12).
+        """Whether this block records who affirmed and when (AC-72).
 
-        Both halves are required: affirmation records who and when (AC-72), so a
-        record holding one without the other is not affirmed.
+        Both halves are required, so a record holding one without the other is not
+        affirmed. **This is not the gate**: it cannot see the text the affirmation
+        was bound to. Every reader that decides whether a question may be scheduled
+        asks `is_affirmed(question)`.
         """
         return bool(self.affirmed_by) and bool(self.affirmed_at)
 
@@ -539,6 +548,81 @@ def quoted_outputs(question: Question) -> tuple[str, ...]:
     return tuple(seen)
 
 
+def quote_matches_output(span: str, stdout: str | None) -> bool:
+    """Whether a quoted span is something the program printed (AC-73).
+
+    Mechanical and narrow: the span must be the whole output or one whole line of
+    it, as `normalized_output` spells it. A substring is not enough, because a wrong
+    quote such as `[1, 2]` for a program that printed `[1, 2, 3]` is a substring of
+    the right one. Every span that does not match is shown to the organizer, who
+    decides whether it claims output (see `quoted_outputs`).
+    """
+    if stdout is None:
+        return False
+    printed = normalized_output(stdout)
+    return span == printed or span in printed.split("\n")
+
+
+# --------------------------------------------------------------------------- #
+# GAP-24 - an affirmation is bound to the text it affirmed
+# --------------------------------------------------------------------------- #
+
+DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
+
+AffirmationState = Literal["none", "bound", "stale", "unbound"]
+
+
+def affirmation_digest(question: Question) -> str:
+    """What an affirmation covers, as `sha256:<hex>` (GAP-24, SPEC 7.4).
+
+    The inputs are what the organizer read and affirmed: the program, the options
+    with their `why_tempting` beats, the hint, the beats (`legacy` included, which
+    AC-73 reads) and the trace, `stdout` row and all. Serialized through `_dump`, so
+    an absent field and a field holding `None` hash the same, and as compact JSON
+    with sorted keys, so key order in the file does not matter.
+
+    `verified` and `review` are not inputs. Re-verifying a program whose output did
+    not change leaves the text the organizer read untouched; if the output changed,
+    the trace's `stdout` row changed with it and the digest no longer matches.
+    """
+    payload = {
+        "source": question.source,
+        "options": _dump(question.options),
+        "hint": question.hint,
+        "explains": _dump(question.explains),
+        "trace": _dump(question.trace),
+    }
+    text = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def affirmation_state(question: Question) -> AffirmationState:
+    """Where a question's affirmation stands (G-12, GAP-24).
+
+    * `none` - nobody is recorded as having affirmed it;
+    * `bound` - affirmed, and the text still matches the digest recorded then;
+    * `stale` - affirmed, and the text changed afterwards;
+    * `unbound` - affirmed with no digest. It names who and when but not what,
+      which is the hand-typed affirmation GAP-24 caught. q3's hand affirmation
+      (F-52), from before the digest existed, reads this way too (RULING PQ-23,
+      client, 2026-10-12): it counts once the organizer affirms it again.
+
+    The digest binds an affirmation to its text; it does not authenticate who
+    wrote it.
+    """
+    review = question.review
+    if review is None or not review.affirmed():
+        return "none"
+    if review.affirmed_digest is None:
+        return "unbound"
+    return "bound" if review.affirmed_digest == affirmation_digest(question) else "stale"
+
+
+def is_affirmed(question: Question) -> bool:
+    """The affirmation half of the gate (AC-72, G-12): `bound` only."""
+    return affirmation_state(question) == "bound"
+
+
 def options_needing_reauthoring(options: Sequence[Option]) -> tuple[int, ...]:
     """Indexes of options that break D-15's one-line, 29-character rule (SPEC 5.2).
 
@@ -610,6 +694,24 @@ def validate_question(question: Question) -> None:
                 "may, and only the verifier writes it (SPEC 3.1, D-10)"
             )
 
+    # The affirmation's shape (GAP-24). A digest that no longer matches is not an
+    # error here - the record stays loadable so review can repair it, and every
+    # reader treats it as unaffirmed (`is_affirmed`). A malformed one is.
+    review = question.review
+    if review is not None:
+        digest = review.affirmed_digest
+        if digest is not None:
+            if not isinstance(digest, str) or not DIGEST_PATTERN.fullmatch(digest):
+                raise BankError(f"{question.id}: review.affirmed_digest is not sha256:<64 hex>")
+            if not review.affirmed():
+                raise BankError(
+                    f"{question.id}: review.affirmed_digest is recorded without "
+                    "affirmed_by and affirmed_at"
+                )
+        quotes = review.quotes_checked
+        if quotes is not None and not all(isinstance(q, str) for q in quotes):
+            raise BankError(f"{question.id}: review.quotes_checked must be a list of strings")
+
 
 # --------------------------------------------------------------------------- #
 # Serialization - absent is absent
@@ -662,6 +764,12 @@ def _require_keys(data: dict[str, Any], known: set[str], where: str) -> None:
 
 def _field_names(cls: type) -> set[str]:
     return {f.name for f in dataclasses.fields(cls)}
+
+
+def _string_list(value: Any, where: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise BankError(f"{where}: expected a list of strings")
+    return tuple(value)
 
 
 def _option_from_dict(data: dict[str, Any], where: str) -> Option:
@@ -803,6 +911,10 @@ def question_from_dict(data: dict[str, Any]) -> Question:
             difficulty_judged=review_raw.get("difficulty_judged"),
             affirmed_by=review_raw.get("affirmed_by"),
             affirmed_at=review_raw.get("affirmed_at"),
+            affirmed_digest=review_raw.get("affirmed_digest"),
+            quotes_checked=None
+            if review_raw.get("quotes_checked") is None
+            else _string_list(review_raw["quotes_checked"], f"{where}.review.quotes_checked"),
             near_duplicate_of=review_raw.get("near_duplicate_of"),
         ),
         used=tuple(
