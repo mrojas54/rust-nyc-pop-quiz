@@ -348,8 +348,10 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     used="$(auth -w '\n%{http_code}' "{{ room }}/admin/used")"
     code="${used##*$'\n'}"
     [ "$code" = 200 ] || { echo "GET /admin/used answered $code. 401 means this token is not the room's POPQUIZ_ADMIN_TOKEN." >&2; exit 1; }
-    if printf '%s' "${used%$'\n'*}" | grep -Eq '"question_id" *: *"{{ question }}"'; then
-        echo "{{ question }} is in the room's used ledger, so the room will refuse it." >&2
+    # The ledger is per club (G-10, AC-105) and this recipe schedules the default club, nyc,
+    # so only an nyc entry for this question counts; another club's use of it does not.
+    if printf '%s' "${used%$'\n'*}" | jq -e --arg q "{{ question }}" 'any(.[]; .club == "nyc" and .question_id == $q)' >/dev/null; then
+        echo "{{ question }} is in the room's used ledger for nyc, so the room will refuse it." >&2
         echo "Only a restart clears that, and it drops live rooms: fly apps restart rustnyc-popquiz" >&2
         echo "Then run just demo {{ question }} again." >&2
         exit 1
