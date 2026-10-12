@@ -55,7 +55,7 @@ assigns a machine, fails a test instead of passing review by luck.
 
 **Imports are explicit.** Each `rooms/` file lists its own `use` lines. `rooms/mod.rs`
 holds the module list, the `pub use` re-exports, the shared `Totals` type and
-two constants, with no imports for its children. A boundary test
+two constants. Its one `use` (`Duration`) is for `ROOM_LIFETIME`; it has no imports for its children. A boundary test
 (`within_rooms_only_open_rs_names_the_sealed_answer_types`) fails if any other
 `rooms/` file names `Revealed` or `Middle`.
 
