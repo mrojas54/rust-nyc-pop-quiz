@@ -34,6 +34,10 @@ A run ends when its agreed outcome is verified or progress requires the user.
   for the same user action. A pause also stops those loops. Resume only after
   the user supplies the needed input or explicitly authorizes continuation.
 
+## Local reporting skills
+
+[Project status briefing](.agents/skills/project-status-briefing/SKILL.md) is a general-purpose, report-only skill discovered by Codex from `.agents/skills/`. Claude Code does not automatically load this directory; read the linked skill explicitly when requested. Repository run guardrails still apply.
+
 ## Read these first
 
 | Artifact | What it is |
