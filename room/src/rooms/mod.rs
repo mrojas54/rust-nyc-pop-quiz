@@ -71,6 +71,7 @@ mod create;
 mod errors;
 pub mod lifecycle;
 mod open;
+mod participants;
 mod room;
 mod seams;
 mod state;
