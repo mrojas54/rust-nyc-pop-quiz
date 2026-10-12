@@ -1,4 +1,6 @@
 //! Question and authored teaching-trace preview, with explicit scheduling.
+mod pipeline;
+mod review;
 mod scheduling;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -110,6 +112,7 @@ const AMBER: Color = Color::Rgb(244, 199, 83);
 pub struct App {
     bank: PathBuf,
     schedule: Option<scheduling::Schedule>,
+    review: Option<review::Review>,
     candidates: Vec<Candidate>,
     index: usize,
     mode: Mode,
@@ -125,27 +128,32 @@ pub struct App {
     reveal_armed: bool,
 }
 
+fn load_candidates(bank: &Path) -> Result<Vec<Candidate>> {
+    let mut paths = fs::read_dir(bank.join("questions"))?
+        .map(|entry| entry.map(|e| e.path()))
+        .collect::<std::io::Result<Vec<_>>>()?;
+    paths.retain(|path| path.extension().is_some_and(|ext| ext == "json"));
+    paths.sort();
+    let candidates = paths
+        .iter()
+        .map(|path| {
+            Candidate::parse(&fs::read_to_string(path)?)
+                .map_err(|error| format!("{}: {error}", path.display()).into())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if candidates.is_empty() {
+        return Err("No candidates found in this bank".into());
+    }
+    Ok(candidates)
+}
+
 pub fn default_bank() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bank")
 }
 
 impl App {
     pub fn load(bank: &Path, question: Option<&str>) -> Result<Self> {
-        let mut paths = fs::read_dir(bank.join("questions"))?
-            .map(|entry| entry.map(|e| e.path()))
-            .collect::<std::io::Result<Vec<_>>>()?;
-        paths.retain(|path| path.extension().is_some_and(|ext| ext == "json"));
-        paths.sort();
-        let candidates = paths
-            .iter()
-            .map(|path| {
-                Candidate::parse(&fs::read_to_string(path)?)
-                    .map_err(|error| format!("{}: {error}", path.display()).into())
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if candidates.is_empty() {
-            return Err("No candidates found in this bank".into());
-        }
+        let candidates = load_candidates(bank)?;
         let index = match question {
             Some(id) => candidates
                 .iter()
@@ -156,6 +164,7 @@ impl App {
         Ok(Self {
             bank: bank.canonicalize()?,
             schedule: None,
+            review: None,
             candidates,
             index,
             mode: Mode::Question,
@@ -170,6 +179,37 @@ impl App {
             follow_source: true,
             reveal_armed: false,
         })
+    }
+
+    /// The editor and file the review screen is waiting on, for the main loop to open.
+    pub fn take_editor_request(&mut self) -> Option<(String, PathBuf)> {
+        self.review.as_mut()?.take_editor_request()
+    }
+
+    /// Tell the review screen the editor exited, successfully or not.
+    pub fn editor_finished(&mut self, ok: bool) {
+        if let Some(review) = &mut self.review {
+            review.editor_finished(ok);
+        }
+    }
+
+    // A decision changes records, so the preview rereads the bank when review closes.
+    fn close_review(&mut self) {
+        let Some(review) = self.review.take() else {
+            return;
+        };
+        if !review.changed {
+            return;
+        }
+        if let Ok(candidates) = load_candidates(&self.bank) {
+            let id = &self.candidates[self.index].id;
+            self.index = candidates.iter().position(|q| &q.id == id).unwrap_or(0);
+            self.candidates = candidates;
+            self.mode = Mode::Question;
+            self.step = 0;
+            self.selected = 0;
+            self.focus = Focus::Steps;
+        }
     }
 
     /// Keep terminal key identity until the focused surface handles it.
@@ -200,6 +240,12 @@ impl App {
         if let Some(schedule) = &mut self.schedule {
             if !schedule.handle_key(key.code) {
                 self.schedule = None;
+            }
+            return true;
+        }
+        if let Some(review) = &mut self.review {
+            if !review.handle_key(key.code) {
+                self.close_review();
             }
             return true;
         }
@@ -235,6 +281,12 @@ impl App {
             }
             return true;
         }
+        if let Some(review) = &mut self.review {
+            if !review.handle(key) {
+                self.close_review();
+            }
+            return true;
+        }
         if key == 'q' {
             return false;
         }
@@ -249,6 +301,12 @@ impl App {
         match key {
             's' => {
                 self.schedule = Some(scheduling::Schedule::new(
+                    self.candidates[self.index].id.clone(),
+                    self.bank.clone(),
+                ))
+            }
+            'v' => {
+                self.review = Some(review::Review::new(
                     self.candidates[self.index].id.clone(),
                     self.bank.clone(),
                 ))
@@ -653,6 +711,11 @@ impl App {
             schedule.draw(frame, area);
             return;
         }
+        if let Some(review) = &mut self.review {
+            review.poll();
+            review.draw(frame, area);
+            return;
+        }
         if area.width < 40 || area.height < 14 {
             frame.render_widget(Paragraph::new("Resize to 40 x 14 or larger. q Quit"), area);
             return;
@@ -710,14 +773,14 @@ impl App {
             }
         }
         let hints = if self.mode == Mode::Question {
-            "Up/Down or j/k Scroll   t Teaching trace   s Schedule   ? Help"
+            "Up/Down or j/k Scroll   t Teaching trace   s Schedule   v Review   ? Help"
         } else if self.focus == Focus::Steps {
             "Up/Down or j/k Select step   Enter Jump   Tab Focus   Esc Back"
         } else {
             "Up/Down or j/k Scroll pane   PgUp/PgDn Page   Tab Focus   Esc Back"
         };
         let footer_text = if area.width < 80 {
-            "1 Question  t Trace  r Reveal  q Quit\nTab Pane  j/k Move  Enter Jump  ? Help\n< > Step  [ ] Candidate  s Schedule".to_string()
+            "1 Question  t Trace  r Reveal  q Quit\nTab Pane  j/k Move  Enter Jump  ? Help\n< > Step  [ ] Candidate  s Schedule  v Review".to_string()
         } else {
             format!("{hints}\n1 Question   Left/Right Step   r Reveal   [ ] Candidate   ? Help   q Quit")
         };
@@ -745,7 +808,7 @@ impl App {
             ])
             .areas(row);
             frame.render_widget(Clear, modal);
-            frame.render_widget(Paragraph::new("1 Question    t Teaching trace\nTab: focus steps, source, narration\nj/k or arrows: select or scroll\nEnter: jump to selected teaching step\nLeft/Right: step immediately\nr then Enter: reveal final step and answer\n[ / ]: previous / next question\ns: schedule this question\nEsc: back or close help    q: quit\n? or Esc closes this help")
+            frame.render_widget(Paragraph::new("1 Question    t Teaching trace\nTab: focus steps, source, narration\nj/k or arrows: select or scroll\nEnter: jump to selected teaching step\nLeft/Right: step immediately\nr then Enter: reveal final step and answer\n[ / ]: previous / next question\ns: schedule this question\nv: review this question (shows the answer)\nEsc: back or close help    q: quit\n? or Esc closes this help")
                 .style(Style::default().fg(FG).bg(BG))
                 .block(Block::default().borders(Borders::ALL).title(" Keyboard help ").border_style(Style::default().fg(AMBER))), modal);
         }

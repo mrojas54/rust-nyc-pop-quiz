@@ -1,4 +1,5 @@
 //! Keyboard scheduling form backed by the existing Python scheduler.
+use crate::pipeline;
 use crossterm::event::KeyCode;
 use ratatui::{
     layout::Rect,
@@ -9,8 +10,8 @@ use ratatui::{
 };
 use std::{
     path::{Path, PathBuf},
-    process::{Command, Stdio},
-    sync::mpsc::{self, Receiver, TryRecvError},
+    process::Command,
+    sync::mpsc::{Receiver, TryRecvError},
 };
 
 pub(crate) struct Schedule {
@@ -137,46 +138,33 @@ impl Schedule {
     }
 
     fn command(&self) -> Command {
-        let pipeline = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../pipeline");
-        let python = std::env::var_os("POPQUIZ_PYTHON")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| pipeline.join(".venv/bin/python"));
-        let mut cmd = Command::new(python);
-        cmd.current_dir(&pipeline)
-            .env("PYTHONPATH", pipeline.join("src"))
-            .args([
-                "-m",
-                "popquiz.schedule",
-                "schedule",
-                &self.id,
-                "--date",
-                &self.fields[0],
-                "--room",
-                &self.fields[1],
-                "--out",
-                &self.fields[2],
-                "--bank",
-            ])
-            .arg(&self.bank)
-            .stdin(Stdio::null());
+        let mut cmd = pipeline::python("popquiz.schedule");
+        cmd.args([
+            "schedule",
+            &self.id,
+            "--date",
+            &self.fields[0],
+            "--room",
+            &self.fields[1],
+            "--out",
+            &self.fields[2],
+            "--bank",
+        ])
+        .arg(&self.bank);
         cmd
     }
 
     fn start(&mut self) {
-        let mut cmd = self.command();
-        let (tx, rx) = mpsc::channel();
-        self.job = Some(rx);
         self.message = "Scheduling… waiting for the room. Do not resubmit.\nClosing the terminal does not undo a submitted request.".into();
-        std::thread::spawn(move || {
-            let result = match cmd.output() {
+        self.job = Some(pipeline::spawn(self.command(), |result| {
+            pipeline::safe_report(match result {
                 Ok(out) => {
                     let heading = result_heading(out.status.success());
                     format!("{heading}\n{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))
                 },
                 Err(_) => "Could not start the scheduler. Set up pipeline/.venv with Python 3.12, or set POPQUIZ_PYTHON to its executable. Nothing was sent.".into(),
-            };
-            let _ = tx.send(safe_report(result));
-        });
+            })
+        }));
     }
 
     pub(crate) fn poll(&mut self) {
@@ -270,18 +258,6 @@ fn resolved_path(path: &Path) -> std::io::Result<PathBuf> {
         }
     }
     Ok(result)
-}
-
-fn safe_report(mut text: String) -> String {
-    if let Ok(token) = std::env::var("POPQUIZ_ADMIN_TOKEN") {
-        if !token.trim().is_empty() {
-            text = text.replace(token.trim(), "[redacted]");
-        }
-    }
-    text.chars()
-        .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
-        .take(16000)
-        .collect()
 }
 
 fn valid_date(text: &str) -> bool {
@@ -397,7 +373,7 @@ mod tests {
     #[test]
     fn scheduler_failure_is_reported_without_retrying() {
         let mut form = Schedule::new("q3".into(), PathBuf::from("/tmp/bank"));
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = std::sync::mpsc::channel();
         form.job = Some(rx);
         tx.send("q3 is not affirmed".into()).unwrap();
         form.poll();
