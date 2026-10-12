@@ -38,6 +38,32 @@ A run ends when its agreed outcome is verified or progress requires the user.
 
 [Project status briefing](.agents/skills/project-status-briefing/SKILL.md) is a general-purpose, report-only skill discovered by Codex from `.agents/skills/`. Claude Code does not automatically load this directory; read the linked skill explicitly when requested. Repository run guardrails still apply.
 
+## Waiting for Michelle
+
+When progress requires Michelle's response, approval, or action, finish any
+independent work already authorized. Once no useful authorized work can proceed:
+
+1. Save one compact checkpoint in the run's existing handoff or run-state record
+   (or the final reply if no such record exists). Include the working directory,
+   branch and HEAD, completed work and verification, the exact question or action
+   needed from Michelle, and the command or next step to resume. Preserve other
+   agents' entries and local changes.
+2. Cancel this run's pending self-wakeup and heartbeat timers before ending the
+   turn. In a harness with `ScheduleWakeup`, use `ScheduleWakeup({stop: true})`;
+   otherwise use its supported timer-cancellation operation. Check the result.
+   If cancellation is unavailable or fails, report the timer and limitation in
+   the checkpoint; do not claim it stopped or create a replacement timer.
+3. End the turn and wait for Michelle. Do not poll the board, PRs, terminals, or
+   approval state, repeatedly report the same blocker, or re-arm a fallback timer
+   just to check for her response. A longer interval is still polling.
+
+Resume the blocked work after Michelle supplies the needed response or action.
+Only continue monitoring that wait if she explicitly requests it. Cancel only
+this run's waiting timers, not other runs, useful background jobs, or unrelated
+user reminders. Waiting for an independently running test or CI job can use its
+completion signal or a bounded process wait; it must not keep reasoning turns
+running once Michelle's response is the only way forward.
+
 ## Read these first
 
 | Artifact | What it is |
