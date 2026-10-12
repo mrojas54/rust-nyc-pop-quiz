@@ -55,9 +55,15 @@ flowchart TB
   encodes, sends what it is handed and returns a status and a body. The
   Discord payload shapes (`Member`, `Tokens`, `User`, `OAuthError`) stay with
   the check that reads them, because `Member` is AC-65's subject.
-- **Module file.** Every directory module in `room/src` uses `mod.rs`, so the
-  Discord module is `host/discord/mod.rs`, not `host/discord.rs` beside a
-  folder.
+- **File names.** Rust's build-role names are used the same way
+  everywhere. The crate root is `lib.rs`, the server binary is
+  `server/main.rs`, and every directory module is `<folder>/mod.rs`, never
+  a `<folder>.rs` beside its folder. That makes the Discord module
+  `host/discord/mod.rs`. Every other file is named for the thing it holds,
+  and that name is a noun: `participants.rs`, `config.rs`, `http.rs`. The
+  exceptions are the operation names Michelle chose (`join.rs`, `vote.rs`,
+  `leave.rs`, `create.rs`). The source does not match this yet; see
+  *Target layout* below.
 - **Participants.** `rooms/participants.rs` holds `AppState::join`, `answer`,
   `leave`, `buzzer_for`, `session_count`, `set_live_counts` and
   `impl ws::SessionTokens for AppState`. It reaches the state through the
@@ -164,6 +170,96 @@ routine changes keep crossing them, not when a file passes a line count.
 3. [x] Split out `rooms/participants.rs`
 4. [x] Module docs, the operation guide, the six invariant comments
 5. [ ] Michelle accepts this ADR (Status → Accepted) before merge
+6. [ ] Later ticket: move the files to the *Target layout*
+7. [ ] Later ticket: rename the crate folder `room/` to `popquiz/`
+8. [ ] Later ticket: rename the default club `nyc` to `rustnyc`
+9. [ ] Later ticket: the room uses only affirmed questions and records who
+   affirmed them
+
+Items 6 to 9 are recorded here so the layout has one source. None of them is
+part of this change.
+
+## Domain model
+
+The layout below follows the things the room deals with and how they relate.
+
+```mermaid
+erDiagram
+    HOST }o--o{ CLUB : "hosts for"
+    CLUB ||--o{ QUIZ_SESSION : holds
+    HOST ||--o{ QUIZ_SESSION : "run by"
+    HOST }o--o{ QUESTION : "affirmed by"
+    QUESTION ||--o{ QUIZ_SESSION : "asked in"
+    QUIZ_SESSION ||--o| USED_RECORD : "released as"
+    QUIZ_SESSION ||--o{ PARTICIPANT : "joined by"
+    PARTICIPANT ||--o| ANSWER : votes
+```
+
+| Relation | Today | Target |
+|---|---|---|
+| Host ↔ club, many to many | A Discord user holds any number of club roles; `authorize_create` checks the club's role when a room is made | Unchanged |
+| Club → quiz session | `Room.club` | Unchanged |
+| Host → quiz session, *run by* | `Room.organizer` | Unchanged |
+| Host ↔ question, *affirmed by* | The organizer's review and affirmation live in the pipeline and the bank; the room does not read them | The room uses a question only with a current affirmation, and records the affirming organizer with the session (item 9) |
+| Question → quiz session | The room's question | Unchanged |
+| Quiz session → used record | `UsedEntry`, keyed by club and question id, written at release | Unchanged |
+
+- **A club's id is its slug.** There is no separate `ClubId`. The slug names
+  the club in links, the OAuth state, `Room.club` and the used ledger. The
+  default club's slug becomes `rustnyc` (item 8). The ledger, the bank's used
+  records and `?club=nyc` links are keyed by `nyc` today, so that ticket
+  migrates or aliases them. A plain rename would bring used questions back.
+- **Machine verification is not affirmation.** A question is verified by
+  rustc and Miri offline (AC-7, AC-43). The organizer's affirmation is a
+  person's sign-off on top of that, and is what *affirmed by* means.
+- **The quiz session is the room.** In the code it is `Room`, held in
+  `AppState`. `quiz_session` names the module that groups it with the models
+  and with its host and participant operations, not a new type.
+
+## Target layout
+
+The tree for the moves in item 6, under the crate folder of item 7. `cli/`
+is outside this ADR.
+
+```
+popquiz/src/
+  lib.rs                 re-exports keep every public path that exists today
+  copy.rs
+  quiz_session/
+    mod.rs               declares models and rooms; owns no type
+    models/              mod, question, answers, club, phase, used, view
+    rooms/
+      mod.rs, room.rs, state.rs (AppState), open.rs, seams.rs, errors.rs, lifecycle.rs
+      host/              mod, auth, create, discord/{mod, config, http}
+      participants/      mod, join, vote, leave, buzzer, counts, tokens
+  connections/           mod, requestlog, sessions, ws
+  server/                main, mod, admin, config, reaper, routes/*
+```
+
+- **`AppState` stays in `rooms/state.rs`.** Its `pub(super)` fields reach
+  every module under `rooms/`, including the new `host/` and
+  `participants/`, so no field or lock is opened wider.
+- **`Room` stays in `rooms/room.rs`.** About 15 of its fields are
+  `pub(super)` and read by its `rooms/` siblings, and the scan tests name the
+  path. There is no `models/room.rs` and no `models/quiz_session.rs`:
+  `quiz_session/mod.rs` is the quiz session's module.
+- **`connections/` and `server/` stay outside `quiz_session`.** They are the
+  socket layer and the binary, not the session.
+- **Participants split by operation.** `join` and `vote` (the `answer`
+  operation) are Michelle's names; `leave` matches them. `buzzer`, `counts`
+  and `tokens` (the `SessionTokens` impl) are nouns.
+
+What the moves must handle:
+
+- `rooms/room.rs` imports `random_bytes` and `hex` through `super::create`.
+  Under `host/`, `super` no longer reaches them, so they move to `rooms/`.
+- `lib.rs` re-exports every public path in use today (`room::phase`,
+  `room::rooms::AppState`, `room::discord::Settings` and the rest).
+- The scan tests that name source paths get path updates only, never a
+  weaker rule: `tests/auth.rs`, `one_room.rs`, `used.rs`, `boundary.rs`,
+  `twins.rs` and the walk in `tests/common/mod.rs`.
+- Splitting `impl AppState` over more files keeps each lock site and its
+  order (`questions` before `rooms`).
 
 ## Where it lives
 
