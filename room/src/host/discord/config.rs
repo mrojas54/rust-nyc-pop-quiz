@@ -8,6 +8,10 @@ use subtle::ConstantTimeEq;
 
 /// A secret string. No `Debug`, `Display` or `Clone`, so it cannot be
 /// formatted or copied into anything by accident.
+///
+/// Invariant: the credential boundary. A `Secret` is read only inside
+/// `host::discord` (`expose` is `pub(super)`), so Discord's tokens and the
+/// client secret never reach a page, a payload or a log line.
 pub struct Secret(Box<str>);
 
 impl Secret {

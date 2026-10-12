@@ -363,6 +363,8 @@ impl HostAuth for Discord {
         let club = club.clone();
         Box::pin(async move {
             // Its own task: see "Refresh-token rotation" above.
+            // Invariant: a refresh survives the caller going away; dropping
+            // this future does not cancel the spawned check.
             match tokio::runtime::Handle::try_current() {
                 Ok(rt) => rt
                     .spawn(inner.check(user, club))
@@ -457,6 +459,8 @@ impl Inner {
         let refresh = self.refresh_lock(&user);
         let mut refreshed = false;
         {
+            // Invariant: one refresh per organizer at a time; a second check
+            // waits here and finds the record already rotated.
             let _one_at_a_time = refresh.lock().await;
             let (_, _, due) = self.access(&user).ok_or(CreateRefusal::Denied)?;
             if due {

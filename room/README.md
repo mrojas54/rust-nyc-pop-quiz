@@ -68,13 +68,18 @@ src/
     mod.rs      the sealed-record doctests, the re-exports, the small shared types
     room.rs     the room record and the writes the phase machine drives
     open.rs     the one way to the answers: Room::open, Room::public, Opened, PublicView
-    state.rs    AppState: every room on this machine, the clock, the ledger, the sockets' token map
+    state.rs    AppState: every room on this machine, the clock, the ledger; scheduling, host commands, release, the sweep
+    participants.rs  join, answer, leave, a session's buzzer payload, the counts, the sockets' token map
     seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
     errors.rs   RoomError, AnswerError, Joined, Scheduling
     create.rs   create a room, run it again
     lifecycle.rs  the clock seam, §4.6's bounds, `Ended` and `verdict` (reachable as `room::lifecycle`)
   host/                            the organizer
-    auth.rs  discord.rs              the create check (G-9); Discord sign-in and the role check
+    auth.rs                          the create check (G-9) and the host check
+    discord/                         Discord sign-in and the role check
+      mod.rs      OAuth, organizer records and sessions, refresh, the check and its retries
+      config.rs   settings and secrets, endpoints, the retry budget, the log sink (re-exported)
+      http.rs     encoding and the HTTP/1.1 client over TCP or TLS
   connections/                     the audience
     ws.rs  sessions.rs  requestlog.rs   sockets and one broadcast per room; participant sessions; AC-55's log
   models/                          the data
@@ -141,7 +146,7 @@ Discord, and nothing scheduled — questions arrive over `PUT
 `identify guilds.members.read`. The callback stores the organizer record —
 `discord_user_id`, `access_token`, `refresh_token`, `token_expires_at`, nothing
 else (§3.5) — and hands the browser an opaque **organizer session** in the host
-page's URL fragment. Discord's tokens never leave `discord.rs`. On *Create a
+page's URL fragment. Discord's tokens never leave the `discord` module. On *Create a
 room* (and *Run it again*) the room refreshes the access token if it is due,
 then asks `GET /users/@me/guilds/{guild}/member` with the organizer's bearer.
 The organizer hosts a club iff `roles` contains *that club's* role ID (`DISCORD_ROLE_ID` for `nyc`, `POPQUIZ_CLUBS` for the rest; D-26, AC-103), compared as a
