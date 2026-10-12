@@ -53,6 +53,7 @@ pub struct Session {
 
 // AC-57, at compile time: this pattern names every field and has no `..`, so
 // adding a field to `Session` stops the crate compiling.
+#[rustfmt::skip]
 const _: fn(Session) = |Session { token: _, answer: _ }| {};
 
 /// Why a join did not happen: SPEC §4.1's six failure states.
