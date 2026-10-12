@@ -416,6 +416,92 @@ def test_affirmation_needs_both_who_and_when() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# GAP-24: an affirmation is bound to the text it affirmed
+# --------------------------------------------------------------------------- #
+
+COMPLETE = dataclasses.replace(
+    RAN, legacy=False, verified_at="2026-10-12T00:00:00Z", verifier_version="test"
+)
+
+
+def _affirmed(question: Question, digest: str | None = "current") -> Question:
+    review = Review(
+        status="accepted",
+        affirmed_by="fixture-organizer",
+        affirmed_at="2026-10-12T00:00:00+00:00",
+        affirmed_digest=bank.affirmation_digest(question) if digest == "current" else digest,
+    )
+    return dataclasses.replace(question, review=review)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda q: dataclasses.replace(q, explains=Explains(what="changed", takeaway=q.explains.takeaway)),
+        lambda q: dataclasses.replace(q, explains=Explains(what=q.explains.what, takeaway="changed")),
+        lambda q: dataclasses.replace(
+            q, options=(dataclasses.replace(q.options[0], why_tempting="changed"), *q.options[1:])
+        ),
+        lambda q: dataclasses.replace(q, trace=_drafted_trace()),
+        lambda q: dataclasses.replace(q, source="fn main() { }\n"),
+        lambda q: dataclasses.replace(q, options=(dataclasses.replace(q.options[0], text="uno"), *q.options[1:])),
+        lambda q: dataclasses.replace(q, hint="changed"),
+    ],
+    ids=["what", "takeaway", "why_tempting", "trace", "source", "option text", "hint"],
+)
+def test_gap24_any_change_to_the_affirmed_text_unbinds_it(change) -> None:
+    affirmed = _affirmed(_question(verified=COMPLETE))
+    assert bank.affirmation_state(affirmed) == "bound"
+    assert bank.is_affirmed(affirmed)
+    edited = change(affirmed)
+    assert bank.affirmation_digest(edited) != affirmed.review.affirmed_digest
+    assert bank.affirmation_state(edited) == "stale"
+    assert not bank.is_affirmed(edited)
+
+
+def test_gap24_the_digest_ignores_the_review_block_and_the_verified_record() -> None:
+    q = _question(verified=COMPLETE)
+    later = dataclasses.replace(q, verified=dataclasses.replace(COMPLETE, verified_at="2026-11-01T00:00:00Z"))
+    assert bank.affirmation_digest(q) == bank.affirmation_digest(later)
+    assert bank.affirmation_digest(q) == bank.affirmation_digest(_affirmed(q))
+    assert bank.DIGEST_PATTERN.fullmatch(bank.affirmation_digest(q))
+
+
+def test_gap24_a_digest_less_affirmation_is_legacy_only_on_a_legacy_record() -> None:
+    """q3's hand affirmation (F-52) predates the digest and stays valid; the same
+    hand-typed block on a record the verifier wrote is GAP-24's M12b, and is not."""
+    assert bank.affirmation_state(_affirmed(_question(verified=RAN), digest=None)) == "legacy"
+    assert bank.is_affirmed(_affirmed(_question(verified=RAN), digest=None))
+    unbound = _affirmed(_question(verified=COMPLETE), digest=None)
+    assert bank.affirmation_state(unbound) == "unbound"
+    assert not bank.is_affirmed(unbound)
+    assert bank.affirmation_state(_question()) == "none"
+
+
+def test_gap24_a_stale_record_still_loads_but_a_malformed_digest_does_not() -> None:
+    stale = _affirmed(_question(verified=COMPLETE), digest="sha256:" + "0" * 64)
+    assert bank.affirmation_state(question_from_dict(question_to_dict(stale))) == "stale"
+    for bad in ("sha256:xyz", "md5:" + "0" * 32):
+        with pytest.raises(BankError, match="affirmed_digest"):
+            validate_question(_affirmed(_question(), digest=bad))
+    orphan = _question(review=Review(status="accepted", affirmed_digest="sha256:" + "0" * 64))
+    with pytest.raises(BankError, match="without affirmed_by"):
+        validate_question(orphan)
+    data = question_to_dict(_question(review=Review(status="accepted")))
+    data["review"]["quotes_checked"] = "not a list"
+    with pytest.raises(BankError, match="quotes_checked"):
+        question_from_dict(data)
+
+
+def test_ac73_a_quote_matches_only_a_whole_printed_line() -> None:
+    assert bank.quote_matches_output("two", "two\n")
+    assert bank.quote_matches_output("b", "a\nb\n")
+    assert not bank.quote_matches_output("tw", "two\n")
+    assert not bank.quote_matches_output("[1, 2]", "[1, 2, 3]\n")
+    assert not bank.quote_matches_output("anything", None)
+
+
+# --------------------------------------------------------------------------- #
 # Serialization: absent is absent (G-2, D-16)
 # --------------------------------------------------------------------------- #
 

@@ -231,6 +231,16 @@
           "description": "Affirmation is separate from acceptance and blocking: no question reaches a deck without it (AC-72, G-12). Who and when are both recorded, so one without the other is not affirmed."
         },
         "affirmed_at": { "type": "string" },
+        "affirmed_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "The text the organizer affirmed, as a digest written by popquiz.review affirm (GAP-24). An edit clears it, and a record whose text no longer matches is not affirmed. Absent on an affirmation made before the review surface existed (q3), which is read as legacy."
+        },
+        "quotes_checked": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Quoted spans in the beats and trace notes that are not a printed line, which the organizer checked at review and attested are not a claim about the output (AC-73)."
+        },
         "near_duplicate_of": {
           "type": "string",
           "description": "Set by dedupe when a candidate is above the similarity threshold but below exact; it lands in the review queue, neither accepted nor dropped (AC-16)."
