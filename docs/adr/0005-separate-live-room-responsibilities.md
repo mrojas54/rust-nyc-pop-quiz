@@ -409,10 +409,9 @@ earlier draft proposed:
    socket layer and the binary, not the session. (Default kept; not
    contested.)
 
-**Still open:** whether the type follows the file and becomes
-`StateManager`. The file name is settled. Keeping the type `AppState` leaves
-every caller, the tests and the CLI untouched; renaming it is its own commit
-in the item 6 ticket, never mixed with a move.
+**The type stays `AppState`** (Michelle, 2026-10-12). Only the file is
+`state_manager.rs`, so the move leaves every caller, the tests and the CLI
+untouched.
 
 - **Visibility does not widen.** Today `Room`'s 26 `pub(super)` items and
   `AppState`'s fields are visible across `rooms/`, which holds every session
