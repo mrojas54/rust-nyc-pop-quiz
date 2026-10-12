@@ -299,7 +299,7 @@ impl Room {
     /// T-11: whether this room has ended at `now` — four hours up, or quiet for
     /// §4.6's bound (`lifecycle::verdict`).
     ///
-    /// Once [`AppState::create_for`] has let a new room in on this room's
+    /// Once [`super::AppState::create_for`] has let a new room in on this room's
     /// question because it had ended, the ending is latched: a later call with
     /// an earlier `now` — a wall-clock step back, or a host action whose clock
     /// reading was taken just before the lock — cannot revive it, so there are
@@ -313,7 +313,7 @@ impl Room {
     /// room — it was created on it, is not released, and has not ended. A
     /// released room's question is refused by the used ledger instead; a room
     /// that ended without release can never release, so it can never put its
-    /// answer on `/last` ([`AppState::act`] refuses an ended room).
+    /// answer on `/last` ([`super::AppState::act`] refuses an ended room).
     pub fn holds(&self, club: &ClubSlug, question_id: &str, now: SystemTime) -> bool {
         &self.club == club && self.question_id == question_id && self.phase() != Phase::Released && self.ended(now).is_none()
     }

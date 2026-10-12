@@ -50,7 +50,7 @@ impl From<Refused> for RoomError {
     }
 }
 
-/// What [`AppState::schedule`] did (T-25).
+/// What [`super::AppState::schedule`] did (T-25).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scheduling {
     /// The id was not scheduled before.
