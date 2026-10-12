@@ -569,7 +569,7 @@ def quote_matches_output(span: str, stdout: str | None) -> bool:
 
 DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 
-AffirmationState = Literal["none", "bound", "stale", "legacy", "unbound"]
+AffirmationState = Literal["none", "bound", "stale", "unbound"]
 
 
 def affirmation_digest(question: Question) -> str:
@@ -602,27 +602,25 @@ def affirmation_state(question: Question) -> AffirmationState:
     * `none` - nobody is recorded as having affirmed it;
     * `bound` - affirmed, and the text still matches the digest recorded then;
     * `stale` - affirmed, and the text changed afterwards;
-    * `legacy` - affirmed with no digest, on a record whose `verified` is legacy:
-      the MVP batch, affirmed by hand before the review surface existed (q3, F-52);
-    * `unbound` - affirmed with no digest on any other record. It names who and
-      when but not what, which is the hand-typed affirmation GAP-24 caught.
+    * `unbound` - affirmed with no digest. It names who and when but not what,
+      which is the hand-typed affirmation GAP-24 caught. q3's hand affirmation
+      (F-52), from before the digest existed, reads this way too (RULING PQ-23,
+      client, 2026-10-12): it counts once the organizer affirms it again.
 
-    The legacy reading rests on `verified.legacy`, which a hand edit can also set:
-    the digest binds an affirmation to its text, it does not authenticate who
+    The digest binds an affirmation to its text; it does not authenticate who
     wrote it.
     """
     review = question.review
     if review is None or not review.affirmed():
         return "none"
-    if review.affirmed_digest is not None:
-        return "bound" if review.affirmed_digest == affirmation_digest(question) else "stale"
-    verified = question.verified
-    return "legacy" if verified is not None and verified.legacy else "unbound"
+    if review.affirmed_digest is None:
+        return "unbound"
+    return "bound" if review.affirmed_digest == affirmation_digest(question) else "stale"
 
 
 def is_affirmed(question: Question) -> bool:
-    """The affirmation half of the gate (AC-72, G-12): `bound` or `legacy`."""
-    return affirmation_state(question) in ("bound", "legacy")
+    """The affirmation half of the gate (AC-72, G-12): `bound` only."""
+    return affirmation_state(question) == "bound"
 
 
 def options_needing_reauthoring(options: Sequence[Option]) -> tuple[int, ...]:

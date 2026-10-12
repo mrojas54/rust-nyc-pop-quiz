@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from popquiz import audit, fallback, schedule
-from popquiz.bank import affirmation_digest, correct_index, is_affirmed, load_question, question_from_dict, question_to_dict
+from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, question_from_dict, question_to_dict
 from popquiz.slot import slot_for_day
 
 REPO = Path(__file__).resolve().parents[2]
@@ -267,7 +267,7 @@ def test_gap24_a_question_edited_after_affirmation_is_refused(affirmed, room, tm
 
 def test_gap24_a_hand_typed_affirmation_on_a_verified_record_is_refused(bank, room, tmp_path, capsys):
     """M12b: who and when typed into a record the verifier wrote, with no digest,
-    names no text. Only the MVP batch's legacy records predate the digest."""
+    names no text."""
     affirm(bank, "q4", affirmed_digest=None)
     fake = room((201, {"scheduled": "new"}))
     out = tmp_path / "out"
@@ -276,12 +276,16 @@ def test_gap24_a_hand_typed_affirmation_on_a_verified_record_is_refused(bank, ro
     assert not audit.in_reserve(load_question(bank, "q4"))
 
 
-def test_gap24_q3s_hand_affirmation_is_legacy_and_still_schedules(bank):
-    """F-52: q3 was affirmed by hand before the digest existed; it is read as legacy
-    and stays in the reserve, so the nyc reserve keeps reading it."""
+def test_gap24_q3s_hand_affirmation_is_unbound_and_refused(bank, room, tmp_path, capsys):
+    """RULING PQ-23 (client, 2026-10-12): q3 was affirmed by hand before the digest
+    existed (F-52). That affirmation no longer counts, so q3 leaves the reserve until
+    the organizer affirms it again through `popquiz.review`."""
     q3 = load_question(bank, "q3")
     assert q3.review.affirmed_digest is None
-    assert schedule.refusal(q3) is None and audit.in_reserve(q3)
+    assert not is_affirmed(q3) and not audit.in_reserve(q3)
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    assert_refused(schedule_q3(bank, out), capsys, fake, out, "not what was affirmed")
 
 
 def test_g10_a_used_question_is_refused(affirmed, room, tmp_path, capsys):
@@ -306,20 +310,23 @@ def test_g12_a_question_with_no_verified_record_is_refused(affirmed, room, tmp_p
 
 def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_path, capsys):
     """Read from the committed records, not typed: each one an organizer has not
-    affirmed is refused with nothing sent or written, and q3, affirmed by F-52,
-    schedules. The next affirmation moves a record from one side to the other
-    without touching this test."""
+    affirmed is refused with nothing sent or written, and each one affirmed and
+    bound to its text schedules. q3's digest-less hand affirmation (F-52) is
+    refused as unbound until it is affirmed again. The next affirmation moves a
+    record from one side to the other without touching this test."""
     for q in schedule.load_bank(bank):
         out = tmp_path / q.id
         fake = room((201, {"id": q.id, "scheduled": "new"}))
         code = run("schedule", q.id, "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
-        if not is_affirmed(q):
+        state = affirmation_state(q)
+        if state == "unbound":
+            assert_refused(code, capsys, fake, out, "not what was affirmed")
+        elif not is_affirmed(q):
             assert_refused(code, capsys, fake, out, "unaffirmed question cannot be scheduled")
         else:
             capsys.readouterr()
             assert code == 0, q.id
             assert len(fake.requests) == 1 and out.exists(), q.id
-    assert schedule.refusal(load_question(BANK, "q3")) is None
 
 
 def test_g12_the_gate_agrees_with_the_reserve(affirmed):

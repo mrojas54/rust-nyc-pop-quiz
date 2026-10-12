@@ -233,12 +233,24 @@ def test_ac73_a_wrong_quote_also_blocks_affirmation(bank_dir, capsys):
     refused(run("affirm", "wrongquote", "--by", NAME, "--bank", bank_dir), capsys, "AC-73")
 
 
-def test_q3s_hand_affirmation_is_kept_and_not_overwritten(bank_dir, capsys):
-    """F-52: a legacy affirmation is displayed and kept; affirm will not replace it."""
-    before = raw(bank_dir, "q3")
-    assert review.report(load(bank_dir, "q3"))["affirmation"] == "legacy"
-    refused(run("affirm", "q3", "--by", "someone-else", "--bank", bank_dir), capsys, "already affirmed")
-    assert raw(bank_dir, "q3") == before
+def test_q3s_hand_affirmation_is_unbound_and_can_be_affirmed_again(bank_dir, capsys):
+    """RULING PQ-23 (client, 2026-10-12): q3's hand affirmation (F-52) has no digest,
+    so it reads as unbound and does not schedule. The organizer can affirm it again,
+    which binds it to its text. This runs on the fixture copy, never the bank's q3."""
+    q3 = load(bank_dir, "q3")
+    assert review.report(q3)["affirmation"] == "unbound"
+    assert schedule.refusal(q3) is not None and not audit.in_reserve(q3)
+    assert run("affirm", "q3", "--by", NAME, "--bank", bank_dir) == 0
+    q3 = load(bank_dir, "q3")
+    assert bank.affirmation_state(q3) == "bound" and q3.review.affirmed_by == NAME
+    assert schedule.refusal(q3) is None and audit.in_reserve(q3)
+
+
+def test_a_bound_affirmation_is_kept_and_not_overwritten(bank_dir, capsys):
+    accepted_and_affirmed(bank_dir)
+    before = raw(bank_dir, "q4")
+    refused(run("affirm", "q4", "--by", "someone-else", "--bank", bank_dir), capsys, "already affirmed")
+    assert raw(bank_dir, "q4") == before
 
 
 # --------------------------------------------------------------------------- #

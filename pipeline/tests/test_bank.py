@@ -467,14 +467,14 @@ def test_gap24_the_digest_ignores_the_review_block_and_the_verified_record() -> 
     assert bank.DIGEST_PATTERN.fullmatch(bank.affirmation_digest(q))
 
 
-def test_gap24_a_digest_less_affirmation_is_legacy_only_on_a_legacy_record() -> None:
-    """q3's hand affirmation (F-52) predates the digest and stays valid; the same
-    hand-typed block on a record the verifier wrote is GAP-24's M12b, and is not."""
-    assert bank.affirmation_state(_affirmed(_question(verified=RAN), digest=None)) == "legacy"
-    assert bank.is_affirmed(_affirmed(_question(verified=RAN), digest=None))
-    unbound = _affirmed(_question(verified=COMPLETE), digest=None)
-    assert bank.affirmation_state(unbound) == "unbound"
-    assert not bank.is_affirmed(unbound)
+def test_gap24_a_digest_less_affirmation_is_never_affirmed() -> None:
+    """RULING PQ-23 (client, 2026-10-12): an affirmation with no digest names who
+    and when but not what, on any record. q3's hand affirmation (F-52), on a legacy
+    record, is read the same as GAP-24's M12b on a record the verifier wrote."""
+    for verified in (RAN, COMPLETE):
+        unbound = _affirmed(_question(verified=verified), digest=None)
+        assert bank.affirmation_state(unbound) == "unbound"
+        assert not bank.is_affirmed(unbound)
     assert bank.affirmation_state(_question()) == "none"
 
 
