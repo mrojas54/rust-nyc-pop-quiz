@@ -247,11 +247,11 @@ impl Review {
             Job::Decide(Decision::Accept(quotes)) => {
                 cmd.args(["accept", id]);
                 for quote in quotes {
-                    cmd.args(["--checked-quote", quote]);
+                    cmd.arg(format!("--checked-quote={quote}"));
                 }
             }
             Job::Decide(Decision::Reject(reason)) => {
-                cmd.args(["reject", id, "--reason", reason]);
+                cmd.args(["reject", id]).arg(format!("--reason={reason}"));
             }
             Job::Decide(Decision::Difficulty(level)) => {
                 cmd.args(["difficulty", id, &level.to_string()]);
@@ -259,7 +259,7 @@ impl Review {
             Job::Decide(Decision::Affirm) => {
                 cmd.args(["affirm", id]);
                 if let Some(name) = &self.organizer {
-                    cmd.args(["--by", name]);
+                    cmd.arg(format!("--by={name}"));
                 }
             }
             Job::Decide(Decision::Edit(path)) => {
@@ -272,6 +272,7 @@ impl Review {
 
     fn start(&mut self, job: Job) {
         let cmd = self.command(&job);
+        self.message.clear();
         self.stage = Stage::Screen;
         self.scroll = 0;
         let rx = pipeline::spawn(cmd, |result| {
@@ -607,13 +608,11 @@ mod tests {
     fn affirm_passes_only_the_name_shown_and_never_a_default() {
         let unset = review(None);
         let cmd = unset.command(&Job::Decide(Decision::Affirm));
-        assert!(!args(&cmd).contains(&"--by".to_string()));
+        assert!(!args(&cmd).iter().any(|a| a.starts_with("--by")));
         assert!(removes_organizer(&cmd));
         let set = review(Some("Organizer Name"));
         let cmd = set.command(&Job::Decide(Decision::Affirm));
-        assert!(args(&cmd)
-            .windows(2)
-            .any(|w| w == ["--by", "Organizer Name"]));
+        assert!(args(&cmd).contains(&"--by=Organizer Name".to_string()));
         assert!(removes_organizer(&cmd));
     }
 
@@ -665,21 +664,26 @@ mod tests {
 
     #[test]
     fn checked_quotes_and_reasons_reach_the_cli_as_arguments() {
+        // Joined with `=`, so a value that looks like a flag ("-x", "--foo") is
+        // still read as the value.
         let r = review(None);
-        let cmd = r.command(&Job::Decide(Decision::Accept(vec!["-3 -1".into()])));
+        let cmd = r.command(&Job::Decide(Decision::Accept(vec![
+            "-3 -1".into(),
+            "-x".into(),
+        ])));
         assert_eq!(
             args(&cmd)[2..],
             [
                 "accept",
                 "q4",
-                "--checked-quote",
-                "-3 -1",
+                "--checked-quote=-3 -1",
+                "--checked-quote=-x",
                 "--bank",
                 "/tmp/bank"
             ]
         );
-        let cmd = r.command(&Job::Decide(Decision::Reject("why".into())));
-        assert_eq!(args(&cmd)[2..6], ["reject", "q4", "--reason", "why"]);
+        let cmd = r.command(&Job::Decide(Decision::Reject("--foo".into())));
+        assert_eq!(args(&cmd)[2..5], ["reject", "q4", "--reason=--foo"]);
     }
 
     #[test]
