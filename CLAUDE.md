@@ -49,7 +49,7 @@ A run ends when its agreed outcome is verified or progress requires the user.
 | [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate, attendees. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | **How to run the segment on the built room**: schedule, host, sync. |
 | [`mvp/README.md`](mvp/README.md) | The retired hand-run projector deck. Still read for *The shape*; its practice-run and field-notes templates are still used. |
-| [`docs/adr/`](docs/adr/) | Architecture decision records, with diagrams. ADR-0001: several clubs share one room server (D-26). |
+| [`docs/adr/`](docs/adr/) | Architecture decision records, with diagrams. ADR-0001: several clubs share one room server (D-26). ADR-0002…0004: the room source grouped by who uses it, the sealed read kept small, and the guardrail scans walking the tree. |
 
 ## Standing of `PRD.md`
 
