@@ -124,7 +124,7 @@
           4,
           4
         ],
-        "note": "div_euclid rounds down instead of toward zero, so -3.5 becomes -4. The same division, rounded the other way. This is the step the whole question turns on.",
+        "note": "div_euclid picks the quotient that leaves a remainder of zero or more. With a positive divisor like ours, that means rounding down, so -3.5 becomes -4. The same division, rounded the other way. This is the step the whole question turns on.",
         "values": [
           {
             "name": "a.div_euclid(b)",
