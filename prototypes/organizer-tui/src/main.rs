@@ -6,7 +6,7 @@ use organizer_preview::{capture, default_bank, App, Result};
 use std::{
     env,
     io::{self, IsTerminal},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 // A paired push/pop restores the prior keyboard protocol on every normal/error exit.
@@ -34,6 +34,19 @@ impl Drop for KeyboardReporting {
     }
 }
 
+// The organizer's own editor, from VISUAL or EDITOR, which may carry arguments.
+fn open_editor(editor: &str, path: &Path) -> bool {
+    let mut words = editor.split_whitespace();
+    let Some(program) = words.next() else {
+        return false;
+    };
+    std::process::Command::new(program)
+        .args(words)
+        .arg(path)
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 fn main() -> Result<()> {
     let mut bank = default_bank();
     let mut question = None;
@@ -50,7 +63,7 @@ fn main() -> Result<()> {
                 )
             }
             "--help" | "-h" => {
-                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\ns Schedule / 1 Question / t Trace / Left-Right Step / r then Enter Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
+                println!("organizer-preview [--bank PATH] [--question ID] [--snapshot question|trace|reveal]\n\ns Schedule / v Review / 1 Question / t Trace / Left-Right Step / r then Enter Reveal / [ ] Candidate\nj-k or Up-Down Select or scroll / Enter Jump / Tab Focus / Esc Back / ? Help / q Quit");
                 return Ok(());
             }
             _ => return Err(format!("Unknown argument: {arg}").into()),
@@ -76,9 +89,20 @@ fn main() -> Result<()> {
         return Err("Open an interactive terminal, or use --snapshot question".into());
     }
     ratatui::run(|terminal| -> Result<()> {
-        let _keyboard_reporting = KeyboardReporting::enable();
+        let mut keyboard_reporting = KeyboardReporting::enable();
         loop {
             terminal.draw(|frame| app.draw(frame))?;
+            if let Some((editor, path)) = app.take_editor_request() {
+                drop(keyboard_reporting);
+                ratatui::restore();
+                let ok = open_editor(&editor, &path);
+                crossterm::terminal::enable_raw_mode()?;
+                crossterm::execute!(io::stdout(), crossterm::terminal::EnterAlternateScreen)?;
+                keyboard_reporting = KeyboardReporting::enable();
+                terminal.clear()?;
+                app.editor_finished(ok);
+                continue;
+            }
             if !event::poll(std::time::Duration::from_millis(100))? {
                 continue;
             }
