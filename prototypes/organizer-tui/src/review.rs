@@ -452,10 +452,10 @@ impl Review {
             "Affirmation: {}\n",
             match r("affirmation").as_str() {
                 Some("bound") => format!("affirmed by {by}"),
-                Some("legacy") => format!("affirmed (unbound, before GAP-24) by {by}"),
                 Some("stale") => format!("NOT AFFIRMED: the text changed after {by} affirmed it"),
-                Some("unbound") =>
-                    format!("NOT AFFIRMED: {by} recorded no digest of what was affirmed"),
+                Some("unbound") => format!(
+                    "NOT AFFIRMED: {by} recorded no digest of what was affirmed; affirm it again"
+                ),
                 _ => "not affirmed".into(),
             }
         ));
@@ -697,7 +697,7 @@ mod tests {
         let mut r = review(None);
         r.stage = Stage::Screen;
         r.report = Some(json!({
-            "status": "accepted", "affirmation": "legacy",
+            "status": "accepted", "affirmation": "unbound",
             "blocked_on": "F-15",
             "options": [{"text": "1", "correct": true, "why_tempting": null},
                         {"text": "2", "correct": false, "why_tempting": "Looks right."}],
@@ -707,7 +707,8 @@ mod tests {
             "accept_blockers": [], "affirm_blockers": ["It does not compile."]
         }));
         let text = r.text();
-        assert!(text.contains("Affirmation: affirmed (unbound, before GAP-24)"));
+        assert!(text.contains("Affirmation: NOT AFFIRMED: "));
+        assert!(text.contains("recorded no digest of what was affirmed; affirm it again"));
         assert!(text.contains("WAITING on ruling F-15"));
         assert!(text.contains("A  1   [correct, machine record]"));
         assert!(text.contains(
