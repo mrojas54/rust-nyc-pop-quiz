@@ -1,6 +1,6 @@
 # ADR-0005: Separate the live room's responsibilities, keep one state owner
 
-**Status:** Proposed (Michelle accepts or declines; a one-line commit flips it to Accepted before merge)
+**Status:** Accepted (Michelle, 2026-10-12)
 **Date:** 2026-10-12
 **Deciders:** Michelle wrote the plan and the proposed MADR (Lattice PQ-71); Claude carried them out and chose the file-level details recorded here
 **Contract:** none changed. Routes, payloads, error strings and their order, lock scopes and their order, public paths and method signatures are untouched. G-3, G-9, G-10, AC-61, AC-65, AC-66, AC-68, AC-69 hold as before.
@@ -328,7 +328,7 @@ routine changes keep crossing them, not when a file passes a line count.
 2. [x] Split out `discord/config.rs` and `discord/http.rs`
 3. [x] Split out `rooms/participants.rs`
 4. [x] Module docs, the operation guide, the six invariant comments
-5. [ ] Michelle accepts this ADR (Status → Accepted) before merge
+5. [x] Michelle accepts this ADR (Status → Accepted) before merge
 6. [ ] Later ticket: move the files to the *Target layout*
 7. [ ] Later ticket: rename the crate folder `room/` to `popquiz/`
 8. [ ] Later ticket: rename the default club `nyc` to `rustnyc`
