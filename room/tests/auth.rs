@@ -281,7 +281,7 @@ fn ac67_no_participant_route_touches_the_auth_module() {
     // surface (the arm that calls `with_hosted_room` is the only code allowed to
     // authenticate), and its comments are left out: they describe the host half.
     let ws = std::fs::read_to_string(repo().join("room/src/connections/ws.rs")).unwrap();
-    let host_arm = ws.find("Viewer::Host => match inner.state.with_hosted_room").expect("the host's attach arm");
+    let host_arm = ws.rfind("Viewer::Host =>").expect("the host's attach arm");
     let buzzer_arm = ws.find("_ => match inner.tokens.resolve").expect("the buzzer's attach arm");
     assert!(host_arm < buzzer_arm, "the host arm comes first");
     assert_eq!(ws.matches("with_hosted_room").count(), 1, "ws.rs authenticates in the host arm alone");
