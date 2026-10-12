@@ -35,15 +35,24 @@ _default:
 setup:
     cd pipeline && uv sync --frozen
     cd room && cargo fetch --locked
+    cd prototypes/organizer-tui && cargo fetch --locked
 
 # The inner loop. No network, no Docker, no pinned toolchain, no Miri.
 # EVALUATION.md budgets this at 60 s wall-clock; a slower default suite is a defect.
 [parallel]
-test: test-room test-pipeline test-web
+test: test-room test-pipeline test-web test-organizer
 
 # Builds and tests the room crate with whatever cargo this machine has.
 test-room:
     cd room && cargo test --offline --locked
+
+# Organizer UI stays checked against the room API it imports.
+test-organizer:
+    cd prototypes/organizer-tui && cargo test --offline --locked
+    cd prototypes/organizer-tui && cargo clippy --offline --locked --all-targets -- -D warnings
+    cd prototypes/organizer-tui && cargo fmt --check
+    cd prototypes/organizer-tui && cargo build --offline --locked
+    python3 prototypes/organizer-tui/tests/terminal_repeat.py
 
 # The pipeline's decision logic, against StubRunner's recorded outputs.
 #

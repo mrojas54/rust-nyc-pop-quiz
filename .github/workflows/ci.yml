@@ -49,7 +49,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             room/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
+            prototypes/organizer-tui/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('room/Cargo.lock', 'prototypes/organizer-tui/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
 
       # The one step allowed to use the network. Everything `just test` needs is
@@ -105,7 +106,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             room/target
-          key: cargo-full-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
+            prototypes/organizer-tui/target
+          key: cargo-full-${{ runner.os }}-${{ hashFiles('room/Cargo.lock', 'prototypes/organizer-tui/Cargo.lock') }}
           restore-keys: cargo-full-${{ runner.os }}-
 
       # Asserted rather than assumed: the ubuntu runner ships Docker, and this
