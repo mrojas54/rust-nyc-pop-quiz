@@ -45,7 +45,7 @@
           2,
           3
         ],
-        "note": "Two signed integers go in. The minus sign on the first one is what the whole question turns on.",
+        "note": "Start with -7. The minus sign is the part to watch.",
         "values": [
           {
             "name": "a",
@@ -62,7 +62,7 @@
           2,
           3
         ],
-        "note": "And a divisor of 2. Seven does not split evenly by two, so every operation on the next line has to decide what to do with the half.",
+        "note": "Now a divisor of 2. Seven doesn't split evenly by two, so each operation on the next line has to decide what to do with the half.",
         "values": [
           {
             "name": "b",
@@ -79,7 +79,7 @@
           4,
           4
         ],
-        "note": "Four numbers get worked out on this one line: two from the operators, two from the methods. Same inputs each time, so the question is whether the pairs agree.",
+        "note": "One line works out four numbers: two with operators, two with methods. Same inputs each time. Do the pairs agree?",
         "values": []
       },
       {
@@ -90,7 +90,7 @@
           4,
           4
         ],
-        "note": "/ throws the fraction away by rounding toward zero. -3.5 becomes -3, not -4.",
+        "note": "/ drops the fraction by rounding toward zero. -3.5 becomes -3, not -4.",
         "values": [
           {
             "name": "a / b",
@@ -107,7 +107,7 @@
           4,
           4
         ],
-        "note": "% is whatever is left over from that division, so it has to satisfy a == b * q + r. That gives -7 - (2 * -3) = -1. The remainder keeps the sign of a.",
+        "note": "% is what's left over from that division, so a == b * q + r still holds: -7 - (2 * -3) = -1. The remainder keeps the sign of a.",
         "values": [
           {
             "name": "a % b",
@@ -124,7 +124,7 @@
           4,
           4
         ],
-        "note": "div_euclid picks the quotient that leaves a remainder of zero or more. With a positive divisor like ours, that means rounding down, so -3.5 becomes -4. The same division, rounded the other way. This is the step the whole question turns on.",
+        "note": "div_euclid picks the quotient that leaves a remainder of zero or more. With a positive divisor like ours, that means rounding down, so -3.5 becomes -4. Same division, rounded the other way. This is the step the question turns on.",
         "values": [
           {
             "name": "a.div_euclid(b)",
@@ -142,7 +142,7 @@
           4,
           4
         ],
-        "note": "rem_euclid is the leftover that goes with that rounding: -7 - (2 * -4) = 1. Never negative, which is the point of it.",
+        "note": "rem_euclid is the leftover that goes with that rounding: -7 - (2 * -4) = 1. Never negative, which is its whole point.",
         "values": [
           {
             "name": "a.rem_euclid(b)",
@@ -159,7 +159,7 @@
           4,
           4
         ],
-        "note": "All four are printed on one line, in the order they were written.",
+        "note": "All four print on one line, in the order they were written.",
         "values": [
           {
             "name": "stdout",
