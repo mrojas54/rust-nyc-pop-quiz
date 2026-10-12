@@ -14,17 +14,17 @@ candidate open in this TUI. It does not schedule a question or open a live room.
 
 | Part | Current source | Work needed |
 | --- | --- | --- |
-| Question preview and teaching trace | `src/lib.rs` | Load staged candidates and refresh when a run finishes |
-| Generation | `../../pipeline/src/popquiz/generate.py` | Empty stub; implement bounded batch jobs |
-| Verification | `../../pipeline/src/popquiz/verify.py` | Reuse pinned toolchain checks and recorded evidence |
-| Program execution | `../../pipeline/src/popquiz/runner.py` | Use the existing sandbox runner, never the TUI process |
-| Duplicate checks | `../../pipeline/src/popquiz/dedupe.py` | Reuse checks against bank history and the current batch |
-| Review decisions | `../../pipeline/src/popquiz/review.py` | Empty stub; implement separately after preview works |
-| Record format | `../../pipeline/src/popquiz/bank.py` | Reuse the schema; keep job state outside question records |
+| Question preview and teaching trace | `../src/lib.rs` | Load staged candidates and refresh when a run finishes |
+| Generation | `../../../pipeline/src/popquiz/generate.py` | Empty stub; implement bounded batch jobs |
+| Verification | `../../../pipeline/src/popquiz/verify.py` | Reuse pinned toolchain checks and recorded evidence |
+| Program execution | `../../../pipeline/src/popquiz/runner.py` | Use the existing sandbox runner, never the TUI process |
+| Duplicate checks | `../../../pipeline/src/popquiz/dedupe.py` | Reuse checks against bank history and the current batch |
+| Review decisions | `../../../pipeline/src/popquiz/review.py` | Empty stub; implement separately after preview works |
+| Record format | `../../../pipeline/src/popquiz/bank.py` | Reuse the schema; keep job state outside question records |
 
 These paths and stub states were checked in this worktree. This plan follows
-[SPEC §7](../../SPEC.md#7-the-pipeline), T-16/T-18 in
-[BUILDPLAN.md](../../BUILDPLAN.md), and [PHILOSOPHY.md](../../PHILOSOPHY.md).
+[SPEC §7](../../../SPEC.md#7-the-pipeline), T-16/T-18 in
+[BUILDPLAN.md](../../../BUILDPLAN.md), and [PHILOSOPHY.md](../../../PHILOSOPHY.md).
 
 ## Organizer flow
 
