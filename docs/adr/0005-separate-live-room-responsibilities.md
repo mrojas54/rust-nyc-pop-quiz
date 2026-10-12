@@ -87,6 +87,43 @@ flowchart TB
   operations. `host/mod.rs` separates the organizer session (it may create a
   room) from the room-host session (it controls one room).
 
+### Auth boundaries
+
+The split moves no check. Each bearer still reaches exactly one check, and
+Discord's credentials still stay inside `host::discord`.
+
+```mermaid
+flowchart LR
+  org(["Organizer"]) -- "Discord sign-in" --> osess["organizer session<br/>(12 hours)"]
+  osess --> create["HostAuth::authorize_create"]
+  create --> check["discord/mod.rs: role check"]
+  check -- "at creation only" --> api[("Discord API")]
+  create == "room created" ==> hsess["room-host session<br/>(one room, never rotates)"]
+  host(["Host"]) -- "room-host session" --> hcheck["HostAuth::authorize_host<br/>(constant time, never asks Discord)"]
+  part(["Participant"]) -- "session token" --> conn["connections/"]
+  subgraph boundary["host::discord: Secret and Discord's tokens never leave"]
+    check
+    cfg["config.rs: Secret"]
+    http["http.rs: sends what it is handed, never decides"]
+    check --> http
+    check --> cfg
+  end
+  http --> api
+```
+
+- **Organizer session → `authorize_create`.** Minted by Discord sign-in. It
+  lets an organizer create a room for a club whose role they hold, and never
+  controls a room. Discord is asked here and nowhere else.
+- **Room-host session → `authorize_host`.** Minted with the room, for that
+  room alone (AC-50). Using it never asks Discord, so an open room runs to
+  release with Discord down (AC-69). Neither session is the other (AC-68).
+- **Participant session token → `connections/`.** It never reaches
+  `HostAuth` (AC-67).
+- **Inside `host::discord`.** `Secret` and Discord's access and refresh
+  tokens are never a bearer anywhere in the room. `http.rs` carries them as
+  headers but holds no rule; the check and its retries are in `mod.rs`.
+  AC-65's scan walks this whole folder, subfolders included.
+
 ## Options Considered
 
 ### Option A: Extract cohesive private modules, keep the one state (chosen)
@@ -327,7 +364,8 @@ erDiagram
 
 - **A club's id is its slug.** There is no separate `ClubId`. The slug names
   the club in links, the OAuth state, `Room.club` and the used ledger. The
-  default club's slug becomes `rustnyc` (item 8). The ledger, the bank's used
+  default club's slug becomes `rustnyc` (item 8; Michelle confirmed the
+  rename of `nyc` on 2026-10-12). The ledger, the bank's used
   records and `?club=nyc` links are keyed by `nyc` today, so that ticket
   migrates or aliases them. A plain rename would bring used questions back.
 - **Machine verification is not affirmation.** A question is verified by
@@ -347,15 +385,29 @@ popquiz/src/
   lib.rs                 re-exports keep every public path that exists today
   copy.rs
   quiz_session/
-    mod.rs               declares models and rooms; owns no type
+    mod.rs               declares models and rooms; owns no type      [default 1]
     models/              mod, question, answers, club, phase, used, view
+                         (no quiz_session.rs, no room.rs)              [default 1]
     rooms/
-      mod.rs, room.rs, state.rs (AppState), open.rs, seams.rs, errors.rs, lifecycle.rs
+      room.rs            Room stays here                               [default 2]
+      state.rs           AppState stays here                           [default 2]
+      mod.rs, open.rs, seams.rs, errors.rs, lifecycle.rs
       host/              mod, auth, create, discord/{mod, config, http}
       participants/      mod, join, vote, leave, buzzer, counts, tokens
-  connections/           mod, requestlog, sessions, ws
-  server/                main, mod, admin, config, reaper, routes/*
+  connections/           mod, requestlog, sessions, ws; outside quiz_session  [default 3]
+  server/                main, mod, admin, config, reaper, routes/*; outside   [default 3]
 ```
+
+**Proposed defaults, awaiting Michelle's yes.** The three marked lines were
+filled in without an explicit decision. They are the proposal for item 6,
+not yet agreed:
+
+1. No `models/quiz_session.rs` and no `models/room.rs`;
+   `quiz_session/mod.rs` is the quiz session's module.
+2. `Room` stays in `rooms/room.rs` and `AppState` in `rooms/state.rs`.
+3. `connections/` and `server/` stay outside `quiz_session`.
+
+The reasons for each follow.
 
 - **`AppState` stays in `rooms/state.rs`.** Its `pub(super)` fields reach
   every module under `rooms/`, including the new `host/` and
