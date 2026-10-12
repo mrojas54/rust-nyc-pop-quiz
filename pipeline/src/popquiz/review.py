@@ -415,10 +415,18 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
     if edited == question:
         return f"No change to {qid}; nothing written."
 
-    # Any edit clears the affirmation and marks the record edited (GAP-24).
-    edited = dataclasses.replace(
-        edited, review=dataclasses.replace(_review(question), status="edited", **_cleared())
-    )
+    # Any edit clears the affirmation (GAP-24). An accepted record becomes `edited`,
+    # which still counts as accepted; a rejected or unreviewed one keeps its status,
+    # because editing a question is not accepting it.
+    prior = _review(question)
+    status = "edited" if prior.status in ACCEPTED else prior.status
+    edited = dataclasses.replace(edited, review=dataclasses.replace(prior, status=status, **_cleared()))
+    if status == "rejected":
+        after = "it stays rejected until you accept it"
+    elif status is None:
+        after = "it is not accepted yet"
+    else:
+        after = "its affirmation is cleared and it needs affirming again"
     program_changed = edited.source != question.source or [(o.text, o.kind) for o in edited.options] != [
         (o.text, o.kind) for o in question.options
     ]
@@ -427,7 +435,7 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
             bank.save_question(bank_dir, edited)
         except BankError as exc:
             raise ReviewRefused(f"The edit makes {qid} invalid: {exc}.") from None
-        return f"{qid} edited; its affirmation is cleared and it needs affirming again."
+        return f"{qid} edited; {after}."
 
     kind = _expect(question, expect)
     candidate = dataclasses.replace(edited, verified=None, trace=_without_stdout_row(edited.trace))
@@ -442,7 +450,7 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
             f"is still in {source_file}. {said}"
         )
     return (
-        f"{qid} edited and re-verified; its affirmation is cleared and it needs affirming again.\n{said}"
+        f"{qid} edited and re-verified; {after}.\n{said}"
     )
 
 

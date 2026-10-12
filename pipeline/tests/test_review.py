@@ -284,6 +284,29 @@ def test_gap24_a_prose_edit_clears_the_affirmation_and_marks_it_edited(bank_dir,
     assert bank.affirmation_state(load(bank_dir, "q4")) == "bound"
 
 
+def test_an_edit_does_not_accept_a_rejected_question(bank_dir, tmp_path, capsys):
+    """An edit marks an accepted question `edited`, which still counts as accepted.
+    A rejected question stays rejected, reason and all: editing it is not accepting
+    it, and only `accept` brings it back."""
+    assert run("reject", "q4", "--reason", "Too close to q3", "--bank", bank_dir) == 0
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"] + " More."))
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
+    q = load(bank_dir, "q4")
+    assert q.explains.what.endswith(" More.")
+    assert (q.review.status, q.review.reason) == ("rejected", "Too close to q3")
+    assert "stays rejected" in capsys.readouterr().out
+    assert not audit.is_accepted(q) and not audit.in_reserve(q)
+    refused(run("affirm", "q4", "--by", NAME, "--bank", bank_dir), capsys, "accept")
+
+
+def test_an_edit_does_not_accept_an_unreviewed_question(bank_dir, tmp_path, capsys):
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"] + " More."))
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
+    q = load(bank_dir, "q4")
+    assert q.review.status is None and not audit.is_accepted(q)
+    assert "not accepted yet" in capsys.readouterr().out
+
+
 def test_an_edit_that_changes_nothing_writes_nothing(bank_dir, tmp_path, capsys):
     accepted_and_affirmed(bank_dir)
     before = raw(bank_dir, "q4")
@@ -294,6 +317,8 @@ def test_an_edit_that_changes_nothing_writes_nothing(bank_dir, tmp_path, capsys)
 
 
 def test_an_option_edit_re_verifies_through_the_verifier(bank_dir, tmp_path, capsys):
+    assert run("accept", "q4", "--bank", bank_dir) == 0
+    capsys.readouterr()
     q = load(bank_dir, "q4")
     correct = bank.correct_index(q)
     other = next(i for i in range(5) if i != correct and q.options[i].kind == "output")
