@@ -582,7 +582,10 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
     let id = record.id.clone();
 
     if record.options.len() != 5 {
-        return refuse(&id, format_args!("has {} options; a room needs five", record.options.len()));
+        return refuse(
+            &id,
+            format_args!("has {} options; a room needs five", record.options.len()),
+        );
     }
     let dnc = record
         .options
@@ -590,7 +593,10 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
         .filter(|o| o.kind == OptionKind::DoesNotCompile)
         .count();
     if dnc != 1 {
-        return refuse(&id, format_args!("has {dnc} does-not-compile options; it needs exactly one"));
+        return refuse(
+            &id,
+            format_args!("has {dnc} does-not-compile options; it needs exactly one"),
+        );
     }
 
     let Some(verified) = &record.verified else {
@@ -622,7 +628,10 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
         if i != correct.index() && text.is_none() {
             return refuse(
                 &id,
-                format_args!("option {} has no why_tempting text", Letter::ALL[i].as_str()),
+                format_args!(
+                    "option {} has no why_tempting text",
+                    Letter::ALL[i].as_str()
+                ),
             );
         }
         why_tempting[i] = text;
@@ -652,7 +661,12 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
     let walk: Vec<TraceStep> = trace[..trace.len() - 1]
         .iter()
         .map(|s| TraceStep {
-            values: s.values.iter().filter(|v| v.name != "stdout").cloned().collect(),
+            values: s
+                .values
+                .iter()
+                .filter(|v| v.name != "stdout")
+                .cloned()
+                .collect(),
             ..s.clone()
         })
         .collect();

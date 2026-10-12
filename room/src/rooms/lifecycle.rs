@@ -107,11 +107,18 @@ impl Ended {
 
 /// Whether a room with these facts has ended at `now`. Expiry first: a room
 /// past four hours has ended however recently the host touched it.
-pub fn verdict(phase: Phase, expires_at: SystemTime, last_host_action: SystemTime, now: SystemTime) -> Option<Ended> {
+pub fn verdict(
+    phase: Phase,
+    expires_at: SystemTime,
+    last_host_action: SystemTime,
+    now: SystemTime,
+) -> Option<Ended> {
     if now >= expires_at {
         return Some(Ended::Expired);
     }
-    let quiet = now.duration_since(last_host_action).unwrap_or(Duration::ZERO);
+    let quiet = now
+        .duration_since(last_host_action)
+        .unwrap_or(Duration::ZERO);
     let bound = match phase {
         Phase::Idle => IDLE_QUIET,
         Phase::Live | Phase::Closed | Phase::Split | Phase::Work | Phase::Reveal => LATER_QUIET,

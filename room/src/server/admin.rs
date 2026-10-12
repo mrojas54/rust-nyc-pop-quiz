@@ -145,7 +145,10 @@ fn refused(status: StatusCode, reason: impl Into<String>) -> Response {
 
 async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -> Response {
     let Ok(bytes) = axum::body::to_bytes(body, MAX_RECORD_BYTES).await else {
-        return refused(StatusCode::PAYLOAD_TOO_LARGE, "The record is larger than a question record can be.");
+        return refused(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "The record is larger than a question record can be.",
+        );
     };
     let Ok(json) = std::str::from_utf8(&bytes) else {
         return refused(StatusCode::BAD_REQUEST, "The record is not UTF-8 JSON.");
@@ -157,7 +160,10 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
     if question.public().id() != id {
         return refused(
             StatusCode::BAD_REQUEST,
-            format!("The path names {id}; the record is {}.", question.public().id()),
+            format!(
+                "The path names {id}; the record is {}.",
+                question.public().id()
+            ),
         );
     }
     match rooms.schedule_for(club, question) {
@@ -166,7 +172,9 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
             Json(serde_json::json!({ "id": id, "scheduled": "new" })),
         )
             .into_response(),
-        Ok(Scheduling::Replaced) => Json(serde_json::json!({ "id": id, "scheduled": "replaced" })).into_response(),
+        Ok(Scheduling::Replaced) => {
+            Json(serde_json::json!({ "id": id, "scheduled": "replaced" })).into_response()
+        }
         Err(RoomError::Refused(reason)) => refused(StatusCode::CONFLICT, reason),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }

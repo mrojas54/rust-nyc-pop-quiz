@@ -27,12 +27,16 @@ pub const WALL_RELEASED_LINK: &str = "‹link›";
 pub const BUZZER_IDLE: &str = "You're in.";
 pub const BUZZER_REVEAL_IT_WAS: &str = "✓ It was ‹Y›.";
 pub const BUZZER_NOANSWER_COUNT_ONE: &str = "You didn't answer.";
-pub const JOIN_FAIL_MALFORMED: &str = "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.";
+pub const JOIN_FAIL_MALFORMED: &str =
+    "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.";
 pub const JOIN_FAIL_UNKNOWN: &str = "No room with that code. Check the screen at the front.";
-pub const JOIN_FAIL_NOT_YET_OPEN: &str = "That room isn't open yet. Hold on — the host will put it on the screen.";
+pub const JOIN_FAIL_NOT_YET_OPEN: &str =
+    "That room isn't open yet. Hold on — the host will put it on the screen.";
 pub const JOIN_FAIL_ALREADY_ENDED: &str = "That room has ended. Look for the link on the screen.";
-pub const JOIN_FAIL_CLOSED_INACTIVITY: &str = "That room went quiet and closed. If it comes back, the screen at the front will say so.";
-pub const JOIN_TRANSPORT_FAILED: &str = "Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along.";
+pub const JOIN_FAIL_CLOSED_INACTIVITY: &str =
+    "That room went quiet and closed. If it comes back, the screen at the front will say so.";
+pub const JOIN_TRANSPORT_FAILED: &str =
+    "Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along.";
 pub const JOIN_FAIL_FULL: &str = "That room is full. Watch the screen — you can still play along.";
 pub const BUZZER_HINT_ACTION: &str = "Show me a hint";
 pub const BUZZER_SAVING: &str = "saving…";
@@ -107,7 +111,8 @@ pub const RECEIPT_MIRI_UB: &str = "✓ Miri flagged undefined behavior";
 pub const RECEIPT_COMPILER_REFUSED: &str = "✓ Compiler refused it";
 pub const RECEIPT_ERROR_CODES: &str = "✓ Error ‹codes›";
 pub const RECEIPT_NOTHING_RAN: &str = "✓ Nothing ran";
-pub const HOME_MACHINE_ONLY: &str = "The machine checked the answer only. An organizer approved the explanation.";
+pub const HOME_MACHINE_ONLY: &str =
+    "The machine checked the answer only. An organizer approved the explanation.";
 pub const HOME_NOT_RECORDED: &str = "not recorded";
 pub const LANDING_JOIN: &str = "Join a room";
 pub const LANDING_LAST: &str = "Last meetup's question";
@@ -162,7 +167,10 @@ pub const ALL: &[(&str, &str)] = &[
     ("buzzer_save_failed", BUZZER_SAVE_FAILED),
     ("buzzer_save_retry", BUZZER_SAVE_RETRY),
     ("buzzer_no_answer_yet", BUZZER_NO_ANSWER_YET),
-    ("buzzer_reconnecting_with_answer", BUZZER_RECONNECTING_WITH_ANSWER),
+    (
+        "buzzer_reconnecting_with_answer",
+        BUZZER_RECONNECTING_WITH_ANSWER,
+    ),
     ("buzzer_reconnecting", BUZZER_RECONNECTING),
     ("buzzer_closed", BUZZER_CLOSED),
     ("buzzer_closed_you_said", BUZZER_CLOSED_YOU_SAID),
@@ -236,7 +244,10 @@ pub const ALL: &[(&str, &str)] = &[
     ("landing_host", LANDING_HOST),
     ("landing_koan", LANDING_KOAN),
     ("proposed_home_nothing_yet", PROPOSED_HOME_NOTHING_YET),
-    ("proposed_home_miri_separately", PROPOSED_HOME_MIRI_SEPARATELY),
+    (
+        "proposed_home_miri_separately",
+        PROPOSED_HOME_MIRI_SEPARATELY,
+    ),
     ("proposed_home_row_compiler", PROPOSED_HOME_ROW_COMPILER),
     ("proposed_home_row_edition", PROPOSED_HOME_ROW_EDITION),
     ("proposed_home_row_target", PROPOSED_HOME_ROW_TARGET),
@@ -281,7 +292,10 @@ mod tests {
 
     #[test]
     fn fill_substitutes_every_placeholder() {
-        assert_eq!(fill(WALL_REVEAL_MOST_CHOSEN, &[("n", "24"), ("X", "A")]), "24 of us said A");
+        assert_eq!(
+            fill(WALL_REVEAL_MOST_CHOSEN, &[("n", "24"), ("X", "A")]),
+            "24 of us said A"
+        );
         assert_eq!(fill(WALL_IDLE_TITLE, &[]), "Time for a pop quiz.");
     }
 

@@ -57,10 +57,10 @@ pub mod server;
 // The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
 pub use connections::{requestlog, sessions, ws};
 pub use host::{auth, discord};
-pub use rooms::lifecycle;
-pub use server::{admin, config};
-use server::routes;
 pub use models::{answers, club, phase, question, used, view};
+pub use rooms::lifecycle;
+use server::routes;
+pub use server::{admin, config};
 
 pub use server::routes::host_routes;
 

@@ -292,7 +292,10 @@ pub fn buzzer(room: &Room) -> BuzzerPayload {
 
 // T-04b: the buzzer for one session, carrying its own saved answer.
 pub fn buzzer_for(room: &Room, yours: Option<Letter>) -> BuzzerPayload {
-    BuzzerPayload { yours, ..buzzer(room) }
+    BuzzerPayload {
+        yours,
+        ..buzzer(room)
+    }
 }
 
 pub fn host(room: &Room) -> HostPayload {
@@ -477,7 +480,10 @@ mod sealed {
             Phase::Idle => {
                 p.title = Some(copy::WALL_IDLE_TITLE);
                 p.join = Some(copy::fill(copy::WALL_IDLE_JOIN, &[("link", view.join_url)]));
-                p.joined = Some(copy::fill(copy::COUNT_JOINED, &[("n", &view.present.to_string())]));
+                p.joined = Some(copy::fill(
+                    copy::COUNT_JOINED,
+                    &[("n", &view.present.to_string())],
+                ));
             }
             Phase::Live | Phase::Closed | Phase::Split => {
                 p.source = Some(q.source().to_string());
@@ -487,7 +493,10 @@ mod sealed {
                     Phase::Live => {
                         p.well_header = Some(copy::WALL_LIVE_WELL_HEADER);
                         p.join = Some(copy::fill(copy::WALL_LIVE_JOIN, &[("link", view.join_url)]));
-                        p.joined = Some(copy::fill(copy::COUNT_JOINED, &[("n", &view.present.to_string())]));
+                        p.joined = Some(copy::fill(
+                            copy::COUNT_JOINED,
+                            &[("n", &view.present.to_string())],
+                        ));
                         p.answered = Some(copy::fill(
                             copy::COUNT_ANSWERED,
                             &[("n", &view.answered_live.to_string())],
@@ -626,7 +635,10 @@ mod revealed {
         BuzzerPayload {
             phase: view.phase,
             code: view.code.to_string(),
-            lines: vec![copy::fill(copy::BUZZER_REVEAL_IT_WAS, &[("Y", correct.as_str())])],
+            lines: vec![copy::fill(
+                copy::BUZZER_REVEAL_IT_WAS,
+                &[("Y", correct.as_str())],
+            )],
             letters: None,
             locked: None,
             hint: None,

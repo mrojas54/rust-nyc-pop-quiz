@@ -71,12 +71,31 @@ pub(super) fn take_home_pages(mut router: Router<Arc<AppState>>) -> Router<Arc<A
         )
             .into_response()
     }
-    assert!(HOME_HTML.contains(SNAPSHOT_SLOT), "web/home/index.html lost its snapshot slot");
+    assert!(
+        HOME_HTML.contains(SNAPSHOT_SLOT),
+        "web/home/index.html lost its snapshot slot"
+    );
     router = router
         .route("/last", get(last))
         .route("/last/{club}", get(last_club))
-        .route("/home/home.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../../../web/home/home.js")) }))
-        .route("/home/home.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../../../web/home/home.css")) }));
+        .route(
+            "/home/home.js",
+            get(|| async {
+                asset(
+                    "text/javascript; charset=utf-8",
+                    include_str!("../../../../web/home/home.js"),
+                )
+            }),
+        )
+        .route(
+            "/home/home.css",
+            get(|| async {
+                asset(
+                    "text/css; charset=utf-8",
+                    include_str!("../../../../web/home/home.css"),
+                )
+            }),
+        );
     router
 }
 // end T-12 pages -------------------------------------------------------
@@ -97,13 +116,45 @@ pub(super) fn front_door(mut router: Router<Arc<AppState>>) -> Router<Arc<AppSta
             .into_response()
     }
     router = router
-        .route("/", get(|| async { asset("text/html; charset=utf-8", include_str!("../../../../web/landing/index.html")) }))
-        .route("/landing/landing.js", get(|| async { asset("text/javascript; charset=utf-8", include_str!("../../../../web/landing/landing.js")) }))
+        .route(
+            "/",
+            get(|| async {
+                asset(
+                    "text/html; charset=utf-8",
+                    include_str!("../../../../web/landing/index.html"),
+                )
+            }),
+        )
+        .route(
+            "/landing/landing.js",
+            get(|| async {
+                asset(
+                    "text/javascript; charset=utf-8",
+                    include_str!("../../../../web/landing/landing.js"),
+                )
+            }),
+        )
         .route(
             "/landing/ferris.png",
-            get(|| async { ([(header::CONTENT_TYPE, "image/png"), (header::CACHE_CONTROL, "no-cache")], include_bytes!("../../../../web/landing/ferris.png").as_slice()) }),
+            get(|| async {
+                (
+                    [
+                        (header::CONTENT_TYPE, "image/png"),
+                        (header::CACHE_CONTROL, "no-cache"),
+                    ],
+                    include_bytes!("../../../../web/landing/ferris.png").as_slice(),
+                )
+            }),
         )
-        .route("/landing/landing.css", get(|| async { asset("text/css; charset=utf-8", include_str!("../../../../web/landing/landing.css")) }));
+        .route(
+            "/landing/landing.css",
+            get(|| async {
+                asset(
+                    "text/css; charset=utf-8",
+                    include_str!("../../../../web/landing/landing.css"),
+                )
+            }),
+        );
     router
 }
 // end front door -------------------------------------------------------

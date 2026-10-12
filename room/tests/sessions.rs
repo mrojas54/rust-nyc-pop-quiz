@@ -34,12 +34,26 @@ fn harness(capacity: Option<usize>) -> Harness {
 }
 
 async fn host(h: &Harness, room: &HostedRoom, action: HostAction) {
-    let (status, v) = http(&h.app, Method::POST, &format!("/rooms/{}/{}", room.id, action.slug()), Some(&room.host), None).await;
+    let (status, v) = http(
+        &h.app,
+        Method::POST,
+        &format!("/rooms/{}/{}", room.id, action.slug()),
+        Some(&room.host),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{action:?}: {v}");
 }
 
 async fn join(h: &Harness, code: &str) -> (StatusCode, Value) {
-    http(&h.app, Method::POST, "/join", None, Some(json!({ "code": code }))).await
+    http(
+        &h.app,
+        Method::POST,
+        "/join",
+        None,
+        Some(json!({ "code": code })),
+    )
+    .await
 }
 
 async fn joined(h: &Harness, room: &HostedRoom) -> String {
@@ -50,17 +64,36 @@ async fn joined(h: &Harness, room: &HostedRoom) -> String {
 }
 
 async fn answer(h: &Harness, room: &HostedRoom, token: &str, letter: &str) -> (StatusCode, Value) {
-    http(&h.app, Method::PUT, &format!("/rooms/{}/answer", room.id), Some(token), Some(json!({ "letter": letter }))).await
+    http(
+        &h.app,
+        Method::PUT,
+        &format!("/rooms/{}/answer", room.id),
+        Some(token),
+        Some(json!({ "letter": letter })),
+    )
+    .await
 }
 
 /// The session's saved answer as the server holds it (`None` = no answer).
 fn saved(h: &Harness, room: &HostedRoom, token: &str) -> Option<String> {
-    let payload = h.state.buzzer_for(&room.id, token).expect("the session exists");
-    serde_json::to_value(payload).unwrap()["yours"].as_str().map(String::from)
+    let payload = h
+        .state
+        .buzzer_for(&room.id, token)
+        .expect("the session exists");
+    serde_json::to_value(payload).unwrap()["yours"]
+        .as_str()
+        .map(String::from)
 }
 
 async fn host_view(h: &Harness, room: &HostedRoom) -> Value {
-    let (status, v) = http(&h.app, Method::GET, &format!("/rooms/{}/host", room.id), Some(&room.host), None).await;
+    let (status, v) = http(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/host", room.id),
+        Some(&room.host),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     v
 }
@@ -81,7 +114,11 @@ async fn ac28_join_by_code_in_any_case_and_nothing_else() {
     assert_eq!(v["buzzer"]["phase"], "idle");
     assert_eq!(v["buzzer"]["lines"][0], copy::BUZZER_IDLE);
     assert_eq!(v["token"].as_str().unwrap().len(), 64);
-    assert_eq!(v.as_object().unwrap().len(), 3, "room_id, token, buzzer: {v}");
+    assert_eq!(
+        v.as_object().unwrap().len(),
+        3,
+        "room_id, token, buzzer: {v}"
+    );
 }
 
 #[tokio::test]
@@ -94,13 +131,19 @@ async fn ac29_each_failure_has_its_own_sentence() {
         assert_eq!(v["reason"], r.message(), "{v}");
     };
 
-    for bad in ["", "ABC", "ABCDEFG", "ABCDE0", "ABCDEO", "ABCDE1", "ABCDEI", "ABC-EF"] {
+    for bad in [
+        "", "ABC", "ABCDEFG", "ABCDE0", "ABCDEO", "ABCDE1", "ABCDEI", "ABC-EF",
+    ] {
         let (status, v) = join(&h, bad).await;
         assert_eq!(status, StatusCode::CONFLICT, "{bad:?}");
         expect(&v, JoinRefusal::Malformed);
     }
 
-    let unknown = if room.code == "ZZZZZZ" { "YYYYYY" } else { "ZZZZZZ" };
+    let unknown = if room.code == "ZZZZZZ" {
+        "YYYYYY"
+    } else {
+        "ZZZZZZ"
+    };
     let (status, v) = join(&h, unknown).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     expect(&v, JoinRefusal::Unknown);
@@ -126,17 +169,26 @@ async fn ac29_each_failure_has_its_own_sentence() {
 
     // Six states, six sentences, six names — including the two no phase of
     // this machine reaches (not yet open; closed for inactivity, T-11's).
-    let messages: std::collections::HashSet<_> = JoinRefusal::ALL.iter().map(|r| r.message()).collect();
+    let messages: std::collections::HashSet<_> =
+        JoinRefusal::ALL.iter().map(|r| r.message()).collect();
     let slugs: std::collections::HashSet<_> = JoinRefusal::ALL.iter().map(|r| r.slug()).collect();
     assert_eq!((messages.len(), slugs.len()), (6, 6));
-    assert_eq!(JoinRefusal::NotYetOpen.message(), copy::JOIN_FAIL_NOT_YET_OPEN);
-    assert_eq!(JoinRefusal::ClosedForInactivity.message(), copy::JOIN_FAIL_CLOSED_INACTIVITY);
+    assert_eq!(
+        JoinRefusal::NotYetOpen.message(),
+        copy::JOIN_FAIL_NOT_YET_OPEN
+    );
+    assert_eq!(
+        JoinRefusal::ClosedForInactivity.message(),
+        copy::JOIN_FAIL_CLOSED_INACTIVITY
+    );
 }
 
 #[test]
 fn ac29_code_shape() {
     assert_eq!(parse_code(" ab2c9z "), Some("AB2C9Z".into()));
-    for bad in ["AB2C9", "AB2C9ZZ", "AB2C9O", "AB2C90", "AB2C9I", "AB2C91", "AB2C9é"] {
+    for bad in [
+        "AB2C9", "AB2C9ZZ", "AB2C9O", "AB2C90", "AB2C9I", "AB2C91", "AB2C9é",
+    ] {
         assert_eq!(parse_code(bad), None, "{bad:?}");
     }
 }
@@ -157,7 +209,11 @@ async fn ac30_the_201st_join_is_refused_and_reserves_nothing() {
     assert_eq!(v["reason"], copy::JOIN_FAIL_FULL);
     assert!(v.get("token").is_none());
 
-    assert_eq!(h.state.session_count(&room.id).unwrap(), 200, "nothing reserved");
+    assert_eq!(
+        h.state.session_count(&room.id).unwrap(),
+        200,
+        "nothing reserved"
+    );
     assert_eq!(host_view(&h, &room).await, before, "nothing moved");
 }
 
@@ -172,7 +228,10 @@ async fn ac34_five_changes_then_close_then_refused_with_the_saved_answer() {
         assert_eq!(v, json!({ "saved": letter }));
     }
     // Idempotent: the same letter again changes nothing.
-    assert_eq!(answer(&h, &room, &token, "D").await, (StatusCode::OK, json!({ "saved": "D" })));
+    assert_eq!(
+        answer(&h, &room, &token, "D").await,
+        (StatusCode::OK, json!({ "saved": "D" }))
+    );
     assert_eq!(saved(&h, &room, &token).as_deref(), Some("D"));
 
     host(&h, &room, HostAction::CloseAnswers).await;
@@ -184,9 +243,25 @@ async fn ac34_five_changes_then_close_then_refused_with_the_saved_answer() {
     assert_eq!(saved(&h, &room, &token).as_deref(), Some("D"));
 
     host(&h, &room, HostAction::ShowSplit).await;
-    let (_, wall) = http(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
-    let counts: Vec<u64> = wall["split"]["bars"].as_array().unwrap().iter().map(|b| b["count"].as_u64().unwrap()).collect();
-    assert_eq!(counts, [0, 0, 0, 1, 0], "the last answer is the one counted");
+    let (_, wall) = http(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/wall", room.id),
+        None,
+        None,
+    )
+    .await;
+    let counts: Vec<u64> = wall["split"]["bars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["count"].as_u64().unwrap())
+        .collect();
+    assert_eq!(
+        counts,
+        [0, 0, 0, 1, 0],
+        "the last answer is the one counted"
+    );
 }
 
 #[tokio::test]
@@ -225,14 +300,22 @@ async fn ac35_response_contract() {
             host(&h, &room, HostAction::CloseAnswers).await;
             continue;
         }
-        let bearer = if who == "token" { token.clone() } else { "0".repeat(64) };
+        let bearer = if who == "token" {
+            token.clone()
+        } else {
+            "0".repeat(64)
+        };
         let (status, v) = answer(&h, &room, &bearer, letter).await;
         match status {
             StatusCode::OK => {
                 assert_eq!(v.as_object().unwrap().len(), 1, "{v}");
                 last_saved = v["saved"].as_str().map(String::from);
             }
-            StatusCode::CONFLICT => assert_eq!(v["saved"].as_str().map(String::from), last_saved, "409 restates"),
+            StatusCode::CONFLICT => assert_eq!(
+                v["saved"].as_str().map(String::from),
+                last_saved,
+                "409 restates"
+            ),
             StatusCode::UNAUTHORIZED => assert_eq!(v, Value::Null, "401 says nothing"),
             StatusCode::BAD_REQUEST => assert!(v["reason"].is_string()),
             other => panic!("{letter}/{who}: unexpected {other}"),
@@ -251,12 +334,52 @@ async fn ac36_a_failed_write_leaves_the_previous_answer_intact() {
 
     let uri = format!("/rooms/{}/answer", room.id);
     let failures = [
-        http(&h.app, Method::PUT, &uri, Some(&token), Some(json!({ "letter": "F" }))).await.0,
-        http(&h.app, Method::PUT, &uri, Some(&token), Some(json!({ "letter": "b" }))).await.0,
-        http(&h.app, Method::PUT, &uri, Some(&token), Some(json!({ "choice": "C" }))).await.0,
+        http(
+            &h.app,
+            Method::PUT,
+            &uri,
+            Some(&token),
+            Some(json!({ "letter": "F" })),
+        )
+        .await
+        .0,
+        http(
+            &h.app,
+            Method::PUT,
+            &uri,
+            Some(&token),
+            Some(json!({ "letter": "b" })),
+        )
+        .await
+        .0,
+        http(
+            &h.app,
+            Method::PUT,
+            &uri,
+            Some(&token),
+            Some(json!({ "choice": "C" })),
+        )
+        .await
+        .0,
         http(&h.app, Method::PUT, &uri, Some(&token), None).await.0,
-        http(&h.app, Method::PUT, &uri, None, Some(json!({ "letter": "C" }))).await.0,
-        http(&h.app, Method::PUT, "/rooms/nope/answer", Some(&token), Some(json!({ "letter": "C" }))).await.0,
+        http(
+            &h.app,
+            Method::PUT,
+            &uri,
+            None,
+            Some(json!({ "letter": "C" })),
+        )
+        .await
+        .0,
+        http(
+            &h.app,
+            Method::PUT,
+            "/rooms/nope/answer",
+            Some(&token),
+            Some(json!({ "letter": "C" })),
+        )
+        .await
+        .0,
     ];
     for status in failures {
         assert!(status.is_client_error(), "{status}");
@@ -268,7 +391,12 @@ async fn ac36_a_failed_write_leaves_the_previous_answer_intact() {
 async fn ac46_counts_move_on_the_host_phone_while_live() {
     let h = harness(None);
     let room = live_room(&h).await;
-    let counts = |v: &Value| (v["present"].as_u64().unwrap(), v["answered"].as_u64().unwrap());
+    let counts = |v: &Value| {
+        (
+            v["present"].as_u64().unwrap(),
+            v["answered"].as_u64().unwrap(),
+        )
+    };
     assert_eq!(counts(&host_view(&h, &room).await), (0, 0));
 
     let a = joined(&h, &room).await;
@@ -281,7 +409,10 @@ async fn ac46_counts_move_on_the_host_phone_while_live() {
     assert_eq!(counts(&host_view(&h, &room).await), (2, 2));
     assert!(h.state.leave(&room.id, &b).unwrap());
     assert_eq!(counts(&host_view(&h, &room).await), (1, 1));
-    assert!(!h.state.leave(&room.id, &b).unwrap(), "a second leave finds nothing");
+    assert!(
+        !h.state.leave(&room.id, &b).unwrap(),
+        "a second leave finds nothing"
+    );
 
     // After close `present` keeps counting; `answered` is frozen.
     host(&h, &room, HostAction::CloseAnswers).await;
@@ -301,7 +432,10 @@ async fn ghost_sessions_keep_their_answer_and_slot_until_they_leave() {
     assert_eq!(join(&h, &room.code).await.1["refusal"], "full");
     assert_eq!(saved(&h, &room, &ghost).as_deref(), Some("E"));
     h.state.leave(&room.id, &ghost).unwrap();
-    assert!(h.state.buzzer_for(&room.id, &ghost).is_err(), "gone for good");
+    assert!(
+        h.state.buzzer_for(&room.id, &ghost).is_err(),
+        "gone for good"
+    );
     joined(&h, &room).await;
 }
 
@@ -328,11 +462,26 @@ async fn ac52_in_process_reconciliation() {
     }
     host(&h, &room, HostAction::CloseAnswers).await;
     host(&h, &room, HostAction::ShowSplit).await;
-    let (_, wall) = http(&h.app, Method::GET, &format!("/rooms/{}/wall", room.id), None, None).await;
+    let (_, wall) = http(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/wall", room.id),
+        None,
+        None,
+    )
+    .await;
     let split = &wall["split"];
-    let counts: Vec<u64> = split["bars"].as_array().unwrap().iter().map(|b| b["count"].as_u64().unwrap()).collect();
+    let counts: Vec<u64> = split["bars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["count"].as_u64().unwrap())
+        .collect();
     assert_eq!(counts, finals, "each final answer counted exactly once");
-    assert_eq!(split["answered"].as_u64().unwrap(), finals.iter().sum::<u64>());
+    assert_eq!(
+        split["answered"].as_u64().unwrap(),
+        finals.iter().sum::<u64>()
+    );
     assert_eq!(split["present"], 200);
 }
 
@@ -352,8 +501,14 @@ async fn ac56_after_release_no_session_remains() {
         host(&h, &room, action).await;
     }
     assert_eq!(h.state.session_count(&room.id).unwrap(), 0);
-    assert_eq!(answer(&h, &room, &token, "B").await, (StatusCode::UNAUTHORIZED, Value::Null));
-    assert!(h.state.buzzer_for(&room.id, &token).is_err(), "no token resolves");
+    assert_eq!(
+        answer(&h, &room, &token, "B").await,
+        (StatusCode::UNAUTHORIZED, Value::Null)
+    );
+    assert!(
+        h.state.buzzer_for(&room.id, &token).is_err(),
+        "no token resolves"
+    );
     assert_eq!(join(&h, &room.code).await.1["refusal"], "already_ended");
 }
 
@@ -362,12 +517,24 @@ fn ac57_a_session_is_a_token_and_an_answer() {
     // The compile-time half is the exhaustive pattern in `sessions.rs`; this
     // reads the source so the claim is visible in the test output too.
     let src = std::fs::read_to_string(repo().join("room/src/connections/sessions.rs")).unwrap();
-    let body = src.split("pub struct Session {").nth(1).expect("struct Session").split('}').next().unwrap();
+    let body = src
+        .split("pub struct Session {")
+        .nth(1)
+        .expect("struct Session")
+        .split('}')
+        .next()
+        .unwrap();
     let fields: Vec<&str> = body
         .lines()
         .map(str::trim)
         .filter(|l| !l.is_empty() && !l.starts_with("//"))
-        .map(|l| l.trim_start_matches("pub ").split(':').next().unwrap().trim())
+        .map(|l| {
+            l.trim_start_matches("pub ")
+                .split(':')
+                .next()
+                .unwrap()
+                .trim()
+        })
         .collect();
     assert_eq!(fields, ["token", "answer"]);
     assert!(src.contains("const _: fn(Session) = |Session { token: _, answer: _ }| {};"));
@@ -383,7 +550,14 @@ async fn yours_is_the_callers_own_answer_and_only_on_its_own_paths() {
     answer(&h, &room, &b, "B").await;
     assert_eq!(saved(&h, &room, &a).as_deref(), Some("A"));
     assert_eq!(saved(&h, &room, &b).as_deref(), Some("B"));
-    let (_, public) = http(&h.app, Method::GET, &format!("/rooms/{}/buzzer", room.id), None, None).await;
+    let (_, public) = http(
+        &h.app,
+        Method::GET,
+        &format!("/rooms/{}/buzzer", room.id),
+        None,
+        None,
+    )
+    .await;
     assert!(public.get("yours").is_none(), "{public}");
     // Nothing of b's reaches a's payload beyond what every buzzer has.
     let mine = serde_json::to_value(h.state.buzzer_for(&room.id, &a).unwrap()).unwrap();

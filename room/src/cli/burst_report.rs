@@ -104,7 +104,17 @@ impl Stats {
             (samples[lo_rank - 1], samples[hi_rank - 1])
         };
         let max = samples.last().copied().unwrap_or(f64::NAN);
-        Stats { n, p50, p95, p95_rank, p95_ci_rank: (lo_rank, hi_rank), p95_ci, p99, max, samples }
+        Stats {
+            n,
+            p50,
+            p95,
+            p95_rank,
+            p95_ci_rank: (lo_rank, hi_rank),
+            p95_ci,
+            p99,
+            max,
+            samples,
+        }
     }
 
     /// A pass whose upper confidence bound crosses the threshold. Not a
@@ -113,8 +123,16 @@ impl Stats {
         if self.n == 0 {
             return false;
         }
-        let passes = if strictly_under { self.p95 < threshold } else { self.p95 <= threshold };
-        let crosses = if strictly_under { self.p95_ci.1 >= threshold } else { self.p95_ci.1 > threshold };
+        let passes = if strictly_under {
+            self.p95 < threshold
+        } else {
+            self.p95 <= threshold
+        };
+        let crosses = if strictly_under {
+            self.p95_ci.1 >= threshold
+        } else {
+            self.p95_ci.1 > threshold
+        };
         passes && crosses
     }
 
@@ -200,11 +218,17 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
     // Invalidity is decided first: a run that did not happen properly has no
     // numbers worth reading, pass or fail.
     if v.clients_connected != v.clients_expected {
-        notes.push(format!("RUN INVALID: {} of {} participants joined and attached", v.clients_connected, v.clients_expected));
+        notes.push(format!(
+            "RUN INVALID: {} of {} participants joined and attached",
+            v.clients_connected, v.clients_expected
+        ));
         invalid = true;
     }
     if v.ulimit_nofile < MIN_NOFILE {
-        notes.push(format!("RUN INVALID: ulimit -n is {}, under {MIN_NOFILE}", v.ulimit_nofile));
+        notes.push(format!(
+            "RUN INVALID: ulimit -n is {}, under {MIN_NOFILE}",
+            v.ulimit_nofile
+        ));
         invalid = true;
     }
     if v.errors > 0 {
@@ -228,7 +252,9 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         invalid = true;
     }
     if v.send_lag_p95.is_nan() {
-        notes.push("RUN INVALID: no send-lag samples — nothing shows the client kept its schedule".into());
+        notes.push(
+            "RUN INVALID: no send-lag samples — nothing shows the client kept its schedule".into(),
+        );
         invalid = true;
     } else if v.send_lag_p95 > SEND_LAG_P95_INVALID_MS {
         notes.push(format!(
@@ -247,7 +273,10 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
     // A write the room never answered is lost, whatever else went wrong: an
     // AC-52 miss, said even on an invalid run.
     let unanswered_note = (v.unanswered_writes > 0).then(|| {
-        format!("AC-52 MISS: {} writes sent while live were never answered by the room", v.unanswered_writes)
+        format!(
+            "AC-52 MISS: {} writes sent while live were never answered by the room",
+            v.unanswered_writes
+        )
     });
     if invalid {
         notes.extend(unanswered_note);
@@ -260,15 +289,24 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         missed = true;
     }
     if !(v.burst_headline_p95 < WRITE_P95_MS) {
-        notes.push(format!("AC-54 MISS: deadline-burst write p95 {:.1} ms, threshold < {:.0} ms", v.burst_headline_p95, WRITE_P95_MS));
+        notes.push(format!(
+            "AC-54 MISS: deadline-burst write p95 {:.1} ms, threshold < {:.0} ms",
+            v.burst_headline_p95, WRITE_P95_MS
+        ));
         missed = true;
     }
     if !(v.segment_write_p95 < WRITE_P95_MS) {
-        notes.push(format!("AC-53 MISS: segment write p95 {:.1} ms, threshold < {:.0} ms", v.segment_write_p95, WRITE_P95_MS));
+        notes.push(format!(
+            "AC-53 MISS: segment write p95 {:.1} ms, threshold < {:.0} ms",
+            v.segment_write_p95, WRITE_P95_MS
+        ));
         missed = true;
     }
     if v.reveal_p95.is_nan() || v.reveal_p95 > REVEAL_P95_MS {
-        notes.push(format!("AC-41 MISS: reveal fan-out p95 {:.1} ms, threshold <= {:.0} ms", v.reveal_p95, REVEAL_P95_MS));
+        notes.push(format!(
+            "AC-41 MISS: reveal fan-out p95 {:.1} ms, threshold <= {:.0} ms",
+            v.reveal_p95, REVEAL_P95_MS
+        ));
         missed = true;
     }
     if !v.ac52_totals_ok {
@@ -288,8 +326,16 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
     // including when the miss is a *different* criterion.
     let mut marginal = 0;
     for (flag, passed, text) in [
-        (v.burst_marginal, v.burst_headline_p95 < WRITE_P95_MS, "AC-54"),
-        (v.segment_marginal, v.segment_write_p95 < WRITE_P95_MS, "AC-53"),
+        (
+            v.burst_marginal,
+            v.burst_headline_p95 < WRITE_P95_MS,
+            "AC-54",
+        ),
+        (
+            v.segment_marginal,
+            v.segment_write_p95 < WRITE_P95_MS,
+            "AC-53",
+        ),
         (v.reveal_marginal, v.reveal_p95 <= REVEAL_P95_MS, "AC-41"),
     ] {
         if flag && passed && !missed {
@@ -302,7 +348,10 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
 
     if missed {
         if !v.reduced.is_empty() {
-            notes.push(format!("(measured below the criteria's conditions: {})", v.reduced.join("; ")));
+            notes.push(format!(
+                "(measured below the criteria's conditions: {})",
+                v.reduced.join("; ")
+            ));
         }
         (Exit::Missed, notes)
     } else if !v.reduced.is_empty() {
@@ -401,18 +450,29 @@ pub fn report(m: &Measured) -> (Value, Exit) {
 
     // AC-54's headline: the worst cycle's p95 across every shape run, so the
     // harder shape can never be outvoted by the gentler one.
-    let cycle_stats: Vec<Stats> = m.cycles.iter().map(|c| Stats::new(c.writes_ms.clone())).collect();
+    let cycle_stats: Vec<Stats> = m
+        .cycles
+        .iter()
+        .map(|c| Stats::new(c.writes_ms.clone()))
+        .collect();
     let worst = cycle_stats
         .iter()
         .enumerate()
         .max_by(|a, b| a.1.p95.total_cmp(&b.1.p95))
         .map(|(i, _)| i);
     let (burst_headline, burst_marginal) = match worst {
-        Some(i) => (cycle_stats[i].p95, cycle_stats[i].marginal(WRITE_P95_MS, true)),
+        Some(i) => (
+            cycle_stats[i].p95,
+            cycle_stats[i].marginal(WRITE_P95_MS, true),
+        ),
         None => (f64::NAN, false),
     };
 
-    let mut segment: Vec<f64> = m.cycles.iter().flat_map(|c| c.writes_ms.iter().copied()).collect();
+    let mut segment: Vec<f64> = m
+        .cycles
+        .iter()
+        .flat_map(|c| c.writes_ms.iter().copied())
+        .collect();
     segment.extend(&m.churn_ms);
     segment.extend(&m.deadline_ms);
     // Every scheduled write is a sample or a write the room never answered;
@@ -433,7 +493,10 @@ pub fn report(m: &Measured) -> (Value, Exit) {
         reduced.push(format!("n={n}, under {CRITERIA_PARTICIPANTS} participants"));
     }
     if m.window_ms > CRITERIA_WINDOW_MS {
-        reduced.push(format!("a {} ms window, wider than {CRITERIA_WINDOW_MS} ms", m.window_ms));
+        reduced.push(format!(
+            "a {} ms window, wider than {CRITERIA_WINDOW_MS} ms",
+            m.window_ms
+        ));
     }
     if m.shapes < CRITERIA_SHAPES {
         reduced.push(format!("{} burst shape, not both", m.shapes));

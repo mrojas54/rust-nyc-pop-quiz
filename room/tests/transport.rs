@@ -41,7 +41,12 @@ fn payload(frame: &Value) -> Value {
 async fn projection(live: &Live, room: &LiveRoom, viewer: &str) -> Value {
     let bearer = (viewer == "host").then_some(room.host.as_str());
     let (status, v) = live
-        .call(Method::GET, &format!("/rooms/{}/{viewer}", room.id), bearer, None)
+        .call(
+            Method::GET,
+            &format!("/rooms/{}/{viewer}", room.id),
+            bearer,
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     v
@@ -85,7 +90,11 @@ async fn every_viewer_gets_one_frame_per_revision_and_they_agree_on_the_phase() 
         assert_eq!(f["t"], "state");
         assert_eq!(f["revision"], revision, "{viewer}");
         assert_eq!(f["phase"], "idle", "{viewer}");
-        assert_eq!(payload(&f), projection(&live, &room, viewer).await, "{viewer}");
+        assert_eq!(
+            payload(&f),
+            projection(&live, &room, viewer).await,
+            "{viewer}"
+        );
         if *viewer == "host" {
             host = f;
         }
@@ -97,26 +106,42 @@ async fn every_viewer_gets_one_frame_per_revision_and_they_agree_on_the_phase() 
     let mut stepped = std::collections::HashSet::new();
     while host["phase"] != "released" {
         let phase = host["phase"].as_str().unwrap().to_string();
-        let action = if host["step"]["can_forward"] == true && stepped.insert((phase.clone(), "fwd")) {
-            "step-forward".to_string()
-        } else if host["step"]["can_back"] == true && stepped.insert((phase.clone(), "back")) {
-            "step-back".to_string()
-        } else {
-            host["primary"]["action"].as_str().unwrap().to_string()
-        };
-        assert_eq!(live.act(&room, &action).await, StatusCode::OK, "{action} in {phase}");
+        let action =
+            if host["step"]["can_forward"] == true && stepped.insert((phase.clone(), "fwd")) {
+                "step-forward".to_string()
+            } else if host["step"]["can_back"] == true && stepped.insert((phase.clone(), "back")) {
+                "step-back".to_string()
+            } else {
+                host["primary"]["action"].as_str().unwrap().to_string()
+            };
+        assert_eq!(
+            live.act(&room, &action).await,
+            StatusCode::OK,
+            "{action} in {phase}"
+        );
 
         let mut seen = Vec::new();
         for (viewer, socket) in sockets.iter_mut() {
             let f = frame(socket, WAIT).await;
-            assert_eq!(f["revision"], revision + 1, "{viewer} after {action}: one frame per revision");
-            assert_eq!(payload(&f), projection(&live, &room, viewer).await, "{viewer} after {action}");
+            assert_eq!(
+                f["revision"],
+                revision + 1,
+                "{viewer} after {action}: one frame per revision"
+            );
+            assert_eq!(
+                payload(&f),
+                projection(&live, &room, viewer).await,
+                "{viewer} after {action}"
+            );
             seen.push(f["phase"].clone());
             if *viewer == "host" {
                 host = f;
             }
         }
-        assert!(seen.iter().all(|p| *p == seen[0]), "after {action}: phases disagree: {seen:?}");
+        assert!(
+            seen.iter().all(|p| *p == seen[0]),
+            "after {action}: phases disagree: {seen:?}"
+        );
         if phases.last() != Some(&seen[0]) {
             phases.push(seen[0].clone());
         }
@@ -124,14 +149,22 @@ async fn every_viewer_gets_one_frame_per_revision_and_they_agree_on_the_phase() 
     }
     assert_eq!(
         phases,
-        ["live", "closed", "split", "work", "reveal", "released"].map(Value::from).to_vec()
+        ["live", "closed", "split", "work", "reveal", "released"]
+            .map(Value::from)
+            .to_vec()
     );
-    assert!(stepped.len() >= 3, "the trace was stepped in work and reveal: {stepped:?}");
+    assert!(
+        stepped.len() >= 3,
+        "the trace was stepped in work and reveal: {stepped:?}"
+    );
 
     // A refused action changes nothing, so nothing is sent — to anyone.
     assert_eq!(live.act(&room, "reveal").await, StatusCode::CONFLICT);
     for (viewer, socket) in sockets.iter_mut() {
-        assert!(matches!(next(socket, QUIET).await, Next::Nothing), "{viewer}: a frame without a revision");
+        assert!(
+            matches!(next(socket, QUIET).await, Next::Nothing),
+            "{viewer}: a frame without a revision"
+        );
     }
 }
 
@@ -161,13 +194,19 @@ async fn a_buzzer_that_reconnects_gets_current_state_first_with_its_saved_answer
     assert_eq!(first["phase"], "closed");
     assert_eq!(first["locked"], true);
     assert_eq!(first["revision"], room_revision(&live, &room).await);
-    assert_eq!(first["session"]["saved"], "B", "the saved answer survives the reconnect");
+    assert_eq!(
+        first["session"]["saved"], "B",
+        "the saved answer survives the reconnect"
+    );
 
     // And it is subscribed again.
     assert_eq!(live.act(&room, "show-split").await, StatusCode::OK);
     let f = frame(&mut buzzer, WAIT).await;
     assert_eq!(f["phase"], "split");
-    assert!(f.get("session").is_none(), "only the attach frame is personal");
+    assert!(
+        f.get("session").is_none(),
+        "only the attach frame is personal"
+    );
 }
 
 #[tokio::test]
@@ -184,10 +223,17 @@ async fn a_second_socket_for_the_same_session_replaces_the_first() {
     assert_eq!(closed_with(&mut old, WAIT).await, Some(close::REPLACED));
     assert_eq!(live.act(&room, "put-on-screen").await, StatusCode::OK);
     assert_eq!(frame(&mut new, WAIT).await["phase"], "live");
-    assert_eq!(live.tokens.gone_count(3), 0, "a replaced socket does not report the session gone");
+    assert_eq!(
+        live.tokens.gone_count(3),
+        0,
+        "a replaced socket does not report the session gone"
+    );
 
     new.close(None).await.unwrap();
-    eventually("the current socket reports gone", || live.tokens.gone_count(3) == 1).await;
+    eventually("the current socket reports gone", || {
+        live.tokens.gone_count(3) == 1
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -210,20 +256,31 @@ async fn bad_credentials_are_closed_with_no_state() {
     live.tokens.add("tok", 1, None);
 
     let mut host = live.open(&room, "host", Some("not-the-host-session")).await;
-    assert_eq!(closed_with(&mut host, WAIT).await, Some(close::UNAUTHORIZED));
+    assert_eq!(
+        closed_with(&mut host, WAIT).await,
+        Some(close::UNAUTHORIZED)
+    );
 
     let mut buzzer = live.open(&room, "buzzer", Some("no-such-token")).await;
-    assert_eq!(closed_with(&mut buzzer, WAIT).await, Some(close::UNAUTHORIZED));
+    assert_eq!(
+        closed_with(&mut buzzer, WAIT).await,
+        Some(close::UNAUTHORIZED)
+    );
 
     let mut garbled = live.open(&room, "buzzer", None).await;
     garbled.send(Message::text("tok")).await.unwrap();
-    assert_eq!(closed_with(&mut garbled, WAIT).await, Some(close::UNAUTHORIZED));
+    assert_eq!(
+        closed_with(&mut garbled, WAIT).await,
+        Some(close::UNAUTHORIZED)
+    );
 
     let missing = LiveRoom {
         id: "no-such-room".into(),
         host: String::new(),
     };
-    let err = tokio_tungstenite::connect_async(live.url(&missing, "wall")).await.unwrap_err();
+    let err = tokio_tungstenite::connect_async(live.url(&missing, "wall"))
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("404"), "{err}");
 }
 
@@ -232,9 +289,15 @@ async fn a_socket_that_never_attaches_is_closed() {
     let live = Live::start_with(|t| t.with_attach_timeout(Duration::from_millis(100))).await;
     let room = live.create().await;
     let mut buzzer = live.open(&room, "buzzer", None).await;
-    assert_eq!(closed_with(&mut buzzer, WAIT).await, Some(close::ATTACH_TIMEOUT));
+    assert_eq!(
+        closed_with(&mut buzzer, WAIT).await,
+        Some(close::ATTACH_TIMEOUT)
+    );
     let mut host = live.open(&room, "host", None).await;
-    assert_eq!(closed_with(&mut host, WAIT).await, Some(close::ATTACH_TIMEOUT));
+    assert_eq!(
+        closed_with(&mut host, WAIT).await,
+        Some(close::ATTACH_TIMEOUT)
+    );
 }
 
 #[tokio::test]
@@ -250,7 +313,10 @@ async fn a_room_nobody_watches_keeps_no_broadcast() {
 
     wall.close(None).await.unwrap();
     buzzer.close(None).await.unwrap();
-    eventually("the broadcast is dropped", || live.transport.broadcasting() == 0).await;
+    eventually("the broadcast is dropped", || {
+        live.transport.broadcasting() == 0
+    })
+    .await;
 
     // A poke for a room nobody watches builds nothing.
     assert_eq!(live.act(&room, "put-on-screen").await, StatusCode::OK);
@@ -261,7 +327,11 @@ async fn a_room_nobody_watches_keeps_no_broadcast() {
 /// The default router is wired to the real session map (PQ-32): walls are
 /// served, and a token no join handed out is refused.
 async fn the_default_router_serves_walls_and_refuses_unknown_tokens() {
-    let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default()));
+    let state = Arc::new(AppState::new(
+        Arc::new(TestAuth),
+        vec![q3()],
+        Urls::default(),
+    ));
     let app = room::router_with(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -275,10 +345,15 @@ async fn the_default_router_serves_walls_and_refuses_unknown_tokens() {
     let (mut wall, _) = tokio_tungstenite::connect_async(url("wall")).await.unwrap();
     assert_eq!(frame(&mut wall, WAIT).await["phase"], "idle");
 
-    let (mut buzzer, _) = tokio_tungstenite::connect_async(url("buzzer")).await.unwrap();
+    let (mut buzzer, _) = tokio_tungstenite::connect_async(url("buzzer"))
+        .await
+        .unwrap();
     buzzer
         .send(Message::text(r#"{"t":"attach","token":"anything"}"#))
         .await
         .unwrap();
-    assert_eq!(closed_with(&mut buzzer, WAIT).await, Some(close::UNAUTHORIZED));
+    assert_eq!(
+        closed_with(&mut buzzer, WAIT).await,
+        Some(close::UNAUTHORIZED)
+    );
 }

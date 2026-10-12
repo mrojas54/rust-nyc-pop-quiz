@@ -77,7 +77,13 @@ async fn the_router_serves_neither_file() {
     ] {
         let res = app
             .clone()
-            .oneshot(Request::builder().method(Method::GET).uri(uri).body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::NOT_FOUND, "{uri} is served");

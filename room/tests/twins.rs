@@ -23,7 +23,8 @@ fn the_receipt_matches_every_shared_fixture() {
         let case: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         let verified = verified_from_json(&case["verified"])
             .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let expected: Option<Vec<String>> = serde_json::from_value(case["expected_lines"].clone()).unwrap();
+        let expected: Option<Vec<String>> =
+            serde_json::from_value(case["expected_lines"].clone()).unwrap();
         assert_eq!(receipt_lines(&verified), expected, "{}", path.display());
     }
 }
@@ -59,7 +60,10 @@ fn the_correct_option_is_derived_the_way_bank_py_derives_it() {
     let q3 = common::q3_json();
     assert_eq!(correct(&q3).unwrap(), Some(4));
     assert_eq!(
-        q3["verified"]["stdout"].as_str().unwrap().strip_suffix('\n'),
+        q3["verified"]["stdout"]
+            .as_str()
+            .unwrap()
+            .strip_suffix('\n'),
         q3["options"][4]["text"].as_str()
     );
 
@@ -198,7 +202,8 @@ fn an_unclean_miri_pass_with_no_configs_is_not_read_as_confirmed_ub() {
 #[test]
 fn two_options_of_the_derived_kind_is_an_error() {
     let mut q = kinded(block(PANICS));
-    q["options"][1] = serde_json::json!({ "text": "panics", "kind": "panic", "why_tempting": "authored" });
+    q["options"][1] =
+        serde_json::json!({ "text": "panics", "kind": "panic", "why_tempting": "authored" });
     let err = correct(&q).unwrap_err();
     assert!(err.0.contains("options match"), "{err}");
 
@@ -208,8 +213,13 @@ fn two_options_of_the_derived_kind_is_an_error() {
 }
 
 fn recording(name: &str) -> Value {
-    let path = common::repo().join(format!("pipeline/tests/fixtures/verify/recordings/{name}.json"));
-    serde_json::from_str(&std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))).unwrap()
+    let path = common::repo().join(format!(
+        "pipeline/tests/fixtures/verify/recordings/{name}.json"
+    ));
+    serde_json::from_str(
+        &std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display())),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -226,7 +236,11 @@ fn recorded_blocks_are_the_pipelines_recordings() {
             .filter(|(k, _)| k.starts_with("run:"))
             .map(|(_, r)| r)
             .collect();
-        assert_eq!(runs.len() as u64, v["runs"]["count"].as_u64().unwrap(), "{name}");
+        assert_eq!(
+            runs.len() as u64,
+            v["runs"]["count"].as_u64().unwrap(),
+            "{name}"
+        );
         for run in runs {
             assert_eq!(run["stdout"], v["stdout"], "{name}");
             assert_eq!(run["exit_code"], v["exit_code"], "{name}");
@@ -237,7 +251,12 @@ fn recorded_blocks_are_the_pipelines_recordings() {
             .keys()
             .filter_map(|k| k.strip_prefix("miri:")?.split(':').next())
             .collect();
-        let mut configs: Vec<&str> = v["miri"]["configs"].as_array().unwrap().iter().map(|c| c.as_str().unwrap()).collect();
+        let mut configs: Vec<&str> = v["miri"]["configs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c.as_str().unwrap())
+            .collect();
         models.sort();
         models.dedup();
         configs.sort();
@@ -248,7 +267,10 @@ fn recorded_blocks_are_the_pipelines_recordings() {
     assert!(rec.get("run:1").is_none(), "q8 never ran");
     for code in v["compile_error_code"].as_array().unwrap() {
         let wanted = format!("error[{}]", code.as_str().unwrap());
-        assert!(rec["compile"]["stderr"].as_str().unwrap().contains(&wanted), "{wanted}");
+        assert!(
+            rec["compile"]["stderr"].as_str().unwrap().contains(&wanted),
+            "{wanted}"
+        );
     }
     // And the bank both sides read: every question in it names one option.
     let mut files: Vec<_> = std::fs::read_dir(common::repo().join("bank/questions"))
@@ -288,7 +310,10 @@ fn a_record_the_room_cannot_run_is_refused_at_load() {
     refused(unverified, "no verified record");
 
     let mut no_receipt = q3.clone();
-    no_receipt["verified"].as_object_mut().unwrap().remove("runs");
+    no_receipt["verified"]
+        .as_object_mut()
+        .unwrap()
+        .remove("runs");
     refused(no_receipt, "no receipt");
 
     let mut drifted = q3.clone();
@@ -296,15 +321,24 @@ fn a_record_the_room_cannot_run_is_refused_at_load() {
     refused(drifted, "no option matches");
 
     let mut one_step = q3.clone();
-    one_step["trace"]["steps"].as_array_mut().unwrap().truncate(1);
+    one_step["trace"]["steps"]
+        .as_array_mut()
+        .unwrap()
+        .truncate(1);
     refused(one_step, "at least two steps");
 
     let mut no_stdout_step = q3.clone();
-    no_stdout_step["trace"]["steps"].as_array_mut().unwrap().pop();
+    no_stdout_step["trace"]["steps"]
+        .as_array_mut()
+        .unwrap()
+        .pop();
     refused(no_stdout_step, "names no stdout");
 
     let mut untempting = q3.clone();
-    untempting["options"][1].as_object_mut().unwrap().remove("why_tempting");
+    untempting["options"][1]
+        .as_object_mut()
+        .unwrap()
+        .remove("why_tempting");
     refused(untempting, "option B has no why_tempting");
 
     let mut unknown = q3.clone();
@@ -320,7 +354,12 @@ fn the_public_half_holds_nothing_sealed() {
     assert_eq!(public.trace_len().get(), 6);
     assert_eq!(public.walk().len(), 5, "steps 0..=M-2 only");
     let dump = format!("{public:?}");
-    for plant in [common::PLANT_RESOLVING_NOTE, common::PLANT_WHAT, common::PLANT_TAKEAWAY, common::PLANT_MIDDLE_STDOUT] {
+    for plant in [
+        common::PLANT_RESOLVING_NOTE,
+        common::PLANT_WHAT,
+        common::PLANT_TAKEAWAY,
+        common::PLANT_MIDDLE_STDOUT,
+    ] {
         assert!(!dump.contains(plant), "{plant} is in the public half");
     }
     for letter in ["A", "B", "C", "D", "E"] {
@@ -344,7 +383,10 @@ fn copy_js() -> Vec<(String, String)> {
         .filter_map(|line| {
             let line = line.trim();
             let (key, rest) = line.split_once(": \"")?;
-            if !key.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
+            if !key
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+            {
                 return None;
             }
             let value = rest.trim_end_matches(',').strip_suffix('"')?;
@@ -363,7 +405,10 @@ fn the_copy_module_mirrors_copy_js_in_both_directions() {
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
-    assert_eq!(rust, js, "room/src/copy.rs has drifted from web/shared/copy.js");
+    assert_eq!(
+        rust, js,
+        "room/src/copy.rs has drifted from web/shared/copy.js"
+    );
 }
 
 #[test]
@@ -372,7 +417,15 @@ fn the_phase_labels_and_host_actions_are_section_11s() {
     let labels: Vec<&str> = Phase::ALL.iter().map(|p| p.host_label()).collect();
     assert_eq!(
         labels,
-        ["before the question", "question live", "answers closed", "the split", "walking it through", "the answer", "released"]
+        [
+            "before the question",
+            "question live",
+            "answers closed",
+            "the split",
+            "walking it through",
+            "the answer",
+            "released"
+        ]
     );
     assert_eq!(HostAction::RunItAgain.label(), copy::HOST_ACTION_RUN_AGAIN);
     // The client's own lines, untouched.
@@ -395,7 +448,10 @@ fn the_proposed_block_is_copy_js_s_and_the_room_sends_none_of_it() {
         .map(|(k, _)| k.to_string())
         .filter(|k| k.starts_with("proposed_"))
         .collect();
-    assert!(!js_row.is_empty(), "no PROPOSED-§11 keys parsed from copy.js");
+    assert!(
+        !js_row.is_empty(),
+        "no PROPOSED-§11 keys parsed from copy.js"
+    );
     assert_eq!(rust_row, js_row);
     // `cli/` holds the clients, as `bin/` did; this scan never read them.
     for (file, text) in common::room_sources(&["cli"]) {

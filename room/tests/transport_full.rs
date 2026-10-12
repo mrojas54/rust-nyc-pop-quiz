@@ -44,7 +44,10 @@ async fn one_broadcast(sockets: &mut [Socket], expect_revision: u64, what: &str)
     let frames = join_all(sockets.iter_mut().map(|s| frame(s, WAIT))).await;
     for (i, f) in frames.iter().enumerate() {
         assert_eq!(f["revision"], expect_revision, "socket {i} after {what}");
-        assert_eq!(f["phase"], frames[0]["phase"], "socket {i} after {what}: phases disagree");
+        assert_eq!(
+            f["phase"], frames[0]["phase"],
+            "socket {i} after {what}: phases disagree"
+        );
     }
     frames[0]["phase"].clone()
 }
@@ -84,32 +87,56 @@ async fn the_wall_and_200_buzzers_agree_within_one_broadcast_and_reconnects_resu
         }
         assert_eq!(live.act(&room, action).await, StatusCode::OK, "{action}");
         rev += 1;
-        assert_eq!(one_broadcast(&mut sockets, rev, action).await, phase, "{action}");
+        assert_eq!(
+            one_broadcast(&mut sockets, rev, action).await,
+            phase,
+            "{action}"
+        );
     }
 
     // Twenty phones drop in `closed`.
     let dropped: Vec<Socket> = sockets.drain(1..=DROPPED).collect();
-    join_all(dropped.into_iter().map(|mut s| async move { s.close(None).await.ok() })).await;
+    join_all(
+        dropped
+            .into_iter()
+            .map(|mut s| async move { s.close(None).await.ok() }),
+    )
+    .await;
     for _ in 0..200 {
         if (0..DROPPED).all(|i| live.tokens.gone_count(i as u64) == 1) {
             break;
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
-    assert!((0..DROPPED).all(|i| live.tokens.gone_count(i as u64) == 1), "every drop reported once");
+    assert!(
+        (0..DROPPED).all(|i| live.tokens.gone_count(i as u64) == 1),
+        "every drop reported once"
+    );
 
     // The room moves on without them.
     assert_eq!(live.act(&room, "show-split").await, StatusCode::OK);
     rev += 1;
-    assert_eq!(one_broadcast(&mut sockets, rev, "show-split").await, "split");
+    assert_eq!(
+        one_broadcast(&mut sockets, rev, "show-split").await,
+        "split"
+    );
 
     // They come back with the same tokens: current state first, saved answer intact.
-    let mut back = join_all(tokens[..DROPPED].iter().map(|t| live.open(&room, "buzzer", Some(t)))).await;
+    let mut back = join_all(
+        tokens[..DROPPED]
+            .iter()
+            .map(|t| live.open(&room, "buzzer", Some(t))),
+    )
+    .await;
     let firsts = join_all(back.iter_mut().map(|s| frame(s, WAIT))).await;
     for (i, f) in firsts.iter().enumerate() {
         assert_eq!(f["phase"], "split", "re-attached {i}");
         assert_eq!(f["revision"], rev, "re-attached {i}");
-        assert_eq!(f["session"]["saved"], saved(i).as_str(), "re-attached {i}: saved answer");
+        assert_eq!(
+            f["session"]["saved"],
+            saved(i).as_str(),
+            "re-attached {i}: saved answer"
+        );
     }
     sockets.extend(back);
     assert_eq!(sockets.len(), 1 + BUZZERS);
@@ -117,6 +144,10 @@ async fn the_wall_and_200_buzzers_agree_within_one_broadcast_and_reconnects_resu
     for (action, phase) in transitions {
         assert_eq!(live.act(&room, action).await, StatusCode::OK, "{action}");
         rev += 1;
-        assert_eq!(one_broadcast(&mut sockets, rev, action).await, phase, "{action}");
+        assert_eq!(
+            one_broadcast(&mut sockets, rev, action).await,
+            phase,
+            "{action}"
+        );
     }
 }

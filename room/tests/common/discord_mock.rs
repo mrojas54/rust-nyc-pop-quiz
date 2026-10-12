@@ -32,7 +32,10 @@ use tower::ServiceExt;
 pub fn canary(tag: &str) -> String {
     let mut b = [0u8; 16];
     getrandom::fill(&mut b).unwrap();
-    format!("{tag}-{}", b.iter().map(|x| format!("{x:02x}")).collect::<String>())
+    format!(
+        "{tag}-{}",
+        b.iter().map(|x| format!("{x:02x}")).collect::<String>()
+    )
 }
 
 /// A random Discord-shaped id: 19 digits.
@@ -208,13 +211,18 @@ fn enter(state: &MockState, route: &'static str) -> Option<Response> {
     }
     let mut r = (status, Json(body)).into_response();
     if let Some(s) = retry_after {
-        r.headers_mut().insert("retry-after", s.to_string().parse().unwrap());
+        r.headers_mut()
+            .insert("retry-after", s.to_string().parse().unwrap());
     }
     Some(r)
 }
 
 fn bearer_user(state: &MockState, headers: &HeaderMap) -> Option<String> {
-    let token = headers.get(header::AUTHORIZATION)?.to_str().ok()?.strip_prefix("Bearer ")?;
+    let token = headers
+        .get(header::AUTHORIZATION)?
+        .to_str()
+        .ok()?
+        .strip_prefix("Bearer ")?;
     state.books.lock().unwrap().access.get(token).cloned()
 }
 
@@ -236,16 +244,27 @@ fn issue(b: &mut Books, user: &str) -> Value {
 }
 
 fn invalid_grant() -> Response {
-    (StatusCode::BAD_REQUEST, Json(json!({ "error": "invalid_grant" }))).into_response()
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "error": "invalid_grant" })),
+    )
+        .into_response()
 }
 
-async fn token(State(state): State<Arc<MockState>>, Form(form): Form<HashMap<String, String>>) -> Response {
+async fn token(
+    State(state): State<Arc<MockState>>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Response {
     if let Some(r) = enter(&state, "token") {
         return r;
     }
     let field = |k: &str| form.get(k).map(String::as_str).unwrap_or("");
     if field("client_id") != state.client_id || field("client_secret") != state.client_secret {
-        return (StatusCode::UNAUTHORIZED, Json(json!({ "error": "invalid_client" }))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "invalid_client" })),
+        )
+            .into_response();
     }
     let mut b = state.books.lock().unwrap();
     match field("grant_type") {
@@ -262,7 +281,11 @@ async fn token(State(state): State<Arc<MockState>>, Form(form): Form<HashMap<Str
         "refresh_token" => {
             let presented = field("refresh_token").to_string();
             b.presented.push(presented.clone());
-            let user = b.refresh.iter().find(|(_, t)| **t == presented).map(|(u, _)| u.clone());
+            let user = b
+                .refresh
+                .iter()
+                .find(|(_, t)| **t == presented)
+                .map(|(u, _)| u.clone());
             match user {
                 Some(user) => {
                     // Rotation: the old access token dies with the old refresh token.
@@ -277,7 +300,11 @@ async fn token(State(state): State<Arc<MockState>>, Form(form): Form<HashMap<Str
                 }
             }
         }
-        _ => (StatusCode::BAD_REQUEST, Json(json!({ "error": "unsupported_grant_type" }))).into_response(),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "unsupported_grant_type" })),
+        )
+            .into_response(),
     }
 }
 
@@ -286,19 +313,39 @@ async fn me(State(state): State<Arc<MockState>>, headers: HeaderMap) -> Response
         return r;
     }
     match bearer_user(&state, &headers) {
-        Some(id) => Json(json!({ "id": id, "username": "organizer", "global_name": null })).into_response(),
-        None => (StatusCode::UNAUTHORIZED, Json(json!({ "message": "401: Unauthorized", "code": 0 }))).into_response(),
+        Some(id) => {
+            Json(json!({ "id": id, "username": "organizer", "global_name": null })).into_response()
+        }
+        None => (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "message": "401: Unauthorized", "code": 0 })),
+        )
+            .into_response(),
     }
 }
 
-async fn member(State(state): State<Arc<MockState>>, Path(guild): Path<String>, headers: HeaderMap) -> Response {
+async fn member(
+    State(state): State<Arc<MockState>>,
+    Path(guild): Path<String>,
+    headers: HeaderMap,
+) -> Response {
     if let Some(r) = enter(&state, "member") {
         return r;
     }
     let Some(user) = bearer_user(&state, &headers) else {
-        return (StatusCode::UNAUTHORIZED, Json(json!({ "message": "401: Unauthorized", "code": 0 }))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "message": "401: Unauthorized", "code": 0 })),
+        )
+            .into_response();
     };
-    let unknown = || (StatusCode::NOT_FOUND, Json(json!({ "message": "Unknown Guild", "code": 10004 }))).into_response();
+    let unknown = || {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "message": "Unknown Guild", "code": 10004 })),
+        )
+            .into_response()
+    };
     if guild != state.guild_id {
         return unknown();
     }
@@ -400,11 +447,20 @@ impl Rig {
             client_id: m.client_id.clone(),
             client_secret: Secret::new(m.client_secret.clone()),
             guild_id: guild.unwrap_or_else(|| m.guild_id.clone()),
-            clubs: room::club::Clubs::parse(m.role_id.clone(), Some(&format!("la={}:America/Los_Angeles", m.la_role_id)))
-                .expect("the mock's clubs"),
+            clubs: room::club::Clubs::parse(
+                m.role_id.clone(),
+                Some(&format!("la={}:America/Los_Angeles", m.la_role_id)),
+            )
+            .expect("the mock's clubs"),
             redirect_uri,
         };
-        let discord = Arc::new(Discord::new(settings, Endpoints::at(&mock.base), retry, clock.clone(), log.clone()));
+        let discord = Arc::new(Discord::new(
+            settings,
+            Endpoints::at(&mock.base),
+            retry,
+            clock.clone(),
+            log.clone(),
+        ));
         let state = Arc::new(
             AppState::new(discord.clone(), vec![super::q3(), super::q3_again()], urls)
                 .with_clock(clock.clone())
@@ -414,7 +470,9 @@ impl Rig {
         // to /admin/clubs/la/questions/{id} would.
         let la = room::club::ClubSlug::parse("la").unwrap();
         for q in [super::q3(), super::q3_again()] {
-            state.schedule_for(&la, q).expect("the fixtures schedule for la");
+            state
+                .schedule_for(&la, q)
+                .expect("the fixtures schedule for la");
         }
         let app = room::router_with(state.clone());
         Rig {
@@ -455,32 +513,54 @@ impl Rig {
     }
 
     /// One request through the router, recorded for the secrecy scan.
-    pub async fn raw(&self, method: Method, uri: &str, headers: &[(&str, &str)], body: Option<Value>) -> Raw {
+    pub async fn raw(
+        &self,
+        method: Method,
+        uri: &str,
+        headers: &[(&str, &str)],
+        body: Option<Value>,
+    ) -> Raw {
         let mut req = Request::builder().method(method).uri(uri);
         for (k, v) in headers {
             req = req.header(*k, *v);
         }
         let req = match body {
-            Some(v) => req.header(header::CONTENT_TYPE, "application/json").body(Body::from(v.to_string())),
+            Some(v) => req
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(v.to_string())),
             None => req.body(Body::empty()),
         }
         .unwrap();
         let res = self.app.clone().oneshot(req).await.unwrap();
         let status = res.status();
         let headers = res.headers().clone();
-        let body = axum::body::to_bytes(res.into_body(), 1 << 22).await.unwrap().to_vec();
+        let body = axum::body::to_bytes(res.into_body(), 1 << 22)
+            .await
+            .unwrap()
+            .to_vec();
         let mut seen = self.seen.lock().unwrap();
         for v in headers.values() {
             seen.push(String::from_utf8_lossy(v.as_bytes()).into_owned());
         }
         seen.push(String::from_utf8_lossy(&body).into_owned());
-        Raw { status, headers, body }
+        Raw {
+            status,
+            headers,
+            body,
+        }
     }
 
     /// A JSON call with an optional bearer: `(status, body or Null)`.
-    pub async fn call(&self, method: Method, uri: &str, bearer: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
+    pub async fn call(
+        &self,
+        method: Method,
+        uri: &str,
+        bearer: Option<&str>,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
         let auth = bearer.map(|b| format!("Bearer {b}"));
-        let headers: Vec<(&str, &str)> = auth.iter().map(|a| ("authorization", a.as_str())).collect();
+        let headers: Vec<(&str, &str)> =
+            auth.iter().map(|a| ("authorization", a.as_str())).collect();
         let r = self.raw(method, uri, &headers, body).await;
         let json = r.json();
         (r.status, json)
@@ -488,7 +568,14 @@ impl Rig {
 
     /// `GET /auth/discord?question=…`: the `state`, and the cookie to send back.
     pub async fn begin(&self, question: &str) -> (Raw, String, String) {
-        let r = self.raw(Method::GET, &format!("/auth/discord?question={question}"), &[], None).await;
+        let r = self
+            .raw(
+                Method::GET,
+                &format!("/auth/discord?question={question}"),
+                &[],
+                None,
+            )
+            .await;
         assert_eq!(r.status, StatusCode::SEE_OTHER, "sign-in start");
         let location = r.header("location").unwrap().to_string();
         let state = query(&location, "state").expect("state in the authorize URL");
@@ -503,15 +590,28 @@ impl Rig {
     /// The callback, as the browser would make it.
     pub async fn callback(&self, query: &str, cookie: Option<&str>) -> Raw {
         let headers: Vec<(&str, &str)> = cookie.iter().map(|c| ("cookie", *c)).collect();
-        self.raw(Method::GET, &format!("{}?{query}", room::discord::CALLBACK_PATH), &headers, None).await
+        self.raw(
+            Method::GET,
+            &format!("{}?{query}", room::discord::CALLBACK_PATH),
+            &headers,
+            None,
+        )
+        .await
     }
 
     /// Sign a new account in, all the way: its organizer session and id.
     pub async fn sign_in(&self, membership: Membership) -> (String, String) {
         let (code, id) = self.mock.account(membership);
         let (_, state, cookie) = self.begin("q3").await;
-        let r = self.callback(&format!("code={code}&state={state}"), Some(&cookie)).await;
-        assert_eq!(r.status, StatusCode::SEE_OTHER, "callback: {:?}", String::from_utf8_lossy(&r.body));
+        let r = self
+            .callback(&format!("code={code}&state={state}"), Some(&cookie))
+            .await;
+        assert_eq!(
+            r.status,
+            StatusCode::SEE_OTHER,
+            "callback: {:?}",
+            String::from_utf8_lossy(&r.body)
+        );
         let location = r.header("location").unwrap();
         let (path, session) = location.split_once('#').expect("a session in the fragment");
         assert_eq!(path, "/host?question=q3");
@@ -520,12 +620,29 @@ impl Rig {
 
     /// *Create a room* with this bearer.
     pub async fn create(&self, bearer: Option<&str>, question: &str) -> (StatusCode, Value) {
-        self.call(Method::POST, "/rooms", bearer, Some(json!({ "question_id": question }))).await
+        self.call(
+            Method::POST,
+            "/rooms",
+            bearer,
+            Some(json!({ "question_id": question })),
+        )
+        .await
     }
 
     /// *Create a room* for a named club (D-26).
-    pub async fn create_for(&self, bearer: Option<&str>, club: &str, question: &str) -> (StatusCode, Value) {
-        self.call(Method::POST, "/rooms", bearer, Some(json!({ "question_id": question, "club": club }))).await
+    pub async fn create_for(
+        &self,
+        bearer: Option<&str>,
+        club: &str,
+        question: &str,
+    ) -> (StatusCode, Value) {
+        self.call(
+            Method::POST,
+            "/rooms",
+            bearer,
+            Some(json!({ "question_id": question, "club": club })),
+        )
+        .await
     }
 }
 
@@ -533,5 +650,6 @@ impl Rig {
 /// hex or already encoded).
 pub fn query(url: &str, name: &str) -> Option<String> {
     let q = url.split_once('?')?.1;
-    q.split('&').find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(str::to_string))
+    q.split('&')
+        .find_map(|kv| kv.strip_prefix(name)?.strip_prefix('=').map(str::to_string))
 }

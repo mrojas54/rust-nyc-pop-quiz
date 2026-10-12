@@ -52,7 +52,8 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
-        self.create_room_checked_for(bearer, &ClubSlug::default_club(), question_id, now).await
+        self.create_room_checked_for(bearer, &ClubSlug::default_club(), question_id, now)
+            .await
     }
 
     /// [`AppState::create_room_checked`] for `club`: the check tests *that*
@@ -113,7 +114,10 @@ impl AppState {
         }
         // The rooms on this question that ended without release stay ended:
         // the new room is let in on the strength of it.
-        for entry in rooms.values_mut().filter(|e| &e.room.club == club && e.room.question_id == question_id) {
+        for entry in rooms
+            .values_mut()
+            .filter(|e| &e.room.club == club && e.room.question_id == question_id)
+        {
             if entry.room.phase() != Phase::Released {
                 entry.room.latched_end = entry.room.ended(now);
             }
@@ -131,12 +135,22 @@ impl AppState {
         let ended = lock(&self.ended);
         let code = loop {
             let code = new_code();
-            if !rooms.values().any(|e| e.room.code == code) && !ended.values().any(|t| t.code == code) {
+            if !rooms.values().any(|e| e.room.code == code)
+                && !ended.values().any(|t| t.code == code)
+            {
                 break code;
             }
         };
         drop(ended);
-        let room = Room::create(question, organizer, club.clone(), self.clubs.zone_of(club), code, &self.urls, now)?;
+        let room = Room::create(
+            question,
+            organizer,
+            club.clone(),
+            self.clubs.zone_of(club),
+            code,
+            &self.urls,
+            now,
+        )?;
         let created = Created {
             id: room.id.clone(),
             code: room.code.clone(),
@@ -172,7 +186,12 @@ impl AppState {
         // (D-26): *Run it again* never moves a room to another club.
         let club = {
             let rooms = lock(&self.rooms);
-            rooms.get(room_id).ok_or(RoomError::NotFound)?.room.club.clone()
+            rooms
+                .get(room_id)
+                .ok_or(RoomError::NotFound)?
+                .room
+                .club
+                .clone()
         };
         let organizer = self.auth.authorize_create(bearer, &club).await?;
         self.run_again_for(organizer, room_id, question_id, now)
@@ -209,9 +228,11 @@ impl AppState {
             if let Some(why) = entry.room.ended(now) {
                 return Err(RoomError::Ended(why));
             }
-            match entry.room.act(Command::Host(HostAction::RunItAgain), now, || {
-                unreachable!("Run it again never closes answers")
-            })? {
+            match entry
+                .room
+                .act(Command::Host(HostAction::RunItAgain), now, || {
+                    unreachable!("Run it again never closes answers")
+                })? {
                 Acted::NewRoomRequested => {}
                 Acted::Changed => unreachable!("Run it again never moves this room"),
             }

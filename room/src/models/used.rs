@@ -56,8 +56,17 @@ pub struct UsedEntry {
 
 // AC-57, at compile time, as `sessions.rs` does for `Session`: these patterns
 // name every field and have no `..`, so a new field stops the crate compiling.
-const _: fn(UsedRecord) = |UsedRecord { meetup_date: _, room_id: _, released_at: _, fit: _ }| {};
-const _: fn(UsedEntry) = |UsedEntry { club: _, question_id: _, used: _ }| {};
+const _: fn(UsedRecord) = |UsedRecord {
+                               meetup_date: _,
+                               room_id: _,
+                               released_at: _,
+                               fit: _,
+                           }| {};
+const _: fn(UsedEntry) = |UsedEntry {
+                              club: _,
+                              question_id: _,
+                              used: _,
+                          }| {};
 
 /// The used-question ledger. In memory, append-only; its only writer is the
 /// release transition in `rooms/state.rs` (G-10), which `tests/used.rs` checks by
@@ -69,12 +78,18 @@ pub struct UsedLedger {
 
 impl UsedLedger {
     pub(crate) fn append(&self, entry: UsedEntry) {
-        self.entries.lock().unwrap_or_else(|p| p.into_inner()).push(entry);
+        self.entries
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .push(entry);
     }
 
     /// Every record, in the order the rooms were released.
     pub fn all(&self) -> Vec<UsedEntry> {
-        self.entries.lock().unwrap_or_else(|p| p.into_inner()).clone()
+        self.entries
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
     }
 
     /// Whether `club` has run a question: *never twice for one club* (G-10,
@@ -197,7 +212,12 @@ const _: fn(TakeHome) = |TakeHome {
 
 /// Copy the snapshot out of what `reveal` lends. Called by the release
 /// transition while the room still holds its reveal witness.
-pub(crate) fn take_home(question_id: &str, meetup_date: String, view: &PublicView<'_>, opened: &Opened<'_>) -> TakeHome {
+pub(crate) fn take_home(
+    question_id: &str,
+    meetup_date: String,
+    view: &PublicView<'_>,
+    opened: &Opened<'_>,
+) -> TakeHome {
     let revealed = &opened.revealed;
     let correct = revealed.correct;
     let known = revealed.how_we_know;
@@ -249,7 +269,10 @@ pub(crate) fn take_home(question_id: &str, meetup_date: String, view: &PublicVie
             miri: known.miri.as_ref().map(|m| TakeHomeMiri {
                 version: m.version.clone(),
                 configs: m.configs.clone(),
-                seeds: m.seeds.as_ref().map(|s| s.iter().map(i64::to_string).collect()),
+                seeds: m
+                    .seeds
+                    .as_ref()
+                    .map(|s| s.iter().map(i64::to_string).collect()),
             }),
         },
     }
@@ -334,7 +357,12 @@ pub fn rfc3339(t: SystemTime) -> String {
     let secs = epoch_secs(t);
     let (y, m, d) = civil_from_days(secs.div_euclid(86_400));
     let s = secs.rem_euclid(86_400);
-    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", s / 3600, s / 60 % 60, s % 60)
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        s / 3600,
+        s / 60 % 60,
+        s % 60
+    )
 }
 
 #[cfg(test)]
@@ -343,7 +371,8 @@ mod tests {
     use std::time::Duration;
 
     fn at(y: i64, m: i64, d: i64, hh: i64, mm: i64) -> SystemTime {
-        UNIX_EPOCH + Duration::from_secs((days_from_civil(y, m, d) * 86_400 + hh * 3600 + mm * 60) as u64)
+        UNIX_EPOCH
+            + Duration::from_secs((days_from_civil(y, m, d) * 86_400 + hh * 3600 + mm * 60) as u64)
     }
 
     #[test]
@@ -353,12 +382,19 @@ mod tests {
             assert_eq!(days_from_civil(y, m, d), z);
         }
         assert_eq!(civil_from_days(0), (1970, 1, 1));
-        assert_eq!(weekday(days_from_civil(2026, 9, 27)), 0, "2026-09-27 is a Sunday");
+        assert_eq!(
+            weekday(days_from_civil(2026, 9, 27)),
+            0,
+            "2026-09-27 is a Sunday"
+        );
     }
 
     #[test]
     fn rfc3339_is_utc_to_the_second() {
-        assert_eq!(rfc3339(at(2026, 10, 15, 1, 41) + Duration::from_millis(7_900)), "2026-10-15T01:41:07Z");
+        assert_eq!(
+            rfc3339(at(2026, 10, 15, 1, 41) + Duration::from_millis(7_900)),
+            "2026-10-15T01:41:07Z"
+        );
         assert_eq!(rfc3339(UNIX_EPOCH), "1970-01-01T00:00:00Z");
     }
 
@@ -366,13 +402,28 @@ mod tests {
     fn a_pacific_meetup_keeps_its_own_date() {
         // 9 pm PDT on 14 October is 04:00 UTC on the 15th: still the 14th in
         // Los Angeles, and (06:00 UTC at the latest) the 14th in New York too.
-        assert_eq!(meetup_date_in(at(2026, 10, 15, 4, 0), Zone::LosAngeles), "2026-10-14");
-        assert_eq!(meetup_date_in(at(2026, 10, 15, 8, 0), Zone::LosAngeles), "2026-10-15");
+        assert_eq!(
+            meetup_date_in(at(2026, 10, 15, 4, 0), Zone::LosAngeles),
+            "2026-10-14"
+        );
+        assert_eq!(
+            meetup_date_in(at(2026, 10, 15, 8, 0), Zone::LosAngeles),
+            "2026-10-15"
+        );
         // 02:00 UTC on 15 October is 10 pm in New York and 7 pm in Los Angeles.
-        assert_eq!(meetup_date_in(at(2026, 10, 15, 2, 0), Zone::NewYork), "2026-10-14");
+        assert_eq!(
+            meetup_date_in(at(2026, 10, 15, 2, 0), Zone::NewYork),
+            "2026-10-14"
+        );
         // Standard time in January: PST is eight hours behind.
-        assert_eq!(meetup_date_in(at(2026, 1, 15, 7, 59), Zone::LosAngeles), "2026-01-14");
-        assert_eq!(meetup_date_in(at(2026, 1, 15, 8, 0), Zone::LosAngeles), "2026-01-15");
+        assert_eq!(
+            meetup_date_in(at(2026, 1, 15, 7, 59), Zone::LosAngeles),
+            "2026-01-14"
+        );
+        assert_eq!(
+            meetup_date_in(at(2026, 1, 15, 8, 0), Zone::LosAngeles),
+            "2026-01-15"
+        );
     }
 
     #[test]
@@ -383,9 +434,21 @@ mod tests {
         assert_eq!(meetup_date(at(2026, 1, 15, 2, 0)), "2026-01-14");
         assert_eq!(meetup_date(at(2026, 1, 15, 5, 0)), "2026-01-15");
         // DST 2026: 8 March 07:00 UTC to 1 November 06:00 UTC.
-        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 3, 8, 6, 59))), -5 * 3600);
-        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 3, 8, 7, 0))), -4 * 3600);
-        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 11, 1, 5, 59))), -4 * 3600);
-        assert_eq!(zone_offset(Zone::NewYork, epoch_secs(at(2026, 11, 1, 6, 0))), -5 * 3600);
+        assert_eq!(
+            zone_offset(Zone::NewYork, epoch_secs(at(2026, 3, 8, 6, 59))),
+            -5 * 3600
+        );
+        assert_eq!(
+            zone_offset(Zone::NewYork, epoch_secs(at(2026, 3, 8, 7, 0))),
+            -4 * 3600
+        );
+        assert_eq!(
+            zone_offset(Zone::NewYork, epoch_secs(at(2026, 11, 1, 5, 59))),
+            -4 * 3600
+        );
+        assert_eq!(
+            zone_offset(Zone::NewYork, epoch_secs(at(2026, 11, 1, 6, 0))),
+            -5 * 3600
+        );
     }
 }

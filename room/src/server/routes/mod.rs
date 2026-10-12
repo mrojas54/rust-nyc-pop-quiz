@@ -17,17 +17,16 @@
 //! (AC-70) — and Discord not answering is `503` with no body, a server error
 //! and never a denial.
 
-
-mod pipeline;
 mod connections;
 mod host;
 mod pages;
+mod pipeline;
 mod wall;
 
-pub(crate) use pipeline::admin_routes;
-pub use host::host_routes;
 use connections::session_routes;
+pub use host::host_routes;
 use host::{act, create, discord_routes, run_again};
+pub(crate) use pipeline::admin_routes;
 use wall::wall_pages;
 
 use std::sync::Arc;
@@ -83,7 +82,9 @@ fn failure(e: RoomError) -> Response {
 async fn show(state: Arc<AppState>, id: String, headers: HeaderMap, viewer: Viewer) -> Response {
     let urls = state.urls().clone();
     let result = match viewer {
-        Viewer::Host => state.with_hosted_room(&id, bearer(&headers), |r| view::project(r, viewer, &urls)),
+        Viewer::Host => {
+            state.with_hosted_room(&id, bearer(&headers), |r| view::project(r, viewer, &urls))
+        }
         Viewer::Wall | Viewer::Buzzer => state.with_room(&id, |r| view::project(r, viewer, &urls)),
     };
     match result {
@@ -100,9 +101,11 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
             Command::Host(HostAction::RunItAgain) => router.route(&path, post(run_again)),
             _ => router.route(
                 &path,
-                post(move |State(s): State<Arc<AppState>>, Path(id): Path<String>, headers: HeaderMap| {
-                    act(s, id, headers, command)
-                }),
+                post(
+                    move |State(s): State<Arc<AppState>>,
+                          Path(id): Path<String>,
+                          headers: HeaderMap| { act(s, id, headers, command) },
+                ),
             ),
         };
     }
@@ -114,9 +117,11 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
         };
         router = router.route(
             &format!("/rooms/{{id}}/{name}"),
-            get(move |State(s): State<Arc<AppState>>, Path(id): Path<String>, headers: HeaderMap| {
-                show(s, id, headers, viewer)
-            }),
+            get(
+                move |State(s): State<Arc<AppState>>,
+                      Path(id): Path<String>,
+                      headers: HeaderMap| { show(s, id, headers, viewer) },
+            ),
         );
     }
     router = wall_pages(router); // see T-05 pages
@@ -125,11 +130,11 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     router = pages::take_home_pages(router); // see T-12 pages
     router = pages::front_door(router); // the front door
     router = discord_routes(router); // see T-10 routes
-    // T-04c routes ----------------------------------------------------------
-    // The three sockets, and the two layers the transport needs. KEEP THIS
-    // BLOCK LAST: `layer` wraps only the routes registered above it, and the
-    // `notify` layer is what pushes a room after each of its writes. A block
-    // added below this one would change rooms without anyone being told.
+                                     // T-04c routes ----------------------------------------------------------
+                                     // The three sockets, and the two layers the transport needs. KEEP THIS
+                                     // BLOCK LAST: `layer` wraps only the routes registered above it, and the
+                                     // `notify` layer is what pushes a room after each of its writes. A block
+                                     // added below this one would change rooms without anyone being told.
     for viewer in Viewer::ALL {
         let name = match viewer {
             Viewer::Wall => "wall",
@@ -151,9 +156,15 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     let router = router
         // T-21: AC-55's log — participant requests counted, 5xx logged, the
         // room's summary at release (`requestlog.rs`).
-        .layer(axum::middleware::from_fn_with_state(state.clone(), crate::requestlog::layer))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::requestlog::layer,
+        ))
         .layer(axum::middleware::from_fn(crate::ws::notify))
-        .layer(axum::middleware::from_fn_with_state(default, crate::ws::provide));
+        .layer(axum::middleware::from_fn_with_state(
+            default,
+            crate::ws::provide,
+        ));
     // end T-04c routes ------------------------------------------------------
     router.with_state(state)
 }
