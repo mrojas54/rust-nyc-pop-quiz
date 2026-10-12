@@ -446,13 +446,14 @@ fn routes_rs() -> String {
     crate::common::routes_source()
 }
 
-/// Every route `routes.rs` registers, read from the file itself: each
+/// Every route `server/routes/` registers, read from its source: each
 /// `.route(` literal (or `format!` over the three viewers, or the host-action
 /// family `room::host_routes()` returns) with the method handler it names.
-/// A route added to the file joins this list whether or not the canary knows
-/// it, and [`assert_every_route_is_scanned`] then fails. Textual, and scoped to
-/// this one file: a router `merge`d or `nest`ed from elsewhere would escape it,
-/// so a split router must extend this walk.
+/// A route added there joins this list whether or not the canary knows it, and
+/// [`assert_every_route_is_scanned`] then fails. Textual, and scoped to that
+/// directory (joined by `common::routes_source`): a router `merge`d or
+/// `nest`ed from elsewhere would escape it, so a split router must extend this
+/// walk.
 pub fn route_table() -> BTreeSet<Route> {
     let src = routes_rs();
     let mut out = BTreeSet::new();
