@@ -29,7 +29,7 @@ Group the files by who uses them, and keep every module at its old crate path.
 flowchart TB
   lib["lib.rs: re-exports every module at the crate root<br/>room::phase = room::models::phase"]
   subgraph rooms["rooms/ : the room itself"]
-    r1["room.rs  open.rs  state.rs<br/>seams.rs  errors.rs  create.rs"]
+    r1["room.rs  open.rs  state.rs<br/>seams.rs  errors.rs  create.rs  lifecycle.rs"]
   end
   subgraph host["host/ : the organizer"]
     h1["auth.rs  discord.rs"]
@@ -41,7 +41,7 @@ flowchart TB
     m1["phase.rs  answers.rs  question.rs<br/>club.rs  view.rs  used.rs"]
   end
   subgraph server["server/ : what the binary serves"]
-    s1["main.rs  config.rs  lifecycle.rs  admin.rs"]
+    s1["main.rs  config.rs  reaper.rs  admin.rs"]
     s2["routes/: host.rs  connections.rs  wall.rs<br/>pages.rs  pipeline.rs  mod.rs"]
   end
   cli["cli/ : smoke, burst, room_client, the spike"]
@@ -61,8 +61,10 @@ flowchart TB
   `mod.rs`, as the comment there demands.
 - **`rooms.rs` is split** into a `rooms/` folder (see ADR-0003 for why `open.rs`
   is its own file).
-- **`bin/` becomes `cli/`**, and `main.rs`, `config.rs`, `lifecycle.rs`,
-  `admin.rs` and the routes become `server/`. `Cargo.toml` names the paths.
+- **`bin/` becomes `cli/`**, and `main.rs`, `config.rs`, `reaper.rs`,
+  `admin.rs` and the routes become `server/`. The clock, `Ended` and `verdict`
+  (`lifecycle`) live in `rooms/`, because the room record depends on them;
+  only the sweep task is in `server/`, and `room::lifecycle` still names them. `Cargo.toml` names the paths.
 - **Tests stay flat.** Cargo builds each file in `tests/` as its own target, so
   folders would change the 31 targets. `room/README.md` maps each test to a
   group instead.

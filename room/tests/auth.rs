@@ -270,19 +270,37 @@ async fn ac66_an_access_token_refused_early_is_refreshed_once() {
 // AC-67: participants never authenticate.
 // --------------------------------------------------------------------------
 
-fn block<'a>(src: &'a str, open: &str, close: &str) -> &'a str {
-    let start = src.find(open).unwrap_or_else(|| panic!("{open} in routes.rs"));
-    let end = start + src[start..].find(close).unwrap_or_else(|| panic!("{close} in routes.rs"));
-    &src[start..end]
-}
-
 #[test]
 fn ac67_no_participant_route_touches_the_auth_module() {
     let routes = common::routes_source();
-    let mut participant = vec![
-        ("routes.rs T-04b", block(&routes, "// T-04b routes", "// end T-04b routes").to_string()),
-        ("routes.rs T-06", block(&routes, "// T-06 pages", "// end T-06 pages").to_string()),
-    ];
+    // The participant surface is the whole of `connections.rs`, not marker blocks in it.
+    let connections = common::route_files().into_iter().find(|(n, _)| n == "connections.rs").expect("connections.rs").1;
+    let mut participant = vec![("server/routes/connections.rs", connections)];
+    // The buzzer's socket is the transport in `connections/ws.rs`, shared with
+    // the host's. Of it, everything but the host's attach arm is the participant
+    // surface (the arm that calls `with_hosted_room` is the only code allowed to
+    // authenticate), and its comments are left out: they describe the host half.
+    let ws = std::fs::read_to_string(repo().join("room/src/connections/ws.rs")).unwrap();
+    let host_arm = ws.find("Viewer::Host => match inner.state.with_hosted_room").expect("the host's attach arm");
+    let buzzer_arm = ws.find("_ => match inner.tokens.resolve").expect("the buzzer's attach arm");
+    assert!(host_arm < buzzer_arm, "the host arm comes first");
+    assert_eq!(ws.matches("with_hosted_room").count(), 1, "ws.rs authenticates in the host arm alone");
+    let transport: String = format!("{}{}", &ws[..host_arm], &ws[buzzer_arm..])
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    participant.push(("connections/ws.rs outside the host arm", transport));
+    // The route that registers all three sockets (the T-04c block in
+    // `server/routes/mod.rs`) is one loop over `Viewer::ALL`, so it is scanned
+    // whole: it may forward to `ws::upgrade` and nothing more.
+    let table = common::route_files().into_iter().find(|(n, _)| n == "mod.rs").expect("routes/mod.rs").1;
+    let from = table.find("// T-04c routes").expect("the T-04c block opens");
+    let to = table.find("// end T-04c routes").expect("the T-04c block closes");
+    assert!(from < to, "the T-04c block opens before it closes");
+    let sockets: String = table[from..to].lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
+    assert!(sockets.contains("ws::upgrade"), "the block still registers the sockets");
+    participant.push(("server/routes/mod.rs T-04c block", sockets));
     for f in ["room/src/connections/sessions.rs", "web/buzzer/buzzer.js", "web/buzzer/index.html"] {
         participant.push((f, std::fs::read_to_string(repo().join(f)).unwrap()));
     }

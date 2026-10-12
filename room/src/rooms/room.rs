@@ -1,6 +1,21 @@
 //! The room record and the writes the phase machine drives.
 
-use super::*;
+use std::sync::Arc;
+use std::time::SystemTime;
+
+use serde::Serialize;
+use subtle::ConstantTimeEq;
+
+use crate::answers::{Scheduled, Verdict};
+use crate::auth::OrganizerId;
+use crate::club::{ClubSlug, Zone};
+use crate::copy;
+use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
+use crate::used::TakeHome;
+
+use super::create::{hex, random_bytes};
+use super::lifecycle::Ended;
+use super::{CloseSnapshot, LiveCounts, Totals, ROOM_LIFETIME};
 
 /// The wall's measured verdict after refit (§5.2, AC-100). Written by the wall
 /// (T-05 adds its route); read by the host's fit line.
@@ -284,21 +299,21 @@ impl Room {
     /// T-11: whether this room has ended at `now` — four hours up, or quiet for
     /// §4.6's bound (`lifecycle::verdict`).
     ///
-    /// Once [`AppState::create_for`] has let a new room in on this room's
+    /// Once [`super::AppState::create_for`] has let a new room in on this room's
     /// question because it had ended, the ending is latched: a later call with
     /// an earlier `now` — a wall-clock step back, or a host action whose clock
     /// reading was taken just before the lock — cannot revive it, so there are
     /// never two live rooms on one question (GAP-8).
     pub fn ended(&self, now: SystemTime) -> Option<Ended> {
         self.latched_end
-            .or_else(|| crate::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now))
+            .or_else(|| super::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now))
     }
 
     /// GAP-8: whether this room holds `question_id` at `now` against a new
     /// room — it was created on it, is not released, and has not ended. A
     /// released room's question is refused by the used ledger instead; a room
     /// that ended without release can never release, so it can never put its
-    /// answer on `/last` ([`AppState::act`] refuses an ended room).
+    /// answer on `/last` ([`super::AppState::act`] refuses an ended room).
     pub fn holds(&self, club: &ClubSlug, question_id: &str, now: SystemTime) -> bool {
         &self.club == club && self.question_id == question_id && self.phase() != Phase::Released && self.ended(now).is_none()
     }

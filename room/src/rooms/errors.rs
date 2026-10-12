@@ -1,6 +1,9 @@
 //! What a room request can come back with.
 
-use super::*;
+use crate::auth::{CreateRefusal, Denied};
+use crate::phase::{Phase, Refused};
+
+use super::lifecycle::Ended;
 
 /// Why a room request did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -47,7 +50,7 @@ impl From<Refused> for RoomError {
     }
 }
 
-/// What [`AppState::schedule`] did (T-25).
+/// What [`super::AppState::schedule`] did (T-25).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scheduling {
     /// The id was not scheduled before.

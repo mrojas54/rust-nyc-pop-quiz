@@ -1,6 +1,17 @@
 //! Every room on this machine, and the seams around them.
 
-use super::*;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::SystemTime;
+
+use crate::answers::Scheduled;
+use crate::auth::HostAuth;
+use crate::club::{ClubSlug, Clubs};
+use crate::phase::{Command, Phase};
+use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
+
+use super::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
+use super::{Acted, AnswerError, Fit, Joined, LiveCounts, Room, RoomError, Scheduling, Sessions, Urls};
 
 // --------------------------------------------------------------------------
 // The rooms, in memory. No persistence (D-12: nothing outlives the room but
