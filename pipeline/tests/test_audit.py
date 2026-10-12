@@ -895,6 +895,8 @@ def test_a_flagged_question_in_the_reserve_fails_the_run(
     wrong = next(o for o in record["options"] if o["kind"] == "output" and "why_tempting" in o)
     wrong["text"] = "x" * 48
     record["review"].update(status="accepted", affirmed_by="organizer", affirmed_at="2026-09-21T20:00:00Z")
+    # Bound to the text as it now stands, the way `popquiz.review affirm` records it (GAP-24).
+    record["review"]["affirmed_digest"] = bank.affirmation_digest(bank.question_from_dict(record))
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
     assert audit.main(["--repo", str(repo), "--date", "2026-09-21"]) == 1
@@ -919,7 +921,7 @@ def test_strict_fails_on_any_flag(tmp_path: pathlib.Path) -> None:
     repo = copy_bank(tmp_path)
     path = repo / "bank" / "questions" / "q7.json"
     record = json.loads(path.read_text(encoding="utf-8"))
-    for field in ("status", "affirmed_by", "affirmed_at"):
+    for field in ("status", "affirmed_by", "affirmed_at", "affirmed_digest"):
         record["review"].pop(field, None)
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 

@@ -59,6 +59,7 @@ from popquiz.bank import (
     DEFAULT_CLUB,
     BankError,
     Question,
+    affirmation_state,
     correct_index,
     load_bank,
     load_question,
@@ -153,6 +154,17 @@ def refusal(question: Question, club: str = DEFAULT_CLUB) -> str | None:
         return (
             f"{qid} is not affirmed - it has no {' and no '.join(missing)}{accepted} - and an "
             "unaffirmed question cannot be scheduled (AC-72)"
+        )
+    state = affirmation_state(question)
+    if state == "stale":
+        return (
+            f"{qid} was affirmed, but its text changed after that - affirm it again at "
+            "review, and an affirmation counts only for the text it was given to (GAP-24)"
+        )
+    if state == "unbound":
+        return (
+            f"{qid}'s affirmation records who and when but not what was affirmed - affirm "
+            "it at review so the affirmation is bound to its text (GAP-24)"
         )
     if not is_accepted(question):
         return f"{qid} is affirmed but has not been accepted at review, so it cannot be scheduled"
