@@ -52,6 +52,8 @@ test-organizer:
     cd prototypes/organizer-tui && cargo test --offline --locked
     cd prototypes/organizer-tui && cargo clippy --offline --locked --all-targets -- -D warnings
     cd prototypes/organizer-tui && cargo fmt --check
+    cd prototypes/organizer-tui && cargo build --offline --locked
+    python3 prototypes/organizer-tui/tests/terminal_repeat.py
 
 # The pipeline's decision logic, against StubRunner's recorded outputs.
 #
