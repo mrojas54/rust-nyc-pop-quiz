@@ -113,9 +113,10 @@ fn ac92_scheduling_questions_writes_nothing() {
 
 #[test]
 fn g10_the_release_transition_is_the_only_writer() {
-    let src = common::repo().join("room/src");
+    let all = common::room_sources(&[]);
+    let file = |name: &str| -> &str { &all.iter().find(|(n, _)| n == name).unwrap_or_else(|| panic!("{name} in room/src")).1 };
     let mut writers = Vec::new();
-    for (name, text) in common::room_sources(&[]) {
+    for (name, text) in &all {
         for (n, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
             if code.contains(".append(") || code.contains("UsedRecord {") && !code.contains("struct") && !code.contains("|UsedRecord") {
@@ -129,14 +130,14 @@ fn g10_the_release_transition_is_the_only_writer() {
     assert!(writers.iter().any(|(_, _, c)| c.starts_with("self.used.append(")), "{writers:#?}");
     // And that call sits in `AppState::act`, behind the release transition's
     // parting, which only `Room::act`'s `Released` arm (rooms/room.rs) builds.
-    let state = std::fs::read_to_string(src.join("rooms/state.rs")).unwrap();
-    let room = std::fs::read_to_string(src.join("rooms/room.rs")).unwrap();
+    let state = file("rooms/state.rs");
+    let room = file("rooms/room.rs");
     let act = state.rfind("    pub fn act(").expect("AppState::act");
     let append = state.find("self.used.append(").unwrap();
     let parting = state[act..].find("if let Some(parting) = room.take_parting()").map(|i| i + act);
     assert!(parting.is_some_and(|p| p < append), "the append is not behind take_parting");
     // The parting is set once in the whole `rooms` module, and only in room.rs.
-    let sets: usize = common::room_sources(&[])
+    let sets: usize = all
         .iter()
         .filter(|(name, _)| name.starts_with("rooms/"))
         .map(|(_, text)| text.matches("self.parting = Some(").count())
@@ -146,8 +147,7 @@ fn g10_the_release_transition_is_the_only_writer() {
     let set = room.find("self.parting = Some(").unwrap();
     assert!(released_arm < set && set - released_arm < 1200, "the parting is built outside the Released arm");
     // The ledger's `append` is crate-private.
-    let used = std::fs::read_to_string(src.join("models/used.rs")).unwrap();
-    assert!(used.contains("pub(crate) fn append("));
+    assert!(file("models/used.rs").contains("pub(crate) fn append("));
 }
 
 #[test]

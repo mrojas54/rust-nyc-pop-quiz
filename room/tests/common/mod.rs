@@ -60,19 +60,18 @@ impl Sessions for FakeSessions {
     }
 }
 
-/// The HTTP routes' source files: `server/routes/mod.rs` first, then its group
-/// files in name order, as (file name, text). Scans that parse routes read each
-/// file on its own, so a span never runs on into the next file.
+/// The HTTP routes' source files, as (path under `server/routes/`, text):
+/// `mod.rs` first, then the rest in path order. Built from [`room_sources`], so
+/// a file in a subfolder of `routes/` is returned too. Scans that parse routes
+/// read each file on its own, so a span never runs on into the next file.
 pub fn route_files() -> Vec<(String, String)> {
-    let dir = repo().join("room/src/server/routes");
-    let mut names: Vec<_> = std::fs::read_dir(&dir)
-        .unwrap()
-        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-        .filter(|n| n.ends_with(".rs") && n != "mod.rs")
+    let mut files: Vec<(String, String)> = room_sources(&[])
+        .into_iter()
+        .filter_map(|(name, text)| name.strip_prefix("server/routes/").map(|rel| (rel.to_string(), text)))
         .collect();
-    names.sort();
-    names.insert(0, "mod.rs".to_string());
-    names.into_iter().map(|n| (n.clone(), std::fs::read_to_string(dir.join(&n)).unwrap())).collect()
+    assert!(files.iter().any(|(n, _)| n == "mod.rs"), "server/routes/mod.rs");
+    files.sort_by(|a, b| (a.0 != "mod.rs", &a.0).cmp(&(b.0 != "mod.rs", &b.0)));
+    files
 }
 
 /// The route files joined, for scans that only look for a string somewhere in
