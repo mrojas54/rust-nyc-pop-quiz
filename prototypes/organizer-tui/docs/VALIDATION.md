@@ -1,5 +1,36 @@
 # Organizer TUI prototype validation
 
+## Review decisions and the affirm gate — 2026-10-12
+
+Commits `8ba9e80` through `f590a51` (PQ-23). The walk-through ran on a temporary
+copy of `pipeline/tests/fixtures/review/questions/`, never `bank/questions/`, and
+is recorded in [review-gate.cast](../recordings/review-gate.cast) (110 × 36,
+`asciinema play`). [review-gate-drive.py](../recordings/review-gate-drive.py)
+drives the real binary in a pseudo-terminal and re-records it. Each step and
+what the review CLI reported afterwards:
+
+1. q4 accepted in the TUI (`a`, `y`): `status=accepted`, not affirmed. Affirm
+   (`A`, `y`) with `POPQUIZ_ORGANIZER` unset was refused: "Affirm needs your
+   name: set POPQUIZ_ORGANIZER or pass --by NAME." Nothing was written.
+2. Affirmed as `fixture-organizer`: `affirmation=bound`. An edit to the
+   explanation through `$VISUAL` (`e`, `y`) set `status=edited` and cleared
+   `affirmed_by`, `affirmed_at` and `affirmed_digest`.
+3. `popquiz.review reverify q4` ran the pinned verifier. It ran the same every
+   time and Miri was clean on the paths it executed. Still not affirmed.
+4. Affirmed again in the TUI: `affirmation=bound`, bound to the edited text.
+5. Fixture q3, a digest-less hand affirmation like the bank's q3, showed as NOT
+   AFFIRMED (unbound). `popquiz.review affirm q3 --by fixture-organizer` bound it.
+
+The driver answers the terminal's cursor-position query itself, as a real
+terminal does when the TUI comes back from the editor. The first take had no
+answer, so the TUI exited at that point.
+
+Gates at `f590a51`: `just test` passed in 17 s warm (Rust 325, pipeline 941,
+web 292, both PTY cases). `just bank-audit` passed with no question in the nyc
+reserve. That follows RULING PQ-23 (client, 2026-10-12): q3's digest-less
+affirmation no longer counts, so q3 waits until an organizer affirms it again.
+`bank/` was unchanged.
+
 ## Legacy terminal repeat fix — 2026-10-11
 
 Reproduced the review finding against `ffd734b`: ordinary repeated Press events
