@@ -270,18 +270,12 @@ async fn ac65_the_role_id_is_compared_whole() {
 
 #[test]
 fn ac65_the_member_record_is_read_for_roles_alone() {
-    // Every file of the Discord module (ADR-0004: walk, do not name one file).
-    let dir = repo().join("room/src/host/discord");
-    let mut files: Vec<(String, String)> = std::fs::read_dir(&dir)
-        .unwrap()
-        .map(|e| e.unwrap().path())
-        .filter(|p| p.extension().is_some_and(|x| x == "rs"))
-        .map(|p| {
-            let name = p.file_name().unwrap().to_string_lossy().into_owned();
-            (name, std::fs::read_to_string(&p).unwrap())
-        })
+    // Every file of the Discord module, nested ones included (ADR-0004: walk
+    // recursively, do not name one file).
+    let files: Vec<(String, String)> = common::room_sources(&[])
+        .into_iter()
+        .filter_map(|(rel, src)| Some((rel.strip_prefix("host/discord/")?.to_owned(), src)))
         .collect();
-    files.sort();
     for want in ["config.rs", "http.rs", "mod.rs"] {
         assert!(
             files.iter().any(|(n, _)| n == want),
