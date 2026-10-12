@@ -35,15 +35,24 @@ _default:
 setup:
     cd pipeline && uv sync --frozen
     cd room && cargo fetch --locked
+    cd prototypes/organizer-tui && cargo fetch --locked
 
 # The inner loop. No network, no Docker, no pinned toolchain, no Miri.
 # EVALUATION.md budgets this at 60 s wall-clock; a slower default suite is a defect.
 [parallel]
-test: test-room test-pipeline test-web
+test: test-room test-pipeline test-web test-organizer
 
 # Builds and tests the room crate with whatever cargo this machine has.
 test-room:
     cd room && cargo test --offline --locked
+
+# Organizer UI stays checked against the room API it imports.
+test-organizer:
+    cd prototypes/organizer-tui && cargo test --offline --locked
+    cd prototypes/organizer-tui && cargo clippy --offline --locked --all-targets -- -D warnings
+    cd prototypes/organizer-tui && cargo fmt --check
+    cd prototypes/organizer-tui && cargo build --offline --locked
+    python3 prototypes/organizer-tui/tests/terminal_repeat.py
 
 # The pipeline's decision logic, against StubRunner's recorded outputs.
 #
@@ -317,6 +326,43 @@ bank-audit *ARGS:
 # One question for a meetup: the affirm gate, the push, the fallback and host sheet (T-20).
 schedule *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
+
+# A demo in one command: check the room's used ledger, push one bank question, print the
+# host link. For rehearsals and demos, not a meetup: `schedule` arranges the options for
+# the meetup's date and this pushes the record in its stored order. The room holds the
+# schedule and the ledger in memory, so run it again after any restart or deploy. If the
+# question is already in the ledger it stops and says so; only a restart clears that, and
+# this never restarts anything. The token is $POPQUIZ_ADMIN_TOKEN, else read from 1Password
+# at $POPQUIZ_OP_REF (a reference, not a secret). It goes to curl on stdin, never argv.
+demo question="q3" room="https://rustnyc-popquiz.fly.dev":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    record="bank/questions/{{ question }}.json"
+    [ -f "$record" ] || { echo "No $record. Verified questions: $(cd bank/questions && ls *.json | sed 's/.json//' | tr '\n' ' ')" >&2; exit 1; }
+    token="${POPQUIZ_ADMIN_TOKEN:-}"
+    if [ -z "$token" ]; then
+        ref="${POPQUIZ_OP_REF:-op://Personal/Rust NYC - POPQUIZ_ADMIN_TOKEN/password}"
+        token="$(op read "$ref")" || { echo "Set POPQUIZ_ADMIN_TOKEN, or sign in to 1Password for $ref" >&2; exit 1; }
+    fi
+    auth() { printf 'Authorization: Bearer %s\n' "$token" | curl -sS -H @- "$@"; }
+    used="$(auth -w '\n%{http_code}' "{{ room }}/admin/used")"
+    code="${used##*$'\n'}"
+    [ "$code" = 200 ] || { echo "GET /admin/used answered $code. 401 means this token is not the room's POPQUIZ_ADMIN_TOKEN." >&2; exit 1; }
+    # The ledger is per club (G-10, AC-105) and this recipe schedules the default club, nyc,
+    # so only an nyc entry for this question counts; another club's use of it does not.
+    if printf '%s' "${used%$'\n'*}" | jq -e --arg q "{{ question }}" 'any(.[]; .club == "nyc" and .question_id == $q)' >/dev/null; then
+        echo "{{ question }} is in the room's used ledger for nyc, so the room will refuse it." >&2
+        echo "Only a restart clears that, and it drops live rooms: fly apps restart rustnyc-popquiz" >&2
+        echo "Then run just demo {{ question }} again." >&2
+        exit 1
+    fi
+    code="$(auth -o /dev/null -w '%{http_code}' -X PUT --data-binary "@$record" "{{ room }}/admin/questions/{{ question }}")"
+    case "$code" in
+        201) echo "{{ question }} scheduled." ;;
+        200) echo "{{ question }} was already scheduled; replaced." ;;
+        *) echo "PUT answered $code; {{ question }} is not scheduled." >&2; exit 1 ;;
+    esac
+    echo "Host: {{ room }}/host?question={{ question }}  (sign in with Discord, then Create a room)"
 
 # After a meetup, before anything restarts the room: the used ledger into the bank (T-20).
 sync *ARGS:
