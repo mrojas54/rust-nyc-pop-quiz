@@ -24,16 +24,19 @@ a count.
 - **Every scan walks `room/src` recursively.** `cli/` is skipped where the scan
   never read `bin/` before. Fixed: `no_fallback_route`, the AC-57 identity scan
   (`lifecycle.rs`), the copy twin check (`twins.rs`), `used.rs`'s writer scan.
-- **Scans of the routes read the files joined.** `common::routes_source()`
-  returns `server/routes/mod.rs` followed by its siblings in name order, so
-  marker blocks (`// T-25 routes`) and the canary's route walk see one text.
+- **Scans of the routes read each file on its own.** `common::route_files()`
+  returns every file under `server/routes/` (subfolders included, `mod.rs`
+  first) as `(path, text)`, so a span never runs into the next file and a
+  failure names the file at fault. `common::routes_source()` joins them, only
+  for "does this string appear anywhere" checks.
 - **A rule that named a file now names the file that holds the concern.** The
   admin token may appear only in `routes/pipeline.rs`; a machine is assigned only
   in `rooms/room.rs`; a question is opened only in `rooms/open.rs`; the ledger is
   appended only in `rooms/state.rs`, behind the parting built in `room.rs`.
-- **Call-site comments do not collide with markers.** `mod.rs` writes
-  `// see T-06 pages`, not `// T-06 pages`, because the scans search for the
-  exact marker.
+- **Scans lean on files, not marker blocks.** The admin-token rule treats all
+  of `pipeline.rs` as the admin block, and the participant check reads all of
+  `connections.rs`. `mod.rs` still writes `// see T-06 pages` at call sites, so
+  no search for a marker finds a call site by mistake.
 
 ## Options Considered
 
@@ -59,7 +62,7 @@ next move does not repeat the silent weakening.
 the walk with no edit; a rule that hard-codes a file must change with it. A
 non-recursive `read_dir` in a new test would repeat the mistake: prefer
 `common::room_sources(skip)` (every `.rs` under `room/src`) or
-`common::route_files()` (the route files, one text each).
+`common::route_files()` (the route files, one text each, subfolders included).
 
 ## Action Items
 
@@ -71,8 +74,8 @@ non-recursive `read_dir` in a new test would repeat the mistake: prefer
    `.github/` and the manifests, which are not `.rs` under `src/`.
 4. [x] The AC-67 scan reads all of `connections.rs`, and the admin-token rule
    treats all of `pipeline.rs` as the admin block, so neither rests on markers.
-5. [x] The canary parses each route file on its own (no span runs into the next
-   file).
+5. [x] The canary's route table and `served_files` parse each route file on
+   their own (no span runs into the next file).
 
 ## Where it lives
 

@@ -543,7 +543,7 @@ phone skips superseded ones instead of lagging behind them, and no receiver can
 drop a reveal the way the spike's `broadcast` could (it had to count `Lagged`).
 The channel exists only while someone is subscribed.
 
-**What triggers a push.** `rooms.rs` has no change hook, and polling is out.
+**What triggers a push.** the `rooms/` module has no change hook, and polling is out.
 `Transport::changed(room_id)` publishes only if `Room::revision()` moved, so a
 poke that changed nothing sends nothing. It is called:
 

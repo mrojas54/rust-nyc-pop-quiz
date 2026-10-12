@@ -276,6 +276,21 @@ fn ac67_no_participant_route_touches_the_auth_module() {
     // The participant surface is the whole of `connections.rs`, not marker blocks in it.
     let connections = common::route_files().into_iter().find(|(n, _)| n == "connections.rs").expect("connections.rs").1;
     let mut participant = vec![("server/routes/connections.rs", connections)];
+    // The buzzer's socket is the transport in `connections/ws.rs`, shared with
+    // the host's. Of it, everything but the host's attach arm is the participant
+    // surface (the arm that calls `with_hosted_room` is the only code allowed to
+    // authenticate), and its comments are left out: they describe the host half.
+    let ws = std::fs::read_to_string(repo().join("room/src/connections/ws.rs")).unwrap();
+    let host_arm = ws.find("Viewer::Host => match inner.state.with_hosted_room").expect("the host's attach arm");
+    let buzzer_arm = ws.find("_ => match inner.tokens.resolve").expect("the buzzer's attach arm");
+    assert!(host_arm < buzzer_arm, "the host arm comes first");
+    assert_eq!(ws.matches("with_hosted_room").count(), 1, "ws.rs authenticates in the host arm alone");
+    let transport: String = format!("{}{}", &ws[..host_arm], &ws[buzzer_arm..])
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    participant.push(("connections/ws.rs outside the host arm", transport));
     for f in ["room/src/connections/sessions.rs", "web/buzzer/buzzer.js", "web/buzzer/index.html"] {
         participant.push((f, std::fs::read_to_string(repo().join(f)).unwrap()));
     }

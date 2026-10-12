@@ -21,10 +21,6 @@ fn src(name: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
-fn all_sources() -> Vec<(String, String)> {
-    common::room_sources(&[])
-}
-
 /// The code of a file with comment lines removed (doc comments hold the
 /// `compile_fail` snippets, which name forbidden things on purpose).
 fn code(text: &str) -> String {
@@ -80,7 +76,7 @@ fn unsafe_is_forbidden_crate_wide() {
 
 #[test]
 fn the_witness_is_built_in_one_place() {
-    for (name, text) in all_sources() {
+    for (name, text) in common::room_sources(&[]) {
         let hits = code(&text).matches("RevealWitness {").count();
         if name == "models/phase.rs" {
             // The struct definition, and the one construction in `revealed()`.
@@ -119,7 +115,7 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
         assert!(!vault.contains(s), "vault exposes {s:?}");
     }
     // Declared once, privately.
-    let decls: usize = all_sources().iter().map(|(_, t)| code(t).matches("mod vault").count()).sum();
+    let decls: usize = common::room_sources(&[]).iter().map(|(_, t)| code(t).matches("mod vault").count()).sum();
     assert_eq!(decls, 1);
     assert!(!answers.contains("pub mod vault"));
     // T-12: take-it-home's reads (every why_tempting, the machine) leave the
@@ -138,6 +134,7 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         ("rooms/room.rs", "struct Frozen"),
         ("rooms/open.rs", "pub struct Opened"),
     ];
+    let everything = common::room_sources(&[]);
     for (file, decl) in sealed_types {
         let text = src(file);
         let at = text.find(decl).unwrap_or_else(|| panic!("{decl} not in {file}"));
@@ -154,7 +151,7 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
             assert!(!line.contains("derive"), "{decl} in {file} derives: {line}");
         }
         let ty = decl.split_whitespace().last().unwrap();
-        for all in all_sources() {
+        for all in &everything {
             for tr in ["Debug", "Clone", "Copy", "Serialize"] {
                 assert!(
                     !code(&all.1).contains(&format!("{tr} for {ty}")),
@@ -168,7 +165,7 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
 
 #[test]
 fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
-    for (name, text) in all_sources() {
+    for (name, text) in common::room_sources(&[]) {
         let code = code(&text);
         if name != "models/answers.rs" {
             assert!(!code.contains(".vault"), "{name} reaches into the vault");
@@ -209,5 +206,37 @@ fn the_pre_reveal_builders_never_see_the_opened_room() {
         let body = block(&view, p);
         assert!(body.contains("match room.open()"), "{p} does not branch on room.open()");
         assert!(body.contains("None => sealed::"), "{p}");
+    }
+}
+
+#[test]
+fn within_rooms_only_open_rs_names_the_sealed_answer_types() {
+    // `Revealed` and `Middle` are what the vault hands out. Of the room's files,
+    // only the one that opens a question may import or hold them (ADR-0003).
+    let mut seen_in_open = false;
+    for (name, text) in common::room_sources(&[]) {
+        if !name.starts_with("rooms/") {
+            continue;
+        }
+        let code = code(&text);
+        let names_them = ["Revealed", "Middle"].iter().any(|t| code.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| w == *t));
+        if name == "rooms/open.rs" {
+            seen_in_open = names_them;
+        } else {
+            assert!(!names_them, "{name} names Revealed or Middle; only rooms/open.rs may");
+        }
+    }
+    assert!(seen_in_open, "rooms/open.rs no longer names them: the rule has lost its subject");
+}
+
+#[test]
+fn lifecycle_docs_name_a_reaper_that_exists() {
+    // `rooms/lifecycle.rs` names the reaper in plain backticks (the module is
+    // crate-private, so rustdoc cannot link it). Keep those names true.
+    let doc = src("rooms/lifecycle.rs");
+    let reaper = src("server/reaper.rs");
+    for (name, decl) in [("REAP_EVERY", "pub const REAP_EVERY"), ("spawn_reaper", "pub fn spawn_reaper")] {
+        assert!(doc.contains(&format!("server::reaper::{name}")), "lifecycle.rs no longer mentions {name}");
+        assert!(reaper.contains(decl), "server/reaper.rs lost {decl}");
     }
 }

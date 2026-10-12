@@ -7,14 +7,14 @@ use serde::Serialize;
 use subtle::ConstantTimeEq;
 
 use crate::answers::{Scheduled, Verdict};
+use crate::auth::OrganizerId;
 use crate::club::{ClubSlug, Zone};
 use crate::copy;
-use super::lifecycle::Ended;
 use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
-use crate::auth::OrganizerId;
 use crate::used::TakeHome;
 
 use super::create::{hex, random_bytes};
+use super::lifecycle::Ended;
 use super::{CloseSnapshot, LiveCounts, Totals, ROOM_LIFETIME};
 
 /// The wall's measured verdict after refit (§5.2, AC-100). Written by the wall

@@ -470,7 +470,7 @@ fn route_calls(file: &str) -> Vec<&str> {
 pub fn route_table() -> BTreeSet<Route> {
     let files = crate::common::route_files();
     let mut out = BTreeSet::new();
-    for call in files.iter().flat_map(|(_, text)| route_calls(text)) {
+    for (file_name, call) in files.iter().flat_map(|(name, text)| route_calls(text).into_iter().map(move |c| (name, c))) {
         let trimmed = call.trim_start();
         // T-25: `any(` is the admin prefix's one entry point.
         let method = ["get(", "post(", "put(", "axum::routing::put(", "axum::routing::get(", "axum::routing::any("]
@@ -497,7 +497,7 @@ pub fn route_table() -> BTreeSet<Route> {
         } else if trimmed.starts_with("&path") {
             room::host_routes().into_iter().map(|(_, p)| p).collect()
         } else {
-            panic!("routes.rs registers a route the canary cannot read: {}", &trimmed[..trimmed.len().min(80)]);
+            panic!("server/routes/{file_name} registers a route the canary cannot read: {}", &trimmed[..trimmed.len().min(80)]);
         };
         // `&path` is registered twice (run-it-again, and every other action);
         // both are POST.
@@ -510,17 +510,18 @@ pub fn route_table() -> BTreeSet<Route> {
 }
 
 /// The files `/shared/{file}` and `/shared/fonts/{file}` serve, read from the
-/// `include_*!` lines in `routes.rs`.
+/// `include_*!` lines of each route file on its own.
 pub fn served_files(dir: &str) -> Vec<String> {
-    let src = routes_rs();
     let needle = format!("../../web/{dir}/");
     let mut out = Vec::new();
-    let mut rest = src.as_str();
-    while let Some(at) = rest.find(&needle) {
-        rest = &rest[at + needle.len()..];
-        let name = &rest[..rest.find('"').unwrap()];
-        if !name.contains('/') {
-            out.push(name.to_string());
+    for (_, text) in crate::common::route_files() {
+        let mut rest = text.as_str();
+        while let Some(at) = rest.find(&needle) {
+            rest = &rest[at + needle.len()..];
+            let name = &rest[..rest.find('"').unwrap()];
+            if !name.contains('/') {
+                out.push(name.to_string());
+            }
         }
     }
     out
