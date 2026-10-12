@@ -86,10 +86,24 @@ pinned verifier wrote their new records. q8's too-long option was a *distractor*
 so its answer stood, its program's tokens did not change, and only that one
 option was replaced. Each record's `review.reason` says what was re-authored and why.
 
-**Nothing here is affirmed.** Every migrated record has `review.status` unset and
-no `affirmed_by` / `affirmed_at`, so none of them can reach a deck (AC-72, G-12).
-The beats and q3's trace were *drafted* — from the August explanation and the
+**Only q3 is affirmed**, by the client's hand edit of its review block (F-52),
+before affirmations carried a digest. The other migrated records have no
+`affirmed_by` / `affirmed_at`, so none of them can be scheduled (AC-72, G-12).
+Their beats and traces were *drafted* — from the August explanation and the
 prototype the client loved — and are waiting for an organizer to read them.
+
+## How a record is reviewed and affirmed
+
+Through `python -m popquiz.review`, usually from the organizer TUI's review
+screen (`v`); see `pipeline/README.md` § Reviewing. Never by hand. An affirmation
+records `affirmed_by`, `affirmed_at` and `affirmed_digest`, a SHA-256 of the
+text the organizer read (source, choices and why each tempts, hint, explanation,
+trace). An edit to any of it sets `review.status` to `edited` and clears the
+affirmation; a record whose digest no longer matches is loadable but unaffirmed,
+so `schedule` and the reserve skip it (GAP-24). A digest-less affirmation counts
+only on a `verified.legacy` record — today q3 — and is shown as *affirmed
+(unbound, before GAP-24)*. The digest binds an affirmation to its text; it does
+not authenticate who wrote it.
 
 ## How a record is verified
 
