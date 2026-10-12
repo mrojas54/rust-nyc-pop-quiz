@@ -1,0 +1,74 @@
+{
+  "id": "q7",
+  "source": "fn main() {\n    let mut v = vec![('b', 2), ('a', 1), ('d', 1), ('c', 2)];\n    v.sort_by_key(|&(_, k)| k);\n    let names: Vec<char> = v.into_iter().map(|(n, _)| n).collect();\n    println!(\"{:?}\", names);\n}",
+  "topic": "Sorting",
+  "difficulty_requested": 2,
+  "options": [
+    {
+      "text": "['d', 'a', 'b', 'c']",
+      "kind": "output",
+      "why_tempting": "Stability is the point, but a went in before d — flip which one you think came first and the key-1 pair comes out backwards."
+    },
+    {
+      "text": "['a', 'd', 'c', 'b']",
+      "kind": "output",
+      "why_tempting": "Same trap on the other pair: b went in before c, and when you're tracking two equal-key pairs it's easy to get exactly one of them right."
+    },
+    {
+      "text": "does not compile",
+      "kind": "does_not_compile",
+      "why_tempting": "into_iter moves the vector and the closure destructures each tuple by reference — if either of those felt illegal, this is the option for that feeling. Both are fine."
+    },
+    {
+      "text": "['b', 'a', 'd', 'c']",
+      "kind": "output",
+      "why_tempting": "If your eyes slide past the key closure and you read this as sorting the letters, the input already looks sorted — the keys say otherwise."
+    },
+    {
+      "text": "['a', 'd', 'b', 'c']",
+      "kind": "output"
+    }
+  ],
+  "hint": "Two entries share a key. What does Rust's sort promise about their relative order?",
+  "explains": {
+    "what": "sort_by_key is a stable sort. Two entries whose keys compare equal come out in the order they went in, so the pairs that share a key keep their original relative order and only the keys move them.",
+    "takeaway": "sort_unstable_by_key makes no such promise and is usually a little faster. The standard library gives you both on purpose, so the choice is yours to make rather than something to discover afterwards.",
+    "legacy": "sort_by_key is a STABLE sort: elements whose keys compare equal keep their original relative order. bob came before amy in the input, but they have different keys so that does not matter; what matters is that amy preceded dan (both key 1) and bob preceded cal (both key 2), and both of those orders survive. sort_unstable_by_key makes no such promise and is usually a little faster -- the standard library gives you the choice deliberately."
+  },
+  "trace": {
+    "steps": []
+  },
+  "verified": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "edition": "2021",
+    "target_triple": "aarch64-unknown-linux-gnu",
+    "flags": {
+      "opt_level": "0",
+      "overflow_checks": true,
+      "debug_assertions": true
+    },
+    "runs": {
+      "count": 5,
+      "byte_identical": true
+    },
+    "stdout": "['a', 'd', 'b', 'c']\n",
+    "exit_code": 0,
+    "miri": {
+      "clean": true,
+      "output_matched": true,
+      "version": "miri 0.1.0 (420ed2a0c3 2026-09-18)",
+      "configs": [
+        "stacked_borrows"
+      ],
+      "seeds": [
+        0
+      ]
+    },
+    "verified_at": "2026-09-30T08:28:17Z",
+    "verifier_version": "popquiz-verify 7b1bc351e4dd"
+  },
+  "review": {
+    "reason": "Review-test fixture copied from bank/questions/q7 on 2026-10-12; not a bank record.",
+    "status": "accepted"
+  }
+}
