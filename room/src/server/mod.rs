@@ -4,10 +4,10 @@
 //! - [`admin`] — SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`
 //!   and `GET /admin/used` behind one constant-time bearer check (T-25).
 //! - [`config`] — what the binary reads from its environment (T-09).
-//! - [`lifecycle`] — how long a room lives and what ends it: the clock seam,
-//!   §4.6's bounds, the sweep's reaper (T-11).
+//! - [`reaper`] — the task that sweeps ended rooms and closes their sockets
+//!   (T-11); what ends a room is `rooms::lifecycle`.
 
 pub mod admin;
 pub mod config;
-pub mod lifecycle;
+pub(crate) mod reaper;
 pub(crate) mod routes;

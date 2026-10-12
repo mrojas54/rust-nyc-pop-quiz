@@ -68,6 +68,7 @@
 
 use std::time::Duration;
 
+pub mod lifecycle;
 mod create;
 mod errors;
 mod open;

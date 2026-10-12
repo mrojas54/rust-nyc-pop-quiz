@@ -147,7 +147,7 @@ pub(crate) fn routes(state: Arc<AppState>) -> Router {
     let default = crate::ws::Transport::new(state.clone(), state.clone());
     // T-11: the reaper sweeps ended rooms and closes their sockets through the
     // default transport. Only inside a tokio runtime.
-    crate::lifecycle::spawn_reaper(state.clone(), default.clone());
+    crate::server::reaper::spawn_reaper(state.clone(), default.clone());
     let router = router
         // T-21: AC-55's log — participant requests counted, 5xx logged, the
         // room's summary at release (`requestlog.rs`).

@@ -72,6 +72,7 @@ src/
     seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
     errors.rs   RoomError, AnswerError, Joined, Scheduling
     create.rs   create a room, run it again
+    lifecycle.rs  the clock seam, §4.6's bounds, `Ended` and `verdict` (reachable as `room::lifecycle`)
   host/                            the organizer
     auth.rs  discord.rs              the create check (G-9); Discord sign-in and the role check
   connections/                     the audience
@@ -81,7 +82,7 @@ src/
                                      the machine; the sealed answers; the public question; clubs;
                                      the wall/buzzer/host payloads; the ledger and take-it-home
   server/                          what the `room` binary serves
-    main.rs  config.rs  lifecycle.rs  admin.rs   the binary; its environment; the clock and reaper; the pipeline channel
+    main.rs  config.rs  reaper.rs  admin.rs   the binary; its environment; the sweep task; the pipeline channel
     routes/                          the HTTP surface, one file per user
       mod.rs      shared helpers, the state query, the assembly (the socket layers go last)
       host.rs     create, run again, host actions, Discord sign-in, the host phone's page
@@ -323,7 +324,7 @@ is not the Fly secret.
 
 ## Lifecycle and what outlives a room (T-11)
 
-SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/server/lifecycle.rs`, `src/models/used.rs`,
+SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/rooms/lifecycle.rs`, `src/server/reaper.rs`, `src/models/used.rs`,
 and the release and sweep paths in `src/rooms/`.
 
 **How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
@@ -335,7 +336,7 @@ in between the bound and the sweep. **Only `AppState::sweep(now)` deletes.** It
 removes the room record and its sessions whole, and remembers `{code, why}` for
 `ENDED_MEMORY` (4 h) so a late join hears *already ended* / *closed for
 inactivity* rather than *unknown*, and so no new room reuses the code. The
-reaper (`lifecycle::spawn_reaper`, started by the router inside a tokio runtime)
+reaper (`server::reaper::spawn_reaper`, started by the router inside a tokio runtime)
 sweeps every 30 s and pokes the transport for each room it deleted.
 
 **Time comes from one clock.** `AppState::with_clock(Arc<dyn Clock>)`. The

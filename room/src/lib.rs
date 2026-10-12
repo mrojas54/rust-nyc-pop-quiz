@@ -25,8 +25,8 @@
 //! - [`ws`] — the transport: one broadcast per room to the wall, the buzzers
 //!   and the host, and reconnect with the same session token (T-04c).
 //! - [`config`] — what the binary reads from its environment (T-09).
-//! - [`lifecycle`] — how long a room lives and what ends it: the clock seam,
-//!   §4.6's bounds, the sweep's reaper (T-11).
+//! - [`lifecycle`] — how long a room lives and what ends it: the clock seam
+//!   and §4.6's bounds (T-11); lives in `rooms/`, the reaper is `server/`.
 //! - [`used`] — what outlives a room: the used-question ledger, written only
 //!   at release (G-10), and the take-it-home snapshot (T-11).
 //! - [`admin`] — SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`
@@ -57,7 +57,8 @@ pub mod server;
 // The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
 pub use connections::{requestlog, sessions, ws};
 pub use host::{auth, discord};
-pub use server::{admin, config, lifecycle};
+pub use rooms::lifecycle;
+pub use server::{admin, config};
 use server::routes;
 pub use models::{answers, club, phase, question, used, view};
 
