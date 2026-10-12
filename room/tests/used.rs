@@ -51,7 +51,10 @@ fn ac92_used_is_written_at_release() {
             }
         })
     );
-    assert!(c.state.used().contains(&room::club::ClubSlug::default_club(), "q3"));
+    assert!(c
+        .state
+        .used()
+        .contains(&room::club::ClubSlug::default_club(), "q3"));
     // A fit reported after release changes nothing: the record is written.
     c.state.record_fit(&room.id, Fit::ClippedXy).unwrap();
     assert_eq!(c.state.used().all()[0].used.fit, Some(Fit::ClippedY));
@@ -64,21 +67,39 @@ fn ac92_a_room_the_wall_never_measured_records_no_fit() {
     c.walk(&room, &TO_REVEAL);
     c.walk(&room, &[HostAction::ReleaseRoom]);
     let v = serde_json::to_value(c.state.used().all()).unwrap();
-    assert_eq!(v[0]["used"]["fit"], Value::Null, "nothing observed it, so nothing is written");
+    assert_eq!(
+        v[0]["used"]["fit"],
+        Value::Null,
+        "nothing observed it, so nothing is written"
+    );
 }
 
 #[test]
 fn ac92_nothing_is_written_before_release() {
     let c = Clocked::new();
     let room = c.create("q3");
-    assert!(c.state.used().all().is_empty(), "creating a room is not using its question");
+    assert!(
+        c.state.used().all().is_empty(),
+        "creating a room is not using its question"
+    );
     for action in TO_REVEAL {
         c.walk(&room, &[action]);
         assert!(c.state.used().all().is_empty(), "{action:?}");
-        assert!(!c.state.used().contains(&room::club::ClubSlug::default_club(), "q3"), "{action:?}");
-        assert!(c.state.take_home().is_none(), "{action:?}: the snapshot is built at release only");
+        assert!(
+            !c.state
+                .used()
+                .contains(&room::club::ClubSlug::default_club(), "q3"),
+            "{action:?}"
+        );
+        assert!(
+            c.state.take_home().is_none(),
+            "{action:?}: the snapshot is built at release only"
+        );
     }
-    assert_eq!(c.state.with_room(&room.id, |r| r.phase()).unwrap(), Phase::Reveal);
+    assert_eq!(
+        c.state.with_room(&room.id, |r| r.phase()).unwrap(),
+        Phase::Reveal
+    );
 }
 
 #[test]
@@ -89,7 +110,10 @@ fn ac92_an_expired_or_quiet_room_records_nothing() {
     c.walk(&expired, &TO_REVEAL);
     // Thirty quiet minutes: past idle's bound and reveal's.
     c.advance(room::lifecycle::IDLE_QUIET);
-    assert_eq!(c.act(&expired, HostAction::ReleaseRoom), Err(RoomError::Ended(room::lifecycle::Ended::Inactive)));
+    assert_eq!(
+        c.act(&expired, HostAction::ReleaseRoom),
+        Err(RoomError::Ended(room::lifecycle::Ended::Inactive))
+    );
     let mut gone = c.state.sweep(c.clock.now());
     gone.sort();
     let mut want = vec![quiet.id.clone(), expired.id.clone()];
@@ -106,7 +130,11 @@ fn ac92_an_expired_or_quiet_room_records_nothing() {
 fn ac92_scheduling_questions_writes_nothing() {
     // Handing the room its questions — the room's side of a build — records
     // no use of any of them.
-    let state = room::rooms::AppState::new(std::sync::Arc::new(TestAuth), vec![q3(), q3_again()], Urls::default());
+    let state = room::rooms::AppState::new(
+        std::sync::Arc::new(TestAuth),
+        vec![q3(), q3_again()],
+        Urls::default(),
+    );
     assert!(state.used().all().is_empty());
     assert!(state.take_home().is_none());
 }
@@ -114,28 +142,50 @@ fn ac92_scheduling_questions_writes_nothing() {
 #[test]
 fn g10_the_release_transition_is_the_only_writer() {
     let all = common::room_sources(&[]);
-    let file = |name: &str| -> &str { &all.iter().find(|(n, _)| n == name).unwrap_or_else(|| panic!("{name} in room/src")).1 };
+    let file = |name: &str| -> &str {
+        &all.iter()
+            .find(|(n, _)| n == name)
+            .unwrap_or_else(|| panic!("{name} in room/src"))
+            .1
+    };
     let mut writers = Vec::new();
     for (name, text) in &all {
         for (n, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
-            if code.contains(".append(") || code.contains("UsedRecord {") && !code.contains("struct") && !code.contains("|UsedRecord") {
+            if code.contains(".append(")
+                || code.contains("UsedRecord {")
+                    && !code.contains("struct")
+                    && !code.contains("|UsedRecord")
+            {
                 writers.push((name.clone(), n + 1, code.trim().to_string()));
             }
         }
     }
     // One `append` and the one `UsedRecord` it appends, both in rooms/state.rs.
     assert_eq!(writers.len(), 2, "{writers:#?}");
-    assert!(writers.iter().all(|(f, _, _)| f == "rooms/state.rs"), "{writers:#?}");
-    assert!(writers.iter().any(|(_, _, c)| c.starts_with("self.used.append(")), "{writers:#?}");
+    assert!(
+        writers.iter().all(|(f, _, _)| f == "rooms/state.rs"),
+        "{writers:#?}"
+    );
+    assert!(
+        writers
+            .iter()
+            .any(|(_, _, c)| c.starts_with("self.used.append(")),
+        "{writers:#?}"
+    );
     // And that call sits in `AppState::act`, behind the release transition's
     // parting, which only `Room::act`'s `Released` arm (rooms/room.rs) builds.
     let state = file("rooms/state.rs");
     let room = file("rooms/room.rs");
     let act = state.rfind("    pub fn act(").expect("AppState::act");
     let append = state.find("self.used.append(").unwrap();
-    let parting = state[act..].find("if let Some(parting) = room.take_parting()").map(|i| i + act);
-    assert!(parting.is_some_and(|p| p < append), "the append is not behind take_parting");
+    let parting = state[act..]
+        .find("if let Some(parting) = room.take_parting()")
+        .map(|i| i + act);
+    assert!(
+        parting.is_some_and(|p| p < append),
+        "the append is not behind take_parting"
+    );
     // The parting is set once in the whole `rooms` module, and only in room.rs.
     let sets: usize = all
         .iter()
@@ -145,7 +195,10 @@ fn g10_the_release_transition_is_the_only_writer() {
     assert_eq!(sets, 1);
     let released_arm = room.find("Phase::Released => {").unwrap();
     let set = room.find("self.parting = Some(").unwrap();
-    assert!(released_arm < set && set - released_arm < 1200, "the parting is built outside the Released arm");
+    assert!(
+        released_arm < set && set - released_arm < 1200,
+        "the parting is built outside the Released arm"
+    );
     // The ledger's `append` is crate-private.
     assert!(file("models/used.rs").contains("pub(crate) fn append("));
 }
@@ -170,7 +223,10 @@ fn ac92_the_pipeline_makes_a_used_record_only_when_reading_the_bank() {
                     })
                 };
                 for line in text.lines().filter(|l| whole(l)) {
-                    found.push((path.file_name().unwrap().to_string_lossy().to_string(), line.trim().to_string()));
+                    found.push((
+                        path.file_name().unwrap().to_string_lossy().to_string(),
+                        line.trim().to_string(),
+                    ));
                 }
             }
         }
@@ -180,7 +236,8 @@ fn ac92_the_pipeline_makes_a_used_record_only_when_reading_the_bank() {
 
 #[test]
 fn ac92_the_record_has_the_pipelines_shape() {
-    let bank = std::fs::read_to_string(common::repo().join("pipeline/src/popquiz/bank.py")).unwrap();
+    let bank =
+        std::fs::read_to_string(common::repo().join("pipeline/src/popquiz/bank.py")).unwrap();
     let class = &bank[bank.find("class Used:").expect("class Used")..];
     let body_end = class[1..].find("\n\n\n").map_or(class.len(), |i| i + 1);
     let mut fields: Vec<String> = class[..body_end]
@@ -189,12 +246,18 @@ fn ac92_the_record_has_the_pipelines_shape() {
         .filter_map(|l| {
             let l = l.strip_prefix("    ")?;
             let (name, _) = l.split_once(": ")?;
-            name.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_').then(|| name.to_string())
+            name.chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch == '_')
+                .then(|| name.to_string())
         })
         .collect();
     fields.sort();
     // `club` is the ledger line's (`UsedEntry.club`), beside the record (D-26).
-    assert_eq!(fields, ["club", "fit", "meetup_date", "released_at", "room_id"], "bank.py's Used changed");
+    assert_eq!(
+        fields,
+        ["club", "fit", "meetup_date", "released_at", "room_id"],
+        "bank.py's Used changed"
+    );
     fields.retain(|f| f != "club");
 
     let c = Clocked::new();
@@ -208,10 +271,16 @@ fn ac92_the_record_has_the_pipelines_shape() {
     assert_eq!(keys, fields.iter().collect::<Vec<_>>());
 
     // `fit` serializes to one of bank.py's `Fit` literals.
-    let literal = bank.lines().find(|l| l.starts_with("Fit = Literal[")).unwrap();
+    let literal = bank
+        .lines()
+        .find(|l| l.starts_with("Fit = Literal["))
+        .unwrap();
     for fit in [Fit::Fits, Fit::ClippedX, Fit::ClippedY, Fit::ClippedXy] {
         let name = serde_json::to_value(fit).unwrap();
-        assert!(literal.contains(&format!("\"{}\"", name.as_str().unwrap())), "{name} not in {literal}");
+        assert!(
+            literal.contains(&format!("\"{}\"", name.as_str().unwrap())),
+            "{name} not in {literal}"
+        );
     }
 }
 
@@ -226,11 +295,15 @@ fn g10_run_it_again_refuses_the_used_question() {
     c.walk(&room, &TO_REVEAL);
     c.walk(&room, &[HostAction::ReleaseRoom]);
     assert_eq!(
-        c.state.run_again(&room.id, Some(ORGANIZER), "q3", c.clock.now()).err(),
+        c.state
+            .run_again(&room.id, Some(ORGANIZER), "q3", c.clock.now())
+            .err(),
         Some(RoomError::Refused(USED_REFUSAL.into()))
     );
     assert_eq!(
-        c.state.create_room(Some(ORGANIZER), "q3", c.clock.now()).err(),
+        c.state
+            .create_room(Some(ORGANIZER), "q3", c.clock.now())
+            .err(),
         Some(RoomError::Refused(USED_REFUSAL.into()))
     );
     assert_eq!(c.state.room_count(), 1, "no room was made");
@@ -242,11 +315,20 @@ fn g10_run_it_again_on_an_unused_question_makes_a_new_room() {
     let room = c.create("q3");
     c.walk(&room, &TO_REVEAL);
     c.walk(&room, &[HostAction::ReleaseRoom]);
-    let again = c.state.run_again(&room.id, Some(ORGANIZER), "q3-again", c.clock.now()).unwrap();
+    let again = c
+        .state
+        .run_again(&room.id, Some(ORGANIZER), "q3-again", c.clock.now())
+        .unwrap();
     assert_ne!(again.id, room.id);
     assert_ne!(again.code, room.code);
-    assert_eq!(c.state.with_room(&again.id, |r| r.phase()).unwrap(), Phase::Idle);
-    assert_eq!(c.state.with_room(&room.id, |r| r.phase()).unwrap(), Phase::Released);
+    assert_eq!(
+        c.state.with_room(&again.id, |r| r.phase()).unwrap(),
+        Phase::Idle
+    );
+    assert_eq!(
+        c.state.with_room(&room.id, |r| r.phase()).unwrap(),
+        Phase::Released
+    );
     assert_eq!(c.state.used().all().len(), 1, "making a room uses nothing");
 }
 
@@ -260,7 +342,9 @@ fn g10_a_used_question_stays_used_after_its_room_is_gone() {
     c.state.sweep(c.clock.now());
     assert_eq!(c.state.room_count(), 0);
     assert_eq!(
-        c.state.create_room(Some(ORGANIZER), "q3", c.clock.now()).err(),
+        c.state
+            .create_room(Some(ORGANIZER), "q3", c.clock.now())
+            .err(),
         Some(RoomError::Refused(USED_REFUSAL.into()))
     );
 }
@@ -291,7 +375,9 @@ fn shape(v: &Value) -> Value {
                 }
             }
         }
-        Value::Object(map) => Value::Object(map.iter().map(|(k, v)| (k.clone(), shape(v))).collect()),
+        Value::Object(map) => {
+            Value::Object(map.iter().map(|(k, v)| (k.clone(), shape(v))).collect())
+        }
     }
 }
 
@@ -301,8 +387,16 @@ fn merge(a: &Value, b: &Value) -> Value {
         (Value::Array(x), Value::Array(y)) if y.is_empty() => Value::Array(x.clone()),
         (Value::Array(x), Value::Array(y)) => json!([merge(&x[0], &y[0])]),
         (Value::Object(x), Value::Object(y)) => {
-            assert_eq!(x.keys().collect::<Vec<_>>(), y.keys().collect::<Vec<_>>(), "list elements differ in shape");
-            Value::Object(x.iter().map(|(k, v)| (k.clone(), merge(v, &y[k]))).collect())
+            assert_eq!(
+                x.keys().collect::<Vec<_>>(),
+                y.keys().collect::<Vec<_>>(),
+                "list elements differ in shape"
+            );
+            Value::Object(
+                x.iter()
+                    .map(|(k, v)| (k.clone(), merge(v, &y[k])))
+                    .collect(),
+            )
         }
         (x, y) => {
             assert_eq!(x, y, "list elements differ in type");
@@ -318,7 +412,9 @@ fn take_home_matches_the_fixture_shape() {
     c.walk(&room, &TO_REVEAL);
     c.walk(&room, &[HostAction::ReleaseRoom]);
     let snapshot = serde_json::to_value(c.state.take_home().unwrap()).unwrap();
-    let text = std::fs::read_to_string(common::repo().join("room/tests/fixtures/take_home.shape.json")).unwrap();
+    let text =
+        std::fs::read_to_string(common::repo().join("room/tests/fixtures/take_home.shape.json"))
+            .unwrap();
     let mut fixture: Value = serde_json::from_str(&text).unwrap();
     fixture.as_object_mut().unwrap().remove("_note");
     assert_eq!(shape(&snapshot), fixture);
@@ -334,7 +430,10 @@ fn take_home_is_the_question_as_the_reveal_showed_it() {
     c.walk(&room, &TO_REVEAL[1..]);
     // What the room showed at reveal — the machine's reads, not ours.
     let urls = c.state.urls().clone();
-    let wall = c.state.with_room(&room.id, |r| view::wall(r, &urls)).unwrap();
+    let wall = c
+        .state
+        .with_room(&room.id, |r| view::wall(r, &urls))
+        .unwrap();
     let host = c.state.with_room(&room.id, view::host).unwrap();
     let reveal = wall.reveal.clone().unwrap();
     c.walk(&room, &[HostAction::ReleaseRoom]);
@@ -367,15 +466,29 @@ fn take_home_is_the_question_as_the_reveal_showed_it() {
 #[test]
 fn take_home_is_rebuilt_at_each_release() {
     let c = Clocked::new();
-    assert!(c.state.take_home().is_none(), "nothing before the first release");
+    assert!(
+        c.state.take_home().is_none(),
+        "nothing before the first release"
+    );
     let first = c.create("q3");
     c.walk(&first, &TO_REVEAL);
     c.walk(&first, &[HostAction::ReleaseRoom]);
     assert_eq!(c.state.take_home().unwrap().question_id, "q3");
-    let second = c.state.run_again(&first.id, Some(ORGANIZER), "q3-again", c.clock.now()).unwrap();
-    assert_eq!(c.state.take_home().unwrap().question_id, "q3", "a new room changes nothing");
+    let second = c
+        .state
+        .run_again(&first.id, Some(ORGANIZER), "q3-again", c.clock.now())
+        .unwrap();
+    assert_eq!(
+        c.state.take_home().unwrap().question_id,
+        "q3",
+        "a new room changes nothing"
+    );
     c.walk(&second, &TO_REVEAL);
-    assert_eq!(c.state.take_home().unwrap().question_id, "q3", "neither does its reveal");
+    assert_eq!(
+        c.state.take_home().unwrap().question_id,
+        "q3",
+        "neither does its reveal"
+    );
     c.walk(&second, &[HostAction::ReleaseRoom]);
     assert_eq!(c.state.take_home().unwrap().question_id, "q3-again");
     assert_eq!(c.state.used().all().len(), 2);

@@ -40,14 +40,22 @@ use serde_json::Value;
 async fn room_on_loopback() -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
-    let urls = Urls { base: base.clone(), home: format!("{base}/last") };
+    let urls = Urls {
+        base: base.clone(),
+        home: format!("{base}/last"),
+    };
     let state = Arc::new(AppState::new(Arc::new(TestAuth), vec![q3()], urls));
     tokio::spawn(room::ws::serve(listener, room::router_with(state)));
     base
 }
 
 fn criterion<'a>(report: &'a Value, id: &str) -> &'a Value {
-    report["criteria"].as_array().unwrap().iter().find(|c| c["id"] == id).unwrap()
+    report["criteria"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == id)
+        .unwrap()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -62,7 +70,9 @@ async fn burst_on_loopback_at_200() {
         .map(String::from)
         .collect();
     let args = burst::parse_args(&argv).unwrap();
-    let (r, exit) = burst::run(&args, ORGANIZER, format!("harness_full {}", argv.join(" "))).await.expect("burst ran");
+    let (r, exit) = burst::run(&args, ORGANIZER, format!("harness_full {}", argv.join(" ")))
+        .await
+        .expect("burst ran");
 
     let p95 = |id: &str| criterion(&r, id)["value"].as_f64().unwrap_or(-1.0);
     println!(
@@ -80,13 +90,30 @@ async fn burst_on_loopback_at_200() {
 
     // The exit code is the verdict's: a pass, or invalid only because this
     // machine's scheduler lagged (send lag is the client, not the room).
-    let notes: Vec<&str> = r["verdict"]["notes"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    let notes: Vec<&str> = r["verdict"]["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n.as_str().unwrap())
+        .collect();
     assert_eq!(r["verdict"]["exit_code"], exit as i32);
-    assert_eq!(r["conditions"]["at_criteria_conditions"], true, "{}", r["conditions"]);
+    assert_eq!(
+        r["conditions"]["at_criteria_conditions"], true,
+        "{}",
+        r["conditions"]
+    );
     match exit {
-        burst::numbers::Exit::Pass => assert!(notes.last().unwrap().starts_with("all four criteria pass as measured"), "{notes:?}"),
+        burst::numbers::Exit::Pass => assert!(
+            notes
+                .last()
+                .unwrap()
+                .starts_with("all four criteria pass as measured"),
+            "{notes:?}"
+        ),
         burst::numbers::Exit::Invalid => assert!(
-            notes.iter().all(|n| n.starts_with("RUN INVALID: client send lag")),
+            notes
+                .iter()
+                .all(|n| n.starts_with("RUN INVALID: client send lag")),
             "invalid for a reason other than send lag: {notes:?}; first errors: {}",
             r["diagnostics"]["first_errors"]
         ),
@@ -98,32 +125,73 @@ async fn burst_on_loopback_at_200() {
     // AC-55's log: the room failed no participant request.
     let room_id = r["room"]["id"].as_str().unwrap();
     let lines = requestlog::captured(room_id);
-    assert_eq!(lines.iter().filter(|l| l["event"] == "participant_request_failed").count(), 0, "{lines:?}");
-    let summary: Vec<_> = lines.iter().filter(|l| l["event"] == "participant_requests").collect();
+    assert_eq!(
+        lines
+            .iter()
+            .filter(|l| l["event"] == "participant_request_failed")
+            .count(),
+        0,
+        "{lines:?}"
+    );
+    let summary: Vec<_> = lines
+        .iter()
+        .filter(|l| l["event"] == "participant_requests")
+        .collect();
     assert_eq!(summary.len(), 1, "{lines:?}");
     assert_eq!(summary[0]["failed"], 0, "{}", summary[0]);
-    assert_eq!(requestlog::counts_for(room_id), requestlog::Counts::default(), "counters end at the summary");
+    assert_eq!(
+        requestlog::counts_for(room_id),
+        requestlog::Counts::default(),
+        "counters end at the summary"
+    );
 
     // The harness, not the machine: every participant joined, every write was
     // answered, every reveal arrived, the counts are exact.
     assert_eq!(r["substrate"], "loopback");
     assert_eq!(criterion(&r, "AC-53")["deployed_substrate"], false);
-    assert!(r["client"]["ulimit_nofile"].as_u64().unwrap() >= 1024, "{}", r["client"]);
-    assert_eq!(r["client"]["participants_connected"], 200, "{}", r["diagnostics"]["first_errors"]);
-    assert_eq!(r["diagnostics"]["errors"], 0, "{}", r["diagnostics"]["first_errors"]);
+    assert!(
+        r["client"]["ulimit_nofile"].as_u64().unwrap() >= 1024,
+        "{}",
+        r["client"]
+    );
+    assert_eq!(
+        r["client"]["participants_connected"], 200,
+        "{}",
+        r["diagnostics"]["first_errors"]
+    );
+    assert_eq!(
+        r["diagnostics"]["errors"], 0,
+        "{}",
+        r["diagnostics"]["first_errors"]
+    );
     assert_eq!(r["diagnostics"]["missing_reveal_receipts"], 0);
     assert_eq!(r["runs"]["segment"]["reveal"]["n"], 200);
     for cycle in r["runs"]["burst_only"]["cycles"].as_array().unwrap() {
         assert_eq!(cycle["writes"]["n"], 200, "{cycle}");
         assert_eq!(cycle["acked"], true, "{}", cycle["shape"]);
     }
-    assert_eq!(r["runs"]["burst_only"]["cycles"].as_array().unwrap().len(), 2, "one cycle per shape");
+    assert_eq!(
+        r["runs"]["burst_only"]["cycles"].as_array().unwrap().len(),
+        2,
+        "one cycle per shape"
+    );
     assert_eq!(r["runs"]["segment"]["writes_population"]["ok"], true);
-    assert_eq!(r["runs"]["segment"]["writes_population"]["deadline_burst"], 200);
+    assert_eq!(
+        r["runs"]["segment"]["writes_population"]["deadline_burst"],
+        200
+    );
     // AC-52, all four ways.
     assert_eq!(r["runs"]["burst_only"]["host_answered_after"], 200);
-    assert_eq!(r["runs"]["segment"]["reconcile"]["match"], true, "{}", r["runs"]["segment"]["reconcile"]);
-    assert_eq!(r["runs"]["segment"]["post_close"]["ok"], true, "{}", r["runs"]["segment"]["post_close"]);
+    assert_eq!(
+        r["runs"]["segment"]["reconcile"]["match"], true,
+        "{}",
+        r["runs"]["segment"]["reconcile"]
+    );
+    assert_eq!(
+        r["runs"]["segment"]["post_close"]["ok"], true,
+        "{}",
+        r["runs"]["segment"]["post_close"]
+    );
     assert_eq!(criterion(&r, "AC-52")["value"], true);
     // The deadline burst's writes were all scheduled inside one window.
     assert_eq!(r["runs"]["segment"]["burst_window_ms"], 2000);
@@ -133,10 +201,19 @@ async fn burst_on_loopback_at_200() {
 #[ignore = "test-full: `just harness-full`"]
 async fn smoke_on_loopback() {
     let base = room_on_loopback().await;
-    let args = smoke::parse_args(format!("--url {base} --question q3 --participants 50").split_whitespace().map(String::from)).unwrap();
+    let args = smoke::parse_args(
+        format!("--url {base} --question q3 --participants 50")
+            .split_whitespace()
+            .map(String::from),
+    )
+    .unwrap();
     let outcome = smoke::run(&args, ORGANIZER).await.expect("smoke ran");
     println!("smoke, LOOPBACK:");
     outcome.lines.iter().for_each(|l| println!("  {l}"));
     assert_eq!(outcome.substrate, "loopback");
-    assert!(outcome.passed(), "smoke failed on loopback:\n{}", outcome.failures.join("\n"));
+    assert!(
+        outcome.passed(),
+        "smoke failed on loopback:\n{}",
+        outcome.failures.join("\n")
+    );
 }

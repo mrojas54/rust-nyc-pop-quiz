@@ -50,8 +50,13 @@ struct Admin {
 fn admin() -> Admin {
     let token = token();
     let clock = ManualClock::new(SystemTime::UNIX_EPOCH + Duration::from_secs(1_790_000_000));
-    let state = Arc::new(AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default()).with_clock(clock.clone()));
-    let app = room::router_with_admin(state.clone(), AdminToken::from_var(Some(token.clone())).unwrap());
+    let state = Arc::new(
+        AppState::new(Arc::new(TestAuth), Vec::new(), Urls::default()).with_clock(clock.clone()),
+    );
+    let app = room::router_with_admin(
+        state.clone(),
+        AdminToken::from_var(Some(token.clone())).unwrap(),
+    );
     Admin {
         app,
         state,
@@ -61,13 +66,21 @@ fn admin() -> Admin {
 }
 
 /// One request: status, every header, the raw body.
-async fn raw(app: &Router, method: Method, uri: &str, auth: Option<&str>, body: Option<String>) -> (StatusCode, Vec<(String, String)>, Vec<u8>) {
+async fn raw(
+    app: &Router,
+    method: Method,
+    uri: &str,
+    auth: Option<&str>,
+    body: Option<String>,
+) -> (StatusCode, Vec<(String, String)>, Vec<u8>) {
     let mut req = Request::builder().method(method).uri(uri);
     if let Some(a) = auth {
         req = req.header(header::AUTHORIZATION, a);
     }
     let req = match body {
-        Some(b) => req.header(header::CONTENT_TYPE, "application/json").body(Body::from(b)),
+        Some(b) => req
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(b)),
         None => req.body(Body::empty()),
     }
     .unwrap();
@@ -76,20 +89,42 @@ async fn raw(app: &Router, method: Method, uri: &str, auth: Option<&str>, body: 
     let mut headers: Vec<(String, String)> = res
         .headers()
         .iter()
-        .map(|(k, v)| (k.to_string(), String::from_utf8_lossy(v.as_bytes()).into_owned()))
+        .map(|(k, v)| {
+            (
+                k.to_string(),
+                String::from_utf8_lossy(v.as_bytes()).into_owned(),
+            )
+        })
         .collect();
     headers.sort();
-    let body = axum::body::to_bytes(res.into_body(), 4 << 20).await.unwrap().to_vec();
+    let body = axum::body::to_bytes(res.into_body(), 4 << 20)
+        .await
+        .unwrap()
+        .to_vec();
     (status, headers, body)
 }
 
 async fn push(a: &Admin, id: &str, record: &Value) -> (StatusCode, Value) {
-    http(&a.app, Method::PUT, &format!("/admin/questions/{id}"), Some(&a.token), Some(record.clone())).await
+    http(
+        &a.app,
+        Method::PUT,
+        &format!("/admin/questions/{id}"),
+        Some(&a.token),
+        Some(record.clone()),
+    )
+    .await
 }
 
 /// `PUT /admin/clubs/{club}/questions/{id}` (D-26).
 async fn push_club(a: &Admin, club: &str, id: &str, record: &Value) -> (StatusCode, Value) {
-    http(&a.app, Method::PUT, &format!("/admin/clubs/{club}/questions/{id}"), Some(&a.token), Some(record.clone())).await
+    http(
+        &a.app,
+        Method::PUT,
+        &format!("/admin/clubs/{club}/questions/{id}"),
+        Some(&a.token),
+        Some(record.clone()),
+    )
+    .await
 }
 
 async fn used(a: &Admin) -> Value {
@@ -99,18 +134,41 @@ async fn used(a: &Admin) -> Value {
 }
 
 async fn act(app: &Router, room: &HostedRoom, slug: &str) -> StatusCode {
-    http(app, Method::POST, &format!("/rooms/{}/{slug}", room.id), Some(&room.host), None).await.0
+    http(
+        app,
+        Method::POST,
+        &format!("/rooms/{}/{slug}", room.id),
+        Some(&room.host),
+        None,
+    )
+    .await
+    .0
 }
 
 /// A room on q3, walked from `idle` to `released`.
 async fn run_to_release(app: &Router) -> HostedRoom {
     let room = host_room(app).await;
-    for a in [HostAction::PutOnScreen, HostAction::CloseAnswers, HostAction::ShowSplit, HostAction::WalkIt] {
-        assert_eq!(act(app, &room, a.slug()).await, StatusCode::OK, "{}", a.slug());
+    for a in [
+        HostAction::PutOnScreen,
+        HostAction::CloseAnswers,
+        HostAction::ShowSplit,
+        HostAction::WalkIt,
+    ] {
+        assert_eq!(
+            act(app, &room, a.slug()).await,
+            StatusCode::OK,
+            "{}",
+            a.slug()
+        );
     }
     while act(app, &room, Step::Forward.slug()).await == StatusCode::OK {}
     for a in [HostAction::Reveal, HostAction::ReleaseRoom] {
-        assert_eq!(act(app, &room, a.slug()).await, StatusCode::OK, "{}", a.slug());
+        assert_eq!(
+            act(app, &room, a.slug()).await,
+            StatusCode::OK,
+            "{}",
+            a.slug()
+        );
     }
     room
 }
@@ -148,22 +206,39 @@ async fn ac101_a_missing_or_wrong_token_is_refused_saying_nothing() {
         "/admin/questions/no-such-question",
         "/admin/x/y/z",
     ];
-    let methods = [Method::GET, Method::PUT, Method::POST, Method::DELETE, Method::PATCH, Method::HEAD];
+    let methods = [
+        Method::GET,
+        Method::PUT,
+        Method::POST,
+        Method::DELETE,
+        Method::PATCH,
+        Method::HEAD,
+    ];
     let mut shapes = std::collections::BTreeSet::new();
     for auth in &credentials {
         for path in paths {
             for method in &methods {
                 let body = (*method == Method::PUT).then(|| q3_json().to_string());
                 let (status, headers, body) = raw(&a.app, method.clone(), path, *auth, body).await;
-                let at = format!("{method} {path} with {:?}", auth.map(|s| s.split(' ').next().unwrap_or("")));
+                let at = format!(
+                    "{method} {path} with {:?}",
+                    auth.map(|s| s.split(' ').next().unwrap_or(""))
+                );
                 assert_eq!(status, StatusCode::UNAUTHORIZED, "{at}");
                 assert!(body.is_empty(), "{at}: a refusal carries no body");
-                assert!(!headers.iter().any(|(k, _)| k == "www-authenticate"), "{at}: no WWW-Authenticate");
+                assert!(
+                    !headers.iter().any(|(k, _)| k == "www-authenticate"),
+                    "{at}: no WWW-Authenticate"
+                );
                 shapes.insert(headers);
             }
         }
     }
-    assert_eq!(shapes.len(), 1, "every refusal has the same headers: {shapes:?}");
+    assert_eq!(
+        shapes.len(),
+        1,
+        "every refusal has the same headers: {shapes:?}"
+    );
     // The refusals changed nothing: q3 is still scheduled, once.
     assert_eq!(push(&a, "q3", &q3_json()).await.1["scheduled"], "replaced");
 }
@@ -176,13 +251,26 @@ async fn ac101_a_missing_or_wrong_token_is_refused_saying_nothing() {
 async fn ac101_the_right_token_schedules_and_reads_the_used_ledger() {
     let a = admin();
     // Nothing scheduled: creation is refused.
-    let (status, _) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": "q3"}))).await;
+    let (status, _) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
 
     let (status, body) = push(&a, "q3", &q3_json()).await;
-    assert_eq!((status, body.clone()), (StatusCode::CREATED, json!({"id": "q3", "scheduled": "new"})));
+    assert_eq!(
+        (status, body.clone()),
+        (StatusCode::CREATED, json!({"id": "q3", "scheduled": "new"}))
+    );
     let (status, body) = push(&a, "q3", &q3_json()).await;
-    assert_eq!((status, body), (StatusCode::OK, json!({"id": "q3", "scheduled": "replaced"})));
+    assert_eq!(
+        (status, body),
+        (StatusCode::OK, json!({"id": "q3", "scheduled": "replaced"}))
+    );
     assert_eq!(used(&a).await, json!([]));
 
     let room = run_to_release(&a.app).await;
@@ -194,29 +282,78 @@ async fn ac101_the_right_token_schedules_and_reads_the_used_ledger() {
     assert_eq!(keys(entry), ["club", "question_id", "used"]);
     assert_eq!(entry["club"], "nyc");
     // bank.py's `Used`: meetup_date, room_id, released_at, fit.
-    assert_eq!(keys(&entry["used"]), ["fit", "meetup_date", "released_at", "room_id"]);
+    assert_eq!(
+        keys(&entry["used"]),
+        ["fit", "meetup_date", "released_at", "room_id"]
+    );
     assert_eq!(entry["question_id"], "q3");
     assert_eq!(entry["used"]["room_id"], room.id.as_str());
-    assert_eq!(entry["used"]["fit"], Value::Null, "no wall reported a fit, so none is written (G-2)");
+    assert_eq!(
+        entry["used"]["fit"],
+        Value::Null,
+        "no wall reported a fit, so none is written (G-2)"
+    );
 
     // G-10, per club (D-26): the released room's record still names q3, so it
     // cannot be replaced yet ...
     let (status, body) = push(&a, "q3", &q3_json()).await;
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert!(body["reason"].as_str().unwrap().contains("A room is running q3"), "{body}");
+    assert!(
+        body["reason"]
+            .as_str()
+            .unwrap()
+            .contains("A room is running q3"),
+        "{body}"
+    );
     // ... and the club that ran it may not run it again, while another may.
     let body = |club: &str| json!({"question_id": "q3", "club": club});
     // LA has not been pushed anything yet: nothing is scheduled for it, though
     // NYC's q3 is. Its record is its own (arranged for its own date).
-    let (status, none) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("la"))).await;
+    let (status, none) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(body("la")),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT, "{none}");
-    assert!(none["reason"].as_str().unwrap().contains("No question is scheduled"), "{none}");
+    assert!(
+        none["reason"]
+            .as_str()
+            .unwrap()
+            .contains("No question is scheduled"),
+        "{none}"
+    );
     let (status, pushed) = push_club(&a, "la", "q3", &q3_json()).await;
-    assert_eq!((status, pushed), (StatusCode::CREATED, json!({"id": "q3", "scheduled": "new"})));
-    let (status, refused) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("nyc"))).await;
+    assert_eq!(
+        (status, pushed),
+        (StatusCode::CREATED, json!({"id": "q3", "scheduled": "new"}))
+    );
+    let (status, refused) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(body("nyc")),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT, "{refused}");
-    assert!(refused["reason"].as_str().unwrap().contains("already been run"), "{refused}");
-    let (status, other) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(body("la"))).await;
+    assert!(
+        refused["reason"]
+            .as_str()
+            .unwrap()
+            .contains("already been run"),
+        "{refused}"
+    );
+    let (status, other) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(body("la")),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{other}");
 }
 
@@ -227,12 +364,22 @@ async fn ac101_a_question_a_room_holds_is_not_replaced() {
     let room = host_room(&a.app).await;
     let (status, body) = push(&a, "q3", &q3_json()).await;
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert!(body["reason"].as_str().unwrap().contains("A room is running q3"), "{body}");
+    assert!(
+        body["reason"]
+            .as_str()
+            .unwrap()
+            .contains("A room is running q3"),
+        "{body}"
+    );
     // The room goes quiet in `idle`, is swept, and holds nothing: q3 was
     // never run, so it can be pushed again.
-    a.clock.advance(room::lifecycle::IDLE_QUIET + Duration::from_secs(1));
+    a.clock
+        .advance(room::lifecycle::IDLE_QUIET + Duration::from_secs(1));
     assert_eq!(a.state.sweep(a.state.now()), vec![room.id.clone()]);
-    assert_eq!(push(&a, "q3", &q3_json()).await, (StatusCode::OK, json!({"id": "q3", "scheduled": "replaced"})));
+    assert_eq!(
+        push(&a, "q3", &q3_json()).await,
+        (StatusCode::OK, json!({"id": "q3", "scheduled": "replaced"}))
+    );
 }
 
 #[tokio::test]
@@ -240,8 +387,18 @@ async fn ac101_the_path_and_the_record_name_the_same_question() {
     let a = admin();
     let (status, body) = push(&a, "q4", &q3_json()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
-    assert_eq!(body.as_object().unwrap().keys().collect::<Vec<_>>(), ["reason"]);
-    let (status, _) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": "q3"}))).await;
+    assert_eq!(
+        body.as_object().unwrap().keys().collect::<Vec<_>>(),
+        ["reason"]
+    );
+    let (status, _) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT, "nothing was scheduled");
 }
 
@@ -252,11 +409,28 @@ async fn ac101_a_record_that_does_not_load_is_refused_with_the_loaders_reason() 
     four["options"].as_array_mut().unwrap().pop();
     let (status, body) = push(&a, "q3", &four).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body["reason"].as_str().unwrap().contains("4 options"), "{body}");
-    let (status, _, _) = raw(&a.app, Method::PUT, "/admin/questions/q3", Some(&format!("Bearer {}", a.token)), Some("{not json".into())).await;
+    assert!(
+        body["reason"].as_str().unwrap().contains("4 options"),
+        "{body}"
+    );
+    let (status, _, _) = raw(
+        &a.app,
+        Method::PUT,
+        "/admin/questions/q3",
+        Some(&format!("Bearer {}", a.token)),
+        Some("{not json".into()),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     let huge = "x".repeat(room::admin::MAX_RECORD_BYTES + 1);
-    let (status, _, _) = raw(&a.app, Method::PUT, "/admin/questions/q3", Some(&format!("Bearer {}", a.token)), Some(huge)).await;
+    let (status, _, _) = raw(
+        &a.app,
+        Method::PUT,
+        "/admin/questions/q3",
+        Some(&format!("Bearer {}", a.token)),
+        Some(huge),
+    )
+    .await;
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
 }
 
@@ -268,10 +442,24 @@ async fn ac101_past_the_check_other_paths_and_methods_are_not_found_or_not_allow
         (Method::GET, "/admin", StatusCode::NOT_FOUND),
         (Method::GET, "/admin/x/y", StatusCode::NOT_FOUND),
         (Method::PUT, "/admin/used", StatusCode::METHOD_NOT_ALLOWED),
-        (Method::GET, "/admin/questions/q3", StatusCode::METHOD_NOT_ALLOWED),
-        (Method::DELETE, "/admin/questions/q3", StatusCode::METHOD_NOT_ALLOWED),
+        (
+            Method::GET,
+            "/admin/questions/q3",
+            StatusCode::METHOD_NOT_ALLOWED,
+        ),
+        (
+            Method::DELETE,
+            "/admin/questions/q3",
+            StatusCode::METHOD_NOT_ALLOWED,
+        ),
     ] {
-        assert_eq!(raw(&a.app, method.clone(), path, Some(&bearer), None).await.0, want, "{method} {path}");
+        assert_eq!(
+            raw(&a.app, method.clone(), path, Some(&bearer), None)
+                .await
+                .0,
+            want,
+            "{method} {path}"
+        );
     }
 }
 
@@ -295,7 +483,10 @@ fn routes_split() -> (String, Vec<(String, String)>) {
             rest.push((name, text));
         }
     }
-    assert!(block.contains("admin_routes"), "pipeline.rs holds the admin routes");
+    assert!(
+        block.contains("admin_routes"),
+        "pipeline.rs holds the admin routes"
+    );
     (block, rest)
 }
 
@@ -306,24 +497,40 @@ fn ac101_the_admin_prefix_is_served_to_the_check_alone() {
     let routes: Vec<&str> = block.split(".route(").skip(1).collect();
     assert_eq!(routes.len(), 3, "{block}");
     for r in &routes {
-        let path = r.trim_start().strip_prefix('"').and_then(|p| p.split('"').next()).unwrap();
+        let path = r
+            .trim_start()
+            .strip_prefix('"')
+            .and_then(|p| p.split('"').next())
+            .unwrap();
         assert!(path == "/admin" || path.starts_with("/admin/"), "{path}");
-        assert!(r.contains("axum::routing::any(crate::admin::serve)"), "{path} goes to admin::serve alone: {r}");
+        assert!(
+            r.contains("axum::routing::any(crate::admin::serve)"),
+            "{path} goes to admin::serve alone: {r}"
+        );
     }
     for p in ["\"/admin\"", "\"/admin/\"", "\"/admin/{*rest}\""] {
         assert!(block.contains(p), "the block serves {p}");
     }
     // Nothing outside the block serves under the prefix, or names the module.
     for (name, text) in &rest {
-        assert!(!text.contains("\"/admin"), "server/routes/{name} serves /admin outside pipeline.rs");
-        assert!(!text.contains("admin::"), "server/routes/{name} names the admin module outside pipeline.rs");
+        assert!(
+            !text.contains("\"/admin"),
+            "server/routes/{name} serves /admin outside pipeline.rs"
+        );
+        assert!(
+            !text.contains("admin::"),
+            "server/routes/{name} names the admin module outside pipeline.rs"
+        );
     }
     // `serve` checks before it reads anything.
     let admin = src("server/admin.rs");
     let serve = &admin[admin.find("pub async fn serve(").unwrap()..];
     let body = &serve[serve.find('{').unwrap() + 1..];
     let first = body.trim_start().lines().next().unwrap();
-    assert!(first.starts_with("if admin.token.check(request.headers()).is_err()"), "serve's first act is the check: {first}");
+    assert!(
+        first.starts_with("if admin.token.check(request.headers()).is_err()"),
+        "serve's first act is the check: {first}"
+    );
 }
 
 #[test]
@@ -334,7 +541,10 @@ fn ac101_g9_no_other_module_reads_the_token() {
         match file.as_str() {
             "server/admin.rs" => assert!(names_var && names_type),
             "server/config.rs" => assert!(names_type, "config reads it through admin"),
-            "lib.rs" => assert!(!names_var, "lib.rs wires the token and never names the variable"),
+            "lib.rs" => assert!(
+                !names_var,
+                "lib.rs wires the token and never names the variable"
+            ),
             // The admin routes are their own file; the rest of the routes name nothing.
             "server/routes/pipeline.rs" => assert!(!names_var && names_type),
             _ => assert!(!names_var && !names_type, "{file} names the admin token"),
@@ -342,7 +552,10 @@ fn ac101_g9_no_other_module_reads_the_token() {
     }
     let (_, rest) = routes_split();
     for (name, text) in &rest {
-        assert!(!text.contains("AdminToken"), "server/routes/{name} names the token outside pipeline.rs");
+        assert!(
+            !text.contains("AdminToken"),
+            "server/routes/{name} names the token outside pipeline.rs"
+        );
     }
     // The variable's name is a code literal in admin.rs alone; config.rs
     // refers to it as `admin::VAR`.
@@ -355,17 +568,42 @@ fn ac101_g9_no_other_module_reads_the_token() {
 #[test]
 fn g9_one_constant_time_compare_and_no_log() {
     let admin = src("server/admin.rs");
-    assert_eq!(admin.matches("ct_eq(").count(), 1, "one constant-time compare");
+    assert_eq!(
+        admin.matches("ct_eq(").count(),
+        1,
+        "one constant-time compare"
+    );
     assert_eq!(admin.matches("fn check(").count(), 1, "one check");
-    assert!(!admin.contains("token =="), "the token is never compared with ==");
-    for logger in ["println!", "eprintln!", "print!", "eprint!", "dbg!", "tracing", "log::"] {
+    assert!(
+        !admin.contains("token =="),
+        "the token is never compared with =="
+    );
+    for logger in [
+        "println!",
+        "eprintln!",
+        "print!",
+        "eprint!",
+        "dbg!",
+        "tracing",
+        "log::",
+    ] {
         assert!(!admin.contains(logger), "admin.rs logs ({logger})");
     }
     let lines: Vec<&str> = admin.lines().collect();
-    let at = lines.iter().position(|l| l.starts_with("pub struct AdminToken")).unwrap();
-    assert!(!lines[at - 1].starts_with("#["), "AdminToken derives nothing: {}", lines[at - 1]);
+    let at = lines
+        .iter()
+        .position(|l| l.starts_with("pub struct AdminToken"))
+        .unwrap();
+    assert!(
+        !lines[at - 1].starts_with("#["),
+        "AdminToken derives nothing: {}",
+        lines[at - 1]
+    );
     for formatter in ["for AdminToken", "Debug for", "Display for"] {
-        assert!(!admin.contains(formatter), "AdminToken is not formattable or clonable ({formatter})");
+        assert!(
+            !admin.contains(formatter),
+            "AdminToken is not formattable or clonable ({formatter})"
+        );
     }
 }
 
@@ -377,16 +615,44 @@ async fn ac101_no_participant_wall_host_or_auth_route_accepts_the_admin_token() 
     let bearer = Some(a.token.as_str());
     // The credential routes: create, run it again, every host action, the
     // host's view, the answer.
-    let (status, _) = http(&a.app, Method::POST, "/rooms", bearer, Some(json!({"question_id": "q3"}))).await;
+    let (status, _) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        bearer,
+        Some(json!({"question_id": "q3"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "POST /rooms");
     for (_, path) in room::host_routes() {
         let uri = path.replace("{id}", &room.id);
-        let (status, _) = http(&a.app, Method::POST, &uri, bearer, Some(json!({"question_id": "q3"}))).await;
+        let (status, _) = http(
+            &a.app,
+            Method::POST,
+            &uri,
+            bearer,
+            Some(json!({"question_id": "q3"})),
+        )
+        .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED, "POST {uri}");
     }
-    let (status, _) = http(&a.app, Method::GET, &format!("/rooms/{}/host", room.id), bearer, None).await;
+    let (status, _) = http(
+        &a.app,
+        Method::GET,
+        &format!("/rooms/{}/host", room.id),
+        bearer,
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "GET host");
-    let (status, _) = http(&a.app, Method::PUT, &format!("/rooms/{}/answer", room.id), bearer, Some(json!({"letter": "A"}))).await;
+    let (status, _) = http(
+        &a.app,
+        Method::PUT,
+        &format!("/rooms/{}/answer", room.id),
+        bearer,
+        Some(json!({"letter": "A"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "PUT answer");
     // The public routes: the same bytes with the admin bearer as without.
     for uri in [
@@ -398,7 +664,14 @@ async fn ac101_no_participant_wall_host_or_auth_route_accepts_the_admin_token() 
         "/shared/tokens.css".into(),
         format!("/{}", room.code),
     ] {
-        let with = raw(&a.app, Method::GET, &uri, Some(&format!("Bearer {}", a.token)), None).await;
+        let with = raw(
+            &a.app,
+            Method::GET,
+            &uri,
+            Some(&format!("Bearer {}", a.token)),
+            None,
+        )
+        .await;
         let without = raw(&a.app, Method::GET, &uri, None, None).await;
         assert_eq!(with, without, "GET {uri}");
     }
@@ -411,26 +684,52 @@ async fn ac101_no_participant_wall_host_or_auth_route_accepts_the_admin_token() 
 #[tokio::test]
 async fn ac61_a_pushed_answer_is_reachable_only_through_the_sealed_module() {
     let admin_rs = src("server/admin.rs");
-    for name in ["Revealed", "Witness", "witness", "verified", "correct", "stdout", "vault"] {
+    for name in [
+        "Revealed", "Witness", "witness", "verified", "correct", "stdout", "vault",
+    ] {
         assert!(!admin_rs.contains(name), "admin.rs names {name}");
     }
     let a = admin();
     let planted = planted();
     assert_eq!(push(&a, "planted", &planted).await.0, StatusCode::CREATED);
-    let (status, created) = http(&a.app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": "planted"}))).await;
+    let (status, created) = http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "planted"})),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     let id = created["id"].as_str().unwrap();
     let host = created["host_session"].as_str().unwrap();
     let p = plants();
     for step in [None, Some(HostAction::PutOnScreen)] {
         if let Some(s) = step {
-            http(&a.app, Method::POST, &format!("/rooms/{id}/{}", s.slug()), Some(host), None).await;
+            http(
+                &a.app,
+                Method::POST,
+                &format!("/rooms/{id}/{}", s.slug()),
+                Some(host),
+                None,
+            )
+            .await;
         }
         for (viewer, bearer) in [("wall", None), ("buzzer", None), ("host", Some(host))] {
-            let (_, body) = http(&a.app, Method::GET, &format!("/rooms/{id}/{viewer}"), bearer, None).await;
+            let (_, body) = http(
+                &a.app,
+                Method::GET,
+                &format!("/rooms/{id}/{viewer}"),
+                bearer,
+                None,
+            )
+            .await;
             let text = body.to_string();
             for plant in [&p.correct, &p.receipt, &p.resolving] {
-                assert!(!text.contains(plant.as_str()), "{viewer} before reveal carries a pushed secret");
+                assert!(
+                    !text.contains(plant.as_str()),
+                    "{viewer} before reveal carries a pushed secret"
+                );
             }
         }
     }
@@ -441,7 +740,12 @@ async fn ac61_a_pushed_answer_is_reachable_only_through_the_sealed_module() {
 // --------------------------------------------------------------------------
 
 fn with(pairs: Vec<(String, String)>) -> impl Fn(&str) -> Option<String> {
-    move |name| pairs.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())
+    move |name| {
+        pairs
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+    }
 }
 
 fn stand_in() -> Vec<(String, String)> {
@@ -449,7 +753,16 @@ fn stand_in() -> Vec<(String, String)> {
     // assembled, as in smoke_config.rs.
     let mut env = vec![(["HOST", "DEV", "TOKEN"].join("_"), "a-test-value".into())];
     // T-10: every build needs the four Discord variables too (ids are digits).
-    env.extend(room::config::DISCORD_VARS.iter().map(|v| (v.to_string(), if v.ends_with("SECRET") { "a-test-value".into() } else { "1234".into() })));
+    env.extend(room::config::DISCORD_VARS.iter().map(|v| {
+        (
+            v.to_string(),
+            if v.ends_with("SECRET") {
+                "a-test-value".into()
+            } else {
+                "1234".into()
+            },
+        )
+    }));
     env
 }
 
@@ -502,16 +815,25 @@ fn token_findings(text: &str, live: Option<&str>) -> Vec<String> {
     while let Some(i) = text[from..].find(VAR) {
         let at = from + i;
         from = at + VAR.len();
-        let mut rest = text[from..].trim_start_matches(['"', '\'']).trim_start_matches([' ', '\t']);
-        let Some(after) = rest.strip_prefix(['=', ':']) else { continue };
-        rest = after.trim_start_matches([' ', '\t']).trim_start_matches(['"', '\'']);
+        let mut rest = text[from..]
+            .trim_start_matches(['"', '\''])
+            .trim_start_matches([' ', '\t']);
+        let Some(after) = rest.strip_prefix(['=', ':']) else {
+            continue;
+        };
+        rest = after
+            .trim_start_matches([' ', '\t'])
+            .trim_start_matches(['"', '\'']);
         let value: String = rest
             .chars()
             .take_while(|c| !c.is_whitespace() && !matches!(c, '"' | '\'' | '`' | ',' | ')' | ';'))
             .collect();
         let placeholder = value.starts_with(['$', '<', '‹', '…', '{']);
         if value.chars().count() >= 8 && !placeholder {
-            out.push(format!("{VAR} is given a {}-character value", value.chars().count()));
+            out.push(format!(
+                "{VAR} is given a {}-character value",
+                value.chars().count()
+            ));
         }
     }
     let shape = ["CANARY", "ADMIN", "TOKEN", ""].join("-");
@@ -536,31 +858,53 @@ fn token_findings(text: &str, live: Option<&str>) -> Vec<String> {
 fn ac101_the_repository_holds_no_admin_token() {
     let root = repo();
     let listed = std::process::Command::new("git")
-        .args(["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
+        .args([
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ])
         .current_dir(&root)
         .output()
         .expect("git runs: the scan never passes by not scanning");
-    assert!(listed.status.success(), "git ls-files: {}", String::from_utf8_lossy(&listed.stderr));
+    assert!(
+        listed.status.success(),
+        "git ls-files: {}",
+        String::from_utf8_lossy(&listed.stderr)
+    );
     let live = std::env::var(VAR).ok();
     let mut files = 0;
     let mut hits = Vec::new();
     for name in listed.stdout.split(|b| *b == 0).filter(|n| !n.is_empty()) {
         let rel = String::from_utf8_lossy(name).into_owned();
-        let Ok(bytes) = std::fs::read(root.join(&rel)) else { continue };
-        let Ok(text) = String::from_utf8(bytes) else { continue };
+        let Ok(bytes) = std::fs::read(root.join(&rel)) else {
+            continue;
+        };
+        let Ok(text) = String::from_utf8(bytes) else {
+            continue;
+        };
         files += 1;
         for hit in token_findings(&text, live.as_deref()) {
             hits.push(format!("{rel}: {hit}"));
         }
     }
     assert!(files > 100, "the scan read the repository ({files} files)");
-    assert!(hits.is_empty(), "the repository holds an admin token:\n{}", hits.join("\n"));
+    assert!(
+        hits.is_empty(),
+        "the repository holds an admin token:\n{}",
+        hits.join("\n")
+    );
 }
 
 #[test]
 fn ac101_the_repository_scan_catches_a_plant() {
     let hex: String = token();
-    let plant = format!("{}{}", ["CANARY", "ADMIN", "TOKEN", ""].join("-"), &hex[..16].to_uppercase());
+    let plant = format!(
+        "{}{}",
+        ["CANARY", "ADMIN", "TOKEN", ""].join("-"),
+        &hex[..16].to_uppercase()
+    );
     for leak in [
         format!("{VAR}={hex}"),
         format!("export {VAR}='{hex}'"),
@@ -571,7 +915,10 @@ fn ac101_the_repository_scan_catches_a_plant() {
     ] {
         assert!(!token_findings(&leak, None).is_empty(), "missed: {leak}");
     }
-    assert!(!token_findings(&format!("x {hex} y"), Some(&hex)).is_empty(), "missed the live value");
+    assert!(
+        !token_findings(&format!("x {hex} y"), Some(&hex)).is_empty(),
+        "missed the live value"
+    );
     for fine in [
         format!("{VAR}="),
         format!("{VAR}=\n"),
@@ -594,22 +941,52 @@ fn ac101_the_repository_scan_catches_a_plant() {
 async fn d26_the_club_route_and_the_old_route_are_two_records() {
     let a = admin();
     // The old path is the default club's; a club's path is that club's own.
-    assert_eq!(push(&a, "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "new"}));
-    assert_eq!(push_club(&a, "la", "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "new"}));
-    assert_eq!(push_club(&a, "la", "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "replaced"}));
-    assert_eq!(push_club(&a, "nyc", "q3", &q3_json()).await.1, json!({"id": "q3", "scheduled": "replaced"}), "the old path is nyc's");
+    assert_eq!(
+        push(&a, "q3", &q3_json()).await.1,
+        json!({"id": "q3", "scheduled": "new"})
+    );
+    assert_eq!(
+        push_club(&a, "la", "q3", &q3_json()).await.1,
+        json!({"id": "q3", "scheduled": "new"})
+    );
+    assert_eq!(
+        push_club(&a, "la", "q3", &q3_json()).await.1,
+        json!({"id": "q3", "scheduled": "replaced"})
+    );
+    assert_eq!(
+        push_club(&a, "nyc", "q3", &q3_json()).await.1,
+        json!({"id": "q3", "scheduled": "replaced"}),
+        "the old path is nyc's"
+    );
 }
 
 #[tokio::test]
 async fn d26_the_club_route_is_behind_the_token_and_refuses_a_bad_club_name() {
     let a = admin();
-    for uri in ["/admin/clubs/la/questions/q3", "/admin/clubs/NOPE/questions/q3"] {
+    for uri in [
+        "/admin/clubs/la/questions/q3",
+        "/admin/clubs/NOPE/questions/q3",
+    ] {
         let (status, body) = http(&a.app, Method::PUT, uri, None, Some(q3_json())).await;
-        assert_eq!((status, body), (StatusCode::UNAUTHORIZED, Value::Null), "{uri}: nothing is said before the check");
+        assert_eq!(
+            (status, body),
+            (StatusCode::UNAUTHORIZED, Value::Null),
+            "{uri}: nothing is said before the check"
+        );
     }
     let (status, body) = push_club(&a, "NOPE", "q3", &q3_json()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
-    assert!(!body.to_string().contains("nyc"), "the answer names no club: {body}");
-    let (status, _) = http(&a.app, Method::GET, "/admin/clubs/la/questions/q3", Some(&a.token), None).await;
+    assert!(
+        !body.to_string().contains("nyc"),
+        "the answer names no club: {body}"
+    );
+    let (status, _) = http(
+        &a.app,
+        Method::GET,
+        "/admin/clubs/la/questions/q3",
+        Some(&a.token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
 }

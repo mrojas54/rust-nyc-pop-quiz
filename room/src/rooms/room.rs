@@ -276,7 +276,12 @@ impl Room {
                     let meetup_date = crate::used::meetup_date_in(self.created_at, self.zone);
                     let take_home = {
                         let opened = self.open().expect("release is entered only from reveal");
-                        crate::used::take_home(&self.question_id, meetup_date.clone(), &self.public(), &opened)
+                        crate::used::take_home(
+                            &self.question_id,
+                            meetup_date.clone(),
+                            &self.public(),
+                            &opened,
+                        )
                     };
                     self.parting = Some(Parting {
                         take_home,
@@ -305,8 +310,9 @@ impl Room {
     /// reading was taken just before the lock — cannot revive it, so there are
     /// never two live rooms on one question (GAP-8).
     pub fn ended(&self, now: SystemTime) -> Option<Ended> {
-        self.latched_end
-            .or_else(|| super::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now))
+        self.latched_end.or_else(|| {
+            super::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
+        })
     }
 
     /// GAP-8: whether this room holds `question_id` at `now` against a new
@@ -315,7 +321,10 @@ impl Room {
     /// that ended without release can never release, so it can never put its
     /// answer on `/last` ([`super::AppState::act`] refuses an ended room).
     pub fn holds(&self, club: &ClubSlug, question_id: &str, now: SystemTime) -> bool {
-        &self.club == club && self.question_id == question_id && self.phase() != Phase::Released && self.ended(now).is_none()
+        &self.club == club
+            && self.question_id == question_id
+            && self.phase() != Phase::Released
+            && self.ended(now).is_none()
     }
 
     /// T-11: the last host action (§4.6).

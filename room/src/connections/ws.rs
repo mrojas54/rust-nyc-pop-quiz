@@ -286,7 +286,12 @@ impl Transport {
     }
 
     /// Make `connection` the session's current socket, replacing any other.
-    fn register(&self, room_id: &str, session: SessionId, connection: u64) -> Option<oneshot::Receiver<()>> {
+    fn register(
+        &self,
+        room_id: &str,
+        session: SessionId,
+        connection: u64,
+    ) -> Option<oneshot::Receiver<()>> {
         let (kick, kicked) = oneshot::channel();
         let mut rooms = lock(&self.inner.rooms);
         let channel = rooms.get_mut(room_id)?;
@@ -325,11 +330,13 @@ impl Transport {
                     Attach::Closed => return,
                 };
                 match viewer {
-                    Viewer::Host => match inner.state.with_hosted_room(&room_id, Some(&token), |_| ()) {
-                        Ok(()) => None,
-                        Err(RoomError::NotFound) => return bye(socket, close::ROOM_GONE).await,
-                        Err(_) => return bye(socket, close::UNAUTHORIZED).await,
-                    },
+                    Viewer::Host => {
+                        match inner.state.with_hosted_room(&room_id, Some(&token), |_| ()) {
+                            Ok(()) => None,
+                            Err(RoomError::NotFound) => return bye(socket, close::ROOM_GONE).await,
+                            Err(_) => return bye(socket, close::UNAUTHORIZED).await,
+                        }
+                    }
                     _ => match inner.tokens.resolve(&room_id, &token) {
                         Some(session) => Some(session),
                         None => return bye(socket, close::UNAUTHORIZED).await,
@@ -408,7 +415,10 @@ impl Transport {
         if let (Some(_), true) = (session, broke) {
             // AC-55: only while the room is still running.
             if let Some(phase) = crate::requestlog::running_phase(&inner.state, &room_id) {
-                crate::requestlog::socket_dropped(&room_id, serde_json::to_value(phase).unwrap_or_default());
+                crate::requestlog::socket_dropped(
+                    &room_id,
+                    serde_json::to_value(phase).unwrap_or_default(),
+                );
             }
         }
         if let (Some(session), false) = (session, replaced) {
@@ -535,7 +545,11 @@ pub(crate) async fn notify(request: Request, next: Next) -> Response {
 }
 
 /// Supply the router's default [`Transport`] unless one was layered on.
-pub(crate) async fn provide(State(default): State<Transport>, mut request: Request, next: Next) -> Response {
+pub(crate) async fn provide(
+    State(default): State<Transport>,
+    mut request: Request,
+    next: Next,
+) -> Response {
     if request.extensions().get::<Transport>().is_none() {
         request.extensions_mut().insert(default);
     }
@@ -569,7 +583,8 @@ mod tests {
     #[test]
     fn the_attach_frame_adds_the_session_and_keeps_everything_else() {
         let shared = frame(7, serde_json::json!({"phase": "closed", "code": "ABCDEF"}));
-        let v: serde_json::Value = serde_json::from_str(&with_session(&shared, Some(Letter::B))).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&with_session(&shared, Some(Letter::B))).unwrap();
         assert_eq!(v["t"], "state");
         assert_eq!(v["revision"], 7);
         assert_eq!(v["phase"], "closed");

@@ -23,7 +23,9 @@ pub struct ClubSlug(String);
 impl ClubSlug {
     pub fn parse(raw: &str) -> Option<ClubSlug> {
         let ok = (1..=24).contains(&raw.len())
-            && raw.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            && raw
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
             && !raw.starts_with('-');
         ok.then(|| ClubSlug(raw.to_string()))
     }
@@ -153,15 +155,26 @@ impl Clubs {
     /// `la=123456789012345678:America/Los_Angeles`.
     pub fn parse(default_role: String, extra: Option<&str>) -> Result<Clubs, ClubsError> {
         let mut clubs = Clubs::only_default(default_role).0;
-        for entry in extra.unwrap_or("").split(',').map(str::trim).filter(|e| !e.is_empty()) {
-            let (slug, rest) = entry.split_once('=').ok_or_else(|| ClubsError::Entry(entry.to_string()))?;
-            let (role, zone) = rest.split_once(':').ok_or_else(|| ClubsError::Entry(entry.to_string()))?;
-            let slug = ClubSlug::parse(slug.trim()).ok_or_else(|| ClubsError::Slug(slug.trim().to_string()))?;
+        for entry in extra
+            .unwrap_or("")
+            .split(',')
+            .map(str::trim)
+            .filter(|e| !e.is_empty())
+        {
+            let (slug, rest) = entry
+                .split_once('=')
+                .ok_or_else(|| ClubsError::Entry(entry.to_string()))?;
+            let (role, zone) = rest
+                .split_once(':')
+                .ok_or_else(|| ClubsError::Entry(entry.to_string()))?;
+            let slug = ClubSlug::parse(slug.trim())
+                .ok_or_else(|| ClubsError::Slug(slug.trim().to_string()))?;
             let role = role.trim();
             if role.is_empty() || !role.bytes().all(|b| b.is_ascii_digit()) {
                 return Err(ClubsError::RoleId(slug.to_string()));
             }
-            let zone = Zone::parse(zone.trim()).ok_or_else(|| ClubsError::Zone(slug.to_string()))?;
+            let zone =
+                Zone::parse(zone.trim()).ok_or_else(|| ClubsError::Zone(slug.to_string()))?;
             if clubs.iter().any(|c| c.slug == slug || c.role_id == role) {
                 return Err(ClubsError::Duplicate(slug.to_string()));
             }
@@ -223,13 +236,26 @@ mod tests {
             ("la", ClubsError::Entry("la".into())),
             ("la=222", ClubsError::Entry("la=222".into())),
             ("LA=222:America/Los_Angeles", ClubsError::Slug("LA".into())),
-            ("la=2x2:America/Los_Angeles", ClubsError::RoleId("la".into())),
+            (
+                "la=2x2:America/Los_Angeles",
+                ClubsError::RoleId("la".into()),
+            ),
             ("la=222:Mars/Olympus", ClubsError::Zone("la".into())),
-            ("nyc=222:America/New_York", ClubsError::Duplicate("nyc".into())),
-            ("la=111:America/Los_Angeles", ClubsError::Duplicate("la".into())),
+            (
+                "nyc=222:America/New_York",
+                ClubsError::Duplicate("nyc".into()),
+            ),
+            (
+                "la=111:America/Los_Angeles",
+                ClubsError::Duplicate("la".into()),
+            ),
         ];
         for (input, want) in bad {
-            assert_eq!(Clubs::parse("111".into(), Some(input)).unwrap_err(), want, "{input}");
+            assert_eq!(
+                Clubs::parse("111".into(), Some(input)).unwrap_err(),
+                want,
+                "{input}"
+            );
         }
         let shown = ClubsError::RoleId("la".into()).to_string();
         assert!(!shown.contains("222"));

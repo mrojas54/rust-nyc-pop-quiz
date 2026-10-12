@@ -51,7 +51,8 @@ pub enum CreateRefusal {
 }
 
 /// The create check's answer, when it comes.
-pub type CreateCheck<'a> = Pin<Box<dyn Future<Output = Result<OrganizerId, CreateRefusal>> + Send + 'a>>;
+pub type CreateCheck<'a> =
+    Pin<Box<dyn Future<Output = Result<OrganizerId, CreateRefusal>> + Send + 'a>>;
 
 /// An answer that needs no I/O, as a [`CreateCheck`].
 pub fn decided(answer: Result<OrganizerId, CreateRefusal>) -> CreateCheck<'static> {
@@ -64,7 +65,11 @@ pub trait HostAuth: Send + Sync + 'static {
     ///
     /// `club` is the club the organizer is creating the room for: hosting
     /// needs *that* club's role (AC-103, D-26).
-    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>, club: &'a ClubSlug) -> CreateCheck<'a>;
+    fn authorize_create<'a>(
+        &'a self,
+        bearer: Option<&'a str>,
+        club: &'a ClubSlug,
+    ) -> CreateCheck<'a>;
 
     /// Every other host command, and the host's view of the room.
     fn authorize_host(&self, room: &Room, bearer: Option<&str>) -> Result<(), Denied> {
@@ -79,7 +84,11 @@ pub trait HostAuth: Send + Sync + 'static {
 pub struct DenyAll;
 
 impl HostAuth for DenyAll {
-    fn authorize_create<'a>(&'a self, _bearer: Option<&'a str>, _club: &'a ClubSlug) -> CreateCheck<'a> {
+    fn authorize_create<'a>(
+        &'a self,
+        _bearer: Option<&'a str>,
+        _club: &'a ClubSlug,
+    ) -> CreateCheck<'a> {
         decided(Err(CreateRefusal::Denied))
     }
 }

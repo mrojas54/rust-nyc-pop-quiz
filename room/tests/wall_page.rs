@@ -32,7 +32,13 @@ use tower::ServiceExt;
 async fn get(app: &Router, uri: &str) -> (StatusCode, String, Vec<u8>) {
     let res = app
         .clone()
-        .oneshot(Request::builder().method(Method::GET).uri(uri).body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     let status = res.status();
@@ -41,7 +47,9 @@ async fn get(app: &Router, uri: &str) -> (StatusCode, String, Vec<u8>) {
         .get(header::CONTENT_TYPE)
         .map(|v| v.to_str().unwrap().to_string())
         .unwrap_or_default();
-    let bytes = axum::body::to_bytes(res.into_body(), 4 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), 4 << 20)
+        .await
+        .unwrap();
     (status, ty, bytes.to_vec())
 }
 
@@ -62,8 +70,14 @@ async fn post(app: &Router, uri: &str, bearer: &str, body: Option<Value>) -> (St
     .unwrap();
     let res = app.clone().oneshot(req).await.unwrap();
     let status = res.status();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
-    let json = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let json = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).unwrap()
+    };
     (status, json)
 }
 
@@ -98,7 +112,13 @@ struct Hosted {
 }
 
 async fn create(h: &Harness, question: &str) -> Hosted {
-    let (status, created) = post(&h.app, "/rooms", ORGANIZER, Some(json!({ "question_id": question }))).await;
+    let (status, created) = post(
+        &h.app,
+        "/rooms",
+        ORGANIZER,
+        Some(json!({ "question_id": question })),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     Hosted {
         id: created["id"].as_str().unwrap().into(),
@@ -108,7 +128,13 @@ async fn create(h: &Harness, question: &str) -> Hosted {
 }
 
 async fn command(h: &Harness, room: &Hosted, c: Command) {
-    let (status, body) = post(&h.app, &format!("/rooms/{}/{}", room.id, c.slug()), &room.host, None).await;
+    let (status, body) = post(
+        &h.app,
+        &format!("/rooms/{}/{}", room.id, c.slug()),
+        &room.host,
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{} refused: {body}", c.slug());
 }
 
@@ -130,7 +156,13 @@ fn counts(h: &Harness, room: &Hosted, totals: [u32; 5]) {
     *h.sessions.totals.lock().unwrap() = totals;
     let answered: u32 = totals.iter().sum();
     h.state
-        .set_live_counts(&room.id, LiveCounts { present: answered + 3, answered_live: answered })
+        .set_live_counts(
+            &room.id,
+            LiveCounts {
+                present: answered + 3,
+                answered_live: answered,
+            },
+        )
         .unwrap();
 }
 
@@ -165,14 +197,20 @@ async fn the_wall_page_serves_for_a_room_and_404s_for_none() {
         "/wall/qr.js",
         "/wall/wall.js",
     ] {
-        assert!(html.contains(&format!("\"{asset}\"")), "the page does not load {asset}");
+        assert!(
+            html.contains(&format!("\"{asset}\"")),
+            "the page does not load {asset}"
+        );
         let (status, _, _) = get(&h.app, asset).await;
         assert_eq!(status, StatusCode::OK, "{asset} is linked but not served");
     }
 
     let (status, _, body) = get(&h.app, "/wall/0123456789abcdef0123456789abcdef").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(body.is_empty(), "a 404 says nothing about what exists (AC-70)");
+    assert!(
+        body.is_empty(),
+        "a 404 says nothing about what exists (AC-70)"
+    );
 }
 
 fn content_type_for(name: &str) -> &'static str {
@@ -236,9 +274,19 @@ fn scan_page(phase: Phase, html: &str) {
     let at = format!("the wall page in {phase:?}");
     assert!(!html.contains('✓'), "{at}: carries a ✓");
     assert!(!html.contains("stdout"), "{at}: names stdout");
-    assert!(!html.contains(copy::RECEIPT_HEADING), "{at}: carries the receipt");
-    for line in [copy::RECEIPT_COMPILED, copy::RECEIPT_NOTHING_RAN, copy::RECEIPT_COMPILER_REFUSED] {
-        assert!(!html.contains(line.trim_start_matches("✓ ")), "{at}: receipt line {line}");
+    assert!(
+        !html.contains(copy::RECEIPT_HEADING),
+        "{at}: carries the receipt"
+    );
+    for line in [
+        copy::RECEIPT_COMPILED,
+        copy::RECEIPT_NOTHING_RAN,
+        copy::RECEIPT_COMPILER_REFUSED,
+    ] {
+        assert!(
+            !html.contains(line.trim_start_matches("✓ ")),
+            "{at}: receipt line {line}"
+        );
     }
     for plant in [
         PLANT_RESOLVING_NOTE,
@@ -252,8 +300,19 @@ fn scan_page(phase: Phase, html: &str) {
         assert!(!html.contains(plant), "{at}: carries {plant}");
     }
     // AC-79: nothing on the wall takes input.
-    for control in ["<button", "<input", "<select", "<textarea", "<a ", "onclick", "<form"] {
-        assert!(!html.contains(control), "{at}: has an interactive control ({control})");
+    for control in [
+        "<button",
+        "<input",
+        "<select",
+        "<textarea",
+        "<a ",
+        "onclick",
+        "<form",
+    ] {
+        assert!(
+            !html.contains(control),
+            "{at}: has an interactive control ({control})"
+        );
     }
 }
 
@@ -272,12 +331,21 @@ async fn the_page_is_the_same_bytes_in_every_phase_and_carries_no_answer() {
                 counts(&h, &room, [5, 4, 3, 2, 1]);
             }
             command(&h, &room, Command::Host(action)).await;
-            phases.push(wall_json(&h, &room).await["phase"].as_str().unwrap().to_string());
+            phases.push(
+                wall_json(&h, &room).await["phase"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+            );
             let html = page(&h, &room).await;
             scan_page(Phase::Live, &html);
             assert_eq!(html, first, "the page changed with the phase");
             let wall = wall_json(&h, &room).await;
-            assert_eq!(stdout_rows(&wall), 0, "{question}: wall payload names stdout before reveal");
+            assert_eq!(
+                stdout_rows(&wall),
+                0,
+                "{question}: wall payload names stdout before reveal"
+            );
         }
         // Every step `work` allows: still no stdout, and still the same page.
         loop {
@@ -290,7 +358,11 @@ async fn the_page_is_the_same_bytes_in_every_phase_and_carries_no_answer() {
             )
             .await;
             let wall = wall_json(&h, &room).await;
-            assert_eq!(stdout_rows(&wall), 0, "{question}: a work step names stdout");
+            assert_eq!(
+                stdout_rows(&wall),
+                0,
+                "{question}: a work step names stdout"
+            );
             assert_eq!(page(&h, &room).await, first);
             if status != StatusCode::OK || wall["trace"]["at"] == before {
                 break;
@@ -371,14 +443,18 @@ async fn walk(h: &Harness, totals: [u32; 5]) -> Value {
         )
         .await;
         let wall = stable(wall_json(h, &room).await, &room.code);
-        if status != StatusCode::OK || wall["trace"]["at"] == reveal.last().unwrap()["trace"]["at"] {
+        if status != StatusCode::OK || wall["trace"]["at"] == reveal.last().unwrap()["trace"]["at"]
+        {
             break;
         }
         reveal.push(wall);
     }
     frames.insert("reveal".into(), Value::Array(reveal));
     command(h, &room, Command::Host(HostAction::ReleaseRoom)).await;
-    frames.insert("released".into(), stable(wall_json(h, &room).await, &room.code));
+    frames.insert(
+        "released".into(),
+        stable(wall_json(h, &room).await, &room.code),
+    );
     Value::Object(frames)
 }
 
@@ -415,9 +491,21 @@ async fn the_web_fixtures_are_what_the_room_serves() {
     // it fails in the room's suite too.
     let f = &fixture["frames"];
     let m = f["reveal"][0]["trace"]["m"].as_u64().unwrap();
-    assert_eq!(f["work"].as_array().unwrap().len() as u64, m - 1, "work steps 0..=M-2");
-    assert_eq!(f["reveal"][0]["trace"]["at"].as_u64().unwrap(), m - 1, "reveal enters at M-1");
-    assert_eq!(f["reveal"].as_array().unwrap().len() as u64, m, "reveal steps back through all of it");
+    assert_eq!(
+        f["work"].as_array().unwrap().len() as u64,
+        m - 1,
+        "work steps 0..=M-2"
+    );
+    assert_eq!(
+        f["reveal"][0]["trace"]["at"].as_u64().unwrap(),
+        m - 1,
+        "reveal enters at M-1"
+    );
+    assert_eq!(
+        f["reveal"].as_array().unwrap().len() as u64,
+        m,
+        "reveal steps back through all of it"
+    );
     assert_eq!(f["reveal"][0]["reveal"]["middle"]["letter"], "A");
     assert!(fixture["unanimous"]["frames"]["reveal"][0]["reveal"]["middle"]["letter"].is_null());
 }
@@ -449,7 +537,9 @@ async fn host_fit(h: &Harness, room: &Hosted) -> Value {
         )
         .await
         .unwrap();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
     serde_json::from_slice::<Value>(&bytes).unwrap()["fit"].clone()
 }
 
@@ -458,7 +548,10 @@ async fn the_walls_verdict_becomes_the_hosts_fit_line() {
     let h = harness();
     let room = create(&h, "q3").await;
     command(&h, &room, Command::Host(HostAction::PutOnScreen)).await;
-    assert!(host_fit(&h, &room).await.is_null(), "no verdict before the wall has measured");
+    assert!(
+        host_fit(&h, &room).await.is_null(),
+        "no verdict before the wall has measured"
+    );
 
     for (verdict, line) in [
         ("clipped_y", copy::HOST_FIT_CLIPPED_Y),
@@ -467,20 +560,47 @@ async fn the_walls_verdict_becomes_the_hosts_fit_line() {
         ("fits", copy::HOST_FIT_FITS),
     ] {
         // The wall has no credential, and needs none (§3.4: the wall writes it).
-        assert_eq!(put_fit(&h.app, &room.id, &json!({ "fit": verdict }).to_string()).await, StatusCode::NO_CONTENT);
+        assert_eq!(
+            put_fit(&h.app, &room.id, &json!({ "fit": verdict }).to_string()).await,
+            StatusCode::NO_CONTENT
+        );
         assert_eq!(host_fit(&h, &room).await, line, "{verdict}");
     }
 
     let before = h.state.with_room(&room.id, |r| r.revision()).unwrap();
-    assert_eq!(put_fit(&h.app, &room.id, r#"{"fit":"fits"}"#).await, StatusCode::NO_CONTENT);
-    assert_eq!(h.state.with_room(&room.id, |r| r.revision()).unwrap(), before, "a repeat pushes nothing");
-
-    for bad in [r#"{"fit":"fits the room"}"#, r#"{"fit":"null"}"#, r#"{"fit":"FITS"}"#] {
-        assert_eq!(put_fit(&h.app, &room.id, bad).await, StatusCode::BAD_REQUEST, "{bad}");
-    }
-    assert_eq!(host_fit(&h, &room).await, copy::HOST_FIT_FITS, "a refused verdict changed nothing");
     assert_eq!(
-        put_fit(&h.app, "0123456789abcdef0123456789abcdef", r#"{"fit":"fits"}"#).await,
+        put_fit(&h.app, &room.id, r#"{"fit":"fits"}"#).await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        h.state.with_room(&room.id, |r| r.revision()).unwrap(),
+        before,
+        "a repeat pushes nothing"
+    );
+
+    for bad in [
+        r#"{"fit":"fits the room"}"#,
+        r#"{"fit":"null"}"#,
+        r#"{"fit":"FITS"}"#,
+    ] {
+        assert_eq!(
+            put_fit(&h.app, &room.id, bad).await,
+            StatusCode::BAD_REQUEST,
+            "{bad}"
+        );
+    }
+    assert_eq!(
+        host_fit(&h, &room).await,
+        copy::HOST_FIT_FITS,
+        "a refused verdict changed nothing"
+    );
+    assert_eq!(
+        put_fit(
+            &h.app,
+            "0123456789abcdef0123456789abcdef",
+            r#"{"fit":"fits"}"#
+        )
+        .await,
         StatusCode::NOT_FOUND
     );
 }

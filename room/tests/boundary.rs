@@ -17,7 +17,9 @@ mod common;
 use std::path::PathBuf;
 
 fn src(name: &str) -> String {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src").join(name);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join(name);
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
@@ -61,9 +63,18 @@ fn fns(text: &str) -> Vec<(String, String)> {
             rest = after;
             continue;
         }
-        let name: String = after.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+        let name: String = after
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
         let sig_end = after.find('{').unwrap_or(after.len());
-        out.push((name, after[..sig_end].split_whitespace().collect::<Vec<_>>().join(" ")));
+        out.push((
+            name,
+            after[..sig_end]
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" "),
+        ));
         rest = after;
     }
     out
@@ -100,28 +111,63 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
     let names: Vec<&str> = found.iter().map(|(n, _)| n.as_str()).collect();
     // `seal` puts the secrets in; `judge` returns an opaque Verdict; `open`
     // (the vault's, and the Verdict's) is the only way anything comes out.
-    assert_eq!(names, ["seal", "judge", "open", "open"], "the vault's functions changed");
+    assert_eq!(
+        names,
+        ["seal", "judge", "open", "open"],
+        "the vault's functions changed"
+    );
     for (name, sig) in &found {
         match name.as_str() {
-            "seal" => assert!(sig.starts_with("seal(") && sig.contains("-> Vault"), "{sig}"),
-            "judge" => assert!(sig.ends_with("-> Verdict"), "judge must return the sealed Verdict: {sig}"),
-            "open" => assert!(sig.contains("&RevealWitness<'_>"), "open without a witness: {sig}"),
+            "seal" => assert!(
+                sig.starts_with("seal(") && sig.contains("-> Vault"),
+                "{sig}"
+            ),
+            "judge" => assert!(
+                sig.ends_with("-> Verdict"),
+                "judge must return the sealed Verdict: {sig}"
+            ),
+            "open" => assert!(
+                sig.contains("&RevealWitness<'_>"),
+                "open without a witness: {sig}"
+            ),
             other => panic!("unexpected fn {other} in the vault"),
         }
     }
-    assert!(vault.contains("pub(super) fn seal("), "seal stays private to answers");
+    assert!(
+        vault.contains("pub(super) fn seal("),
+        "seal stays private to answers"
+    );
     // The vault's fields are declared private — no `pub` field anywhere in it.
-    for s in ["pub correct", "pub why_tempting", "pub explains", "pub receipt", "pub trace", "pub how_we_know", "pub middle", "pub(crate)", "pub(super) correct"] {
+    for s in [
+        "pub correct",
+        "pub why_tempting",
+        "pub explains",
+        "pub receipt",
+        "pub trace",
+        "pub how_we_know",
+        "pub middle",
+        "pub(crate)",
+        "pub(super) correct",
+    ] {
         assert!(!vault.contains(s), "vault exposes {s:?}");
     }
     // Declared once, privately.
-    let decls: usize = common::room_sources(&[]).iter().map(|(_, t)| code(t).matches("mod vault").count()).sum();
+    let decls: usize = common::room_sources(&[])
+        .iter()
+        .map(|(_, t)| code(t).matches("mod vault").count())
+        .sum();
     assert_eq!(decls, 1);
     assert!(!answers.contains("pub mod vault"));
     // T-12: take-it-home's reads (every why_tempting, the machine) leave the
     // vault only through `open`, beside the rest of what it lends.
-    let open = block(vault, "pub fn open<'v>(&'v self, _proof: &RevealWitness<'_>)");
-    assert!(open.contains("why_tempting: &self.why_tempting") && open.contains("how_we_know: &self.how_we_know"));
+    let open = block(
+        vault,
+        "pub fn open<'v>(&'v self, _proof: &RevealWitness<'_>)",
+    );
+    assert!(
+        open.contains("why_tempting: &self.why_tempting")
+            && open.contains("how_we_know: &self.how_we_know")
+    );
 }
 
 #[test]
@@ -137,7 +183,9 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
     let everything = common::room_sources(&[]);
     for (file, decl) in sealed_types {
         let text = src(file);
-        let at = text.find(decl).unwrap_or_else(|| panic!("{decl} not in {file}"));
+        let at = text
+            .find(decl)
+            .unwrap_or_else(|| panic!("{decl} not in {file}"));
         // The attributes directly above the declaration.
         // Cut back to the start of the declaration's line: the vault's types
         // are indented, and the indentation is not an attribute.
@@ -196,15 +244,24 @@ fn the_pre_reveal_builders_never_see_the_opened_room() {
     let view = code(&src("models/view.rs"));
     let sealed = block(&view, "mod sealed {");
     for forbidden in ["Opened", ".open(", "Middle", "answers", "Room", "revealed"] {
-        assert!(!sealed.contains(forbidden), "the pre-reveal builders mention {forbidden:?}");
+        assert!(
+            !sealed.contains(forbidden),
+            "the pre-reveal builders mention {forbidden:?}"
+        );
     }
     for (name, sig) in fns(sealed) {
-        assert!(sig.contains("view: PublicView<'_>"), "{name} takes something other than a PublicView: {sig}");
+        assert!(
+            sig.contains("view: PublicView<'_>"),
+            "{name} takes something other than a PublicView: {sig}"
+        );
     }
     // And each projection branches on the witness, not on the phase.
     for p in ["pub fn wall(", "pub fn buzzer(", "pub fn host("] {
         let body = block(&view, p);
-        assert!(body.contains("match room.open()"), "{p} does not branch on room.open()");
+        assert!(
+            body.contains("match room.open()"),
+            "{p} does not branch on room.open()"
+        );
         assert!(body.contains("None => sealed::"), "{p}");
     }
 }
@@ -219,14 +276,23 @@ fn within_rooms_only_open_rs_names_the_sealed_answer_types() {
             continue;
         }
         let code = code(&text);
-        let names_them = ["Revealed", "Middle"].iter().any(|t| code.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| w == *t));
+        let names_them = ["Revealed", "Middle"].iter().any(|t| {
+            code.split(|c: char| !c.is_alphanumeric() && c != '_')
+                .any(|w| w == *t)
+        });
         if name == "rooms/open.rs" {
             seen_in_open = names_them;
         } else {
-            assert!(!names_them, "{name} names Revealed or Middle; only rooms/open.rs may");
+            assert!(
+                !names_them,
+                "{name} names Revealed or Middle; only rooms/open.rs may"
+            );
         }
     }
-    assert!(seen_in_open, "rooms/open.rs no longer names them: the rule has lost its subject");
+    assert!(
+        seen_in_open,
+        "rooms/open.rs no longer names them: the rule has lost its subject"
+    );
 }
 
 #[test]
@@ -235,8 +301,14 @@ fn lifecycle_docs_name_a_reaper_that_exists() {
     // crate-private, so rustdoc cannot link it). Keep those names true.
     let doc = src("rooms/lifecycle.rs");
     let reaper = src("server/reaper.rs");
-    for (name, decl) in [("REAP_EVERY", "pub const REAP_EVERY"), ("spawn_reaper", "pub fn spawn_reaper")] {
-        assert!(doc.contains(&format!("server::reaper::{name}")), "lifecycle.rs no longer mentions {name}");
+    for (name, decl) in [
+        ("REAP_EVERY", "pub const REAP_EVERY"),
+        ("spawn_reaper", "pub fn spawn_reaper"),
+    ] {
+        assert!(
+            doc.contains(&format!("server::reaper::{name}")),
+            "lifecycle.rs no longer mentions {name}"
+        );
         assert!(reaper.contains(decl), "server/reaper.rs lost {decl}");
     }
 }

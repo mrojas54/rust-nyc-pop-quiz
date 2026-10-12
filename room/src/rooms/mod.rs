@@ -65,12 +65,11 @@
 //! }
 //! ```
 
-
 use std::time::Duration;
 
-pub mod lifecycle;
 mod create;
 mod errors;
+pub mod lifecycle;
 mod open;
 mod room;
 mod seams;

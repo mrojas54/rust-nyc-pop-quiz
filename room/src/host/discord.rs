@@ -58,8 +58,8 @@ use serde::Deserialize;
 use subtle::ConstantTimeEq;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
-use crate::club::ClubSlug;
 use crate::auth::{decided, CreateCheck, CreateRefusal, HostAuth, OrganizerId};
+use crate::club::ClubSlug;
 use crate::lifecycle::{Clock, SystemClock};
 
 /// The OAuth2 scopes, exactly SPEC §8's.
@@ -232,7 +232,10 @@ fn random_hex() -> String {
 /// A question id as the host page carries it. Anything else is refused before
 /// it could reach a redirect.
 pub fn is_question_id(id: &str) -> bool {
-    (1..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    (1..=64).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 // --------------------------------------------------------------------------
@@ -266,17 +269,33 @@ pub enum Finish {
     /// Discord did not complete the exchange.
     Unavailable,
     /// Signed in: land on the host page with this session in the fragment.
-    SignedIn { question: String, club: ClubSlug, session: String },
+    SignedIn {
+        question: String,
+        club: ClubSlug,
+        session: String,
+    },
 }
 
 impl Discord {
     /// The binary's backend: real Discord, the default retry budget, the
     /// system clock, standard error.
     pub fn serving(settings: Settings) -> Discord {
-        Discord::new(settings, Endpoints::discord(), Retry::default(), Arc::new(SystemClock), Arc::new(Stderr))
+        Discord::new(
+            settings,
+            Endpoints::discord(),
+            Retry::default(),
+            Arc::new(SystemClock),
+            Arc::new(Stderr),
+        )
     }
 
-    pub fn new(settings: Settings, endpoints: Endpoints, retry: Retry, clock: Arc<dyn Clock>, log: Arc<dyn Log>) -> Discord {
+    pub fn new(
+        settings: Settings,
+        endpoints: Endpoints,
+        retry: Retry,
+        clock: Arc<dyn Clock>,
+        log: Arc<dyn Log>,
+    ) -> Discord {
         Discord {
             inner: Arc::new(Inner {
                 settings,
@@ -302,7 +321,9 @@ impl Discord {
         let state = random_hex();
         {
             let mut store = lock(&inner.store);
-            store.pending.retain(|p| now < p.started_at + SIGN_IN_WINDOW);
+            store
+                .pending
+                .retain(|p| now < p.started_at + SIGN_IN_WINDOW);
             if store.pending.len() >= MAX_PENDING {
                 store.pending.remove(0);
             }
@@ -328,9 +349,17 @@ impl Discord {
     /// The callback. `cookie` is the [`STATE_COOKIE`] the browser sent; it must
     /// equal `state`, and `state` must be a sign-in this backend started and
     /// has not finished. Either way the pending sign-in is spent.
-    pub async fn finish(&self, state: Option<&str>, cookie: Option<&str>, code: Option<&str>, declined: bool) -> Finish {
+    pub async fn finish(
+        &self,
+        state: Option<&str>,
+        cookie: Option<&str>,
+        code: Option<&str>,
+        declined: bool,
+    ) -> Finish {
         let inner = &self.inner;
-        let Some(state) = state else { return Finish::Refused };
+        let Some(state) = state else {
+            return Finish::Refused;
+        };
         let now = inner.clock.now();
         let (question, club) = {
             let mut store = lock(&inner.store);
@@ -359,13 +388,23 @@ impl Discord {
             ("client_id", &s.client_id),
             ("client_secret", s.client_secret.expose()),
         ]);
-        let Ok(r) = inner.call("sign-in exchange", deadline, Req::form(&inner.token_url(), form)).await else {
+        let Ok(r) = inner
+            .call(
+                "sign-in exchange",
+                deadline,
+                Req::form(&inner.token_url(), form),
+            )
+            .await
+        else {
             return Finish::Unavailable;
         };
         let Some(tokens) = (r.status == 200).then(|| r.json::<Tokens>()).flatten() else {
             return Finish::Unavailable;
         };
-        let me = Req::get(&format!("{}/users/@me", inner.endpoints.api), &tokens.access_token);
+        let me = Req::get(
+            &format!("{}/users/@me", inner.endpoints.api),
+            &tokens.access_token,
+        );
         let Ok(r) = inner.call("sign-in user", deadline, me).await else {
             return Finish::Unavailable;
         };
@@ -384,7 +423,9 @@ impl Discord {
                 token_expires_at: now + Duration::from_secs(tokens.expires_in),
             },
         );
-        store.sessions.retain(|x| now < x.issued_at + SESSION_LIFETIME);
+        store
+            .sessions
+            .retain(|x| now < x.issued_at + SESSION_LIFETIME);
         if store.sessions.len() >= MAX_SESSIONS {
             store.sessions.remove(0);
         }
@@ -393,7 +434,11 @@ impl Discord {
             discord_user_id: user.id,
             issued_at: now,
         });
-        Finish::SignedIn { question, club, session }
+        Finish::SignedIn {
+            question,
+            club,
+            session,
+        }
     }
 
     /// How many organizers are signed in on this machine.
@@ -403,7 +448,11 @@ impl Discord {
 }
 
 impl HostAuth for Discord {
-    fn authorize_create<'a>(&'a self, bearer: Option<&'a str>, club: &'a ClubSlug) -> CreateCheck<'a> {
+    fn authorize_create<'a>(
+        &'a self,
+        bearer: Option<&'a str>,
+        club: &'a ClubSlug,
+    ) -> CreateCheck<'a> {
         // Resolving the session needs no I/O: a bearer that names no organizer
         // is refused here, before any task or any call to Discord.
         let Some(user) = bearer.and_then(|b| self.inner.session_user(b)) else {
@@ -414,7 +463,10 @@ impl HostAuth for Discord {
         Box::pin(async move {
             // Its own task: see "Refresh-token rotation" above.
             match tokio::runtime::Handle::try_current() {
-                Ok(rt) => rt.spawn(inner.check(user, club)).await.unwrap_or(Err(CreateRefusal::Unavailable)),
+                Ok(rt) => rt
+                    .spawn(inner.check(user, club))
+                    .await
+                    .unwrap_or(Err(CreateRefusal::Unavailable)),
                 Err(_) => Err(CreateRefusal::Unavailable),
             }
         })
@@ -467,7 +519,10 @@ impl Inner {
     }
 
     fn refresh_lock(&self, user: &str) -> Arc<tokio::sync::Mutex<()>> {
-        lock(&self.refreshing).entry(user.to_string()).or_default().clone()
+        lock(&self.refreshing)
+            .entry(user.to_string())
+            .or_default()
+            .clone()
     }
 
     /// Sign the organizer out: the record and every session naming it.
@@ -492,7 +547,11 @@ impl Inner {
         ))
     }
 
-    async fn check(self: Arc<Self>, user: String, club: ClubSlug) -> Result<OrganizerId, CreateRefusal> {
+    async fn check(
+        self: Arc<Self>,
+        user: String,
+        club: ClubSlug,
+    ) -> Result<OrganizerId, CreateRefusal> {
         let deadline = Instant::now() + self.retry.deadline;
         let refresh = self.refresh_lock(&user);
         let mut refreshed = false;
@@ -521,7 +580,9 @@ impl Inner {
                     // server does not run has no role, and is refused as a
                     // missing one is, so the answer does not say which exist.
                     let wanted = self.settings.clubs.get(&club).map(|c| c.role_id.as_str());
-                    return if wanted.is_some_and(|want| member.roles.iter().any(|role| role == want)) {
+                    return if wanted
+                        .is_some_and(|want| member.roles.iter().any(|role| role == want))
+                    {
                         Ok(organizer)
                     } else {
                         Err(CreateRefusal::WrongRole)
@@ -533,7 +594,10 @@ impl Inner {
                     // or the clock is off): one refresh, unless another check
                     // rotated it meanwhile, then one more try.
                     let _one_at_a_time = refresh.lock().await;
-                    if self.access(&user).is_some_and(|(_, now_access, _)| now_access == access) {
+                    if self
+                        .access(&user)
+                        .is_some_and(|(_, now_access, _)| now_access == access)
+                    {
                         self.refresh(&user, deadline).await?;
                     }
                     refreshed = true;
@@ -570,7 +634,10 @@ impl Inner {
                 let tokens = r.json::<Tokens>().ok_or(CreateRefusal::Unavailable)?;
                 let now = self.clock.now();
                 let mut store = lock(&self.store);
-                let o = store.organizers.get_mut(user).ok_or(CreateRefusal::Denied)?;
+                let o = store
+                    .organizers
+                    .get_mut(user)
+                    .ok_or(CreateRefusal::Denied)?;
                 // The rotation, persisted: the new pair replaces the spent one
                 // in one write, under the lock every reader takes.
                 o.access_token = Secret::new(tokens.access_token);
@@ -578,7 +645,10 @@ impl Inner {
                 o.token_expires_at = now + Duration::from_secs(tokens.expires_in);
                 Ok(())
             }
-            400 | 401 if r.json::<OAuthError>().is_some_and(|e| e.error == "invalid_grant") => {
+            400 | 401
+                if r.json::<OAuthError>()
+                    .is_some_and(|e| e.error == "invalid_grant") =>
+            {
                 self.forget(user);
                 Err(CreateRefusal::Denied)
             }
@@ -594,17 +664,25 @@ impl Inner {
             if left.is_zero() {
                 break;
             }
-            let answer = tokio::time::timeout(self.retry.per_attempt.min(left), self.http.send(&req)).await;
+            let answer =
+                tokio::time::timeout(self.retry.per_attempt.min(left), self.http.send(&req)).await;
             let wait = match answer {
                 Ok(Ok(r)) => {
-                    self.log.line(&format!("discord: {what} {} (try {attempt})", r.status));
+                    self.log
+                        .line(&format!("discord: {what} {} (try {attempt})", r.status));
                     if r.status != 429 && r.status < 500 {
                         return Ok(r);
                     }
-                    if r.status == 429 { r.retry_after() } else { None }.unwrap_or(backoff)
+                    if r.status == 429 {
+                        r.retry_after()
+                    } else {
+                        None
+                    }
+                    .unwrap_or(backoff)
                 }
                 Ok(Err(_)) | Err(_) => {
-                    self.log.line(&format!("discord: {what} no answer (try {attempt})"));
+                    self.log
+                        .line(&format!("discord: {what} no answer (try {attempt})"));
                     backoff
                 }
             };
@@ -716,12 +794,15 @@ struct Client {
 
 impl Client {
     fn new() -> Client {
-        let roots = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .expect("ring supports the default protocol versions")
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+        let roots =
+            rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .expect("ring supports the default protocol versions")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
         config.alpn_protocols = vec![b"http/1.1".to_vec()];
         Client {
             tls: tokio_rustls::TlsConnector::from(Arc::new(config)),
@@ -729,7 +810,8 @@ impl Client {
     }
 
     async fn send(&self, req: &Req) -> std::io::Result<Resp> {
-        let bad = |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidInput, why.to_string());
+        let bad =
+            |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidInput, why.to_string());
         let (tls, rest) = if let Some(r) = req.url.strip_prefix("https://") {
             (true, r)
         } else if let Some(r) = req.url.strip_prefix("http://") {
@@ -757,7 +839,8 @@ impl Client {
         let tcp = tokio::net::TcpStream::connect((host, port)).await?;
         tcp.set_nodelay(true)?;
         let io: Box<dyn Io> = if tls {
-            let name = rustls::pki_types::ServerName::try_from(host.to_string()).map_err(|_| bad("bad host"))?;
+            let name = rustls::pki_types::ServerName::try_from(host.to_string())
+                .map_err(|_| bad("bad host"))?;
             Box::new(self.tls.connect(name, tcp).await?)
         } else {
             Box::new(tcp)
@@ -786,7 +869,8 @@ impl Client {
         w.write_all(body).await?;
         w.flush().await?;
 
-        let proto = |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string());
+        let proto =
+            |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string());
         let mut line = String::new();
         if conn.read_line(&mut line).await? == 0 {
             return Err(proto("closed before a response"));
@@ -808,7 +892,12 @@ impl Client {
                 let v = v.trim();
                 match k.trim().to_ascii_lowercase().as_str() {
                     "transfer-encoding" => chunked = v.to_ascii_lowercase().contains("chunked"),
-                    "content-length" => length = Some(v.parse::<usize>().map_err(|_| proto("bad content-length"))?),
+                    "content-length" => {
+                        length = Some(
+                            v.parse::<usize>()
+                                .map_err(|_| proto("bad content-length"))?,
+                        )
+                    }
                     "retry-after" => retry_after = Some(v.to_string()),
                     _ => {}
                 }
@@ -824,22 +913,33 @@ impl Client {
             body.resize(n, 0);
             conn.read_exact(&mut body).await?;
         } else {
-            (&mut conn).take(MAX_BODY as u64 + 1).read_to_end(&mut body).await?;
+            (&mut conn)
+                .take(MAX_BODY as u64 + 1)
+                .read_to_end(&mut body)
+                .await?;
             if body.len() > MAX_BODY {
                 return Err(proto("body too large"));
             }
         }
-        Ok(Resp { status, retry_after, body })
+        Ok(Resp {
+            status,
+            retry_after,
+            body,
+        })
     }
 }
 
-async fn read_chunked<R: AsyncBufReadExt + Unpin>(r: &mut R, out: &mut Vec<u8>) -> std::io::Result<()> {
+async fn read_chunked<R: AsyncBufReadExt + Unpin>(
+    r: &mut R,
+    out: &mut Vec<u8>,
+) -> std::io::Result<()> {
     let proto = |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string());
     let mut line = String::new();
     loop {
         line.clear();
         r.read_line(&mut line).await?;
-        let size = usize::from_str_radix(line.trim().split(';').next().unwrap_or(""), 16).map_err(|_| proto("bad chunk size"))?;
+        let size = usize::from_str_radix(line.trim().split(';').next().unwrap_or(""), 16)
+            .map_err(|_| proto("bad chunk size"))?;
         if size == 0 {
             loop {
                 line.clear();
@@ -865,8 +965,14 @@ mod tests {
 
     #[test]
     fn encode_leaves_unreserved_alone() {
-        assert_eq!(encode("identify guilds.members.read"), "identify%20guilds.members.read");
-        assert_eq!(encode("http://localhost:3000/auth/discord/callback"), "http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback");
+        assert_eq!(
+            encode("identify guilds.members.read"),
+            "identify%20guilds.members.read"
+        );
+        assert_eq!(
+            encode("http://localhost:3000/auth/discord/callback"),
+            "http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback"
+        );
         assert_eq!(encode("a-b_c.d~e"), "a-b_c.d~e");
     }
 
@@ -882,11 +988,23 @@ mod tests {
 
     #[test]
     fn retry_after_reads_the_header_then_the_body() {
-        let r = Resp { status: 429, retry_after: Some("0.25".into()), body: b"{}".to_vec() };
+        let r = Resp {
+            status: 429,
+            retry_after: Some("0.25".into()),
+            body: b"{}".to_vec(),
+        };
         assert_eq!(r.retry_after(), Some(Duration::from_millis(250)));
-        let r = Resp { status: 429, retry_after: None, body: br#"{"retry_after": 1.5}"#.to_vec() };
+        let r = Resp {
+            status: 429,
+            retry_after: None,
+            body: br#"{"retry_after": 1.5}"#.to_vec(),
+        };
         assert_eq!(r.retry_after(), Some(Duration::from_millis(1500)));
-        let r = Resp { status: 429, retry_after: Some("soon".into()), body: Vec::new() };
+        let r = Resp {
+            status: 429,
+            retry_after: Some("soon".into()),
+            body: Vec::new(),
+        };
         assert_eq!(r.retry_after(), None);
     }
 

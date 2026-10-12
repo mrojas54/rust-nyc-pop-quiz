@@ -37,7 +37,9 @@ fn used() -> Option<RoomError> {
 
 /// `create_room` on `c`'s clock, the error only.
 fn try_create(c: &Clocked, question_id: &str) -> Option<RoomError> {
-    c.state.create_room(Some(ORGANIZER), question_id, c.clock.now()).err()
+    c.state
+        .create_room(Some(ORGANIZER), question_id, c.clock.now())
+        .err()
 }
 
 // --------------------------------------------------------------------------
@@ -52,7 +54,10 @@ fn gap8_a_second_room_on_a_live_question_is_refused_and_last_stays_empty() {
 
     assert_eq!(try_create(&c, "q3"), held());
     assert_eq!(c.state.room_count(), 1, "no room was made");
-    assert!(c.state.take_home().is_none(), "nothing is on /last while the room is live");
+    assert!(
+        c.state.take_home().is_none(),
+        "nothing is on /last while the room is live"
+    );
     assert!(c.state.used().all().is_empty());
 
     // The one room runs to release; only then is there a take-home.
@@ -86,7 +91,10 @@ fn gap8_every_phase_before_release_holds_the_question() {
         let phase = c.state.with_room(&first.id, |r| r.phase()).unwrap();
         assert_eq!(try_create(&c, "q3"), held(), "{phase:?}");
     }
-    assert_eq!(c.state.with_room(&first.id, |r| r.phase()).unwrap(), Phase::Reveal);
+    assert_eq!(
+        c.state.with_room(&first.id, |r| r.phase()).unwrap(),
+        Phase::Reveal
+    );
     assert_eq!(c.state.room_count(), 1);
 }
 
@@ -101,7 +109,12 @@ fn gap8_after_release_the_used_rule_refuses_not_the_hold() {
     c.walk(&first, &TO_REVEAL);
     c.walk(&first, &[HostAction::ReleaseRoom]);
     assert_eq!(try_create(&c, "q3"), used());
-    assert_eq!(c.state.run_again(&first.id, Some(ORGANIZER), "q3", c.clock.now()).err(), used());
+    assert_eq!(
+        c.state
+            .run_again(&first.id, Some(ORGANIZER), "q3", c.clock.now())
+            .err(),
+        used()
+    );
 }
 
 #[test]
@@ -112,7 +125,10 @@ fn gap8_a_room_that_went_quiet_in_idle_holds_nothing() {
     assert_eq!(try_create(&c, "q3"), held(), "a second short of the bound");
     c.advance(Duration::from_secs(1));
     // Not swept yet: the record is still there, and still does not hold.
-    assert_eq!(c.state.with_room(&quiet.id, |r| r.phase()).unwrap(), Phase::Idle);
+    assert_eq!(
+        c.state.with_room(&quiet.id, |r| r.phase()).unwrap(),
+        Phase::Idle
+    );
     c.create("q3");
 }
 
@@ -122,7 +138,10 @@ fn gap8_a_room_that_went_quiet_after_start_holds_nothing() {
     let quiet = c.create("q3");
     c.walk(&quiet, &[HostAction::PutOnScreen, HostAction::CloseAnswers]);
     c.advance(LATER_QUIET);
-    assert_eq!(c.act(&quiet, HostAction::ShowSplit), Err(RoomError::Ended(room::lifecycle::Ended::Inactive)));
+    assert_eq!(
+        c.act(&quiet, HostAction::ShowSplit),
+        Err(RoomError::Ended(room::lifecycle::Ended::Inactive))
+    );
     c.create("q3");
 }
 
@@ -139,10 +158,14 @@ fn gap8_an_ended_room_stays_ended_once_a_new_room_is_let_in() {
     c.create("q3");
     let revive = Command::Host(HostAction::PutOnScreen);
     assert_eq!(
-        c.state.act(&quiet.id, Some(&quiet.host_session), revive, before),
+        c.state
+            .act(&quiet.id, Some(&quiet.host_session), revive, before),
         Err(RoomError::Ended(room::lifecycle::Ended::Inactive))
     );
-    assert_eq!(c.state.with_room(&quiet.id, |r| r.phase()).unwrap(), Phase::Idle);
+    assert_eq!(
+        c.state.with_room(&quiet.id, |r| r.phase()).unwrap(),
+        Phase::Idle
+    );
 }
 
 #[test]
@@ -151,7 +174,9 @@ fn gap8_an_expired_room_holds_nothing() {
     let old = c.create("q3");
     c.advance(ROOM_LIFETIME);
     assert_eq!(
-        c.state.with_room(&old.id, |r| r.ended(c.clock.now())).unwrap(),
+        c.state
+            .with_room(&old.id, |r| r.ended(c.clock.now()))
+            .unwrap(),
         Some(room::lifecycle::Ended::Expired)
     );
     c.create("q3");
@@ -170,9 +195,17 @@ fn gap8_run_it_again_onto_a_held_question_is_refused() {
     let live = c.create("q3");
     c.walk(&live, &[HostAction::PutOnScreen]);
 
-    assert_eq!(c.state.run_again(&source.id, Some(ORGANIZER), "q3", c.clock.now()).err(), held());
+    assert_eq!(
+        c.state
+            .run_again(&source.id, Some(ORGANIZER), "q3", c.clock.now())
+            .err(),
+        held()
+    );
     assert_eq!(c.state.room_count(), 2, "no room was made");
-    assert_eq!(c.state.with_room(&source.id, |r| r.phase()).unwrap(), Phase::Released);
+    assert_eq!(
+        c.state.with_room(&source.id, |r| r.phase()).unwrap(),
+        Phase::Released
+    );
 }
 
 #[test]
@@ -212,8 +245,15 @@ fn gap8_concurrent_creates_on_one_question_make_one_room() {
             .into_iter()
             .map(|t| t.join().unwrap())
             .collect();
-        assert_eq!(results.iter().filter(|r| r.is_none()).count(), 1, "round {round}: {results:?}");
-        assert!(results.iter().all(|r| r.is_none() || *r == held()), "round {round}: {results:?}");
+        assert_eq!(
+            results.iter().filter(|r| r.is_none()).count(),
+            1,
+            "round {round}: {results:?}"
+        );
+        assert!(
+            results.iter().all(|r| r.is_none() || *r == held()),
+            "round {round}: {results:?}"
+        );
         assert_eq!(c.state.room_count(), 1, "round {round}");
     }
 }
@@ -230,46 +270,87 @@ fn gap8_create_for_checks_and_inserts_in_one_critical_section() {
     let src = std::fs::read_to_string(repo().join("room/src/rooms/create.rs")).unwrap();
     let start = src.find("    fn create_for(").expect("create_for");
     let body = &src[start..start + src[start..].find("\n    }\n").expect("end of create_for")];
-    let at = |needle: &str| body.find(needle).unwrap_or_else(|| panic!("create_for lost `{needle}`"));
+    let at = |needle: &str| {
+        body.find(needle)
+            .unwrap_or_else(|| panic!("create_for lost `{needle}`"))
+    };
     let questions = at("lock(&self.questions)");
     let rooms = at("lock(&self.rooms)");
     let hold = at(".holds(club, question_id, now)");
     let ledger = at("self.used.contains(club, question_id)");
     let insert = at("rooms.insert(");
-    assert!(questions < rooms, "questions, then rooms (the order schedule takes)");
-    assert!(rooms < hold && rooms < ledger, "both checks under the rooms lock");
+    assert!(
+        questions < rooms,
+        "questions, then rooms (the order schedule takes)"
+    );
+    assert!(
+        rooms < hold && rooms < ledger,
+        "both checks under the rooms lock"
+    );
     assert!(hold < insert && ledger < insert);
-    assert_eq!(body.matches("lock(&self.rooms)").count(), 1, "one rooms lock, held from check to insert");
+    assert_eq!(
+        body.matches("lock(&self.rooms)").count(),
+        1,
+        "one rooms lock, held from check to insert"
+    );
     assert_eq!(body.matches("lock(&self.questions)").count(), 1);
     let before_insert = &body[..insert];
-    assert!(!before_insert.contains("drop(rooms)"), "rooms is held through the insert");
-    assert!(!before_insert.contains("drop(questions)"), "questions is held through the insert");
-    assert_eq!(body.matches("self.used.contains").count(), 1, "the ledger is checked once, under the lock");
+    assert!(
+        !before_insert.contains("drop(rooms)"),
+        "rooms is held through the insert"
+    );
+    assert!(
+        !before_insert.contains("drop(questions)"),
+        "questions is held through the insert"
+    );
+    assert_eq!(
+        body.matches("self.used.contains").count(),
+        1,
+        "the ledger is checked once, under the lock"
+    );
 }
 
 // --------------------------------------------------------------------------
 // Over HTTP: the refusal reaches the organizer as `reason`.
 // --------------------------------------------------------------------------
 
-async fn call(app: &Router, method: Method, uri: &str, bearer: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
+async fn call(
+    app: &Router,
+    method: Method,
+    uri: &str,
+    bearer: Option<&str>,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
     let mut req = Request::builder().method(method).uri(uri);
     if let Some(b) = bearer {
         req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
     }
     let req = match body {
-        Some(v) => req.header(header::CONTENT_TYPE, "application/json").body(Body::from(v.to_string())),
+        Some(v) => req
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(v.to_string())),
         None => req.body(Body::empty()),
     }
     .unwrap();
     let res = app.clone().oneshot(req).await.unwrap();
     let status = res.status();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
-    let json = serde_json::from_slice(&bytes).unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into()));
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let json = serde_json::from_slice(&bytes)
+        .unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into()));
     (status, json)
 }
 
 async fn post_create(app: &Router, question: &str) -> (StatusCode, Value) {
-    call(app, Method::POST, "/rooms", Some(ORGANIZER), Some(json!({"question_id": question}))).await
+    call(
+        app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": question})),
+    )
+    .await
 }
 
 #[tokio::test]
@@ -278,8 +359,19 @@ async fn gap8_a_second_create_answers_409_with_the_reason_and_last_stays_empty()
     let app = room::router_with(c.state.clone());
     let (status, first) = post_create(&app, "q3").await;
     assert_eq!(status, StatusCode::CREATED, "{first}");
-    let start = format!("/rooms/{}/{}", first["id"].as_str().unwrap(), Command::Host(HostAction::PutOnScreen).slug());
-    let (status, _) = call(&app, Method::POST, &start, first["host_session"].as_str(), None).await;
+    let start = format!(
+        "/rooms/{}/{}",
+        first["id"].as_str().unwrap(),
+        Command::Host(HostAction::PutOnScreen).slug()
+    );
+    let (status, _) = call(
+        &app,
+        Method::POST,
+        &start,
+        first["host_session"].as_str(),
+        None,
+    )
+    .await;
     assert!(status.is_success(), "{status}");
 
     let (status, body) = post_create(&app, "q3").await;
@@ -294,13 +386,23 @@ async fn gap8_a_second_create_answers_409_with_the_reason_and_last_stays_empty()
 
     // And the slot does fill at release, so the check above can tell.
     let host = first["host_session"].as_str();
-    for action in TO_REVEAL[1..].iter().chain([HostAction::ReleaseRoom].iter()) {
-        let uri = format!("/rooms/{}/{}", first["id"].as_str().unwrap(), Command::Host(*action).slug());
+    for action in TO_REVEAL[1..]
+        .iter()
+        .chain([HostAction::ReleaseRoom].iter())
+    {
+        let uri = format!(
+            "/rooms/{}/{}",
+            first["id"].as_str().unwrap(),
+            Command::Host(*action).slug()
+        );
         let (status, body) = call(&app, Method::POST, &uri, host, None).await;
         assert!(status.is_success(), "{action:?}: {status} {body}");
     }
     let (_, last) = call(&app, Method::GET, "/last", None, None).await;
-    assert!(!last.as_str().unwrap().contains(empty), "released: /last carries the question");
+    assert!(
+        !last.as_str().unwrap().contains(empty),
+        "released: /last carries the question"
+    );
 }
 
 #[tokio::test]

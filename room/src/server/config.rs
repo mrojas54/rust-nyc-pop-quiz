@@ -92,7 +92,10 @@ impl Config {
     /// The configuration, from `var(name)`. Pure: no environment, no clock.
     pub fn from_vars(var: impl Fn(&str) -> Option<String>) -> Result<Config, ConfigError> {
         let (bind, port) = match var("PORT") {
-            None => (SocketAddr::from((Ipv4Addr::LOCALHOST, DEFAULT_PORT)), DEFAULT_PORT),
+            None => (
+                SocketAddr::from((Ipv4Addr::LOCALHOST, DEFAULT_PORT)),
+                DEFAULT_PORT,
+            ),
             Some(raw) => match raw.trim().parse::<u16>() {
                 Ok(p) if p != 0 => (SocketAddr::from((Ipv4Addr::UNSPECIFIED, p)), p),
                 _ => return Err(ConfigError::Port(raw)),
@@ -149,9 +152,17 @@ fn public_base(raw: &str) -> Option<String> {
 pub const CLUBS_VAR: &str = "POPQUIZ_CLUBS";
 
 /// The four Discord variables, in the order they are checked.
-pub const DISCORD_VARS: [&str; 4] = ["DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_GUILD_ID", "DISCORD_ROLE_ID"];
+pub const DISCORD_VARS: [&str; 4] = [
+    "DISCORD_CLIENT_ID",
+    "DISCORD_CLIENT_SECRET",
+    "DISCORD_GUILD_ID",
+    "DISCORD_ROLE_ID",
+];
 
-fn discord_settings(var: &impl Fn(&str) -> Option<String>, base: &str) -> Result<crate::discord::Settings, ConfigError> {
+fn discord_settings(
+    var: &impl Fn(&str) -> Option<String>,
+    base: &str,
+) -> Result<crate::discord::Settings, ConfigError> {
     let required = |name: &'static str| {
         var(name)
             .map(|v| v.trim().to_string())
@@ -171,7 +182,8 @@ fn discord_settings(var: &impl Fn(&str) -> Option<String>, base: &str) -> Result
     let client_secret = crate::discord::Secret::new(required(client_secret)?);
     let guild_id = id(guild_id)?;
     let role_id = id(role_id)?;
-    let clubs = crate::club::Clubs::parse(role_id, var(CLUBS_VAR).as_deref()).map_err(ConfigError::Clubs)?;
+    let clubs = crate::club::Clubs::parse(role_id, var(CLUBS_VAR).as_deref())
+        .map_err(ConfigError::Clubs)?;
     Ok(crate::discord::Settings {
         client_id,
         client_secret,
