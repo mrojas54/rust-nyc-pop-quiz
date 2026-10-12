@@ -234,7 +234,7 @@
         "affirmed_digest": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$",
-          "description": "The text the organizer affirmed, as a digest written by popquiz.review affirm (GAP-24). An edit clears it, and a record whose text no longer matches is not affirmed. Absent on an affirmation made before the review surface existed (q3), which is read as legacy."
+          "description": "The text the organizer affirmed, as a digest written by popquiz.review affirm (GAP-24). An edit clears it, and a record whose text no longer matches is not affirmed. An affirmation without it (q3's, made before the review surface existed) is unbound and counts nowhere until an organizer affirms again (client ruling on PQ-23, 2026-10-12)."
         },
         "quotes_checked": {
           "type": "array",
