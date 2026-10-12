@@ -66,21 +66,7 @@
 //! ```
 
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::{Duration, SystemTime};
-
-use serde::Serialize;
-use subtle::ConstantTimeEq;
-
-use crate::answers::{Middle, Revealed, Scheduled, Verdict};
-use crate::auth::{CreateRefusal, Denied, HostAuth, OrganizerId};
-use crate::club::{ClubSlug, Clubs, Zone};
-use crate::copy;
-use crate::lifecycle::{Clock, Ended, SystemClock, ENDED_MEMORY};
-use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
-use crate::question::PublicQuestion;
-use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
+use std::time::Duration;
 
 mod create;
 mod errors;
@@ -89,13 +75,11 @@ mod room;
 mod seams;
 mod state;
 
-use create::{hex, random_bytes};
 pub use create::{new_code, Created};
 pub use errors::{AnswerError, Joined, RoomError, Scheduling};
 pub use open::{Opened, PublicView};
 pub use room::{Acted, Fit, Room, Urls};
 pub use seams::{CloseSnapshot, LiveCounts, NoSessions, Sessions};
-use state::{lock, Entry};
 pub use state::AppState;
 
 /// Per-option counts, A–E in arrival order. The only answer data a room holds

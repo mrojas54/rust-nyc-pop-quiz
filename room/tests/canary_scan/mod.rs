@@ -446,22 +446,31 @@ fn routes_rs() -> String {
     crate::common::routes_source()
 }
 
+/// The `.route(` calls of one route file, each the text up to the next call in
+/// that file or the file's end.
+fn route_calls(file: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut rest = file;
+    while let Some(at) = rest.find(".route(") {
+        rest = &rest[at + ".route(".len()..];
+        let call_end = rest.find(".route(").unwrap_or(rest.len());
+        out.push(&rest[..call_end]);
+    }
+    out
+}
+
 /// Every route `server/routes/` registers, read from its source: each
 /// `.route(` literal (or `format!` over the three viewers, or the host-action
 /// family `room::host_routes()` returns) with the method handler it names.
 /// A route added there joins this list whether or not the canary knows it, and
 /// [`assert_every_route_is_scanned`] then fails. Textual, and scoped to that
-/// directory (joined by `common::routes_source`): a router `merge`d or
+/// directory (read file by file by `common::route_files`): a router `merge`d or
 /// `nest`ed from elsewhere would escape it, so a split router must extend this
-/// walk.
+/// walk. Each file is parsed on its own.
 pub fn route_table() -> BTreeSet<Route> {
-    let src = routes_rs();
+    let files = crate::common::route_files();
     let mut out = BTreeSet::new();
-    let mut rest = src.as_str();
-    while let Some(at) = rest.find(".route(") {
-        rest = &rest[at + ".route(".len()..];
-        let call_end = rest.find(".route(").unwrap_or(rest.len());
-        let call = &rest[..call_end];
+    for call in files.iter().flat_map(|(_, text)| route_calls(text)) {
         let trimmed = call.trim_start();
         // T-25: `any(` is the admin prefix's one entry point.
         let method = ["get(", "post(", "put(", "axum::routing::put(", "axum::routing::get(", "axum::routing::any("]

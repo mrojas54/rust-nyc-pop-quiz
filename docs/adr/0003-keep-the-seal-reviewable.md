@@ -53,6 +53,10 @@ rewritten scan.
 module, not 1,266 lines. A new file in `rooms/` that opens a question, or
 assigns a machine, fails a test instead of passing review by luck.
 
+**Imports are explicit.** Each `rooms/` file lists its own `use` lines, and
+`rooms/mod.rs` holds only `mod` and `pub use`, so a reader (or a textual scan)
+can see which file names the sealed types (`Revealed`, `Middle`).
+
 **Harder / accepted:** `pub(super)` is the price of a sibling file. A future
 file in `rooms/` can read a `Room` field; the scans, not the compiler, stop it
 from writing the machine or opening the vault.

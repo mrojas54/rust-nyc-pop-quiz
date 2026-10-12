@@ -1,6 +1,21 @@
 //! The room record and the writes the phase machine drives.
 
-use super::*;
+use std::sync::Arc;
+use std::time::SystemTime;
+
+use serde::Serialize;
+use subtle::ConstantTimeEq;
+
+use crate::answers::{Scheduled, Verdict};
+use crate::club::{ClubSlug, Zone};
+use crate::copy;
+use crate::lifecycle::Ended;
+use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
+use crate::auth::OrganizerId;
+use crate::used::TakeHome;
+
+use super::create::{hex, random_bytes};
+use super::{CloseSnapshot, LiveCounts, Totals, ROOM_LIFETIME};
 
 /// The wall's measured verdict after refit (§5.2, AC-100). Written by the wall
 /// (T-05 adds its route); read by the host's fit line.

@@ -270,19 +270,12 @@ async fn ac66_an_access_token_refused_early_is_refreshed_once() {
 // AC-67: participants never authenticate.
 // --------------------------------------------------------------------------
 
-fn block<'a>(src: &'a str, open: &str, close: &str) -> &'a str {
-    let start = src.find(open).unwrap_or_else(|| panic!("{open} in routes.rs"));
-    let end = start + src[start..].find(close).unwrap_or_else(|| panic!("{close} in routes.rs"));
-    &src[start..end]
-}
-
 #[test]
 fn ac67_no_participant_route_touches_the_auth_module() {
     let routes = common::routes_source();
-    let mut participant = vec![
-        ("routes.rs T-04b", block(&routes, "// T-04b routes", "// end T-04b routes").to_string()),
-        ("routes.rs T-06", block(&routes, "// T-06 pages", "// end T-06 pages").to_string()),
-    ];
+    // The participant surface is the whole of `connections.rs`, not marker blocks in it.
+    let connections = common::route_files().into_iter().find(|(n, _)| n == "connections.rs").expect("connections.rs").1;
+    let mut participant = vec![("server/routes/connections.rs", connections)];
     for f in ["room/src/connections/sessions.rs", "web/buzzer/buzzer.js", "web/buzzer/index.html"] {
         participant.push((f, std::fs::read_to_string(repo().join(f)).unwrap()));
     }

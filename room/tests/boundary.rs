@@ -12,6 +12,8 @@
 //! means to. The compiler checks the part that matters — field privacy — and
 //! this checks that nobody has quietly built a way around it.
 
+mod common;
+
 use std::path::PathBuf;
 
 fn src(name: &str) -> String {
@@ -20,25 +22,7 @@ fn src(name: &str) -> String {
 }
 
 fn all_sources() -> Vec<(String, String)> {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
-    let mut out = Vec::new();
-    let mut stack = vec![dir];
-    while let Some(d) = stack.pop() {
-        for entry in std::fs::read_dir(&d).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().is_some_and(|e| e == "rs") {
-                let name = path.strip_prefix(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src"))
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned();
-                out.push((name, std::fs::read_to_string(&path).unwrap()));
-            }
-        }
-    }
-    assert!(out.len() >= 8, "found {} source files", out.len());
-    out
+    common::room_sources(&[])
 }
 
 /// The code of a file with comment lines removed (doc comments hold the
