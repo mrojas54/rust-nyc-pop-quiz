@@ -84,6 +84,7 @@ use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
 
 mod create;
 mod errors;
+mod open;
 mod room;
 mod seams;
 mod state;
@@ -91,7 +92,8 @@ mod state;
 use create::{hex, random_bytes};
 pub use create::{new_code, Created};
 pub use errors::{AnswerError, Joined, RoomError, Scheduling};
-pub use room::{Acted, Fit, Opened, PublicView, Room, Urls};
+pub use open::{Opened, PublicView};
+pub use room::{Acted, Fit, Room, Urls};
 pub use seams::{CloseSnapshot, LiveCounts, NoSessions, Sessions};
 use state::{lock, Entry};
 pub use state::AppState;
