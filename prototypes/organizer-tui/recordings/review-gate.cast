@@ -1,4 +1,4 @@
-{"version":3,"term":{"cols":110,"rows":36},"timestamp":1791834639,"idle_time_limit":3.0,"command":"/usr/bin/python3 /private/tmp/claude-501/-Users-michellerojas-rust-nyc-pop-quiz-worktrees-organizer-review-affirm/81b63042-091a-4554-8f71-36eebe12b347/scratchpad/validate/drive.py","title":"Review gate walk-through on fixtures (PQ-23)","env":{"SHELL":"/bin/zsh"}}
+{"version":3,"term":{"cols":110,"rows":36},"timestamp":1791834639,"idle_time_limit":3.0,"command":"python3 prototypes/organizer-tui/recordings/review-gate-drive.py","title":"Review gate walk-through on fixtures (PQ-23)","env":{"SHELL":"/bin/zsh"}}
 [0.261, "o", "\u001b[2J\u001b[HPQ-23 validation: the review gate on a temp copy of the fixtures\r\r\nbank: /tmp/pq23-validate-nhtsrsa3/bank\r\r\nNothing here touches bank/questions/.\r\r\n\r\r\nq4: status=None affirmation=none affirmed_by=None\r\r\nq3: status=accepted affirmation=unbound affirmed_by=fixture-organizer\r\r\n"]
 [2.501, "o", "\u001b[2J\u001b[H1. Accept q4, then try to affirm with no organizer name set.\r\r\n"]
 [2.542, "o", "\u001b[?1049h"]
