@@ -1,7 +1,7 @@
 //! AC-61's in-crate half: the seal, as the source states it.
 //!
-//! The `compile_fail` doctests in `src/phase.rs`, `src/answers.rs` and
-//! `src/rooms.rs` prove the boundary as another crate sees it — each paired
+//! The `compile_fail` doctests in `src/models/phase.rs`, `src/models/answers.rs` and
+//! `src/rooms/mod.rs` prove the boundary as another crate sees it — each paired
 //! with a twin that compiles and differs only in the forbidden line, so each
 //! can fail for one reason only. What a doctest cannot see is a hole opened
 //! *inside* the crate: a `pub(crate)` constructor for the witness, a second
@@ -98,23 +98,23 @@ fn unsafe_is_forbidden_crate_wide() {
 fn the_witness_is_built_in_one_place() {
     for (name, text) in all_sources() {
         let hits = code(&text).matches("RevealWitness {").count();
-        if name == "phase.rs" {
+        if name == "models/phase.rs" {
             // The struct definition, and the one construction in `revealed()`.
-            assert_eq!(hits, 1, "phase.rs builds RevealWitness {hits} times");
+            assert_eq!(hits, 1, "models/phase.rs builds RevealWitness {hits} times");
             assert_eq!(code(&text).matches("RevealWitness<'m> {").count(), 1);
         } else {
             assert_eq!(hits, 0, "{name} builds a RevealWitness");
         }
     }
     // And the one construction is inside `revealed`, under `Phase::Reveal`.
-    let phase = code(&src("phase.rs"));
+    let phase = code(&src("models/phase.rs"));
     let revealed = block(&phase, "pub fn revealed(&self)");
     assert!(revealed.contains("Phase::Reveal => Some(RevealWitness {"));
 }
 
 #[test]
 fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness() {
-    let answers = code(&src("answers.rs"));
+    let answers = code(&src("models/answers.rs"));
     let vault = block(&answers, "mod vault {");
     let found = fns(vault);
     let names: Vec<&str> = found.iter().map(|(n, _)| n.as_str()).collect();
@@ -147,12 +147,12 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
 #[test]
 fn nothing_sealed_can_be_printed_copied_or_serialized() {
     let sealed_types = [
-        ("answers.rs", "pub struct Vault"),
-        ("answers.rs", "pub struct Verdict"),
-        ("answers.rs", "pub struct Scheduled"),
-        ("rooms.rs", "pub struct Room "),
-        ("rooms.rs", "struct Frozen"),
-        ("rooms.rs", "pub struct Opened"),
+        ("models/answers.rs", "pub struct Vault"),
+        ("models/answers.rs", "pub struct Verdict"),
+        ("models/answers.rs", "pub struct Scheduled"),
+        ("rooms/room.rs", "pub struct Room "),
+        ("rooms/room.rs", "struct Frozen"),
+        ("rooms/open.rs", "pub struct Opened"),
     ];
     for (file, decl) in sealed_types {
         let text = src(file);
@@ -186,20 +186,20 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
 fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
     for (name, text) in all_sources() {
         let code = code(&text);
-        if name != "answers.rs" {
+        if name != "models/answers.rs" {
             assert!(!code.contains(".vault"), "{name} reaches into the vault");
             assert!(!code.contains("Vault::"), "{name} names the vault");
         }
-        if name != "rooms.rs" {
+        if name != "rooms/open.rs" {
             assert!(!code.contains(".question.open("), "{name} opens a question");
         }
         // phase.rs binds a local `machine` inside `apply`, which is the machine.
-        if name != "rooms.rs" && name != "phase.rs" {
+        if name != "rooms/room.rs" && name != "models/phase.rs" {
             assert!(!code.contains("machine ="), "{name} assigns a machine");
         }
     }
-    // In rooms.rs, `machine` is assigned once — in `act`, from `apply`.
-    let rooms = code(&src("rooms.rs"));
+    // In rooms/room.rs, `machine` is assigned once — in `act`, from `apply`.
+    let rooms = code(&src("rooms/room.rs"));
     assert_eq!(rooms.matches("self.machine =").count(), 1);
     let act = block(&rooms, "pub fn act(");
     assert!(act.contains("apply(State::Room(self.machine.clone()), command)?"));
@@ -212,7 +212,7 @@ fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
 
 #[test]
 fn the_pre_reveal_builders_never_see_the_opened_room() {
-    let view = code(&src("view.rs"));
+    let view = code(&src("models/view.rs"));
     let sealed = block(&view, "mod sealed {");
     for forbidden in ["Opened", ".open(", "Middle", "answers", "Room", "revealed"] {
         assert!(!sealed.contains(forbidden), "the pre-reveal builders mention {forbidden:?}");

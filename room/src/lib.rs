@@ -1,6 +1,9 @@
 //! The live room: one meetup, one question, seven phases.
 //!
-//! The modules are the ones `BUILDPLAN.md` §2 names:
+//! The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
+//! them: [`host`] (the organizer), [`connections`] (the audience's sockets and
+//! sessions), [`models`] (the data) and [`server`] (config, routes, admin). Each is also reachable at the crate
+//! root, so `room::phase` and `room::models::phase` are the same module.
 //!
 //! - [`phase`] — the machine: `idle → … → released`, host actions only, no
 //!   skipping, `trace_step` (G-6). Consumed by everything in M1.
@@ -11,6 +14,8 @@
 //! - [`question`] — the public half of a question.
 //! - [`rooms`] — the room record (§3.4) and the seams for sessions (T-04b) and
 //!   the socket (T-04c).
+//!   - `rooms/create` — the one path that makes a room: *Create a room* and
+//!     *Run it again*, ending at one maker (G-9, GAP-8, G-10).
 //! - [`sessions`] — participant sessions and the answer store (T-04b).
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`auth`] — the `HostAuth` seam (G-9): the one create check.
@@ -42,25 +47,21 @@ use std::sync::Arc;
 
 use axum::Router;
 
-pub mod admin;
-pub mod answers;
-pub mod auth;
-pub mod club;
-pub mod config;
+pub mod connections;
 pub mod copy;
-pub mod discord;
-pub mod lifecycle;
-pub mod phase;
-pub mod question;
-pub mod requestlog;
+pub mod host;
+pub mod models;
 pub mod rooms;
-mod routes;
-pub mod sessions;
-pub mod used;
-pub mod view;
-pub mod ws;
+pub mod server;
 
-pub use routes::host_routes;
+// The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
+pub use connections::{requestlog, sessions, ws};
+pub use host::{auth, discord};
+pub use server::{admin, config, lifecycle};
+use server::routes;
+pub use models::{answers, club, phase, question, used, view};
+
+pub use server::routes::host_routes;
 
 /// The state the binary serves: *Create a room* authorized by Discord (T-10),
 /// which also signs organizers in, and nothing scheduled — questions arrive

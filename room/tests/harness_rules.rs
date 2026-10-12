@@ -1,6 +1,6 @@
 //! What `burst` and `smoke` refuse before they touch a room, and what they
 //! say when a room refuses them (PQ-41, PQ-65). The rules are in
-//! `src/bin/room_client.rs` and each binary's `guard`; the room's own refusals
+//! `src/cli/room_client.rs` and each binary's `guard`; the room's own refusals
 //! come from the real router, in process, with no network.
 //!
 //! Behind the `burst` feature, like the binaries it includes (their TLS client
@@ -11,13 +11,13 @@
 
 mod common;
 
-#[path = "../src/bin/burst.rs"]
+#[path = "../src/cli/burst.rs"]
 #[allow(dead_code)]
 mod burst;
-#[path = "../src/bin/smoke.rs"]
+#[path = "../src/cli/smoke.rs"]
 #[allow(dead_code)]
 mod smoke;
-#[path = "../src/bin/room_client.rs"]
+#[path = "../src/cli/room_client.rs"]
 #[allow(dead_code)]
 mod client;
 

@@ -185,7 +185,7 @@ async fn ac65_the_role_id_is_compared_whole() {
 
 #[test]
 fn ac65_the_member_record_is_read_for_roles_alone() {
-    let src = std::fs::read_to_string(repo().join("room/src/discord.rs")).unwrap();
+    let src = std::fs::read_to_string(repo().join("room/src/host/discord.rs")).unwrap();
     let code: Vec<&str> = src.lines().filter(|l| !l.trim_start().starts_with("//")).collect();
     let start = code.iter().position(|l| l.contains("struct Member {")).expect("the member struct");
     let end = start + code[start..].iter().position(|l| l.trim() == "}").unwrap();
@@ -278,12 +278,12 @@ fn block<'a>(src: &'a str, open: &str, close: &str) -> &'a str {
 
 #[test]
 fn ac67_no_participant_route_touches_the_auth_module() {
-    let routes = std::fs::read_to_string(repo().join("room/src/routes.rs")).unwrap();
+    let routes = common::routes_source();
     let mut participant = vec![
         ("routes.rs T-04b", block(&routes, "// T-04b routes", "// end T-04b routes").to_string()),
         ("routes.rs T-06", block(&routes, "// T-06 pages", "// end T-06 pages").to_string()),
     ];
-    for f in ["room/src/sessions.rs", "web/buzzer/buzzer.js", "web/buzzer/index.html"] {
+    for f in ["room/src/connections/sessions.rs", "web/buzzer/buzzer.js", "web/buzzer/index.html"] {
         participant.push((f, std::fs::read_to_string(repo().join(f)).unwrap()));
     }
     let touches = ["auth::", "discord", "HostAuth", "authorize_create", "authorize_host", "with_hosted_room", "/auth/", "organizer"];
@@ -529,7 +529,7 @@ async fn sign_in_redirects_with_both_scopes_and_the_public_redirect_uri() {
     assert_eq!(cookie, format!("pq_oauth={state}"));
     // routes.rs registers the callback by literal (the canary reads literals);
     // it must be the path the redirect URI names.
-    let routes = std::fs::read_to_string(repo().join("room/src/routes.rs")).unwrap();
+    let routes = common::routes_source();
     assert!(routes.contains(&format!(".route(\"{}\"", room::discord::CALLBACK_PATH)));
     let set_cookie = r.header("set-cookie").unwrap();
     for attr in ["HttpOnly", "SameSite=Lax", "Path=/auth/discord", "Max-Age=600"] {

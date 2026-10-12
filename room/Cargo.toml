@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 description = "The live room: one meetup, one question, seven phases."
 
-# Bins are listed explicitly rather than discovered, so that `src/bin/` can hold
+# Bins are listed explicitly rather than discovered, so that `src/cli/` can hold
 # a shared module (`spike_shared.rs`) that is not itself a binary. The answer
 # fingerprint in it is computed on both sides of the wire; a second copy that
 # could drift would quietly weaken the AC-52 check into an aggregate one.
@@ -18,7 +18,7 @@ autobins = false
 
 [[bin]]
 name = "room"
-path = "src/main.rs"
+path = "src/server/main.rs"
 
 # --- The T-03 burst spike. Throwaway, frozen; both bins are gated off. --------
 #
@@ -33,12 +33,12 @@ path = "src/main.rs"
 
 [[bin]]
 name = "spike-server"
-path = "src/bin/spike-server.rs"
+path = "src/cli/spike-server.rs"
 required-features = ["spike"]
 
 [[bin]]
 name = "spike-burst"
-path = "src/bin/spike-burst.rs"
+path = "src/cli/spike-burst.rs"
 required-features = ["spike"]
 
 # --- T-09: the deployed room's end-to-end check. ------------------------------
@@ -49,18 +49,18 @@ required-features = ["spike"]
 
 [[bin]]
 name = "smoke"
-path = "src/bin/smoke.rs"
+path = "src/cli/smoke.rs"
 required-features = ["smoke"]
 
 # --- T-21: the room under load (`just burst <url>`). ---------------------------
 #
-# Smoke's client (`src/bin/room_client.rs`, shared) with the spike's
-# measurement (`src/bin/burst_report.rs`, which `tests/burst_report.rs` checks
+# Smoke's client (`src/cli/room_client.rs`, shared) with the spike's
+# measurement (`src/cli/burst_report.rs`, which `tests/burst_report.rs` checks
 # inside `just test` — it is pure, so it needs no feature). Gated like smoke.
 
 [[bin]]
 name = "burst"
-path = "src/bin/burst.rs"
+path = "src/cli/burst.rs"
 required-features = ["burst"]
 
 # The in-process room that `test-full` points burst and smoke at (T-21): the

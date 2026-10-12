@@ -396,8 +396,22 @@ fn ac57_no_participant_identity_in_any_record() {
         "user_agent", "ip_addr", "remote_addr", "score", "scores", "leaderboard", "history", "streak",
     ];
     let dir = common::repo().join("room/src");
-    for entry in std::fs::read_dir(&dir).unwrap() {
-        let path = entry.unwrap().path();
+    let mut files = Vec::new();
+    let mut dirs = vec![dir.clone()];
+    while let Some(d) = dirs.pop() {
+        for entry in std::fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                // `cli/` holds the clients, as `bin/` did; this scan never read them.
+                if path.file_name().is_none_or(|n| n != "cli") {
+                    dirs.push(path);
+                }
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    for path in files {
         if path.extension().and_then(|e| e.to_str()) != Some("rs") {
             continue;
         }
