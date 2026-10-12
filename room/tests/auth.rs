@@ -270,32 +270,52 @@ async fn ac65_the_role_id_is_compared_whole() {
 
 #[test]
 fn ac65_the_member_record_is_read_for_roles_alone() {
-    let src = std::fs::read_to_string(repo().join("room/src/host/discord.rs")).unwrap();
-    let code: Vec<&str> = src
-        .lines()
-        .filter(|l| !l.trim_start().starts_with("//"))
+    // Every file of the Discord module (ADR-0004: walk, do not name one file).
+    let dir = repo().join("room/src/host/discord");
+    let mut files: Vec<(String, String)> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "rs"))
+        .map(|p| {
+            let name = p.file_name().unwrap().to_string_lossy().into_owned();
+            (name, std::fs::read_to_string(&p).unwrap())
+        })
         .collect();
-    let start = code
-        .iter()
-        .position(|l| l.contains("struct Member {"))
-        .expect("the member struct");
-    let end = start + code[start..].iter().position(|l| l.trim() == "}").unwrap();
-    let fields: Vec<&str> = code[start + 1..end]
-        .iter()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
-    assert_eq!(
-        fields,
-        ["roles: Vec<String>,"],
-        "the member record keeps roles and nothing else"
-    );
-    for word in ["permissions", "is_owner", "owner_id", "\"name\""] {
+    files.sort();
+    for want in ["mod.rs"] {
         assert!(
-            !code.iter().any(|l| l.contains(word)),
-            "discord.rs code reads {word}"
+            files.iter().any(|(n, _)| n == want),
+            "the walk found no host/discord/{want}"
         );
     }
+    let mut members = 0;
+    for (name, src) in &files {
+        let code: Vec<&str> = src
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect();
+        if let Some(start) = code.iter().position(|l| l.contains("struct Member {")) {
+            members += 1;
+            let end = start + code[start..].iter().position(|l| l.trim() == "}").unwrap();
+            let fields: Vec<&str> = code[start + 1..end]
+                .iter()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
+            assert_eq!(
+                fields,
+                ["roles: Vec<String>,"],
+                "the member record keeps roles and nothing else"
+            );
+        }
+        for word in ["permissions", "is_owner", "owner_id", "\"name\""] {
+            assert!(
+                !code.iter().any(|l| l.contains(word)),
+                "host/discord/{name} code reads {word}"
+            );
+        }
+    }
+    assert_eq!(members, 1, "exactly one member struct");
 }
 
 // --------------------------------------------------------------------------
