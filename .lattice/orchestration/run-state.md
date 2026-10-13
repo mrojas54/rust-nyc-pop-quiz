@@ -14,6 +14,14 @@ Opened 2026-09-20. Phase 0 approved by the client the same day. Phase 0 record:
 - **Still the client's:** F-52; F-46, F-48; F-54…F-58; releasing held tickets; the Fly deploy (v11 = `1263add`, twenty merges behind); worktree cleanup (`guardrail-audit`, `organizer-runbook`, `schedule-sync`, `bank-round-two`, `validate-main`, `validate-final` and older).
 - **Sandbox facts for the next seat:** the c11 socket, `gh`, `git fetch`/`push` over ssh, signed `git commit` (1Password) and writes into `…-worktrees/` all need the per-command bypass. `lattice` and `.lattice/` edits work inside the sandbox; `lattice comment` takes `--actor` as a literal flag (zsh does not word-split an unquoted `$A`). Use `/usr/bin/python3` (pyenv's is x86_64). The `prefer-rg-fd` hook denies `grep`/`head`/`cat`/`sed -n` (use `rg`, the Read tool, or append `# no-search-guard`).
 
+## Status check — 2026-10-12 ~22:5x EDT — PQ-23 DONE (PR #80 `19a50fb`, nits 1–2 PR #81 `26cccc0`); follow-ups minted to backlog
+
+- Main at `26cccc0`: CI + deploy green. PQ-23 and PQ-71 both done; `panel:43` (PQ-23 delegator) closed on the client's word; `panel:44` already gone.
+- PQ-23's board files (task, events, review/validation/PR artifacts) committed in a board commit.
+- Minted, backlog only, not dispatched: **PQ-72** (PQ-23 nits 3–5), **PQ-73** (PQ-71 deferred: stale `discord.rs` mentions, host_page.rs imports, rustdoc warnings), **PQ-74…PQ-77** (ADR-0005 items 6–9: target layout, `room/`→`popquiz/`, `nyc`→`rustnyc`, room uses only affirmed questions). PQ-74 depends on PQ-73; PQ-75 on PQ-74.
+- Still the client's: re-affirm q3 (`uv run python -m popquiz.review affirm q3 --bank bank --by NAME`); nyc reserve reads 0 and `just schedule` refuses q3 until then.
+- The overwritten archive note was rebuilt as `.git/claude-handoff/archive/ai-c11-cc__lattice-build-2026-10-12.md` (marked reconstructed).
+
 ## Status check — 2026-10-12 ~16:2x EDT — PQ-71 DONE: PR #79 merged `a006424`
 
 - [client] "1. you 2. yes 3. merge on green ci": item-9 wording to the seat, accept ADR-0005, merge on green.

@@ -1,0 +1,34 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": null,
+  "created_at": "2026-10-13T02:53:58Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "description": "ADR-0005 Action Item 7. Rename room/ to popquiz/ and update justfile, CI, Fly config, docs and scans that name the path.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01M4SJWPXYG3FQPA60NV7M50Z8",
+  "last_event_id": "ev_01M4SJWQDWRSD33BVH6SPYJD9P",
+  "last_status_changed_at": "2026-10-13T02:53:58Z",
+  "priority": "low",
+  "relationships_out": [
+    {
+      "created_at": "2026-10-13T02:53:59Z",
+      "created_by": "agent:orchestrator",
+      "note": null,
+      "target_task_id": "task_01M4SJWPSX0CQXZKDDWW7ZA5FM",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "PQ-75",
+  "status": "backlog",
+  "tags": null,
+  "title": "ADR-0005 item 7: rename the crate folder room/ to popquiz/",
+  "type": "chore",
+  "updated_at": "2026-10-13T02:53:59Z",
+  "urgency": null
+}

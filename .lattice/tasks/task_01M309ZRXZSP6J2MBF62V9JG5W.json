@@ -1,17 +1,38 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 13,
+  "comment_count": 16,
   "complexity": "medium",
   "created_at": "2026-09-20T21:01:39Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN.md T-18 (M3).\n\nReview surface (local, served by the CLI): one screen per candidate, accept/reject-with-reason/edit-and-reverify, difficulty judged, **affirm** as a blocking gate with who/when, middle-beat and quoted-output checks; \u00a711.1 trope matches highlighted beside `explains`, `why_tempting` and `hint` as warnings that block nothing (`SPEC.md` \u00a77.4, D-23)\n\nCriteria: AC-19\u201322, AC-72\u201374, AC-88, AC-95, G-12\nHarness hooks: see EVALUATION.md rows for those IDs; `just test` is the inner loop (\u2264 60 s).\nDepends on (BUILDPLAN): T-14, T-15b\nBUILDPLAN notes: \u2014\n\nOrchestrator notes: Reads `near_duplicate_of` written by T-17.\n\nWorkflow mode: inline-full. Terminal pre-merge status: review. PR base: origin/main.\nStanding clauses: criteria outrank SPEC on behaviour, state, payloads and copy; SPEC outranks the prototype, which wins on visual detail only. Never write down what a program prints. Answer position is a uniform draw from the date, never balanced. Miri proves absence of UB on executed paths only. Colour is never the only signal. Code never causes horizontal page scroll. Never `git add -A`. Signing goes through 1Password: retry once, then escalate.\n\nPlan: filled in by the delegator's plan phase.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-10-12T21:30:32Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M4RTWKW7HY3N6RPEABF9C1XV",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4RTWVEDWZZWHSKMW3B7713P",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M4RZWBZB0D3SCJZBME1HT70J",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M4S0C3C22EKGSSK2R817B8KK",
+      "role": "review",
+      "source_type": "comment"
+    }
+  ],
   "id": "task_01M309ZRXZSP6J2MBF62V9JG5W",
-  "last_event_id": "ev_01M4RNZCAX036WFVJ3FT9N4JJD",
-  "last_status_changed_at": "2026-10-12T15:11:48Z",
+  "last_event_id": "ev_01M4S0CFPJDM8FDCGMWVA8PJFR",
+  "last_status_changed_at": "2026-10-12T21:30:32Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -32,13 +53,13 @@
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-23",
-  "status": "in_progress",
+  "status": "done",
   "tags": [
     "m3",
     "inline-full"
   ],
   "title": "Review decisions and the affirm gate, in the organizer TUI",
   "type": "task",
-  "updated_at": "2026-10-12T18:28:37Z",
+  "updated_at": "2026-10-12T21:30:32Z",
   "urgency": null
 }
