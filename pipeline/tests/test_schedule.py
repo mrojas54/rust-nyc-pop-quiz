@@ -279,7 +279,12 @@ def test_gap24_a_hand_typed_affirmation_on_a_verified_record_is_refused(bank, ro
 def test_gap24_q3s_hand_affirmation_is_unbound_and_refused(bank, room, tmp_path, capsys):
     """RULING PQ-23 (client, 2026-10-12): q3 was affirmed by hand before the digest
     existed (F-52). That affirmation no longer counts, so q3 leaves the reserve until
-    the organizer affirms it again through `popquiz.review`."""
+    the organizer affirms it again through `popquiz.review`. The organizer has since
+    done so, so the copy is put back to the hand affirmation: digest removed."""
+    path = bank / "questions" / "q3.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["review"].pop("affirmed_digest", None)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     q3 = load_question(bank, "q3")
     assert q3.review.affirmed_digest is None
     assert not is_affirmed(q3) and not audit.in_reserve(q3)

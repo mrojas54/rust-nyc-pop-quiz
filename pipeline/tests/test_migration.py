@@ -87,7 +87,10 @@ VV_ONLY = ("host:", "release:", "commit-hash:", "commit-date:", "LLVM version:")
 
 # What an organizer may write in a record's `review` block (SPEC 7.4: written by the
 # review surface). The migration drafts `reason`; an organizer may replace it.
-ORGANIZER_WRITES = frozenset({"status", "affirmed_by", "affirmed_at", "difficulty_judged", "reason"})
+# `affirmed_digest` is written with the affirmation it binds (GAP-24).
+ORGANIZER_WRITES = frozenset(
+    {"status", "affirmed_by", "affirmed_at", "affirmed_digest", "difficulty_judged", "reason"}
+)
 
 
 @pytest.fixture(scope="module")
