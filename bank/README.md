@@ -86,13 +86,14 @@ pinned verifier wrote their new records. q8's too-long option was a *distractor*
 so its answer stood, its program's tokens did not change, and only that one
 option was replaced. Each record's `review.reason` says what was re-authored and why.
 
-**No record is affirmed.** q3 carries the client's hand edit of its review
-block (F-52), made before affirmations carried a digest, so it reads as unbound
-and does not schedule until an organizer affirms it again through
-`popquiz.review` (RULING PQ-23, 2026-10-12). The other migrated records have no
-`affirmed_by` / `affirmed_at`. None of them can be scheduled (AC-72, G-12).
-Their beats and traces were *drafted* — from the August explanation and the
-prototype the client loved — and are waiting for an organizer to read them.
+**Only q3 is affirmed.** Its first affirmation was the client's hand edit of
+its review block (F-52), made before affirmations carried a digest; RULING
+PQ-23 (2026-10-12) set it aside, and the organizer affirmed q3 again through
+`popquiz.review` on 2026-10-13, so its affirmation is bound and it can be
+scheduled. The other migrated records have no `affirmed_by` / `affirmed_at`
+and cannot be scheduled (AC-72, G-12). Their beats and traces were *drafted* —
+from the August explanation and the prototype the client loved — and are
+waiting for an organizer to read them.
 
 ## How a record is reviewed and affirmed
 
@@ -103,8 +104,8 @@ text the organizer read (source, choices and why each tempts, hint, explanation,
 trace). An edit to any of it clears the affirmation and, on an accepted record,
 sets `review.status` to `edited`; a rejected or unreviewed record keeps its
 status, since editing is not accepting. A record whose digest no longer matches is loadable but unaffirmed,
-so `schedule` and the reserve skip it (GAP-24). A digest-less affirmation, q3's
-included, is unbound and counts nowhere; affirming the record again binds it.
+so `schedule` and the reserve skip it (GAP-24). A digest-less affirmation, like
+q3's hand edit was, is unbound and counts nowhere; affirming the record again binds it.
 The digest binds an affirmation to its text; it does not authenticate who wrote
 it.
 

@@ -34,9 +34,9 @@ trend: +0 accepted awaiting affirmation, +4 not yet reviewed, -0 used in the las
 warning: 0 ready is below the threshold of 2 - generate and review now; the lead time is 2 meetups
 ```
 
-The warning fires below two meetups of supply. Generating (T-16) and reviewing
-(T-18) have no commands yet; `pipeline/README.md` lists each module and the
-ticket that builds it.
+The warning fires below two meetups of supply. Generating (T-16, `just
+generate`) and reviewing (T-18, `popquiz.review`) are in `pipeline/README.md`,
+*Generating* and *Reviewing*.
 
 ### Choosing a question
 
@@ -46,23 +46,24 @@ answer's position is drawn from the meetup's date and nothing else, and
 `just schedule` does the drawing. Uneven letters and repeats are correct. Never
 pick a question to even them out (`PHILOSOPHY.md` §2).
 
-### Affirming a question — pending the owner's ruling (F-52)
+### Affirming a question
 
-This section is a placeholder for the owner's ruling on F-52, which is still
-open. The ruling replaces it.
+`just schedule` schedules only an accepted question whose affirmation is bound
+to its text (AC-72, G-12, GAP-24). An organizer affirms through
+`python -m popquiz.review affirm <id> --bank bank --by NAME`, usually from the
+organizer TUI's review screen (`v`); `pipeline/README.md`, *Reviewing*, has
+every command. Never by hand. The affirmation records `affirmed_by`,
+`affirmed_at` and `affirmed_digest`, and any later edit to the text clears it.
 
-`just schedule` refuses any question whose review block lacks `affirmed_by`
-or `affirmed_at` (AC-72, G-12). The contract names the review surface as the
-writer of those two fields (`SPEC.md` §3.1, §7.4). That surface is T-18, and it
-is not built. Every committed question is unaffirmed, so no committed question
-can be scheduled today. Run against `q3`, the refusal is:
+q3 is affirmed and bound: the organizer affirmed it again through
+`popquiz.review` on 2026-10-13 (RULING PQ-23), replacing the hand edit of
+F-52, which carried no digest. It is the only question in the reserve. The
+other committed questions are unaffirmed, and `just schedule` refuses them; run
+against one, it names what is missing, exits 1 and writes nothing:
 
 ```
-popquiz.schedule: q3 is not affirmed - it has no affirmed_by and no affirmed_at, and it has not been accepted at review - and an unaffirmed question cannot be scheduled (AC-72)
+popquiz.schedule: q4 is not affirmed - it has no affirmed_by and no affirmed_at, and it has not been accepted at review - and an unaffirmed question cannot be scheduled (AC-72)
 ```
-
-It exits 1 and writes nothing. How the first question gets affirmed is the
-owner's open decision. Until it is made, there is no step here.
 
 ### Deploy before the rehearsal
 
