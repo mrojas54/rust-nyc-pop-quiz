@@ -121,6 +121,7 @@ class Warning:  # noqa: A001 - the review screen's word for it
     group: str
     pattern: str
     matched: str
+    id: str  # the rule's id, `<group>/N`: what a log may print, where `matched` may not
 
 
 def normalize(text: str) -> str:
@@ -155,9 +156,12 @@ def _get(obj: Any, name: str) -> Any:
 
 
 def prose_fields(record: Any) -> list[tuple[str, str]]:
-    """The lint's homes in one question (SPEC 11): `explains.what`,
-    `explains.takeaway`, each option's `why_tempting`, and `hint`. Never
-    `explains.legacy` (never rendered), `source` or `options[].text` (program text).
+    """The lint's homes in one question: SPEC 11's four, `explains.what`,
+    `explains.takeaway`, each option's `why_tempting` and `hint`, and every trace
+    step's `note`, which the wall, the host and take-it-home all show. AC-98 covers
+    every participant-facing string and outranks SPEC's list (F-47, ruled
+    2026-10-16; the list's amendment goes upstream). Never `explains.legacy` (never
+    rendered), `source` or `options[].text` (program text).
     Accepts a record as JSON (dict) or a `bank.Question`; skips what is missing."""
     fields: list[tuple[str, str]] = []
     if record is None:
@@ -177,6 +181,13 @@ def prose_fields(record: Any) -> list[tuple[str, str]]:
     hint = _get(record, "hint")
     if isinstance(hint, str):
         fields.append(("hint", hint))
+    trace = _get(record, "trace")
+    steps = _get(trace, "steps") if trace is not None else None
+    if isinstance(steps, (list, tuple)):
+        for i, step in enumerate(steps):
+            value = _get(step, "note")
+            if isinstance(value, str):
+                fields.append((f"trace.steps[{i}].note", value))
     return fields
 
 
@@ -186,7 +197,7 @@ def check_prose(record: Any) -> list[Warning]:
     be read at all yields nothing. A warning blocks neither accept nor affirm."""
     try:
         return [
-            Warning(field=name, group=hit.group, pattern=hit.pattern, matched=hit.match)
+            Warning(field=name, group=hit.group, pattern=hit.pattern, matched=hit.match, id=hit.id)
             for name, text in prose_fields(record)
             for hit in check(text)
         ]

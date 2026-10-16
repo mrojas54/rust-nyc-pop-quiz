@@ -23,9 +23,11 @@
    The two consequences live with the callers, not here:
      - over the copy module (web/shared/copy.js), any match of either lint
        fails `just test`;
-     - over question prose (`explains`, `why_tempting`, `hint`), a match is a
-       warning beside the text on the review screen (§7.4) — the Python twin's
-       check_prose() is the hook T-18 calls.
+     - over question prose (`explains`, `why_tempting`, `hint` and every
+       `trace.steps[].note` — the last is F-47's: AC-98 outranks SPEC's
+       four-field list), a match is a warning beside the text on the review
+       screen (§7.4) — the Python twin's check_prose() is the hook T-18 calls;
+       checkProse() here is its twin, held to the same fixtures.
 
    Text is read with U+2018/U+2019 taken as `'` before matching: SPEC's
    patterns spell the apostrophe straight (`that'?s`), and a curly one in
@@ -120,6 +122,53 @@
     return check(text).filter(function (h) { return h.lint === "trope"; });
   }
 
+  function get(obj, name) {
+    return obj !== null && typeof obj === "object" ? obj[name] : undefined;
+  }
+
+  /* The lint's homes in one question, in the Python twin's order (prose_fields):
+     explains.what, explains.takeaway, each option's why_tempting, hint, and
+     every trace step's note — the fifth home is F-47's (AC-98 outranks SPEC
+     §11's four-field list). Never explains.legacy, source or option text.
+     Skips what is missing or not a string. */
+  function proseFields(record) {
+    var fields = [];
+    var explains = get(record, "explains");
+    ["what", "takeaway"].forEach(function (name) {
+      var value = get(explains, name);
+      if (typeof value === "string") fields.push(["explains." + name, value]);
+    });
+    var options = get(record, "options");
+    if (Array.isArray(options)) {
+      options.forEach(function (option, i) {
+        var value = get(option, "why_tempting");
+        if (typeof value === "string") fields.push(["options[" + i + "].why_tempting", value]);
+      });
+    }
+    var hint = get(record, "hint");
+    if (typeof hint === "string") fields.push(["hint", hint]);
+    var steps = get(get(record, "trace"), "steps");
+    if (Array.isArray(steps)) {
+      steps.forEach(function (step, i) {
+        var value = get(step, "note");
+        if (typeof value === "string") fields.push(["trace.steps[" + i + "].note", value]);
+      });
+    }
+    return fields;
+  }
+
+  /* Every match in a question's prose, as warnings:
+     [{field, id, group, pattern, matched}] — check_prose's shape. */
+  function checkProse(record) {
+    var out = [];
+    proseFields(record).forEach(function (f) {
+      check(f[1]).forEach(function (h) {
+        out.push({ field: f[0], id: h.id, group: h.group, pattern: h.pattern, matched: h.match });
+      });
+    });
+    return out;
+  }
+
   PQ.COPYLINT = {
     FORBIDDEN: FORBIDDEN,
     TROPES: TROPES,
@@ -127,6 +176,8 @@
     normalize: normalize,
     check: check,
     forbidden: forbidden,
-    tropes: tropes
+    tropes: tropes,
+    proseFields: proseFields,
+    checkProse: checkProse
   };
 })(typeof window !== "undefined" ? window : globalThis);

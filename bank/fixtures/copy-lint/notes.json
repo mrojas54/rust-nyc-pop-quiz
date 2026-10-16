@@ -1,0 +1,259 @@
+{
+  "about": "The fifth prose home, trace.steps[].note (F-47: AC-98 outranks SPEC's four-field list). Each record runs through copylint.check_prose and copylint.js checkProse; `expect` is every [field, rule id] the two must report, in field order. Both suites read this file and each also runs the other language over it.",
+  "records": [
+    {
+      "note": "a clean trace: nothing to report",
+      "record": {
+        "trace": {
+          "steps": [
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "x is bound to 3.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "y takes x by move.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "The closing brace drops y.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "Prints 3.",
+              "values": []
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "note": "one violating step per rule family, clean steps between",
+      "record": {
+        "trace": {
+          "steps": [
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "x is bound to 3.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "Nothing here is wrong.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "It is not just a copy.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "y takes x by move.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "The value truly moves.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "The key part is the drop.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "Don't worry about the borrow.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "The most interesting line is 4.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "Prints 3.",
+              "values": []
+            }
+          ]
+        }
+      },
+      "expect": [
+        [
+          "trace.steps[1].note",
+          "forbidden/6"
+        ],
+        [
+          "trace.steps[2].note",
+          "contrast/2"
+        ],
+        [
+          "trace.steps[4].note",
+          "filler/1"
+        ],
+        [
+          "trace.steps[5].note",
+          "signpost/3"
+        ],
+        [
+          "trace.steps[6].note",
+          "reassurance/4"
+        ],
+        [
+          "trace.steps[7].note",
+          "flattery/1"
+        ]
+      ]
+    },
+    {
+      "note": "a full record whose only violation is a note: the note is read in its own right, after the four SPEC homes",
+      "record": {
+        "source": "fn main() { println!(\"wrong\"); }",
+        "options": [
+          {
+            "text": "wrong",
+            "why_tempting": "x looks copied."
+          },
+          {
+            "text": "3"
+          }
+        ],
+        "hint": "Follow the move.",
+        "explains": {
+          "what": "x moves into y.",
+          "takeaway": "A move ends the old name.",
+          "legacy": "Don't worry."
+        },
+        "trace": {
+          "steps": [
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "x is bound to 3.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "Here's the thing: y owns it now.",
+              "values": []
+            },
+            {
+              "lines": [
+                1,
+                1
+              ],
+              "focus": [],
+              "note": "Prints 3.",
+              "values": []
+            }
+          ]
+        }
+      },
+      "expect": [
+        [
+          "trace.steps[1].note",
+          "signpost/2"
+        ]
+      ]
+    },
+    {
+      "note": "a malformed trace is skipped, not a crash: steps not a list, a step not an object, a note not a string",
+      "record": {
+        "trace": {
+          "steps": [
+            null,
+            5,
+            {
+              "note": [
+                "wrong"
+              ]
+            },
+            {
+              "note": "That is wrong."
+            }
+          ]
+        }
+      },
+      "expect": [
+        [
+          "trace.steps[3].note",
+          "forbidden/6"
+        ]
+      ]
+    },
+    {
+      "note": "a trace with no steps list",
+      "record": {
+        "trace": {
+          "steps": "wrong"
+        }
+      },
+      "expect": []
+    }
+  ]
+}

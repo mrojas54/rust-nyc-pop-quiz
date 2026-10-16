@@ -29,7 +29,9 @@ HERE = pathlib.Path(__file__).parent
 REPO = HERE.parent.parent
 FIXTURES = REPO / "bank" / "fixtures" / "copy-lint"
 QUESTIONS = REPO / "bank" / "questions"
-FIXTURE_FILES = ["retired.json", "forbidden.json", "tropes.json", "near-misses.json", "clean.json", "dialect.json"]
+# Text cases: {"text", "expect"}. notes.json holds whole records for check_prose.
+TEXT_FIXTURES = ["retired.json", "forbidden.json", "tropes.json", "near-misses.json", "clean.json", "dialect.json"]
+FIXTURE_FILES = [*TEXT_FIXTURES, "notes.json"]
 
 
 class ProseWarning(UserWarning):
@@ -94,7 +96,7 @@ def test_the_fixture_set_is_the_one_the_javascript_suite_reads():
     assert sorted(p.name for p in FIXTURES.glob("*.json")) == sorted(FIXTURE_FILES)
 
 
-@pytest.mark.parametrize("name", FIXTURE_FILES)
+@pytest.mark.parametrize("name", TEXT_FIXTURES)
 def test_every_case_matches_exactly_the_rules_it_names(name):
     for case in _cases(name):
         want = case["expect"] if "expect" in case else case["expect_py"]
@@ -158,6 +160,32 @@ def test_check_prose_reads_its_homes_and_only_its_homes():
         ("explains.takeaway", "signpost", "The key part"),
         (f"options[{tempting}].why_tempting", "forbidden", "wrong"),
     }
+
+
+def _records() -> list[dict]:
+    records = json.loads((FIXTURES / "notes.json").read_text(encoding="utf-8"))["records"]
+    assert records, "notes.json has no records"
+    return records
+
+
+def test_trace_notes_are_read_and_warned_on_as_hint_is():
+    # F-47: AC-98 covers every participant-facing string, the trace's notes included.
+    for r in _records():
+        got = [[w.field, w.id] for w in copylint.check_prose(r["record"])]
+        assert got == r["expect"], r["note"]
+
+
+def test_the_notes_fixture_trips_every_rule_family_in_a_note():
+    fired = {i.split("/")[0] for r in _records() for f, i in r["expect"] if f.startswith("trace.steps[")}
+    assert fired == {"forbidden", *copylint.TROPES}
+
+
+def test_a_note_warning_is_the_same_warning_hint_gets():
+    note = "Don't worry, it is not just a copy."
+    as_hint = copylint.check_prose({"hint": note})
+    as_note = copylint.check_prose({"trace": {"steps": [{"note": note}]}})
+    assert [(w.group, w.pattern, w.matched, w.id) for w in as_note] == [(w.group, w.pattern, w.matched, w.id) for w in as_hint]
+    assert {w.field for w in as_note} == {"trace.steps[0].note"}
 
 
 def test_check_prose_takes_a_question_as_well_as_its_json():

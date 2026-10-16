@@ -79,12 +79,15 @@ function fixture(name) {
 // against a literal here on their prototype alone (_load.js, plain()).
 const ids = (text) => [...L.check(text)].map((h) => h.id);
 
+// Text cases: {text, expect}. notes.json holds whole records for checkProse.
+const TEXT_FIXTURES = ['retired.json', 'forbidden.json', 'tropes.json', 'near-misses.json', 'clean.json', 'dialect.json'];
+const FIXTURE_FILES = [...TEXT_FIXTURES, 'notes.json'];
+
 test('the fixture set is the one the Python suite reads, and nothing else', () => {
-  assert.deepEqual(fs.readdirSync(FIXTURES).filter((f) => f.endsWith('.json')).sort(),
-    ['clean.json', 'dialect.json', 'forbidden.json', 'near-misses.json', 'retired.json', 'tropes.json']);
+  assert.deepEqual(fs.readdirSync(FIXTURES).filter((f) => f.endsWith('.json')).sort(), [...FIXTURE_FILES].sort());
 });
 
-for (const name of ['retired.json', 'forbidden.json', 'tropes.json', 'near-misses.json', 'clean.json', 'dialect.json']) {
+for (const name of TEXT_FIXTURES) {
   test(`${name}: every case matches exactly the rules it names`, () => {
     for (const c of fixture(name)) {
       const want = c.expect !== undefined ? c.expect : c.expect_js;
@@ -119,6 +122,23 @@ test('a match is quoted from the original text, curly apostrophe and all', () =>
   const [hit] = L.check('Well. That’s fine, then.');
   assert.equal(hit.id, 'reassurance/1');
   assert.equal(hit.match, 'That’s fine');
+});
+
+function records() {
+  const f = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'notes.json'), 'utf8'));
+  assert.ok(f.records.length > 0, 'notes.json has no records');
+  return f.records;
+}
+
+test('trace notes are read and warned on as hint is (F-47, AC-98)', () => {
+  for (const r of records()) {
+    assert.deepEqual([...L.checkProse(r.record)].map((w) => [w.field, w.id]), r.expect, r.note);
+  }
+});
+
+test('the notes fixture trips every rule family in a note', () => {
+  const fired = new Set(records().flatMap((r) => r.expect).filter(([f]) => f.startsWith('trace.steps[')).map(([, id]) => id.split('/')[0]));
+  assert.deepEqual([...fired].sort(), ['forbidden', ...Object.keys(L.TROPES)].sort());
 });
 
 // --- 3. The copy module: any match fails the build -----------------------------
