@@ -163,6 +163,19 @@ test('the notes fixture trips every rule family in a note', () => {
   assert.deepEqual([...fired].sort(), ['forbidden', ...Object.keys(L.TROPES)].sort());
 });
 
+test('a record that crashes the lint is one lint-error warning, never clean', () => {
+  const SECRET = 'secret prose from a private bank';
+  const record = { get explains() { throw new TypeError(SECRET); } };
+  const got = [...L.checkProse(record)].map((w) => ({ ...w }));
+  assert.deepEqual(got, [{ field: 'record', id: 'lint-error', group: 'lint-error', pattern: '', matched: 'TypeError' }]);
+  const steps = [{ note: 'Fine.' }, { get note() { throw new RangeError(SECRET); } }];
+  const onNote = [...L.checkProse({ trace: { steps } })].map((w) => ({ ...w }));
+  assert.equal(onNote.length, 1);
+  assert.equal(onNote[0].id, 'lint-error');
+  assert.equal(onNote[0].matched, 'RangeError');
+  assert.ok(!JSON.stringify(onNote).includes(SECRET));
+});
+
 // --- 2a. The Python twin, run over the same files --------------------------------
 
 // Both suites assert against the same `expect`, so a rule dropped in one

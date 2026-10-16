@@ -173,16 +173,33 @@
     return fields;
   }
 
+  var LINT_ERROR = "lint-error";
+
+  /* The one warning a crashed lint returns: the field it was on and the
+     exception's class, never its message or the text. */
+  function lintError(field, e) {
+    var cls = e && e.constructor && e.constructor.name ? e.constructor.name : typeof e;
+    return { field: field, id: LINT_ERROR, group: LINT_ERROR, pattern: "", matched: cls };
+  }
+
   /* Every match in a question's prose, as warnings:
-     [{field, id, group, pattern, matched}] — check_prose's shape. */
+     [{field, id, group, pattern, matched}] — check_prose's shape. Never
+     throws; a crash returns exactly one lint-error warning naming the field
+     it was on ("record" before any was read), never [], which reads as clean. */
   function checkProse(record) {
-    var out = [];
-    proseFields(record).forEach(function (f) {
-      check(f[1]).forEach(function (h) {
-        out.push({ field: f[0], id: h.id, group: h.group, pattern: h.pattern, matched: h.match });
+    var field = "record";
+    try {
+      var out = [];
+      proseFields(record).forEach(function (f) {
+        field = f[0];
+        check(f[1]).forEach(function (h) {
+          out.push({ field: f[0], id: h.id, group: h.group, pattern: h.pattern, matched: h.match });
+        });
       });
-    });
-    return out;
+      return out;
+    } catch (e) {
+      return [lintError(field, e)];
+    }
   }
 
   PQ.COPYLINT = {
@@ -195,6 +212,7 @@
     forbidden: forbidden,
     tropes: tropes,
     proseFields: proseFields,
-    checkProse: checkProse
+    checkProse: checkProse,
+    LINT_ERROR: LINT_ERROR
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -238,7 +238,43 @@ def test_check_prose_takes_a_question_as_well_as_its_json():
     ],
 )
 def test_check_prose_never_raises(record):
+    # None of these crashes the lint: there is simply no prose to read, so `[]`
+    # is the honest answer. A crash is the sentinel, below.
     assert copylint.check_prose(record) == []
+
+
+SECRET = "secret prose from a private bank"
+
+
+class _Unreadable:
+    @property
+    def explains(self):
+        raise RuntimeError(SECRET)
+
+
+def _sentinel(warnings):
+    assert len(warnings) == 1, warnings
+    [w] = warnings
+    assert SECRET not in repr(w)
+    return (w.field, w.id, w.group, w.pattern, w.matched)
+
+
+def test_a_record_that_crashes_the_lint_is_one_lint_error_never_clean():
+    got = copylint.check_prose(_Unreadable())
+    assert _sentinel(got) == ("record", "lint-error", "lint-error", "", "RuntimeError")
+
+
+def test_a_crash_on_a_field_names_that_field_and_the_class_only(monkeypatch):
+    real = copylint.check
+
+    def crashing(text):
+        if "hint text" in text:
+            raise ValueError(SECRET)
+        return real(text)
+
+    monkeypatch.setattr(copylint, "check", crashing)
+    record = {"explains": {"what": "Don't worry."}, "hint": "hint text"}
+    assert _sentinel(copylint.check_prose(record)) == ("hint", "lint-error", "lint-error", "", "ValueError")
 
 
 def test_check_prose_reads_what_it_can_of_a_partial_record():

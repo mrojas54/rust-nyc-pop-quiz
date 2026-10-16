@@ -216,15 +216,29 @@ def prose_fields(record: Any) -> list[tuple[str, str]]:
     return fields
 
 
+LINT_ERROR = "lint-error"
+
+
+def lint_error(field: str, exc: BaseException) -> Warning:
+    """The one warning a crashed lint returns: the field it was on and the
+    exception's class, never its message or the text (either may quote prose)."""
+    return Warning(field=field, group=LINT_ERROR, pattern="", matched=type(exc).__name__, id=LINT_ERROR)
+
+
 def check_prose(record: Any) -> list[Warning]:
     """Every Forbidden and trope match in a question's prose, as warnings. Never
-    raises: a malformed record yields what could be read, and a record that cannot
-    be read at all yields nothing. A warning blocks neither accept nor affirm."""
+    raises: a malformed record yields what could be read (a record with no prose
+    yields `[]`), and a lint that crashes yields exactly one `lint-error` warning
+    naming the field it was on (`record` before any field was read), so a crash
+    never reads as clean. A warning blocks neither accept nor affirm."""
+    field = "record"
     try:
-        return [
-            Warning(field=name, group=hit.group, pattern=hit.pattern, matched=hit.match, id=hit.id)
-            for name, text in prose_fields(record)
-            for hit in check(text)
-        ]
-    except Exception:  # noqa: BLE001 - the review screen must always render
-        return []
+        warnings = []
+        for field, text in prose_fields(record):
+            warnings.extend(
+                Warning(field=field, group=hit.group, pattern=hit.pattern, matched=hit.match, id=hit.id)
+                for hit in check(text)
+            )
+        return warnings
+    except Exception as exc:  # noqa: BLE001 - the review screen must always render
+        return [lint_error(field, exc)]
