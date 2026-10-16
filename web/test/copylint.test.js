@@ -234,7 +234,7 @@ test('the Python twin reports what this one does on every fixture, bar the one n
     assert.deepEqual(py.files['notes.json'][i], [...L.checkProse(rec.record)].map((w) => [w.field, w.id]), `notes.json[${i}] ${rec.note}`);
     compared++;
   });
-  assert.ok(compared >= 78, `only ${compared} fixture cases compared`);
+  assert.ok(compared >= 80,`only ${compared} fixture cases compared`);
 });
 
 // --- 3. The copy module: any match fails the build -----------------------------
