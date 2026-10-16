@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-16T23:00:54Z",
+  "created_by": "agent:orchestrator-reviewer",
+  "custom_fields": {},
+  "id": "art_01M53F4TDM0VM9Z3ZZ52H6ZV01",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M53F4TDM0VM9Z3ZZ52H6ZV01.md",
+    "size_bytes": 1465
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Exact-head review (Orchestrator), 9059a84: PASS-WITH-NITS",
+  "token_usage": null,
+  "type": "note"
+}

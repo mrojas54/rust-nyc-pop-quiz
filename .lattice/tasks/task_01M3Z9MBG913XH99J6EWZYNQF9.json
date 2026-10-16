@@ -23,10 +23,15 @@
       "id": "art_01M53ED0F9YVXF8PE0XQ1S3YXR",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M53F4TDM0VM9Z3ZZ52H6ZV01",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M3Z9MBG913XH99J6EWZYNQF9",
-  "last_event_id": "ev_01M53EDMEC14HDBH8GD4GV8RD6",
+  "last_event_id": "ev_01M53F4TDQTN3N1HJVDNEF5TC4",
   "last_status_changed_at": "2026-10-16T22:47:57Z",
   "priority": "medium",
   "relationships_out": [],
@@ -41,6 +46,6 @@
   ],
   "title": "Copy lint follow-ups: the trace notes, the freeze's blind spots, lint bypasses",
   "type": "task",
-  "updated_at": "2026-10-16T22:48:14Z",
+  "updated_at": "2026-10-16T23:00:54Z",
   "urgency": null
 }
