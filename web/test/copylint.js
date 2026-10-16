@@ -104,12 +104,12 @@
   function normalize(text) {
     return String(text)
       .normalize("NFKC")
-      .replace(/[​-‍﻿]/g, "")
+      .replace(/[\u200b-\u200d\ufeff]/g, "")
       .replace(/\s+/g, " ")
       .replace(/^ | $/g, "")
-      .replace(/[‘’ʼ`]/g, "'")
-      .replace(/ - /g, " — ")
-      .replace(/-{2,}|[–—]/g, "—");
+      .replace(/[\u2018\u2019\u02bc`]/g, "'")
+      .replace(/ - /g, " \u2014 ")
+      .replace(/-{2,}|[\u2013\u2014]/g, "\u2014");
   }
 
   /* Every rule that matches `text`: [{lint, group, id, pattern, match}], in
