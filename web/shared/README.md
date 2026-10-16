@@ -132,10 +132,41 @@ templates from `copy.rs`. `web/test/copy-freeze.test.js` proves it by drawing
 every screen of the wall, the static fallback, the buzzer, the host phone and
 take-it-home with every copy value swapped for a marker naming its key, and
 failing on any word left that is not the screen's own data — `aria-label`s and
-live-region strings included. Its allowlist prints on every run and holds two
-entries, each with its reason: the host's status line (the room's `reason`
-shown verbatim, an open question) and the rustc flag spelling on take-it-home.
-It cannot see a literal word that also occurs in that screen's data.
+live-region strings included. A value filled into a template's placeholder is
+read like any other word, so a literal a page fills in is seen.
+
+Its allowlist prints on every run. Each entry names a surface, an element and
+the only words it lets through, with its reason:
+
+- **Host status line** (`p.host-status.meta`): the room's `reason` shown
+  verbatim, an open question (Q2). Only the fixture reason's words pass; a
+  source scan also checks `host.js` assigns no worded literal to `ui.status`
+  (a regex net: concatenation or indirection can slip past it).
+- **Take-it-home machine row** (`span.v`): the rustc flag spelling, eight
+  compiler words.
+- **Take-it-home date heading** (`h1`): the twelve month names from `home.js`'s
+  `MONTHS`, which fill `home_heading_question`.
+
+`COPY_FIELDS`, the room fields whose strings are §11 templates the room
+filled, is pinned both ways against the wall, static and take-it-home
+fixtures: a field carrying a template of three or more words that is not in
+the list fails, and so does a listed field no fixture fills.
+
+What it cannot see, by name:
+
+- **A word that is also the screen's data.** Each screen's vocabulary is its
+  own data (the question, the code, the fixture's notes), so a literal that
+  matches a data word passes. On take-it-home and the static fallback that
+  data is a whole question's prose, so common words (`the`, `is`, `a`, …)
+  count as data there and a literal made of them passes.
+- **Glyphs** with no letter in them (`← → ● ↑ ✎ · ✓ —`): not words.
+- **The room's own strings outside `copy.rs`** (its refusal `reason`s): data
+  here; the host status line is where one reaches a page.
+- **Paths no fixture draws.** The render test sees what the screens it draws
+  show; the source scan for retyped §11 values reads multi-word values only.
+- **Short templates in the `COPY_FIELDS` pin.** A new field filled from a one-
+  or two-word template is not detected (a full match that short is as likely
+  ordinary data).
 
 **`PROPOSED-§11`.** Strings a page already showed that §11 does not author yet
 sit in a marked block at the end of `COPY`, words unchanged, under the row
@@ -147,14 +178,27 @@ change.
 **The two lints.** `web/test/copylint.js` (test-only, so not here: this directory holds what pages load and the room serves) holds SPEC's patterns verbatim; its Python
 twin `pipeline/src/popquiz/copylint.py` holds the same text. Each suite reads
 `SPEC.md` and fails if its copy differs, and both run the hand-written fixtures
-in `bank/fixtures/copy-lint/`. Python is compiled to JavaScript's behaviour
+in `bank/fixtures/copy-lint/`; the JavaScript suite also runs the Python twin
+over every fixture and fails on any difference (one direction: the pipeline
+suite starts no process). Python is compiled to JavaScript's behaviour
 (ASCII `\b` and case folding, JavaScript's `\s`); the one case the engines
 cannot agree on, a `{0,N}` span over astral characters, is a fixture of its
-own. Both read a curly apostrophe as a straight one.
+own.
+
+Both normalize first, the same five steps in the same order: NFKC; zero-width
+characters (U+200B–U+200D, U+FEFF) removed; whitespace runs, newlines included,
+to one space; U+2018, U+2019, U+02BC and the backtick to `'`; `--`, U+2013,
+U+2014 and a spaced hyphen to `—`. A match is quoted from the normalized text.
+NFKC comes from each runtime's Unicode tables (Python's `unicodedata`, Node's
+ICU); the fixtures use characters whose mapping is long settled, and a
+character newer than one runtime's tables may normalize differently there.
+
+A lint that crashes returns one `lint-error` warning (the field and the
+exception's class), never no warnings.
 
 | Over | Lints | Consequence | Where |
 |---|---|---|---|
 | The copy module (`copy.js`, `PROPOSED-§11` included) | Forbidden + §11.1 | Any match **fails `just test`** | `web/test/copylint.test.js` |
-| Question prose: `explains.what`, `explains.takeaway`, each `why_tempting`, `hint` (never `explains.legacy`, `source` or option text) | Forbidden + §11.1 | A **warning**, never a failure; `copylint.check_prose(record)` never raises | The review screen (§7.4) will show them beside the text — T-18 calls `check_prose`; nothing renders them yet. `pipeline/tests/test_copylint.py` runs it over every committed question and prints what it finds. |
+| Question prose: `explains.what`, `explains.takeaway`, each `why_tempting`, `hint`, every `trace.steps[].note` (never `explains.legacy`, `source` or option text). The notes are F-47: AC-98 outranks SPEC §11's four-field list. | Forbidden + §11.1 | A **warning**, never a failure; `copylint.check_prose(record)` never raises | The review screen (§7.4) will show them beside the text — T-18 calls `check_prose`; nothing renders them yet. `pipeline/tests/test_copylint.py` runs it over every committed question and prints each warning's field and rule id, never the prose. |
 
 
