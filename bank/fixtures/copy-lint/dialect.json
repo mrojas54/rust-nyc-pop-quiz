@@ -1,5 +1,5 @@
 {
-  "about": "Where JavaScript's regex engine (flag i, no u) and Python's re (re.ASCII | re.IGNORECASE, \\s compiled as JavaScript's whitespace class) could differ. Cases with `expect` must agree; the one case with `expect_js`/`expect_py` is the documented divergence.",
+  "about": "Where JavaScript's regex engine (flag i, no u) and Python's re (re.ASCII | re.IGNORECASE, \\s compiled as JavaScript's whitespace class) could differ. `expect` is what check() reports after normalize(); `expect_raw`, where present, is what the compiled rules report over the text as given (the engines alone, checked by both suites through check_raw/checkRaw), and defaults to `expect`. Cases with `expect` must agree; the one case with `expect_js`/`expect_py` is the documented divergence. Written with \\u escapes so no invisible character hides in the file.",
   "cases": [
     {
       "text": "It moves.\u000bNot the value.",
@@ -9,74 +9,75 @@
       "note": "U+000B is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u00a0Not the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+00A0 is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u1680Not the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+1680 is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u2000Not the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+2000 is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u200aNot the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+200A is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u2028Not the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+2028 is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u2029Not the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+2029 is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u202fNot the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+202F is in JavaScript's \\s"
     },
     {
-      "text": "It moves. Not the value.",
+      "text": "It moves.\u205fNot the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+205F is in JavaScript's \\s"
     },
     {
-      "text": "It moves.　Not the value.",
+      "text": "It moves.\u3000Not the value.",
       "expect": [
         "contrast/3"
       ],
       "note": "U+3000 is in JavaScript's \\s"
     },
     {
-      "text": "It moves.﻿Not the value.",
-      "expect": [
+      "text": "It moves.\ufeffNot the value.",
+      "expect": [],
+      "expect_raw": [
         "contrast/3"
       ],
-      "note": "U+FEFF is in JavaScript's \\s"
+      "note": "U+FEFF is in JavaScript's \\s (expect_raw); normalize removes it as a zero-width character, so the text reads `moves.Not` and contrast/3's sentence break is gone"
     },
     {
       "text": "It moves.\u001cNot the value.",
@@ -84,52 +85,61 @@
       "note": "U+001C is Python str whitespace but not JavaScript's \\s; the compiled class follows JavaScript"
     },
     {
-      "text": "éwrong",
+      "text": "\u00e9wrong",
       "expect": [
         "forbidden/6"
       ],
-      "note": "\\b is ASCII in both: é is not a word character, so there is a boundary before w"
+      "note": "\\b is ASCII in both: \u00e9 is not a word character, so there is a boundary before w"
     },
     {
-      "text": "wrongé",
+      "text": "wrong\u00e9",
       "expect": [
         "forbidden/6"
       ],
       "note": "the same boundary after g"
     },
     {
-      "text": "ask ſomeone",
-      "expect": [],
-      "note": "long s does not case-fold to s in either engine (JS i without u; Python re.ASCII)"
+      "text": "ask \u017fomeone",
+      "expect": [
+        "forbidden/2"
+      ],
+      "expect_raw": [],
+      "note": "long s does not case-fold to s in either engine (expect_raw); NFKC makes it s, so normalize catches it"
     },
     {
-      "text": "the Key part",
-      "expect": [],
-      "note": "Kelvin sign does not case-fold to k in either engine"
+      "text": "the \u212aey part",
+      "expect": [
+        "signpost/3"
+      ],
+      "expect_raw": [],
+      "note": "Kelvin sign does not case-fold to k in either engine (expect_raw); NFKC makes it K, so normalize catches it"
     },
     {
-      "text": "That’s fine.",
+      "text": "That\u2019s fine.",
       "expect": [
         "reassurance/1"
       ],
-      "note": "a curly apostrophe reads as the straight one SPEC's patterns spell"
+      "expect_raw": [],
+      "note": "a curly apostrophe reads as the straight one SPEC's patterns spell after normalize (expect_raw: the engines alone do not)"
     },
     {
-      "text": "Don’t worry.",
+      "text": "Don\u2019t worry.",
       "expect": [
         "reassurance/4"
       ],
-      "note": "the same, U+2019"
+      "expect_raw": [],
+      "note": "the same, U+2019 after normalize (expect_raw: the engines alone do not)"
     },
     {
-      "text": "That‘s okay.",
+      "text": "That\u2018s okay.",
       "expect": [
         "reassurance/1"
       ],
-      "note": "the same, U+2018"
+      "expect_raw": [],
+      "note": "the same, U+2018 after normalize (expect_raw: the engines alone do not)"
     },
     {
-      "text": "not 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀, not x, not y",
+      "text": "not \ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00, not x, not y",
       "expect_js": [],
       "expect_py": [
         "contrast/4"

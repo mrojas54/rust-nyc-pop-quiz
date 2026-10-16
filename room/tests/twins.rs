@@ -453,8 +453,8 @@ fn the_proposed_block_is_copy_js_s_and_the_room_sends_none_of_it() {
         "no PROPOSED-§11 keys parsed from copy.js"
     );
     assert_eq!(rust_row, js_row);
-    // `cli/` holds the clients, as `bin/` did; this scan never read them.
-    for (file, text) in common::room_sources(&["cli"]) {
+    // Every file under room/src, the clients in `cli/` (once `bin/`) included.
+    for (file, text) in common::room_sources(&[]) {
         if file == "copy.rs" {
             continue;
         }

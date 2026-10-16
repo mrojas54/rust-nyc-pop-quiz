@@ -29,7 +29,17 @@ HERE = pathlib.Path(__file__).parent
 REPO = HERE.parent.parent
 FIXTURES = REPO / "bank" / "fixtures" / "copy-lint"
 QUESTIONS = REPO / "bank" / "questions"
-FIXTURE_FILES = ["retired.json", "forbidden.json", "tropes.json", "near-misses.json", "clean.json", "dialect.json"]
+# Text cases: {"text", "expect"}. notes.json holds whole records for check_prose.
+TEXT_FIXTURES = [
+    "retired.json",
+    "forbidden.json",
+    "tropes.json",
+    "near-misses.json",
+    "clean.json",
+    "dialect.json",
+    "normalization.json",
+]
+FIXTURE_FILES = [*TEXT_FIXTURES, "notes.json"]
 
 
 class ProseWarning(UserWarning):
@@ -94,12 +104,34 @@ def test_the_fixture_set_is_the_one_the_javascript_suite_reads():
     assert sorted(p.name for p in FIXTURES.glob("*.json")) == sorted(FIXTURE_FILES)
 
 
-@pytest.mark.parametrize("name", FIXTURE_FILES)
+@pytest.mark.parametrize("name", TEXT_FIXTURES)
 def test_every_case_matches_exactly_the_rules_it_names(name):
     for case in _cases(name):
         want = case["expect"] if "expect" in case else case["expect_py"]
         got = [h.id for h in copylint.check(case["text"])]
         assert got == want, f"{case['text']!r} {case.get('note', '')}"
+
+
+def test_the_engines_alone_behave_as_dialect_json_says():
+    # normalize() now collapses the whitespace these cases probe, so the engine
+    # dialect is held here, over the text as given.
+    for case in _cases("dialect.json"):
+        want = case.get("expect_raw", case.get("expect", case.get("expect_py")))
+        assert copylint.check_raw(case["text"]) == want, case["note"]
+
+
+def test_every_normalization_probe_walked_past_the_rules_before_normalize():
+    for case in _cases("normalization.json"):
+        assert copylint.check_raw(case["text"]) != case["expect"], case["note"]
+        assert [h.id for h in copylint.check(case["text"])] == case["expect"], case["note"]
+
+
+def test_normalize_is_idempotent_and_a_match_is_quoted_from_the_normalized_text():
+    for case in _cases("normalization.json") + _cases("dialect.json"):
+        once = copylint.normalize(case["text"])
+        assert copylint.normalize(once) == once, case["note"]
+    [hit] = copylint.check("That\u02bcs\u00a0fine.")
+    assert (hit.id, hit.match) == ("reassurance/1", "That's fine")
 
 
 def test_the_only_divergence_is_the_one_dialect_json_names():
@@ -160,6 +192,32 @@ def test_check_prose_reads_its_homes_and_only_its_homes():
     }
 
 
+def _records() -> list[dict]:
+    records = json.loads((FIXTURES / "notes.json").read_text(encoding="utf-8"))["records"]
+    assert records, "notes.json has no records"
+    return records
+
+
+def test_trace_notes_are_read_and_warned_on_as_hint_is():
+    # F-47: AC-98 covers every participant-facing string, the trace's notes included.
+    for r in _records():
+        got = [[w.field, w.id] for w in copylint.check_prose(r["record"])]
+        assert got == r["expect"], r["note"]
+
+
+def test_the_notes_fixture_trips_every_rule_family_in_a_note():
+    fired = {i.split("/")[0] for r in _records() for f, i in r["expect"] if f.startswith("trace.steps[")}
+    assert fired == {"forbidden", *copylint.TROPES}
+
+
+def test_a_note_warning_is_the_same_warning_hint_gets():
+    note = "Don't worry, it is not just a copy."
+    as_hint = copylint.check_prose({"hint": note})
+    as_note = copylint.check_prose({"trace": {"steps": [{"note": note}]}})
+    assert [(w.group, w.pattern, w.matched, w.id) for w in as_note] == [(w.group, w.pattern, w.matched, w.id) for w in as_hint]
+    assert {w.field for w in as_note} == {"trace.steps[0].note"}
+
+
 def test_check_prose_takes_a_question_as_well_as_its_json():
     record = _q3()
     as_json = copylint.check_prose(record)
@@ -180,7 +238,43 @@ def test_check_prose_takes_a_question_as_well_as_its_json():
     ],
 )
 def test_check_prose_never_raises(record):
+    # None of these crashes the lint: there is simply no prose to read, so `[]`
+    # is the honest answer. A crash is the sentinel, below.
     assert copylint.check_prose(record) == []
+
+
+SECRET = "secret prose from a private bank"
+
+
+class _Unreadable:
+    @property
+    def explains(self):
+        raise RuntimeError(SECRET)
+
+
+def _sentinel(warnings):
+    assert len(warnings) == 1, warnings
+    [w] = warnings
+    assert SECRET not in repr(w)
+    return (w.field, w.id, w.group, w.pattern, w.matched)
+
+
+def test_a_record_that_crashes_the_lint_is_one_lint_error_never_clean():
+    got = copylint.check_prose(_Unreadable())
+    assert _sentinel(got) == ("record", "lint-error", "lint-error", "", "RuntimeError")
+
+
+def test_a_crash_on_a_field_names_that_field_and_the_class_only(monkeypatch):
+    real = copylint.check
+
+    def crashing(text):
+        if "hint text" in text:
+            raise ValueError(SECRET)
+        return real(text)
+
+    monkeypatch.setattr(copylint, "check", crashing)
+    record = {"explains": {"what": "Don't worry."}, "hint": "hint text"}
+    assert _sentinel(copylint.check_prose(record)) == ("hint", "lint-error", "lint-error", "", "ValueError")
 
 
 def test_check_prose_reads_what_it_can_of_a_partial_record():
@@ -188,12 +282,39 @@ def test_check_prose_reads_what_it_can_of_a_partial_record():
     assert [(w.field, w.group) for w in got] == [("options[1].why_tempting", "reassurance")]
 
 
+def _bank_report() -> list[tuple[str, copylint.Warning]]:
+    """Every committed question's warnings, as (the line this suite prints, the warning)."""
+    paths = sorted(QUESTIONS.glob("*.json"))
+    assert paths, f"no questions under {QUESTIONS}"
+    return [
+        (_report_line(path.stem, w), w)
+        for path in paths
+        for w in copylint.check_prose(json.loads(path.read_text(encoding="utf-8")))
+    ]
+
+
+def _report_line(stem: str, w: copylint.Warning) -> str:
+    # The rule id and the field, never `matched` or `pattern` with a match beside
+    # it: a private bank's prose must not reach CI logs.
+    return f"{stem} {w.field}: {w.id}"
+
+
+REPORT_LINE = re.compile(r"[\w-]+ [A-Za-z0-9_.\[\]]+: ([a-z]+/\d+|lint-error)")
+
+
 def test_every_committed_question_is_checked_and_its_warnings_reported():
     # Information, not a failure (SPEC 11.1): the review screen shows these beside the
     # text and the organizer decides. pytest prints each in its warnings summary.
-    paths = sorted(QUESTIONS.glob("*.json"))
-    assert paths, f"no questions under {QUESTIONS}"
-    for path in paths:
-        record = json.loads(path.read_text(encoding="utf-8"))
-        for w in copylint.check_prose(record):
-            warnings.warn(ProseWarning(f"{path.stem} {w.field}: {w.group} {w.pattern!r} matched {w.matched!r}"), stacklevel=1)
+    for line, _ in _bank_report():
+        warnings.warn(ProseWarning(line), stacklevel=1)
+
+
+def test_the_bank_report_prints_rule_ids_and_fields_only():
+    report = _bank_report()
+    assert report, "the bank raised no warning to check the report's shape on"
+    for line, w in report:
+        # Booleans first: pytest's assertion rewriting would otherwise print the
+        # failing line, prose and all, which is the leak this guards against.
+        shaped = REPORT_LINE.fullmatch(line) is not None
+        quotes = w.matched in line
+        assert shaped and not quotes, f"{w.field}: {w.id}"
