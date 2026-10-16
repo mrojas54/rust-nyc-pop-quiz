@@ -30,7 +30,15 @@ REPO = HERE.parent.parent
 FIXTURES = REPO / "bank" / "fixtures" / "copy-lint"
 QUESTIONS = REPO / "bank" / "questions"
 # Text cases: {"text", "expect"}. notes.json holds whole records for check_prose.
-TEXT_FIXTURES = ["retired.json", "forbidden.json", "tropes.json", "near-misses.json", "clean.json", "dialect.json"]
+TEXT_FIXTURES = [
+    "retired.json",
+    "forbidden.json",
+    "tropes.json",
+    "near-misses.json",
+    "clean.json",
+    "dialect.json",
+    "normalization.json",
+]
 FIXTURE_FILES = [*TEXT_FIXTURES, "notes.json"]
 
 
@@ -102,6 +110,28 @@ def test_every_case_matches_exactly_the_rules_it_names(name):
         want = case["expect"] if "expect" in case else case["expect_py"]
         got = [h.id for h in copylint.check(case["text"])]
         assert got == want, f"{case['text']!r} {case.get('note', '')}"
+
+
+def test_the_engines_alone_behave_as_dialect_json_says():
+    # normalize() now collapses the whitespace these cases probe, so the engine
+    # dialect is held here, over the text as given.
+    for case in _cases("dialect.json"):
+        want = case.get("expect_raw", case.get("expect", case.get("expect_py")))
+        assert copylint.check_raw(case["text"]) == want, case["note"]
+
+
+def test_every_normalization_probe_walked_past_the_rules_before_normalize():
+    for case in _cases("normalization.json"):
+        assert copylint.check_raw(case["text"]) != case["expect"], case["note"]
+        assert [h.id for h in copylint.check(case["text"])] == case["expect"], case["note"]
+
+
+def test_normalize_is_idempotent_and_a_match_is_quoted_from_the_normalized_text():
+    for case in _cases("normalization.json") + _cases("dialect.json"):
+        once = copylint.normalize(case["text"])
+        assert copylint.normalize(once) == once, case["note"]
+    [hit] = copylint.check("That\u02bcs\u00a0fine.")
+    assert (hit.id, hit.match) == ("reassurance/1", "That's fine")
 
 
 def test_the_only_divergence_is_the_one_dialect_json_names():

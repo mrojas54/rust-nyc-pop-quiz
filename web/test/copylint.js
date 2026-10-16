@@ -29,9 +29,10 @@
        screen (§7.4) — the Python twin's check_prose() is the hook T-18 calls;
        checkProse() here is its twin, held to the same fixtures.
 
-   Text is read with U+2018/U+2019 taken as `'` before matching: SPEC's
-   patterns spell the apostrophe straight (`that'?s`), and a curly one in
-   generated prose would otherwise walk past every contraction pattern.
+   Text is normalized before matching (normalize(), below): SPEC's patterns
+   spell one space, a straight apostrophe (`that'?s`) and an em dash, and a
+   newline, a curly or modifier apostrophe, a zero-width character, fullwidth
+   letters or `--` in generated prose would otherwise walk past them.
    =========================================================================== */
 (function (root) {
   "use strict";
@@ -92,26 +93,41 @@
     });
   });
 
-  /* Curly single quotes read as the straight one. Same length, so a match's
-     index in the normalized text is its index in the original. */
+  /* The text as SPEC's patterns spell it, so a variant cannot walk past them.
+     In order, the same as the Python twin: NFKC (fullwidth letters,
+     look-alikes and NBSP to their plain forms); zero-width characters
+     (U+200B..U+200D, U+FEFF) removed; every run of `\s`, newlines included, to
+     one space, and the ends trimmed; U+2018, U+2019, U+02BC and the backtick to
+     `'`; `--` (and longer), U+2013, U+2014 and a spaced hyphen ` - ` to U+2014,
+     the dash the contrast pattern spells. Lengths change: a match is quoted
+     from this text. */
   function normalize(text) {
-    return String(text).replace(/[‘’]/g, "'");
+    return String(text)
+      .normalize("NFKC")
+      .replace(/[​-‍﻿]/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/^ | $/g, "")
+      .replace(/[‘’ʼ`]/g, "'")
+      .replace(/ - /g, " — ")
+      .replace(/-{2,}|[–—]/g, "—");
   }
 
   /* Every rule that matches `text`: [{lint, group, id, pattern, match}], in
-     SPEC's order, `match` quoted from the original text. */
+     SPEC's order, `match` quoted from the normalized text. */
   function check(text) {
-    var original = String(text);
-    var norm = normalize(original);
+    var norm = normalize(text);
     var out = [];
     RULES.forEach(function (r) {
       var m = r.re.exec(norm);
-      if (m) {
-        out.push({ lint: r.lint, group: r.group, id: r.id, pattern: r.source,
-          match: original.slice(m.index, m.index + m[0].length) });
-      }
+      if (m) out.push({ lint: r.lint, group: r.group, id: r.id, pattern: r.source, match: m[0] });
     });
     return out;
+  }
+
+  /* The ids of every rule whose compiled pattern matches `text` as given, with
+     no normalizing: the engine alone, for the dialect fixtures. */
+  function checkRaw(text) {
+    return RULES.filter(function (r) { return r.re.test(String(text)); }).map(function (r) { return r.id; });
   }
 
   function forbidden(text) {
@@ -175,6 +191,7 @@
     RULES: RULES,
     normalize: normalize,
     check: check,
+    checkRaw: checkRaw,
     forbidden: forbidden,
     tropes: tropes,
     proseFields: proseFields,

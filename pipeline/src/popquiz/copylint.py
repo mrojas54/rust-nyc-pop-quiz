@@ -27,6 +27,7 @@ different lint over a different string.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
@@ -124,21 +125,45 @@ class Warning:  # noqa: A001 - the review screen's word for it
     id: str  # the rule's id, `<group>/N`: what a log may print, where `matched` may not
 
 
+_ZERO_WIDTH = re.compile("[\u200b-\u200d\ufeff]")
+# JavaScript's class, not `str.isspace`: U+001C..U+001F are Python whitespace and
+# not JavaScript's, and the two twins must collapse the same characters.
+_WHITESPACE_RUN = re.compile(JS_WHITESPACE + "+")
+_APOSTROPHE = re.compile("[\u2018\u2019\u02bc`]")
+_SPACED_HYPHEN = re.compile(" - ")
+_DASH = re.compile("-{2,}|[\u2013\u2014]")
+
+
 def normalize(text: str) -> str:
-    """Curly single quotes read as the straight one SPEC's patterns spell. Same
-    length, so an index into the result is an index into the original."""
-    return text.replace("‘", "'").replace("’", "'")
+    """The text as SPEC's patterns spell it, so a variant cannot walk past them.
+    In order, the same as `copylint.js`: NFKC (fullwidth letters, look-alikes and
+    NBSP to their plain forms); zero-width characters (U+200B..U+200D, U+FEFF)
+    removed; every run of JavaScript whitespace, newlines included, to one space,
+    and the ends trimmed; U+2018, U+2019, U+02BC and the backtick to `'`; `--`
+    (and longer), U+2013, U+2014 and a spaced hyphen ` - ` to U+2014, the dash the
+    contrast pattern spells. Lengths change: a match is quoted from this text."""
+    text = unicodedata.normalize("NFKC", text)
+    text = _ZERO_WIDTH.sub("", text)
+    text = _WHITESPACE_RUN.sub(" ", text).strip(" ")
+    text = _APOSTROPHE.sub("'", text)
+    text = _SPACED_HYPHEN.sub(" \u2014 ", text)
+    return _DASH.sub("\u2014", text)
 
 
 def check(text: str) -> list[Hit]:
-    """Every rule that matches `text`, in SPEC's order, quoting the original text."""
+    """Every rule that matches `text`, in SPEC's order, quoting the normalized text."""
     norm = normalize(text)
-    hits = []
-    for rule in RULES:
-        m = rule.regex.search(norm)
-        if m:
-            hits.append(Hit(rule.lint, rule.group, rule.id, rule.source, text[m.start() : m.end()]))
-    return hits
+    return [
+        Hit(rule.lint, rule.group, rule.id, rule.source, m.group(0))
+        for rule in RULES
+        if (m := rule.regex.search(norm))
+    ]
+
+
+def check_raw(text: str) -> list[str]:
+    """The ids of every rule whose compiled pattern matches `text` as given, with no
+    normalizing: the engine alone, for the dialect fixtures."""
+    return [rule.id for rule in RULES if rule.regex.search(text)]
 
 
 def forbidden_matches(text: str) -> list[Hit]:

@@ -1,0 +1,96 @@
+{
+  "about": "One case per normalization probe (PQ-42, ruling 3). Each `text` walks past the compiled rules as given (the suites pin that: check_raw/checkRaw reports something else) and is caught after normalize(). Written with \\u escapes.",
+  "cases": [
+    {
+      "text": "Don't\nworry.",
+      "expect": [
+        "reassurance/4"
+      ],
+      "note": "newline: a run of whitespace reads as one space"
+    },
+    {
+      "text": "Don't  worry.",
+      "expect": [
+        "reassurance/4"
+      ],
+      "note": "double space"
+    },
+    {
+      "text": "Don't\u00a0worry.",
+      "expect": [
+        "reassurance/4"
+      ],
+      "note": "NBSP (U+00A0)"
+    },
+    {
+      "text": "Don't\u2028worry.",
+      "expect": [
+        "reassurance/4"
+      ],
+      "note": "line separator (U+2028), JavaScript \\s"
+    },
+    {
+      "text": "Don't\u3000worry.",
+      "expect": [
+        "reassurance/4"
+      ],
+      "note": "ideographic space (U+3000)"
+    },
+    {
+      "text": "That is wr\u200bong.",
+      "expect": [
+        "forbidden/6"
+      ],
+      "note": "zero-width space (U+200B) removed"
+    },
+    {
+      "text": "That is wr\u200dong.",
+      "expect": [
+        "forbidden/6"
+      ],
+      "note": "zero-width joiner (U+200D) removed"
+    },
+    {
+      "text": "That\u02bcs fine.",
+      "expect": [
+        "reassurance/1"
+      ],
+      "note": "modifier apostrophe (U+02BC) reads as '"
+    },
+    {
+      "text": "That`s fine.",
+      "expect": [
+        "reassurance/1"
+      ],
+      "note": "backtick reads as '"
+    },
+    {
+      "text": "That is \uff57\uff52\uff4f\uff4e\uff47.",
+      "expect": [
+        "forbidden/6"
+      ],
+      "note": "fullwidth letters: NFKC makes them ASCII"
+    },
+    {
+      "text": "It's not a copy -- it's a move.",
+      "expect": [
+        "contrast/1"
+      ],
+      "note": "-- reads as the em dash the contrast pattern spells"
+    },
+    {
+      "text": "It's not a copy - it's a move.",
+      "expect": [
+        "contrast/1"
+      ],
+      "note": "a spaced hyphen reads as the em dash"
+    },
+    {
+      "text": "It's not a copy \u2013 it's a move.",
+      "expect": [
+        "contrast/1"
+      ],
+      "note": "en dash (U+2013) reads as the em dash"
+    }
+  ]
+}

@@ -80,7 +80,8 @@ function fixture(name) {
 const ids = (text) => [...L.check(text)].map((h) => h.id);
 
 // Text cases: {text, expect}. notes.json holds whole records for checkProse.
-const TEXT_FIXTURES = ['retired.json', 'forbidden.json', 'tropes.json', 'near-misses.json', 'clean.json', 'dialect.json'];
+const TEXT_FIXTURES = ['retired.json', 'forbidden.json', 'tropes.json', 'near-misses.json', 'clean.json', 'dialect.json',
+  'normalization.json'];
 const FIXTURE_FILES = [...TEXT_FIXTURES, 'notes.json'];
 
 test('the fixture set is the one the Python suite reads, and nothing else', () => {
@@ -118,10 +119,31 @@ test('the two allowed near-misses stay allowed', () => {
   assert.equal(copy.fill(copy.COPY.host_reveal_beat_why, { n: 24, X: 'B' }), fixture('near-misses.json')[1].text);
 });
 
-test('a match is quoted from the original text, curly apostrophe and all', () => {
-  const [hit] = L.check('Well. That’s fine, then.');
+test('a match is quoted from the normalized text', () => {
+  const [hit] = L.check('Well. That\u2019s\u00a0fine, then.');
   assert.equal(hit.id, 'reassurance/1');
-  assert.equal(hit.match, 'That’s fine');
+  assert.equal(hit.match, "That's fine");
+});
+
+test('the engine alone behaves as dialect.json says (expect_raw, before normalize)', () => {
+  for (const c of fixture('dialect.json')) {
+    const want = c.expect_raw !== undefined ? c.expect_raw : c.expect !== undefined ? c.expect : c.expect_js;
+    assert.deepEqual([...L.checkRaw(c.text)], want, c.note);
+  }
+});
+
+test('every normalization probe walked past the rules before normalize, and is caught after', () => {
+  for (const c of fixture('normalization.json')) {
+    assert.notDeepEqual([...L.checkRaw(c.text)], c.expect, c.note);
+    assert.deepEqual(ids(c.text), c.expect, c.note);
+  }
+});
+
+test('normalize is idempotent', () => {
+  for (const c of [...fixture('normalization.json'), ...fixture('dialect.json')]) {
+    const once = L.normalize(c.text);
+    assert.equal(L.normalize(once), once, c.note);
+  }
 });
 
 function records() {
