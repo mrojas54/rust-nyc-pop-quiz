@@ -282,12 +282,39 @@ def test_check_prose_reads_what_it_can_of_a_partial_record():
     assert [(w.field, w.group) for w in got] == [("options[1].why_tempting", "reassurance")]
 
 
+def _bank_report() -> list[tuple[str, copylint.Warning]]:
+    """Every committed question's warnings, as (the line this suite prints, the warning)."""
+    paths = sorted(QUESTIONS.glob("*.json"))
+    assert paths, f"no questions under {QUESTIONS}"
+    return [
+        (_report_line(path.stem, w), w)
+        for path in paths
+        for w in copylint.check_prose(json.loads(path.read_text(encoding="utf-8")))
+    ]
+
+
+def _report_line(stem: str, w: copylint.Warning) -> str:
+    # The rule id and the field, never `matched` or `pattern` with a match beside
+    # it: a private bank's prose must not reach CI logs.
+    return f"{stem} {w.field}: {w.id}"
+
+
+REPORT_LINE = re.compile(r"[\w-]+ [A-Za-z0-9_.\[\]]+: ([a-z]+/\d+|lint-error)")
+
+
 def test_every_committed_question_is_checked_and_its_warnings_reported():
     # Information, not a failure (SPEC 11.1): the review screen shows these beside the
     # text and the organizer decides. pytest prints each in its warnings summary.
-    paths = sorted(QUESTIONS.glob("*.json"))
-    assert paths, f"no questions under {QUESTIONS}"
-    for path in paths:
-        record = json.loads(path.read_text(encoding="utf-8"))
-        for w in copylint.check_prose(record):
-            warnings.warn(ProseWarning(f"{path.stem} {w.field}: {w.group} {w.pattern!r} matched {w.matched!r}"), stacklevel=1)
+    for line, _ in _bank_report():
+        warnings.warn(ProseWarning(line), stacklevel=1)
+
+
+def test_the_bank_report_prints_rule_ids_and_fields_only():
+    report = _bank_report()
+    assert report, "the bank raised no warning to check the report's shape on"
+    for line, w in report:
+        # Booleans first: pytest's assertion rewriting would otherwise print the
+        # failing line, prose and all, which is the leak this guards against.
+        shaped = REPORT_LINE.fullmatch(line) is not None
+        quotes = w.matched in line
+        assert shaped and not quotes, f"{w.field}: {w.id}"
