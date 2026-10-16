@@ -186,6 +186,10 @@ the `answer-history.json` record.
   one of those is the only failure: name it, rerun that recipe once, and rely
   on CI's `just test-full` job rather than chasing it locally. Anything else is
   a real failure until shown otherwise.
+- **`AGENTS.md` is a byte copy of `CLAUDE.md`**, held equal by
+  `web/test/agents-sync.test.js` (a regular file, never a symlink). After
+  editing `CLAUDE.md`, run `cp CLAUDE.md AGENTS.md`, or `just test` fails on
+  that one test.
 
 ## Tone arc
 
