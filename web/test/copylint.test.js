@@ -163,6 +163,58 @@ test('the notes fixture trips every rule family in a note', () => {
   assert.deepEqual([...fired].sort(), ['forbidden', ...Object.keys(L.TROPES)].sort());
 });
 
+// --- 2a. The Python twin, run over the same files --------------------------------
+
+// Both suites assert against the same `expect`, so a rule dropped in one
+// language fails that language's own check. This test also runs the Python
+// twin itself over every fixture and compares case by case, so a disagreement
+// fails here whichever side moved. One direction only: the pipeline suite may
+// start no process (tests/test_runner.py guards it), so it does not run node.
+// Needs pipeline/.venv (`just setup`); a missing venv fails, never skips.
+const PY_DUMP = String.raw`
+import json, pathlib, sys, unicodedata
+from popquiz import copylint
+d = pathlib.Path(sys.argv[1])
+out = {"unicode": unicodedata.unidata_version, "files": {}}
+for p in sorted(d.glob("*.json")):
+    f = json.loads(p.read_text(encoding="utf-8"))
+    if "records" in f:
+        out["files"][p.name] = [[[w.field, w.id] for w in copylint.check_prose(r["record"])] for r in f["records"]]
+    else:
+        out["files"][p.name] = [{"check": [h.id for h in copylint.check(c["text"])], "raw": copylint.check_raw(c["text"])} for c in f["cases"]]
+print(json.dumps(out))
+`;
+
+test('the Python twin reports what this one does on every fixture, bar the one named divergence', () => {
+  const { spawnSync } = require('node:child_process');
+  const r = spawnSync('uv', ['run', '--offline', '--no-sync', 'python', '-c', PY_DUMP, FIXTURES],
+    { cwd: path.join(REPO, 'pipeline'), encoding: 'utf8' });
+  assert.equal(r.status, 0, `the Python twin did not run: ${r.error || ''}${r.stderr || ''}`);
+  const py = JSON.parse(r.stdout);
+  const versions = `Unicode: python ${py.unicode}, node ${process.versions.unicode}`;
+  assert.deepEqual(Object.keys(py.files).sort(), [...FIXTURE_FILES].sort());
+  let compared = 0;
+  for (const name of TEXT_FIXTURES) {
+    fixture(name).forEach((c, i) => {
+      const theirs = py.files[name][i];
+      const mine = { check: ids(c.text), raw: [...L.checkRaw(c.text)] };
+      if (c.expect_js !== undefined) {
+        // dialect.json's one documented case: each engine holds its own side.
+        assert.deepEqual(mine.check, c.expect_js, c.note);
+        assert.deepEqual(theirs.check, c.expect_py, c.note);
+      } else {
+        assert.deepEqual(theirs, mine, `${name}[${i}] ${c.note || ''} (${versions})`);
+      }
+      compared++;
+    });
+  }
+  records().forEach((rec, i) => {
+    assert.deepEqual(py.files['notes.json'][i], [...L.checkProse(rec.record)].map((w) => [w.field, w.id]), `notes.json[${i}] ${rec.note}`);
+    compared++;
+  });
+  assert.ok(compared >= 78, `only ${compared} fixture cases compared`);
+});
+
 // --- 3. The copy module: any match fails the build -----------------------------
 
 test('no copy module entry matches the Forbidden row (G-5, AC-98)', () => {
