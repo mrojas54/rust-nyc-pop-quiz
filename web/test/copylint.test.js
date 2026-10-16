@@ -210,7 +210,7 @@ print(json.dumps(out))
 test('the Python twin reports what this one does on every fixture, bar the one named divergence', () => {
   const { spawnSync } = require('node:child_process');
   const r = spawnSync('uv', ['run', '--offline', '--no-sync', 'python', '-c', PY_DUMP, FIXTURES],
-    { cwd: path.join(REPO, 'pipeline'), encoding: 'utf8' });
+    { cwd: path.join(REPO, 'pipeline'), encoding: 'utf8', timeout: 60000 });
   assert.equal(r.status, 0, `the Python twin did not run: ${r.error || ''}${r.stderr || ''}`);
   const py = JSON.parse(r.stdout);
   const versions = `Unicode: python ${py.unicode}, node ${process.versions.unicode}`;

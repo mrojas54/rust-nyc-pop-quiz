@@ -28,7 +28,9 @@ no build step — the prototype *is* the design, and it is already plain JS
 Node's built-in test runner, which means **no `package.json`, no
 `node_modules`, and nothing to install**. Keeping the web suite free of a
 dependency tree is what lets `just test` stay hermetic without a lockfile for a
-third ecosystem.
+third ecosystem. One exception: `test/copylint.test.js` runs the pipeline's
+Python lint through `uv run --offline --no-sync`, so it needs `pipeline/.venv`
+(`just setup`, which CI runs first) and fails without it.
 
 ### Buzzer join recovery
 
