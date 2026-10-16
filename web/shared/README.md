@@ -48,7 +48,9 @@ Everything attaches to one `window.PopQuiz` namespace, and every module reads
 order. `tokens.css` imports `fonts.css` itself; load `components.css` after it.
 
 Load only what a surface needs — the buzzer wants `dom`, `copy` and `check` and
-none of the rest.
+none of the rest. `check`, `well` and `trace` take their words from `copy.js`
+through `PQ.t` when they are called, so `copy.js` must be loaded by then, though
+it may come after them in the page.
 
 ## Three things a consuming ticket must not get wrong
 

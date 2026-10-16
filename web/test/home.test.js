@@ -275,12 +275,10 @@ test('AC-33: code wells scroll in their own containers; nothing hides a page ove
 // --------------------------------------------------------------------------
 
 test('§11: the proposed strings match neither the Forbidden row nor the trope check', () => {
-  const forbidden = [/turn to/i, /ask (someone|the person|your neighbou?r)/i, /find someone/i, /volunteer/i,
-    /who (said|picked|chose)/i, /\bwrong\b/i, /\bincorrect\b/i, /✗/, /argu/i];
-  const tropes = [/\bnot (just|only|merely|simply)\b/i, /\b(genuinely|truly|honestly|quietly|extremely|deeply|fundamentally|literally)\b/i,
-    /\bworth (a|the|stopping|talking|noting|remembering)\b/i, /\bdon'?t worry\b/i, /\bnothing is missing\b/i];
+  // SPEC's patterns from their one source (web/test/copylint.js), not retyped.
+  const L = load('copylint').PQ.COPYLINT;
   for (const [key, s] of Object.entries(PQ.Home.PROPOSED)) {
-    for (const re of [...forbidden, ...tropes]) assert.ok(!re.test(s), `${key}: ${re}`);
+    assert.deepEqual([...L.check(s)].map((h) => h.id), [], key);
   }
   for (const name of ['q3', 'complete', 'dnc']) {
     const shown = text(render(FIX[name]).replace(/<pre[\s\S]*?<\/pre>|<code>[\s\S]*?<\/code>/g, ''));
