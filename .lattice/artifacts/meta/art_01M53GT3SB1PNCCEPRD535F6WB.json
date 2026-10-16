@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-16T23:30:00Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M53GT3SB1PNCCEPRD535F6WB",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M53GT3SB1PNCCEPRD535F6WB.md",
+    "size_bytes": 723
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged from the Orchestrator seat on the client's word (2026-10-16 23:2xZ: 'takes your word on PR #85, merge now then fix-back'). PR #85 merge commit ff282737995af55a472abdb2b852c0aae27bb407 (--merge,",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
