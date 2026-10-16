@@ -151,8 +151,10 @@ the only words it lets through, with its reason:
 
 `COPY_FIELDS`, the room fields whose strings are §11 templates the room
 filled, is pinned both ways against the wall, static and take-it-home
-fixtures: a field carrying a template of three or more words that is not in
-the list fails, and so does a listed field no fixture fills.
+fixtures: a field carrying a filled template that is not in the list fails,
+and so does a listed field no fixture fills. Keys that only drive rendering
+(`phase`, `type`, …) are not read, since a state name can equal a one-word
+label.
 
 What it cannot see, by name:
 
@@ -166,9 +168,9 @@ What it cannot see, by name:
   here; the host status line is where one reaches a page.
 - **Paths no fixture draws.** The render test sees what the screens it draws
   show; the source scan for retyped §11 values reads multi-word values only.
-- **Short templates in the `COPY_FIELDS` pin.** A new field filled from a one-
-  or two-word template is not detected (a full match that short is as likely
-  ordinary data).
+- **Fields the fixtures do not carry.** The `COPY_FIELDS` pin reads the
+  committed fixtures; a new room field that no fixture has yet is unseen until
+  one does.
 
 **`PROPOSED-§11`.** Strings a page already showed that §11 does not author yet
 sit in a marked block at the end of `COPY`, words unchanged, under the row

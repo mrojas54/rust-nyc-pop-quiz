@@ -192,7 +192,8 @@
       var out = [];
       proseFields(record).forEach(function (f) {
         field = f[0];
-        check(f[1]).forEach(function (h) {
+        // Through the namespace, so a test can plant a crash in one field.
+        PQ.COPYLINT.check(f[1]).forEach(function (h) {
           out.push({ field: f[0], id: h.id, group: h.group, pattern: h.pattern, matched: h.match });
         });
       });

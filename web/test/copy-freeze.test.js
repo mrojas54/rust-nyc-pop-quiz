@@ -429,13 +429,12 @@ test('the host status line passes the room\'s reason only, and host.js assigns i
   assert.deepEqual(literal, []);
 });
 
-// Every §11 template with at least three literal words: long enough that a
-// full match is the room's filled string and not ordinary data.
-const LONG_TEMPLATES = TEMPLATES.filter((t) => (REAL.COPY[t.key].replace(/‹[^›]+›/g, ' ').match(WORD) || []).length >= 3);
-
-function copyFieldsIn(obj, templates = LONG_TEMPLATES, found = new Map(), where = '') {
+// Every field whose string fully matches a §11 template, bar the keys that
+// drive rendering and are never shown (NOT_DATA: `phase: "released"` is a
+// state name that happens to equal a one-word label).
+function copyFieldsIn(obj, templates = TEMPLATES, found = new Map(), where = '') {
   const note = (k, v, at) => {
-    if (templates.some((t) => t.re.test(v))) found.set(k, [...(found.get(k) || []), at]);
+    if (!NOT_DATA.has(k) && templates.some((t) => t.re.test(v))) found.set(k, [...(found.get(k) || []), at]);
   };
   if (Array.isArray(obj)) obj.forEach((x, i) => copyFieldsIn(x, templates, found, `${where}[${i}]`));
   else if (obj && typeof obj === 'object') {
@@ -452,9 +451,7 @@ test('COPY_FIELDS is exactly the fields that carry the room\'s §11 strings', ()
   const found = copyFieldsIn([WALL_FIX, BAKE, HOME_FIX]);
   const undeclared = [...found].filter(([k]) => !COPY_FIELDS.has(k)).map(([k, at]) => `${k} at ${at[0]}`);
   assert.deepEqual(undeclared, [], 'a field carries a §11 template but is not in COPY_FIELDS');
-  // Every declared field is filled somewhere, with a template of any length.
-  const filled = copyFieldsIn([WALL_FIX, BAKE, HOME_FIX], TEMPLATES);
-  const unused = [...COPY_FIELDS].filter((k) => !filled.has(k));
+  const unused = [...COPY_FIELDS].filter((k) => !found.has(k));
   assert.deepEqual(unused, [], 'a COPY_FIELDS name that no fixture fills');
   // And the check bites: a new field carrying a filled template is caught.
   const frame = { ...WALL_FIX.frames.live, new_line: REAL.fill(REAL.COPY.wall_released_title, {}) };

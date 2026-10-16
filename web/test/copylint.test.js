@@ -174,6 +174,15 @@ test('a record that crashes the lint is one lint-error warning, never clean', ()
   assert.equal(onNote[0].id, 'lint-error');
   assert.equal(onNote[0].matched, 'RangeError');
   assert.ok(!JSON.stringify(onNote).includes(SECRET));
+  // A crash inside one field's check names that field.
+  const real = L.check;
+  L.check = (text) => { if (text === 'hint text') throw new RangeError(SECRET); return real(text); };
+  try {
+    const onHint = [...L.checkProse({ explains: { what: "Don't worry." }, hint: 'hint text' })].map((w) => ({ ...w }));
+    assert.deepEqual(onHint, [{ field: 'hint', id: 'lint-error', group: 'lint-error', pattern: '', matched: 'RangeError' }]);
+  } finally {
+    L.check = real;
+  }
 });
 
 // --- 2a. The Python twin, run over the same files --------------------------------
