@@ -338,6 +338,8 @@ const ALLOWLIST = [
       + 'the twelve month names only.',
   },
 ];
+// An entry with no words filter would let any word through its element.
+assert(ALLOWLIST.every((a) => a.words), 'every allowlist entry carries a words filter');
 const allowed = (screen, t, w) => ALLOWLIST.some((a) => a.surface === screen.surface && a.where === t.where
   && (!a.words || a.words.includes(w)));
 
