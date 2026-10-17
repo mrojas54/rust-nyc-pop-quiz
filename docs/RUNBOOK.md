@@ -334,7 +334,7 @@ File the sheets:
 
 | What you see | What to do |
 |---|---|
-| `just schedule` prints `… is not affirmed …` | No question is affirmed yet. See *Affirming a question — pending the owner's ruling (F-52)*. Do not edit the record. |
+| `just schedule` prints `… is not affirmed …` | That question is not in the reserve: it is unaffirmed, or its affirmation is unbound. Pick one that is (*The reserve*, above), or have an organizer affirm it through `popquiz.review` (*Affirming a question*, above). Do not edit the record. |
 | `POPQUIZ_ADMIN_TOKEN is not set in the environment` | Run the command with the `op read` prefix shown above. |
 | `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret. `room/README.md`, *Pipeline channel*, has the rotation. |
 | `… is inside the repository …` | Give `--out` a directory outside it, such as `~/popquiz-<YYYY-MM-DD>`. |
