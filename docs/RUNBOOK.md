@@ -24,14 +24,15 @@ advances on its own.
 ### The reserve
 
 The reserve is every question that is accepted, affirmed and unused (`SPEC.md`
-§3.3). `just schedule` and `just sync` print it before they do anything else.
-A snapshot, taken on `de1da5f`; the numbers move with every review and every
+§3.3). `just schedule` and `just sync` print it before they do anything else;
+`python -m popquiz.schedule reserve` prints it on its own and writes nothing.
+A snapshot, taken on `3c7a477`; the numbers move with every review and every
 night:
 
 ```
-reserve: 0 ready (accepted, affirmed, unused) - 0 meetups of runway at one question a meetup
-trend: +0 accepted awaiting affirmation, +4 not yet reviewed, -0 used in the last 90 days
-warning: 0 ready is below the threshold of 2 - generate and review now; the lead time is 2 meetups
+reserve (nyc): 1 ready (accepted, affirmed, unused) - 1 meetup of runway at one question a meetup
+trend: +0 accepted awaiting affirmation, +3 not yet reviewed, -0 used in the last 90 days
+warning: 1 ready is below the threshold of 2 - generate and review now; the lead time is 2 meetups
 ```
 
 The warning fires below two meetups of supply. Generating (T-16, `just
