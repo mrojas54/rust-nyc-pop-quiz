@@ -349,6 +349,8 @@ File the sheets:
 
 ## The instruments
 
+- `REHEARSAL-GUIDE.md` — the rehearsal checklist, from the bank to the filled
+  sheet.
 - `mvp/PRACTICE-RUN.md` — the rehearsal with two regulars (HC-1). Copy it, fill
   it in place.
 - `mvp/FIELD-NOTES-TEMPLATE.md` — the meetup (HC-4). Someone other than the host
