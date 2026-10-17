@@ -37,6 +37,13 @@
       "note": "ideographic space (U+3000)"
     },
     {
+      "text": "\nNot the value.",
+      "expect": [
+        "contrast/3"
+      ],
+      "note": "leading whitespace trimmed: the text opens with `Not`, so contrast/3's `^` holds"
+    },
+    {
       "text": "That is wr\u200bong.",
       "expect": [
         "forbidden/6"
@@ -49,6 +56,13 @@
         "forbidden/6"
       ],
       "note": "zero-width joiner (U+200D) removed"
+    },
+    {
+      "text": "That is wr\u200cong.",
+      "expect": [
+        "forbidden/6"
+      ],
+      "note": "zero-width non-joiner (U+200C) removed"
     },
     {
       "text": "That\u02bcs fine.",

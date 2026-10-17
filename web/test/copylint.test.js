@@ -210,7 +210,7 @@ print(json.dumps(out))
 test('the Python twin reports what this one does on every fixture, bar the one named divergence', () => {
   const { spawnSync } = require('node:child_process');
   const r = spawnSync('uv', ['run', '--offline', '--no-sync', 'python', '-c', PY_DUMP, FIXTURES],
-    { cwd: path.join(REPO, 'pipeline'), encoding: 'utf8' });
+    { cwd: path.join(REPO, 'pipeline'), encoding: 'utf8', timeout: 60000 });
   assert.equal(r.status, 0, `the Python twin did not run: ${r.error || ''}${r.stderr || ''}`);
   const py = JSON.parse(r.stdout);
   const versions = `Unicode: python ${py.unicode}, node ${process.versions.unicode}`;
@@ -234,7 +234,7 @@ test('the Python twin reports what this one does on every fixture, bar the one n
     assert.deepEqual(py.files['notes.json'][i], [...L.checkProse(rec.record)].map((w) => [w.field, w.id]), `notes.json[${i}] ${rec.note}`);
     compared++;
   });
-  assert.ok(compared >= 78, `only ${compared} fixture cases compared`);
+  assert.ok(compared >= 80,`only ${compared} fixture cases compared`);
 });
 
 // --- 3. The copy module: any match fails the build -----------------------------
