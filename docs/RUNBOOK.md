@@ -1,7 +1,7 @@
 # Running the Pop Quiz
 
 How an organizer schedules one question, hosts it on the built room and spends
-it afterwards. This describes the room on `main` at `de1da5f`. The hand-run
+it afterwards. This describes the room on `main` at `ebaaa77`. The hand-run
 projector deck has its own run-of-show in `mvp/README.md`; this is the
 successor to it for the built room.
 
@@ -68,13 +68,23 @@ popquiz.schedule: q4 is not affirmed - it has no affirmed_by and no affirmed_at,
 
 ### Deploy before the rehearsal
 
-The deployed room is behind `main`. Fly app `rustnyc-popquiz` runs `1263add`
-(2026-09-29), seventeen merges before `de1da5f`. Deploying is the client's
-step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
+The room follows `main`. `.github/workflows/deploy.yml` deploys Fly app
+`rustnyc-popquiz` on every push to `main`, and by hand from the Actions tab, so
+a merge is a deploy: it restarts the one machine and drops every room it holds.
+Before the rehearsal, confirm the last deploy run is green:
 
-1. **If a night ran since the last sync, `just sync` first.** A deploy restarts
-   the machine, and the used ledger lives in memory.
-2. Deploy from an up-to-date `main`, from the repository root:
+```
+gh run list --workflow deploy.yml --limit 1
+```
+
+A failed or missing run means the deployed room is behind `main`; deploy by
+hand, `room/README.md`, *Deploying*, has the whole of it. The order matters:
+
+1. **If a night ran since the last sync, `just sync` first, before anything
+   merges to `main`.** A merge redeploys, a deploy restarts the machine, and
+   the used ledger lives in memory.
+2. Merge, and wait for the deploy run to go green. If the workflow fails,
+   deploy from an up-to-date `main`, from the repository root:
    `fly deploy --ha=false --remote-only`. One machine, never two.
 3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`,
    with `POPQUIZ_ORGANIZER_SESSION` in the environment (`room/README.md`,
