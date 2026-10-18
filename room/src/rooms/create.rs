@@ -89,8 +89,10 @@ impl AppState {
     /// another room holds the question — not released, and not ended at `now`
     /// ([`Room::holds`]) — because releasing either of two rooms on one
     /// question would put its answer on `/last` while the other is still
-    /// before reveal (G-3). Refused, too, if the question has been run (G-10)
-    /// or is not scheduled.
+    /// before reveal (G-3). Refused, too, if the question has been run (G-10),
+    /// is not scheduled, or is not affirmed for its text (G-12): `schedule`
+    /// refuses that already, and this holds it for every other way a record
+    /// gets in ([`AppState::new`]'s list).
     ///
     /// Every check and the insert are one critical section: `questions`, then
     /// `rooms` (the order [`AppState::schedule`] takes), held until the room
@@ -132,6 +134,9 @@ impl AppState {
             .get(&(club.clone(), question_id.to_string()))
             .cloned()
             .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
+        if let Some(why) = question.refusal(question_id) {
+            return Err(RoomError::Refused(why));
+        }
         let ended = lock(&self.ended);
         let code = loop {
             let code = new_code();

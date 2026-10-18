@@ -351,8 +351,14 @@ def test_ac101_the_push_carries_the_bearer_and_exactly_the_arranged_record(affir
     assert request.get_method() == "PUT"
     assert request.full_url == "https://room.test/admin/questions/q3"
     assert request.get_header("Authorization") == f"Bearer {PLANT}"
-    expected = schedule.arrange(load_question(affirmed, "q3"), NIGHT)
-    assert json.loads(request.data) == question_to_dict(expected)
+    question = load_question(affirmed, "q3")
+    expected = schedule.arrange(question, NIGHT)
+    body = json.loads(request.data)
+    # ADR-0005 item 9: beside the record, the bank order the room checks the
+    # affirmation's digest in; slot k holds the bank's option bank_order[k].
+    order = body.pop("bank_order")
+    assert body == question_to_dict(expected)
+    assert [question.options[i] for i in order] == list(expected.options)
     assert "scheduled: new" in capsys.readouterr().out
 
 
@@ -560,6 +566,27 @@ def test_sync_writes_used_from_the_ledger_and_a_null_fit_is_an_absent_key(bank, 
     assert "used: q3 by nyc on 2026-10-14, room room-a" in out
     assert "fit: room room-a (q3) - the wall never reported a verdict" in out
     assert "fit: room room-b (q4) - clipped_x" in out
+
+
+def test_sync_writes_who_affirmed_the_question_the_room_ran(bank, room, capsys):
+    """ADR-0005 item 9: the room's used record names the affirming organizer, and
+    sync carries it into the bank and the ledger report. An older record without
+    it reads and prints as before (absent is absent)."""
+    entries = ledger(("q3", "2026-10-14", "room-a", "fits"), ("q4", "2026-10-15", "room-b", "fits"))
+    entries[0]["used"]["affirmed_by"] = "queenrose54"
+    room((200, entries))
+    assert sync(bank) == 0
+    q3 = json.loads((bank / "questions" / "q3.json").read_text())
+    assert q3["used"][0]["affirmed_by"] == "queenrose54"
+    assert load_question(bank, "q3").used_by().affirmed_by == "queenrose54"
+    assert "affirmed_by" not in json.loads((bank / "questions" / "q4.json").read_text())["used"][0]
+    out = capsys.readouterr().out
+    assert "used: q3 by nyc on 2026-10-14, room room-a, affirmed by queenrose54" in out
+    assert "used: q4 by nyc on 2026-10-15, room room-b\n" in out
+    # The same ledger again changes nothing.
+    after_first = snapshot(bank)
+    assert sync(bank) == 0
+    assert snapshot(bank) == after_first
 
 
 def test_sync_lists_and_skips_harness_ids(bank, room, capsys):

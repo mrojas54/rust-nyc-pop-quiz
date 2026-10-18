@@ -240,8 +240,20 @@ routes, one credential. T-20 builds the laptop side (`popquiz schedule` and
 
 | Route | What | Answers |
 |---|---|---|
-| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes. It goes through `answers::load` into the sealed module and nowhere else (AC-61). | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load or its `id` is not `{id}`. `409 {reason}` if the question has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
-| `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). | `200` |
+| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes, plus `bank_order` from `popquiz schedule` (where each wall option sits in the bank; absent means the bank's own order). It goes through `answers::load_arranged` into the sealed module and nowhere else (AC-61); `bank_order` is never stored. | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load, its affirmation is malformed, `bank_order` is not an arrangement, or its `id` is not `{id}`. `409 {reason}` if the question is not affirmed for its text (unaffirmed, stale or unbound) or not accepted at review, has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
+| `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit, affirmed_by}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). `affirmed_by` is the organizer whose affirmation the room ran it on. | `200` |
+
+**Only affirmed questions run (G-12, GAP-24, ADR-0005 item 9).** The room checks
+a pushed record's affirmation with `models/affirmation.rs`, the twin of
+`bank.affirmation_digest` and `affirmation_state`, held to them by
+`bank/fixtures/affirmation/` in both languages. It refuses anything but
+`bound`, and a bound record not accepted at review (`audit.is_accepted`), at
+the push and again when a room is made, and a refused push leaves the record
+already scheduled in place. The room types the record more strictly than
+Python (a trace line `1.0`, `pivot: 1`), so on such a record it refuses what
+`just schedule` would pass: on those types it fails closed. `review` does not
+generate such values, though it keeps one already in a file. The affirmation is an organizer's
+sign-off bound to the text; it is not a signature and authenticates no one.
 
 **The credential.** `Authorization: Bearer <token>`. The token is the value of
 `POPQUIZ_ADMIN_TOKEN`: a Fly secret that the pipeline's local configuration

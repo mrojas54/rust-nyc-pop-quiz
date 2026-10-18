@@ -139,8 +139,43 @@ pub fn q3_json() -> Value {
     serde_json::from_str(&text).expect("q3.json parses")
 }
 
+/// The record affirmed for its own text, as `popquiz.review affirm` leaves it:
+/// the digest is the room's twin's, which `tests/twins.rs` holds to the
+/// pipeline's rule. q3 itself comes back as it is in the bank. The person is
+/// kept when the record names one.
+pub fn affirmed(v: &Value) -> Value {
+    let mut v = v.clone();
+    let review = v
+        .as_object_mut()
+        .expect("a record")
+        .entry("review")
+        .or_insert_with(|| serde_json::json!({}));
+    if review
+        .get("affirmed_by")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        review["affirmed_by"] = "test-organizer".into();
+    }
+    if review
+        .get("affirmed_at")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        review["affirmed_at"] = "2026-10-18T00:00:00+00:00".into();
+    }
+    review.as_object_mut().unwrap().remove("affirmed_digest");
+    let digest = answers::Record::from_json(&v.to_string())
+        .and_then(|r| r.affirmation_digest(None))
+        .unwrap_or_else(|e| panic!("affirmed: {e}"));
+    v["review"]["affirmed_digest"] = digest.into();
+    v
+}
+
+/// The record loaded as the room loads a push, affirmed for its text first
+/// (most fixtures edit q3, and an edit makes its affirmation stale).
 pub fn load(v: &Value) -> Scheduled {
-    answers::load(&v.to_string()).unwrap_or_else(|e| panic!("load: {e}"))
+    answers::load(&affirmed(v).to_string()).unwrap_or_else(|e| panic!("load: {e}"))
 }
 
 pub fn q3() -> Scheduled {
@@ -170,8 +205,9 @@ pub fn plant_why(letter: &str) -> String {
 }
 
 /// q3, id `planted`, with canaries in the resolving step's note, both beats,
-/// every `why_tempting`, the hint, and a `stdout` row slipped into a middle
-/// step (G-3 withholds *any* values entry named `stdout`, not only the last).
+/// every `why_tempting`, and the hint. A `stdout` row in a middle step is not
+/// planted here: the room refuses that record at load, as the bank does (see
+/// [`assert_middle_stdout_refused`]).
 pub fn planted() -> Value {
     let mut v = q3_json();
     v["id"] = "planted".into();
@@ -186,11 +222,28 @@ pub fn planted() -> Value {
     let steps = v["trace"]["steps"].as_array_mut().unwrap();
     let last = steps.len() - 1;
     steps[last]["note"] = PLANT_RESOLVING_NOTE.into();
-    steps[2]["values"]
+    v
+}
+
+/// [`planted`] with a `stdout` row slipped into a middle step. G-3 withholds
+/// *any* values entry named `stdout`; the room never gets that far with this
+/// record, because `bank.validate_question` refuses it and so does the room.
+pub fn middle_stdout() -> Value {
+    let mut v = planted();
+    v["trace"]["steps"][2]["values"]
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({"name": "stdout", "was": "—", "now": PLANT_MIDDLE_STDOUT}));
     v
+}
+
+/// The middle `stdout` canary is refused at load, affirmed for its own text,
+/// so it can reach no page, frame or public half.
+pub fn assert_middle_stdout_refused() {
+    match answers::load(&affirmed(&middle_stdout()).to_string()) {
+        Ok(_) => panic!("loaded a record with a stdout row before the last step"),
+        Err(e) => assert!(e.0.starts_with("planted: trace step 3 names stdout"), "{e}"),
+    }
 }
 
 /// A SYNTHETIC does-not-compile record, id `planted-dnc`: q3's prose with a
@@ -561,8 +614,6 @@ pub struct Plants {
     pub resolving: String,
     /// A non-`stdout` value in the second step.
     pub trace_value: String,
-    /// A `stdout` row slipped into a middle step (G-3: *any* such row).
-    pub middle_stdout: String,
     /// The does-not-compile twin's one error code.
     pub error_code: String,
     /// `POPQUIZ_ADMIN_TOKEN` (AC-101's canary half).
@@ -581,7 +632,6 @@ impl Plants {
             ("source".into(), self.source.as_str()),
             ("resolving".into(), self.resolving.as_str()),
             ("trace_value".into(), self.trace_value.as_str()),
-            ("middle_stdout".into(), self.middle_stdout.as_str()),
             ("error_code".into(), self.error_code.as_str()),
             ("admin".into(), self.admin.as_str()),
         ];
@@ -625,7 +675,6 @@ pub fn plants() -> &'static Plants {
             notes: (0..steps - 1).map(|i| p(&format!("NOTE-{i}"))).collect(),
             resolving: p("RESOLVING-NOTE"),
             trace_value: p("TRACE-VALUE"),
-            middle_stdout: p("MIDDLE-STDOUT"),
             error_code: format!("E{}", p("ERROR")),
             admin: p("ADMIN-TOKEN"),
         };
@@ -681,11 +730,9 @@ pub fn canary_question() -> Value {
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({"name": "canary", "was": "—", "now": p.trace_value}));
-    steps[2]["values"]
-        .as_array_mut()
-        .unwrap()
-        .push(serde_json::json!({"name": "stdout", "was": "—", "now": p.middle_stdout}));
-    v
+    // No `stdout` row in a middle step: the room refuses that record at load,
+    // as the bank does (`canary_middle_stdout_is_refused` in the scan).
+    affirmed(&v)
 }
 
 /// The does-not-compile twin, id `canary-dnc`: the same plants, a verified
@@ -705,7 +752,7 @@ pub fn canary_question_dnc() -> Value {
         .as_object_mut()
         .unwrap()
         .remove("why_tempting");
-    v
+    affirmed(&v)
 }
 
 // --------------------------------------------------------------------------

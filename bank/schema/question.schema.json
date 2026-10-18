@@ -261,6 +261,10 @@
           "pattern": "^[a-z0-9][a-z0-9-]{0,23}$",
           "description": "The club whose room released the question (D-26); absent reads as the default club, nyc. A question is never run twice for one club; another club may still run it."
         },
+        "affirmed_by": {
+          "type": "string",
+          "description": "The organizer whose affirmation the room ran the question on (G-12, ADR-0005 item 9), copied from the room's used record by sync. Absent on a record from before the room carried it. A sign-off, not a signature."
+        },
         "fit": {
           "enum": ["fits", "clipped_x", "clipped_y", "clipped_xy"],
           "description": "The wall's measured verdict at reveal, the last refit of the night (AC-100). Absent when the wall never reported a verdict before release: the room sends null, and absent is absent (F-30). Absent is not fits."

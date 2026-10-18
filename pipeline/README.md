@@ -178,7 +178,10 @@ What it does, in order:
 4. **Pushes** the arranged record to `PUT /admin/questions/<id>` (or
    `/admin/clubs/<club>/questions/<id>` with `--club`, D-26: the record is per
    club, because it is arranged for that club's date) and prints
-   `scheduled: new` or `scheduled: replaced`. A refusal prints the room's reason.
+   `scheduled: new` or `scheduled: replaced`. The push carries `bank_order`, so
+   the room can check the affirmation's digest itself in the bank's option order
+   and refuse a question that is not affirmed for its text (G-12, ADR-0005 item
+   9). A refusal prints the room's reason.
    Connection failures, 5xx, 408 and 429 are retried three times with growing
    waits; a 4xx other than 408 or 429 is never retried; a redirect is never followed. The room must be `https`, or
    plain `http` to this machine.

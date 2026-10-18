@@ -358,10 +358,10 @@ fn the_public_half_holds_nothing_sealed() {
         common::PLANT_RESOLVING_NOTE,
         common::PLANT_WHAT,
         common::PLANT_TAKEAWAY,
-        common::PLANT_MIDDLE_STDOUT,
     ] {
         assert!(!dump.contains(plant), "{plant} is in the public half");
     }
+    common::assert_middle_stdout_refused();
     for letter in ["A", "B", "C", "D", "E"] {
         assert!(!dump.contains(&common::plant_why(letter)));
     }
@@ -463,4 +463,102 @@ fn the_proposed_block_is_copy_js_s_and_the_room_sends_none_of_it() {
             assert!(!text.contains(&name), "{file} uses {name}");
         }
     }
+}
+
+// --------------------------------------------------------------------------
+// G-12, GAP-24, ADR-0005 item 9: the affirmation rule's twin, held to the
+// pipeline's `affirmation_digest` and `affirmation_state` by the cases in
+// `bank/fixtures/affirmation/`, which `pipeline/tests/test_affirmation_twin.py`
+// holds the rule to.
+// --------------------------------------------------------------------------
+
+#[test]
+fn the_affirmation_matches_every_shared_fixture() {
+    let dir = common::repo().join("bank/fixtures/affirmation");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .expect("bank/fixtures/affirmation")
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .collect();
+    files.sort();
+    assert!(
+        files.len() >= 16,
+        "found {} affirmation fixtures",
+        files.len()
+    );
+    let mut states = std::collections::BTreeSet::new();
+    for path in files {
+        let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+        let fixture: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let mut record = fixture["record"].clone();
+        let order: Option<Vec<usize>> = fixture
+            .get("arranged")
+            .map(|a| serde_json::from_value(a.clone()).unwrap());
+        if let Some(order) = &order {
+            let options = record["options"].as_array().unwrap().clone();
+            record["options"] = order.iter().map(|&i| options[i].clone()).collect();
+        }
+        let parsed =
+            Record::from_json(&record.to_string()).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let state = fixture["state"].as_str().unwrap();
+        states.insert(state.to_string());
+        match parsed.affirmation(order.as_deref()) {
+            Err(e) => {
+                assert_eq!(state, "refused", "{name}: {e}");
+                let reason = fixture["reason"].as_str().unwrap();
+                assert!(
+                    e.to_string().ends_with(reason),
+                    "{name}: {e} is not {reason:?}"
+                );
+            }
+            Ok(a) => {
+                assert_eq!(a.state(), state, "{name}");
+                assert_eq!(
+                    parsed.affirmation_digest(order.as_deref()).unwrap(),
+                    fixture["digest"],
+                    "{name}"
+                );
+            }
+        }
+    }
+    assert_eq!(
+        states.into_iter().collect::<Vec<_>>(),
+        ["bound", "none", "refused", "stale", "unbound"]
+    );
+}
+
+#[test]
+fn an_arranged_record_is_hashed_in_the_banks_order_and_no_other() {
+    let v = common::q3_json();
+    let options = v["options"].as_array().unwrap().clone();
+    let order = [3, 0, 4, 1, 2];
+    let mut arranged = v.clone();
+    arranged["options"] = order.iter().map(|&i| options[i].clone()).collect();
+    let arranged = Record::from_json(&arranged.to_string()).unwrap();
+    assert_eq!(arranged.affirmation(Some(&order)).unwrap().state(), "bound");
+    // The wall's order read as the bank's, or another arrangement: stale.
+    assert_eq!(arranged.affirmation(None).unwrap().state(), "stale");
+    assert_eq!(
+        arranged
+            .affirmation(Some(&[0, 1, 2, 3, 4]))
+            .unwrap()
+            .state(),
+        "stale"
+    );
+    for bad in [&[0, 0, 1, 2, 3][..], &[0, 1, 2, 3], &[0, 1, 2, 3, 5]] {
+        let e = arranged.affirmation(Some(bad)).err().expect("refused");
+        assert!(
+            e.to_string().contains("bank_order is not an arrangement"),
+            "{e}"
+        );
+    }
+}
+
+#[test]
+fn q3_is_bound_in_the_bank_and_names_who_affirmed_it() {
+    // Ruling 5 on PQ-77: q3 still schedules.
+    let q3 = answers::load(&common::q3_json().to_string()).unwrap();
+    assert_eq!(q3.affirmation().state(), "bound");
+    assert_eq!(q3.affirmation().affirmed_by(), Some("queenrose54"));
 }

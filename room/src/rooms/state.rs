@@ -215,7 +215,10 @@ impl AppState {
 
     /// T-25: schedule a question — `PUT /admin/questions/{id}` (SPEC §8.3).
     ///
-    /// Refused if the question has been run (G-10, never twice) or if a room
+    /// Refused if the question is not affirmed for its text (G-12, GAP-24:
+    /// unaffirmed, stale or unbound, by the pipeline's rule's twin); the
+    /// record already scheduled under its id, if any, stays. Refused if the
+    /// question has been run (G-10, never twice) or if a room
     /// record holds it: a room keeps the question it was created with until
     /// release or expiry deletes it (§4.6), and the used ledger is keyed by
     /// id, so replacing it under a room would let the night's `used` record
@@ -241,6 +244,9 @@ impl AppState {
         question: Scheduled,
     ) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
+        if let Some(why) = question.refusal(&id) {
+            return Err(RoomError::Refused(why));
+        }
         // Invariant: `questions`, then `rooms`, the order `create_for` takes
         // them in too; nothing takes them the other way round.
         let mut questions = lock(&self.questions);
@@ -305,6 +311,12 @@ impl AppState {
                     room_id: room.id.clone(),
                     released_at: crate::used::rfc3339(now),
                     fit: parting.fit,
+                    // The room's own record: `create_for` let it in bound only.
+                    affirmed_by: room
+                        .question
+                        .affirmation()
+                        .affirmed_by()
+                        .map(str::to_string),
                 },
             });
             lock(&self.take_home).insert(room.club.clone(), parting.take_home);

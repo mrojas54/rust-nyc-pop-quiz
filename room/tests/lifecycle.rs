@@ -633,6 +633,7 @@ fn ac57_nothing_crosses_rooms_but_the_question() {
     assert_eq!(
         names,
         [
+            "affirmed_by",
             "club",
             "fit",
             "meetup_date",
