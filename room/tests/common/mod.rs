@@ -19,7 +19,7 @@ use serde_json::Value;
 
 pub const ORGANIZER: &str = "test-organizer-credential";
 pub const OTHER_ORGANIZER: &str = "another-organizer-credential";
-/// Hosts the `nyc` club only / the `la` club only (D-26, AC-103).
+/// Hosts the default club (`rustnyc`) only / the `la` club only (D-26, AC-103).
 pub const NYC_ONLY: &str = "nyc-only-credential";
 pub const LA_ONLY: &str = "la-only-credential";
 
@@ -39,7 +39,7 @@ impl HostAuth for TestAuth {
             Some(ORGANIZER) => Ok(OrganizerId("organizer-1".into())),
             Some(OTHER_ORGANIZER) => Ok(OrganizerId("organizer-2".into())),
             // D-26: a credential that holds one club's role only.
-            Some(NYC_ONLY) if club.as_str() == "nyc" => Ok(OrganizerId("organizer-nyc".into())),
+            Some(NYC_ONLY) if club.as_str() == "rustnyc" => Ok(OrganizerId("organizer-nyc".into())),
             Some(LA_ONLY) if club.as_str() == "la" => Ok(OrganizerId("organizer-la".into())),
             Some(NYC_ONLY) | Some(LA_ONLY) => Err(CreateRefusal::WrongRole),
             _ => Err(CreateRefusal::Denied),

@@ -41,7 +41,7 @@ fn ac92_used_is_written_at_release() {
     assert_eq!(
         serde_json::to_value(&all[0]).unwrap(),
         json!({
-            "club": "nyc",
+            "club": "rustnyc",
             "question_id": "q3",
             "used": {
                 "meetup_date": MEETUP_DATE,

@@ -12,7 +12,7 @@
 //!   address the room binds.
 //! - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`,
 //!   `DISCORD_ROLE_ID` — the Discord application and the guild and role that
-//!   may host the default club `nyc` (SPEC §8, T-10). All four required and non-empty; the three ids
+//!   may host the default club `rustnyc` (SPEC §8, T-10). All four required and non-empty; the three ids
 //!   are Discord snowflakes (digits). The OAuth redirect URI is not a
 //!   variable: it is `POPQUIZ_PUBLIC_URL` + [`crate::discord::CALLBACK_PATH`].
 //! - `POPQUIZ_CLUBS` — optional (D-26): more clubs on this server, each with

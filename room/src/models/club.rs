@@ -6,17 +6,29 @@
 //! compares against `roles` (AC-65: an id, never a name), and the zone is where
 //! the club's meetup date is read (a Pacific meetup at 9 pm is still that day).
 //!
-//! The default club is [`DEFAULT_CLUB`], `nyc`: what every link and request
-//! that names no club means, so a link made before D-26 keeps working.
+//! The default club is [`DEFAULT_CLUB`], `rustnyc`: what every link and
+//! request that names no club means, so a link made before D-26 keeps working.
+//! It was `nyc` until ADR-0005 item 8; [`CLUB_ALIASES`] still reads `nyc` as
+//! `rustnyc`, so a bookmarked `?club=nyc` link and a used record written under
+//! `nyc` mean the same club.
 
 use std::fmt;
 
 /// The club a request that names none belongs to.
-pub const DEFAULT_CLUB: &str = "nyc";
+pub const DEFAULT_CLUB: &str = "rustnyc";
+
+/// Old slugs and the club each became (ADR-0005 item 8). [`ClubSlug::parse`]
+/// reads an old slug as its club, so no `ClubSlug` ever holds one: nothing is
+/// stored or sent under it. Kept for at least one release after the rename;
+/// removing an entry is a later, deliberate step. `pipeline/src/popquiz/bank.py`
+/// holds the same table, and `bank/fixtures/clubs/aliases.json` holds both to
+/// it (`tests/twins.rs`, `pipeline/tests/test_club_twin.py`).
+pub const CLUB_ALIASES: &[(&str, &str)] = &[("nyc", DEFAULT_CLUB)];
 
 /// A club's short name: `[a-z0-9-]`, 1 to 24 bytes. It travels in URLs, the
 /// OAuth state and the used ledger, so anything else is refused before it
 /// could reach a redirect (as [`crate::discord::is_question_id`] does for ids).
+/// An old slug in [`CLUB_ALIASES`] parses as the club it became.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ClubSlug(String);
 
@@ -27,7 +39,13 @@ impl ClubSlug {
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
             && !raw.starts_with('-');
-        ok.then(|| ClubSlug(raw.to_string()))
+        ok.then(|| {
+            let canonical = CLUB_ALIASES
+                .iter()
+                .find(|(old, _)| *old == raw)
+                .map_or(raw, |(_, club)| club);
+            ClubSlug(canonical.to_string())
+        })
     }
 
     /// The default club's slug.
@@ -167,16 +185,18 @@ impl Clubs {
             let (role, zone) = rest
                 .split_once(':')
                 .ok_or_else(|| ClubsError::Entry(entry.to_string()))?;
-            let slug = ClubSlug::parse(slug.trim())
-                .ok_or_else(|| ClubsError::Slug(slug.trim().to_string()))?;
+            // Errors name the slug as typed: `nyc=…` is reported as `nyc`,
+            // though it parses as the default club and so repeats it.
+            let typed = slug.trim();
+            let slug = ClubSlug::parse(typed).ok_or_else(|| ClubsError::Slug(typed.to_string()))?;
             let role = role.trim();
             if role.is_empty() || !role.bytes().all(|b| b.is_ascii_digit()) {
-                return Err(ClubsError::RoleId(slug.to_string()));
+                return Err(ClubsError::RoleId(typed.to_string()));
             }
             let zone =
-                Zone::parse(zone.trim()).ok_or_else(|| ClubsError::Zone(slug.to_string()))?;
+                Zone::parse(zone.trim()).ok_or_else(|| ClubsError::Zone(typed.to_string()))?;
             if clubs.iter().any(|c| c.slug == slug || c.role_id == role) {
-                return Err(ClubsError::Duplicate(slug.to_string()));
+                return Err(ClubsError::Duplicate(typed.to_string()));
             }
             clubs.push(Club {
                 slug,
@@ -208,7 +228,7 @@ mod tests {
 
     #[test]
     fn slugs_are_short_lowercase_names() {
-        assert!(ClubSlug::parse("nyc").is_some());
+        assert!(ClubSlug::parse("rustnyc").is_some());
         assert!(ClubSlug::parse("la-2").is_some());
         for bad in ["", "NYC", "-la", "la/", "la?x", "a b", &"a".repeat(25)] {
             assert!(ClubSlug::parse(bad).is_none(), "{bad:?}");
@@ -219,8 +239,22 @@ mod tests {
     fn the_default_role_alone_is_the_pre_d26_server() {
         let c = Clubs::parse("111".into(), None).unwrap();
         assert_eq!(c.all().len(), 1);
-        assert_eq!(c.all()[0].slug.as_str(), "nyc");
+        assert_eq!(c.all()[0].slug.as_str(), "rustnyc");
         assert_eq!(c.all()[0].zone, Zone::NewYork);
+    }
+
+    #[test]
+    fn nyc_is_an_old_name_for_the_default_club() {
+        for raw in ["nyc", "rustnyc"] {
+            let slug = ClubSlug::parse(raw).unwrap();
+            assert_eq!(slug, ClubSlug::default_club(), "{raw}");
+            assert_eq!(
+                slug.as_str(),
+                "rustnyc",
+                "{raw}: nothing holds the old slug"
+            );
+        }
+        assert_eq!(ClubSlug::parse("la").unwrap().as_str(), "la");
     }
 
     #[test]
@@ -241,6 +275,11 @@ mod tests {
                 ClubsError::RoleId("la".into()),
             ),
             ("la=222:Mars/Olympus", ClubsError::Zone("la".into())),
+            (
+                "rustnyc=222:America/New_York",
+                ClubsError::Duplicate("rustnyc".into()),
+            ),
+            // An old name is the default club, not a free slug (ruling 3).
             (
                 "nyc=222:America/New_York",
                 ClubsError::Duplicate("nyc".into()),

@@ -1768,10 +1768,18 @@ impl<'s> Walk<'s> {
         let last = self.server.get("/last").await;
         assert_eq!(last.status, 200, "{}", at("/last"));
         let body = last.text();
-        // D-26: `/last/nyc` is `/last`, and a club that has released nothing
-        // (here `la`) carries nothing of this room, at any stop.
-        let by_club = self.server.get("/last/nyc").await;
-        assert_eq!(by_club.text(), body, "{}", at("/last/nyc is not /last"));
+        // D-26: `/last/rustnyc` is `/last`, and so is `/last/nyc`, its old
+        // name (ADR-0005 item 8); a club that has released nothing (here `la`)
+        // carries nothing of this room, at any stop.
+        for default in ["/last/rustnyc", "/last/nyc"] {
+            let by_club = self.server.get(default).await;
+            assert_eq!(
+                by_club.text(),
+                body,
+                "{}",
+                at(&format!("{default} is not /last"))
+            );
+        }
         let other = self.server.get("/last/la").await;
         assert_eq!(
             last_question(&other.text()),
