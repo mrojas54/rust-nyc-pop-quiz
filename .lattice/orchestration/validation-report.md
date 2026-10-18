@@ -1,5 +1,35 @@
 # Validation Report
 
+## PR #94 follow-up — 2026-10-18
+
+[PR #94](https://github.com/mrojas54/rust-nyc-pop-quiz/pull/94) merged at
+`e4ed12f22712d1dc3f596f4d91206e3571388c15` (reviewed head `d4f1eee`).
+The PTY harness now waits for expected terminal states with a three-second
+deadline instead of assuming reveal output arrives within 120 ms. It drains
+output during shutdown and rechecks success before reporting an exit/timeout
+error, fixing the reviewed race where exit status 0 could be reported as failure.
+
+Regression coverage includes a 350 ms child pause in both keyboard modes,
+a dropped Enter that must time out with terminal evidence, and deterministic
+exit-between-polls cases: exit 0 succeeds and exit 7 still fails. Existing
+repeat-key and keyboard-restoration checks remain. The re-review found no
+remaining blocker. [Verification record](https://github.com/mrojas54/rust-nyc-pop-quiz/blob/e4ed12f22712d1dc3f596f4d91206e3571388c15/prototypes/organizer-tui/docs/PTY_WAIT_VALIDATION.md).
+
+Post-merge results were read back from GitHub; both workflow runs match the
+merge commit above. Completion times are October 18, 2026, EDT.
+
+| Post-merge check | Result | Completed | Evidence |
+|---|---|---|---|
+| CI: `just test` | **Success** | 13:04:42 | [Job](https://github.com/mrojas54/rust-nyc-pop-quiz/actions/runs/39147795120/job/117735074554) |
+| CI: `just test-full` | **Success** | 13:07:14 | [Job](https://github.com/mrojas54/rust-nyc-pop-quiz/actions/runs/39147795120/job/117735074783) |
+| Deployment: `fly deploy` | **Success** | 13:03:51 | [Job](https://github.com/mrojas54/rust-nyc-pop-quiz/actions/runs/39147795104/job/117735074660) |
+
+This follow-up records the repair and successful post-merge workflows. It does
+not replace the original audit evidence or establish the cause of its
+uninstrumented PTY failure. F-46, all criterion results and counts, and every
+remaining unchecked item below are unchanged. The CI results are not a new
+row-by-row audit or venue/readiness assessment.
+
 Source spec: [SPEC.md](../../SPEC.md)
 Source build plan: [BUILDPLAN.md](../../BUILDPLAN.md)
 Source validation plan: [validation-plan.md](./validation-plan.md)
