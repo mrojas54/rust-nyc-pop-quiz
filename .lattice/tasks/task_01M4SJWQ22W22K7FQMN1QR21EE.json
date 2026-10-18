@@ -1,26 +1,42 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 6,
   "complexity": null,
   "created_at": "2026-10-13T02:53:58Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "ADR-0005 Action Item 8: rename the default club nyc to rustnyc, with an alias for nyc and a ledger migration as the ADR describes. Back up ledgers before migrating.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M58630JVNT0TQYAAW6FZ8XX0",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M5865RWZEEZ7FF3E6BNEP7CH",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M586TKNMVDTFDC90RHYDRWP1",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M4SJWQ22W22K7FQMN1QR21EE",
-  "last_event_id": "ev_01M58414CWN5HQQFPCQBVRRD0D",
-  "last_status_changed_at": "2026-10-13T02:53:58Z",
+  "last_event_id": "ev_01M588JFEC63EHQB56WD70B3N7",
+  "last_status_changed_at": "2026-10-18T19:11:44Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-76",
-  "status": "backlog",
+  "status": "review",
   "tags": null,
   "title": "ADR-0005 item 8: rename the default club nyc to rustnyc",
   "type": "chore",
-  "updated_at": "2026-10-18T18:22:51Z",
+  "updated_at": "2026-10-18T19:42:13Z",
   "urgency": null
 }
