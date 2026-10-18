@@ -304,7 +304,7 @@ impl Room {
     /// T-11: whether this room has ended at `now` — four hours up, or quiet for
     /// §4.6's bound (`lifecycle::verdict`).
     ///
-    /// Once [`super::AppState::create_for`] has let a new room in on this room's
+    /// Once `AppState::create_for` has let a new room in on this room's
     /// question because it had ended, the ending is latched: a later call with
     /// an earlier `now` — a wall-clock step back, or a host action whose clock
     /// reading was taken just before the lock — cannot revive it, so there are

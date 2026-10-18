@@ -223,7 +223,7 @@ impl AppState {
     /// replaces the unheld one with its id (the organizer's re-push after an
     /// edit). Locks `questions` then `rooms`; nothing takes them the other way.
     ///
-    /// The hold here is wider than [`AppState::create_for`]'s on purpose: any
+    /// The hold here is wider than `AppState::create_for`'s on purpose: any
     /// room record, released shells and ended rooms included, until the sweep
     /// deletes it. A new room needs only that no live room has the question
     /// (one room per question, GAP-8); a replaced record needs that nothing
