@@ -29,9 +29,12 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
          border-radius: var(--radius); box-shadow: var(--shadow-card);
          padding: var(--panel-pad-compact); }
 
+/* AC-84 (PQ-43, owner ruling 2026-10-18): a button's edge is held at 3:1
+   (SC 1.4.11), not the prototype's --border-default (about 1.4:1). --text-muted
+   for the plain edge, --accent-hover for the primary's; no token value moves. */
 .btn { font-family: var(--font-mono); font-size: var(--text-sm);
        min-height: var(--touch-target); min-width: var(--touch-target); padding: 10px 18px;
-       border: var(--border-w) solid var(--border-default); border-radius: var(--radius);
+       border: var(--border-w) solid var(--text-muted); border-radius: var(--radius);
        background: var(--bg-input); color: var(--text-primary); cursor: pointer;
        text-align: center; }
 .btn:hover { background: var(--bg-tertiary); }
@@ -39,7 +42,7 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
    is 2.3:1 on this page and a focus ring needs 3:1. */
 .btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .host-phone :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.btn-primary { background: var(--accent-primary); border-color: var(--accent-primary);
+.btn-primary { background: var(--accent-primary); border-color: var(--accent-hover);
                color: #2d3748; font-weight: 600; }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover);
                      color: #ffffff; }

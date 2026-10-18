@@ -425,6 +425,12 @@ allowed cursor. Disabled voting letters use a default cursor and state-specific 
 not impose `.btn` styling on them. Buzzer focus uses a 3px deep-amber outline; host
 focus uses 2px, both offset by 2px.
 
+Button and voting-letter edges are held at 3:1 against their ground (SC 1.4.11):
+neutral `.btn` and `.buzz` edges use muted slate (`text-muted`), and the primary
+edge uses deep amber (`accent-hover`) around its warm-amber fill. This accepted
+AC-84/PQ-43 amendment (owner ruling, 2026-10-18) supersedes the prototype's soft-slate
+and warm-amber edges; no token value changes.
+
 The buzzer’s room-code field uses centred uppercase monospace text, a white
 background, and 8px × 12px padding. It retains a visible deep-amber focus outline.
 

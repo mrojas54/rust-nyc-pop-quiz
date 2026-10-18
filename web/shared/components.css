@@ -46,8 +46,11 @@
 .rn-src-line.hl { background:var(--accent-subtle); border-left-color:var(--accent-primary); }
 /* AC-84 (PQ-40, the client's pick, 2026-10-02): .70, not the prototype's .32
    (1.84:1). Dimmed code is 4.78:1 on the white well — AA at the wall's 22 px.
-   The line numbers start at --text-muted and fall to 3.57:1, under AA: held to
-   that floor by web/test/a11y.test.js and reported upstream as F-46. */
+   The line numbers fall to 3.57:1, under AA: held to that floor by
+   web/test/a11y.test.js and reported upstream as F-46. They start at
+   --text-secondary, not .rn-src-ln's --text-muted above: wall.css and home.css,
+   the two surfaces that show a trace, override it. Owner ruling (PQ-43,
+   2026-10-18): the gutter stays at that floor. */
 .rn-src-line.dim { opacity:.70; }
 
 /* ===========================================================================
