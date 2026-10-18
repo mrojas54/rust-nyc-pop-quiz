@@ -251,7 +251,8 @@ a pushed record's affirmation with `models/affirmation.rs`, the twin of
 the push and again when a room is made, and a refused push leaves the record
 already scheduled in place. The room types the record more strictly than
 Python (a trace line `1.0`, `pivot: 1`), so on such a record it refuses what
-`just schedule` would pass: it fails closed, and `review` never writes one. The affirmation is an organizer's
+`just schedule` would pass: on those types it fails closed. `review` does not
+generate such values, though it keeps one already in a file. The affirmation is an organizer's
 sign-off bound to the text; it is not a signature and authenticates no one.
 
 **The credential.** `Authorization: Bearer <token>`. The token is the value of

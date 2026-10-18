@@ -1158,7 +1158,7 @@ fn g12_a_room_is_never_made_from_an_unaffirmed_record() {
 async fn g12_a_record_typed_looser_than_the_schema_fails_closed() {
     // Python reads `pivot: 1` as true and could bind a digest to it; the room
     // types the record by the schema and refuses it, so the twins can disagree
-    // only by the room refusing what `just schedule` passed (never the reverse).
+    // on these types only by the room refusing what `just schedule` passed.
     let a = admin();
     let mut loose = q3_json();
     let steps = loose["trace"]["steps"].as_array_mut().unwrap();

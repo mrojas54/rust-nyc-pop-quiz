@@ -22,7 +22,7 @@
 use serde::Deserialize;
 
 /// The bank's `review` block, every field the schema has. The room reads only
-/// the affirmation; the rest is parsed so an unknown field is refused, as
+/// the affirmation and the status; the rest is parsed so an unknown field is refused, as
 /// everywhere else in the record.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
