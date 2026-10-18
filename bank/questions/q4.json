@@ -200,6 +200,10 @@
     "verifier_version": "popquiz-verify 7b1bc351e4dd"
   },
   "review": {
-    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the two printlns became one, so the program prints a single line and the machine re-verified the answer. why_tempting beats drafted for every incorrect option. Trace drafted 2026-10-12 (eight steps, one pivot, stdout row copied from verified.stdout); it is unaffirmed and waits for an organizer to read it (SPEC 7.4). Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
+    "status": "accepted",
+    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the two printlns became one, so the program prints a single line and the machine re-verified the answer. why_tempting beats drafted for every incorrect option. Trace drafted 2026-10-12 (eight steps, one pivot, stdout row copied from verified.stdout); it is unaffirmed and waits for an organizer to read it (SPEC 7.4). Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above.",
+    "affirmed_by": "queenrose54",
+    "affirmed_at": "2026-10-18T23:33:15+00:00",
+    "affirmed_digest": "sha256:588aca9bcbadd5e3ab6b741cd0fbadd45622622cdb49ac8c94edc435811a3c6a"
   }
 }
