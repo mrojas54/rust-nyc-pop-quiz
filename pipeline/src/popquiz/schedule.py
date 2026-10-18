@@ -666,7 +666,10 @@ def migrate_clubs(bank_dir: Path, *, write: bool = False, backup_dir: Path | Non
     default club. With `write`, every file to be changed is first copied byte
     for byte into `backup_dir` (by default `bank/backups/club-rename-<UTC time>/`,
     which `load_bank` never reads), and a backup that already exists is never
-    overwritten. Run twice, the second run finds nothing and writes nothing.
+    overwritten. Each rewrite is staged beside its file and checked before any
+    file is replaced, and each replacement is whole (`os.replace`), so a failed
+    write leaves every record as it was. Run twice, the second run finds
+    nothing and writes nothing.
     """
     result = ClubMigration()
     directory = Path(bank_dir) / QUESTIONS_DIR
@@ -706,12 +709,34 @@ def migrate_clubs(bank_dir: Path, *, write: bool = False, backup_dir: Path | Non
                 f"{target} already exists and a backup is never overwritten; nothing was rewritten"
             ) from None
         result.backups.append(target)
-    for path, original, data in planned:
-        before = question_from_dict(json.loads(original.decode("utf-8")))
-        _write_json(path, data)
-        after = question_from_dict(json.loads(path.read_text(encoding="utf-8")))
-        if after.used != before.used:
-            raise ScheduleError(f"{path.name}: the rewritten record reads differently; restore it from {backup_dir}")
+    # Stage every rewrite (not `*.json`, so `load_bank` never reads one) and
+    # check it reads as the record did, before any original is touched.
+    staged: list[tuple[Path, Path]] = []
+    try:
+        for path, original, data in planned:
+            tmp = path.with_name(f"{path.name}.club-rename")
+            staged.append((tmp, path))
+            _write_json(tmp, data)
+            before = question_from_dict(json.loads(original.decode("utf-8")))
+            if question_from_dict(json.loads(tmp.read_text(encoding="utf-8"))).used != before.used:
+                raise ScheduleError(f"{path.name}: the rewritten record reads differently, so nothing was rewritten")
+    except (OSError, ScheduleError) as e:
+        for tmp, _ in staged:
+            tmp.unlink(missing_ok=True)
+        if isinstance(e, ScheduleError):
+            raise
+        raise ScheduleError(f"a rewrite could not be written ({e}); nothing was rewritten") from None
+    for tmp, path in staged:
+        try:
+            os.replace(tmp, path)
+        except OSError as e:
+            for rest, _ in staged:
+                rest.unlink(missing_ok=True)
+            done = ", ".join(p.name for p in result.written) or "none"
+            raise ScheduleError(
+                f"{path.name} could not be replaced ({e}); already rewritten: {done}. Each file is whole "
+                "and reads the same either way; run migrate-club --write again to finish"
+            ) from None
         result.written.append(path)
     return result
 

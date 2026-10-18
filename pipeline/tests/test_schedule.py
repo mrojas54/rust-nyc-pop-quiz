@@ -1052,3 +1052,43 @@ def test_migrate_club_refuses_a_record_it_does_not_understand_and_writes_nothing
     assert migrate(bank, "--write") == 1
     assert "refused q4.json: does not read as a bank record" in capsys.readouterr().err
     assert snapshot(bank) == before
+
+
+def test_migrate_club_leaves_every_record_whole_when_a_rewrite_cannot_be_written(bank, tmp_path, monkeypatch, capsys):
+    _used_under(bank, "q3", "nyc")
+    _used_under(bank, "q4", "nyc")
+    before = snapshot(bank)
+    real = Path.write_text
+
+    def full_disk(self, *args, **kwargs):
+        if self.name == "q4.json.club-rename":
+            real(self, "{", encoding="utf-8")
+            raise OSError(28, "No space left on device")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", full_disk)
+    assert migrate(bank, "--write", "--backup-dir", tmp_path / "b") == 1
+    assert "nothing was rewritten" in capsys.readouterr().err
+    assert snapshot(bank) == before, "no original touched, no staged file left behind"
+
+
+def test_migrate_club_replaces_whole_files_and_a_rerun_finishes(bank, tmp_path, monkeypatch, capsys):
+    _used_under(bank, "q3", "nyc")
+    _used_under(bank, "q4", "nyc")
+    real = schedule.os.replace
+
+    def fail_on_q4(src, dst):
+        if Path(dst).name == "q4.json":
+            raise OSError(5, "Input/output error")
+        return real(src, dst)
+
+    monkeypatch.setattr(schedule.os, "replace", fail_on_q4)
+    assert migrate(bank, "--write", "--backup-dir", tmp_path / "b1") == 1
+    assert "already rewritten: q3.json" in capsys.readouterr().err
+    # Each file is whole and reads the same either way; nothing staged is left.
+    assert [q.used_by("rustnyc").room_id for q in schedule.load_bank(bank) if q.id in ("q3", "q4")] == ["room-a"] * 2
+    assert not list((bank / "questions").glob("*.club-rename"))
+    monkeypatch.setattr(schedule.os, "replace", real)
+    assert migrate(bank, "--write", "--backup-dir", tmp_path / "b2") == 0
+    assert "rewrote q4: used[0].club nyc -> rustnyc" in capsys.readouterr().out
+    assert migrate(bank) == 0 and "nothing to migrate" in capsys.readouterr().out
