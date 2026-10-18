@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-18T16:31:51Z",
+  "created_by": "agent:delegator-pq77-reviewer",
+  "custom_fields": {},
+  "id": "art_01M57XNWWXA95VPR9G17B2Y7C3",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M57XNWWXA95VPR9G17B2Y7C3.md",
+    "size_bytes": 837
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Code review (Codex) pass 3",
+  "token_usage": null,
+  "type": "note"
+}

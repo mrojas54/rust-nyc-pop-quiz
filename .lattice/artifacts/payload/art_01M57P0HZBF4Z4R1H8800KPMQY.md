@@ -1,0 +1,1 @@
+PASS-WITH-NITS, reviewed HEAD 485d2ef447957df8440dda8f61de0baf2104374f. No Critical/Major/Minor/NIT findings. Codex could not run cargo doc in its read-only sandbox; the delegator ran cargo doc --no-deps --document-private-items at 85a24f6 (the ADR-only commit after it changes no Rust): 0 warnings.

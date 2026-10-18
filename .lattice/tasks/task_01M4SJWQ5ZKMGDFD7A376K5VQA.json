@@ -1,26 +1,57 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 16,
   "complexity": null,
   "created_at": "2026-10-13T02:53:58Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "ADR-0005 Action Item 9, under the q3 RULING on PQ-23: an affirmation without a bound digest counts nowhere (no legacy exception). The room serves only affirmed questions and records who affirmed each.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-10-18T17:54:27Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M57VEDWDFKZTHHAQP3735ZXS",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M57VEHPWXWHNBWTZP836F0VH",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M57XNWWXA95VPR9G17B2Y7C3",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M57YPYDPVAZYKDSA6MVJWHB7",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M582D4N7YWC17MF0FDEA9TR5",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M582D4N7YWC17MF0FDEA9TR4",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M4SJWQ5ZKMGDFD7A376K5VQA",
-  "last_event_id": "ev_01M4SJWQ607CEKPBM920H5AS33",
-  "last_status_changed_at": "2026-10-13T02:53:58Z",
+  "last_event_id": "ev_01M582D4N7YWC17MF0FDEA9TR7",
+  "last_status_changed_at": "2026-10-18T17:54:27Z",
   "priority": "medium",
   "relationships_out": [],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-77",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "ADR-0005 item 9: the room uses only affirmed questions and records who affirmed them",
   "type": "task",
-  "updated_at": "2026-10-13T02:53:58Z",
+  "updated_at": "2026-10-18T17:54:27Z",
   "urgency": null
 }

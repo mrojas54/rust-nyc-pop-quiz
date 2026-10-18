@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-18T15:07:27Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M57RVBCZQ4AAXZJ16J6YZNNB",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M57RVBCZQ4AAXZJ16J6YZNNB.md",
+    "size_bytes": 247
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged PR #92 (merge commit 7573efa, --match-head-commit a5acc17) on the client's word 'merge 92' 15:02Z 10-18; main CI + Fly deploy success 2/2. Codex review PASS-WITH-NITS on 485d2ef; a5acc17 (ADR-0",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

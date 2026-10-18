@@ -1,0 +1,1 @@
+Merged PR #92 (merge commit 7573efa, --match-head-commit a5acc17) on the client's word 'merge 92' 15:02Z 10-18; main CI + Fly deploy success 2/2. Codex review PASS-WITH-NITS on 485d2ef; a5acc17 (ADR-0001 paths, docs only) read by the Orchestrator.
