@@ -48,7 +48,9 @@
 //! `bank/fixtures/receipts/*.json`.
 
 use serde::Deserialize;
+use serde_json::{json, Map, Value};
 
+use crate::affirmation::{self, Affirmation, Review};
 use crate::copy;
 use crate::phase::{RevealWitness, TraceLen};
 use crate::question::{Letter, PublicQuestion, TraceStep, ValueRow};
@@ -96,8 +98,7 @@ pub struct Record {
     #[serde(default)]
     trace: RecordTrace,
     verified: Option<Verified>,
-    #[allow(dead_code)]
-    review: Option<serde_json::Value>,
+    review: Option<Review>,
     #[allow(dead_code)]
     used: Option<serde_json::Value>,
 }
@@ -120,6 +121,18 @@ enum OptionKind {
     DoesNotCompile,
     Ub,
     Panic,
+}
+
+impl OptionKind {
+    /// The schema's spelling, which the affirmation digest hashes.
+    fn as_str(self) -> &'static str {
+        match self {
+            OptionKind::Output => "output",
+            OptionKind::DoesNotCompile => "does_not_compile",
+            OptionKind::Ub => "ub",
+            OptionKind::Panic => "panic",
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -266,6 +279,99 @@ impl Record {
             );
         }
         Ok(matches.first().copied())
+    }
+
+    /// The twin of `bank.affirmation_digest`, over the options in the bank's
+    /// order. `bank_order[k]` is the bank index of the option at slot `k` (the
+    /// push from `popquiz schedule` sends it); `None` reads the options as
+    /// already in the bank's order.
+    pub fn affirmation_digest(&self, bank_order: Option<&[usize]>) -> Result<String, LoadError> {
+        let options: Vec<&RecordOption> = match bank_order {
+            None => self.options.iter().collect(),
+            Some(order) => {
+                let mut seen = vec![false; self.options.len()];
+                let valid = order.len() == self.options.len()
+                    && order
+                        .iter()
+                        .all(|&i| i < seen.len() && !std::mem::replace(&mut seen[i], true));
+                if !valid {
+                    return refuse(
+                        &self.id,
+                        "bank_order is not an arrangement of the five options.",
+                    );
+                }
+                let mut bank: Vec<Option<&RecordOption>> = vec![None; self.options.len()];
+                for (slot, &i) in order.iter().enumerate() {
+                    bank[i] = Some(&self.options[slot]);
+                }
+                bank.into_iter().flatten().collect()
+            }
+        };
+        Ok(affirmation::digest_of(&self.affirmation_payload(&options)))
+    }
+
+    /// What the organizer affirmed, as `bank._dump` writes it: absent fields
+    /// left out, `pivot` only when true, and `values` on every step.
+    fn affirmation_payload(&self, options: &[&RecordOption]) -> Value {
+        let options: Vec<Value> = options
+            .iter()
+            .map(|o| {
+                let mut m = Map::new();
+                m.insert("text".into(), json!(o.text));
+                m.insert("kind".into(), json!(o.kind.as_str()));
+                if let Some(why) = &o.why_tempting {
+                    m.insert("why_tempting".into(), json!(why));
+                }
+                Value::Object(m)
+            })
+            .collect();
+        let mut explains = Map::new();
+        explains.insert("what".into(), json!(self.explains.what));
+        explains.insert("takeaway".into(), json!(self.explains.takeaway));
+        if let Some(legacy) = &self.explains.legacy {
+            explains.insert("legacy".into(), json!(legacy));
+        }
+        let steps: Vec<Value> = self
+            .trace
+            .steps
+            .iter()
+            .map(|s| {
+                let mut m = Map::new();
+                m.insert("lines".into(), json!(s.lines));
+                m.insert("focus".into(), json!(s.focus));
+                m.insert("note".into(), json!(s.note));
+                let values: Vec<Value> = s
+                    .values
+                    .iter()
+                    .map(|v| json!({ "name": v.name, "was": v.was, "now": v.now }))
+                    .collect();
+                m.insert("values".into(), Value::Array(values));
+                if s.pivot {
+                    m.insert("pivot".into(), json!(true));
+                }
+                Value::Object(m)
+            })
+            .collect();
+        json!({
+            "source": self.source,
+            "options": options,
+            "hint": self.hint,
+            "explains": explains,
+            "trace": { "steps": steps },
+        })
+    }
+
+    /// The twin of `bank.affirmation_state`, after `bank.validate_question`'s
+    /// review checks (a malformed digest, or one without who and when, is
+    /// refused here as it is there).
+    pub fn affirmation(&self, bank_order: Option<&[usize]>) -> Result<Affirmation, LoadError> {
+        if let Some(review) = &self.review {
+            if let Err(why) = review.check_shape() {
+                return refuse(&self.id, why);
+            }
+        }
+        let digest = self.affirmation_digest(bank_order)?;
+        Ok(Affirmation::of(self.review.as_ref(), &digest))
     }
 }
 
@@ -552,11 +658,19 @@ mod vault {
 pub struct Scheduled {
     public: PublicQuestion,
     vault: vault::Vault,
+    affirmation: Affirmation,
 }
 
 impl Scheduled {
     pub fn public(&self) -> &PublicQuestion {
         &self.public
+    }
+
+    /// Where the record's affirmation stood when it was loaded. A stored
+    /// record never changes, so neither does this; the room runs only a
+    /// [`Affirmation::Bound`] one (G-12).
+    pub fn affirmation(&self) -> &Affirmation {
+        &self.affirmation
     }
 
     /// Decide §4.5's middle beat from the frozen totals. Sealed.
@@ -576,8 +690,19 @@ impl Scheduled {
 /// not exactly one *does not compile* (AC-24), no verified record, no receipt
 /// (§7.5), no single derivable correct option (G-2), a trace shorter than two
 /// steps (§7.4, D-10), a record that ran whose final step names no `stdout`
-/// (D-10), or an incorrect option with no `why_tempting` (§4.5, AC-95).
+/// (D-10), or an incorrect option with no `why_tempting` (§4.5, AC-95), or a
+/// malformed affirmation (GAP-24).
+///
+/// An unaffirmed or stale record still loads: whether it may run is the
+/// room's call ([`Scheduled::affirmation`]), made when it is scheduled and
+/// again when a room is made from it.
 pub fn load(json: &str) -> Result<Scheduled, LoadError> {
+    load_arranged(json, None)
+}
+
+/// [`load`] for a record in the wall's order: `bank_order[k]` is the bank
+/// index of the option at slot `k`, which the affirmation digest needs.
+pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Scheduled, LoadError> {
     let record = Record::from_json(json)?;
     let id = record.id.clone();
 
@@ -598,6 +723,7 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
             format_args!("has {dnc} does-not-compile options; it needs exactly one"),
         );
     }
+    let affirmation = record.affirmation(bank_order)?;
 
     let Some(verified) = &record.verified else {
         return refuse(&id, "has no verified record, so it has no answer");
@@ -693,6 +819,7 @@ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
             trace,
             HowWeKnow::of(verified),
         ),
+        affirmation,
     })
 }
 

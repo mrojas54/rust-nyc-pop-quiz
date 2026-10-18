@@ -238,6 +238,10 @@ class Used:
     `fit` is `None` when the wall never reported a verdict before release: the
     room sends `null` (room/src/models/used.rs), nothing observed it, and so - absent is
     absent - the key is not written (F-30). `None` is not *fits*.
+
+    `affirmed_by` is the organizer whose affirmation the room ran the question on
+    (G-12, ADR-0005 item 9), from the room's own record. It names an organizer,
+    never a participant. `None` on a record from before the room carried it.
     """
 
     meetup_date: str
@@ -245,6 +249,7 @@ class Used:
     released_at: str
     fit: Fit | None = None
     club: str = DEFAULT_CLUB
+    affirmed_by: str | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -924,6 +929,7 @@ def question_from_dict(data: dict[str, Any]) -> Question:
                 released_at=raw["released_at"],
                 fit=raw.get("fit"),
                 club=raw.get("club", DEFAULT_CLUB),
+                affirmed_by=raw.get("affirmed_by"),
             )
             for raw in used_raw
         ),

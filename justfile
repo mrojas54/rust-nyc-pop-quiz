@@ -333,7 +333,8 @@ schedule *ARGS:
 # the meetup's date and this pushes the record in its stored order. The room holds the
 # schedule and the ledger in memory, so run it again after any restart or deploy. If the
 # question is already in the ledger it stops and says so; only a restart clears that, and
-# this never restarts anything. The token is $POPQUIZ_ADMIN_TOKEN, else read from 1Password
+# this never restarts anything. The room runs only a question affirmed for its text (G-12),
+# so a question that is not refuses here with the room's reason. The token is $POPQUIZ_ADMIN_TOKEN, else read from 1Password
 # at $POPQUIZ_OP_REF (a reference, not a secret). It goes to curl on stdin, never argv.
 demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     #!/usr/bin/env bash
@@ -357,11 +358,15 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
         echo "Then run just demo {{ question }} again." >&2
         exit 1
     fi
-    code="$(auth -o /dev/null -w '%{http_code}' -X PUT --data-binary "@$record" "{{ room }}/admin/questions/{{ question }}")"
+    put="$(auth -w '\n%{http_code}' -X PUT --data-binary "@$record" "{{ room }}/admin/questions/{{ question }}")"
+    code="${put##*$'\n'}"
     case "$code" in
         201) echo "{{ question }} scheduled." ;;
         200) echo "{{ question }} was already scheduled; replaced." ;;
-        *) echo "PUT answered $code; {{ question }} is not scheduled." >&2; exit 1 ;;
+        *)
+            reason="$(printf '%s' "${put%$'\n'*}" | jq -r '.reason // empty' 2>/dev/null || true)"
+            echo "PUT answered $code; {{ question }} is not scheduled.${reason:+ $reason}" >&2
+            exit 1 ;;
     esac
     echo "Host: {{ room }}/host?question={{ question }}  (sign in with Discord, then Create a room)"
 

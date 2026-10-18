@@ -47,6 +47,7 @@ fn ac92_used_is_written_at_release() {
                 "meetup_date": MEETUP_DATE,
                 "room_id": room.id,
                 "released_at": used::rfc3339(released),
+                "affirmed_by": "queenrose54",
                 "fit": "clipped_y",
             }
         })
@@ -255,7 +256,14 @@ fn ac92_the_record_has_the_pipelines_shape() {
     // `club` is the ledger line's (`UsedEntry.club`), beside the record (D-26).
     assert_eq!(
         fields,
-        ["club", "fit", "meetup_date", "released_at", "room_id"],
+        [
+            "affirmed_by",
+            "club",
+            "fit",
+            "meetup_date",
+            "released_at",
+            "room_id"
+        ],
         "bank.py's Used changed"
     );
     fields.retain(|f| f != "club");

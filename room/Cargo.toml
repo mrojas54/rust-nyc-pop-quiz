@@ -107,6 +107,10 @@ getrandom = "0.3"
 # The host-session check is constant-time (SPEC 8, AC-68). Already in the lock
 # (via rustls); T-25's admin-token check reuses it.
 subtle = "2.6"
+# The room checks an affirmation's digest itself (ADR-0005 item 9), which is
+# SHA-256. ring 0.17 was already in the lock and compiled in as rustls's
+# provider; no crate was added. Default features off: only `digest` is used.
+ring = { version = "0.17", default-features = false }
 
 # --- spike-only, all optional -------------------------------------------------
 # tokio-tungstenite 0.29 is the version axum 0.8's own `ws` feature already

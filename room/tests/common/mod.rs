@@ -139,8 +139,43 @@ pub fn q3_json() -> Value {
     serde_json::from_str(&text).expect("q3.json parses")
 }
 
+/// The record affirmed for its own text, as `popquiz.review affirm` leaves it:
+/// the digest is the room's twin's, which `tests/twins.rs` holds to the
+/// pipeline's rule. q3 itself comes back as it is in the bank. The person is
+/// kept when the record names one.
+pub fn affirmed(v: &Value) -> Value {
+    let mut v = v.clone();
+    let review = v
+        .as_object_mut()
+        .expect("a record")
+        .entry("review")
+        .or_insert_with(|| serde_json::json!({}));
+    if review
+        .get("affirmed_by")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        review["affirmed_by"] = "test-organizer".into();
+    }
+    if review
+        .get("affirmed_at")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        review["affirmed_at"] = "2026-10-18T00:00:00+00:00".into();
+    }
+    review.as_object_mut().unwrap().remove("affirmed_digest");
+    let digest = answers::Record::from_json(&v.to_string())
+        .and_then(|r| r.affirmation_digest(None))
+        .unwrap_or_else(|e| panic!("affirmed: {e}"));
+    v["review"]["affirmed_digest"] = digest.into();
+    v
+}
+
+/// The record loaded as the room loads a push, affirmed for its text first
+/// (most fixtures edit q3, and an edit makes its affirmation stale).
 pub fn load(v: &Value) -> Scheduled {
-    answers::load(&v.to_string()).unwrap_or_else(|e| panic!("load: {e}"))
+    answers::load(&affirmed(v).to_string()).unwrap_or_else(|e| panic!("load: {e}"))
 }
 
 pub fn q3() -> Scheduled {
@@ -685,7 +720,7 @@ pub fn canary_question() -> Value {
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({"name": "stdout", "was": "—", "now": p.middle_stdout}));
-    v
+    affirmed(&v)
 }
 
 /// The does-not-compile twin, id `canary-dnc`: the same plants, a verified
@@ -705,7 +740,7 @@ pub fn canary_question_dnc() -> Value {
         .as_object_mut()
         .unwrap()
         .remove("why_tempting");
-    v
+    affirmed(&v)
 }
 
 // --------------------------------------------------------------------------

@@ -281,11 +281,19 @@ async fn ac101_the_right_token_schedules_and_reads_the_used_ledger() {
     let keys = |v: &Value| v.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
     assert_eq!(keys(entry), ["club", "question_id", "used"]);
     assert_eq!(entry["club"], "nyc");
-    // bank.py's `Used`: meetup_date, room_id, released_at, fit.
+    // bank.py's `Used`: meetup_date, room_id, released_at, fit, affirmed_by.
     assert_eq!(
         keys(&entry["used"]),
-        ["fit", "meetup_date", "released_at", "room_id"]
+        [
+            "affirmed_by",
+            "fit",
+            "meetup_date",
+            "released_at",
+            "room_id"
+        ]
     );
+    // ADR-0005 item 9: who affirmed what ran, from the record the room ran.
+    assert_eq!(entry["used"]["affirmed_by"], "queenrose54");
     assert_eq!(entry["question_id"], "q3");
     assert_eq!(entry["used"]["room_id"], room.id.as_str());
     assert_eq!(
@@ -690,7 +698,7 @@ async fn ac61_a_pushed_answer_is_reachable_only_through_the_sealed_module() {
         assert!(!admin_rs.contains(name), "admin.rs names {name}");
     }
     let a = admin();
-    let planted = planted();
+    let planted = affirmed(&planted());
     assert_eq!(push(&a, "planted", &planted).await.0, StatusCode::CREATED);
     let (status, created) = http(
         &a.app,
@@ -989,4 +997,139 @@ async fn d26_the_club_route_is_behind_the_token_and_refuses_a_bad_club_name() {
     )
     .await;
     assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
+}
+
+// --------------------------------------------------------------------------
+// G-12, GAP-24, ADR-0005 item 9: the room runs only a question affirmed for
+// its text, and checks the digest itself.
+// --------------------------------------------------------------------------
+
+/// q3 in a wall order that is not the bank's, and that order: slot k holds the
+/// bank's option `ORDER[k]`.
+const ORDER: [usize; 5] = [3, 0, 4, 1, 2];
+
+fn arranged_q3() -> Value {
+    let mut v = q3_json();
+    let options = v["options"].as_array().unwrap().clone();
+    v["options"] = ORDER.iter().map(|&i| options[i].clone()).collect();
+    v
+}
+
+async fn create_q3(a: &Admin) -> (StatusCode, Value) {
+    http(
+        &a.app,
+        Method::POST,
+        "/rooms",
+        Some(ORGANIZER),
+        Some(json!({"question_id": "q3"})),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn g12_a_push_not_affirmed_for_its_text_is_refused_with_its_reason() {
+    let a = admin();
+    const EDIT: &str = "Edited on the afternoon of the meetup.";
+    let mut none = q3_json();
+    none.as_object_mut().unwrap().remove("review");
+    let mut nobody = q3_json();
+    nobody["review"]["affirmed_by"] = "".into();
+    nobody["review"]
+        .as_object_mut()
+        .unwrap()
+        .remove("affirmed_digest");
+    let mut stale = q3_json();
+    stale["hint"] = EDIT.into();
+    let mut unbound = q3_json();
+    unbound["review"]
+        .as_object_mut()
+        .unwrap()
+        .remove("affirmed_digest");
+    for (record, why) in [
+        (none, "q3: is not affirmed; affirm it at review"),
+        (nobody, "q3: is not affirmed; affirm it at review"),
+        (stale, "q3: its text changed after it was affirmed"),
+        (
+            unbound,
+            "q3: its affirmation records who and when but not what",
+        ),
+    ] {
+        let (status, body) = push(&a, "q3", &record).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{body}");
+        let reason = body["reason"].as_str().unwrap();
+        assert!(reason.starts_with(why), "{reason}");
+        assert!(!reason.contains(EDIT), "the reason quotes no question text");
+    }
+    // Nothing was scheduled, so there is nothing to make a room from.
+    let (status, body) = create_q3(&a).await;
+    assert_ne!(status, StatusCode::CREATED, "{body}");
+}
+
+#[tokio::test]
+async fn g12_a_refused_push_leaves_the_affirmed_record_in_place() {
+    let a = admin();
+    assert_eq!(push(&a, "q3", &q3_json()).await.0, StatusCode::CREATED);
+    let mut stale = q3_json();
+    stale["hint"] = "Edited on the afternoon of the meetup.".into();
+    assert_eq!(push(&a, "q3", &stale).await.0, StatusCode::CONFLICT);
+    let (status, body) = create_q3(&a).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+}
+
+#[tokio::test]
+async fn g12_an_arranged_push_is_checked_in_the_banks_order() {
+    let a = admin();
+    let mut with_order = arranged_q3();
+    with_order["bank_order"] = json!(ORDER);
+    // Without the order the room reads the wall's order as the bank's: the
+    // digest misses, and the push is refused as stale (fails closed).
+    let (status, body) = push(&a, "q3", &arranged_q3()).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert!(
+        body["reason"]
+            .as_str()
+            .unwrap()
+            .contains("its text changed"),
+        "{body}"
+    );
+    let mut wrong = arranged_q3();
+    wrong["bank_order"] = json!([0, 0, 1, 2, 3]);
+    let (status, body) = push(&a, "q3", &wrong).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body["reason"]
+            .as_str()
+            .unwrap()
+            .contains("bank_order is not an arrangement"),
+        "{body}"
+    );
+
+    let (status, body) = push(&a, "q3", &with_order).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    // `bank_order` is read and dropped: the room's record is the wall's order.
+    let (status, created) = create_q3(&a).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+}
+
+#[test]
+fn g12_a_room_is_never_made_from_an_unaffirmed_record() {
+    // `schedule` refuses it, so it gets in only through the constructor's list,
+    // which is what creation's own check is for.
+    let mut v = q3_json();
+    v.as_object_mut().unwrap().remove("review");
+    let unaffirmed =
+        room::answers::load(&v.to_string()).expect("loads: affirmation is the room's call");
+    assert_eq!(unaffirmed.affirmation().state(), "none");
+    let state = AppState::new(Arc::new(TestAuth), vec![unaffirmed], Urls::default());
+    match state.create_room(Some(ORGANIZER), "q3", SystemTime::now()) {
+        Err(room::rooms::RoomError::Refused(why)) => {
+            assert!(why.starts_with("q3: is not affirmed"), "{why}")
+        }
+        Err(e) => panic!("refused for another reason: {e:?}"),
+        Ok(_) => panic!("a room was made from an unaffirmed record"),
+    }
+    let state = AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default());
+    assert!(state
+        .create_room(Some(ORGANIZER), "q3", SystemTime::now())
+        .is_ok());
 }
