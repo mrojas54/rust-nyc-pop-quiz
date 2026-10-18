@@ -32,7 +32,7 @@ flowchart TB
     r1["room.rs  open.rs  state.rs<br/>seams.rs  errors.rs  create.rs  lifecycle.rs"]
   end
   subgraph host["host/ : the organizer"]
-    h1["auth.rs  discord.rs"]
+    h1["auth.rs  discord.rs<br/>(now discord/mod.rs)"]
   end
   subgraph conn["connections/ : the audience"]
     c1["ws.rs  sessions.rs  requestlog.rs"]

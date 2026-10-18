@@ -1,6 +1,6 @@
 //! The server: what the `room` binary (`main.rs`) builds and serves.
 //!
-//! - [`routes`] — the HTTP surface: pages, assets and the room's routes.
+//! - `routes` — the HTTP surface: pages, assets and the room's routes.
 //! - [`admin`] — SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`
 //!   and `GET /admin/used` behind one constant-time bearer check (T-25).
 //! - [`config`] — what the binary reads from its environment (T-09).
