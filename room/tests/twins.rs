@@ -1,6 +1,7 @@
 //! The Rust twins of rules that already exist elsewhere, tested against the
 //! same data: the receipt (`receipt.receipt_lines`, G-7), the correct-option
-//! rule (`bank.correct_index`, G-2), and the copy (`web/shared/copy.js`, §11).
+//! rule (`bank.correct_index`, G-2), the copy (`web/shared/copy.js`, §11),
+//! and the default club and its old names (`bank.CLUB_ALIASES`, ADR-0005 item 8).
 
 mod common;
 
@@ -561,4 +562,38 @@ fn q3_is_bound_in_the_bank_and_names_who_affirmed_it() {
     let q3 = answers::load(&common::q3_json().to_string()).unwrap();
     assert_eq!(q3.affirmation().state(), "bound");
     assert_eq!(q3.affirmation().affirmed_by(), Some("queenrose54"));
+}
+
+// --------------------------------------------------------------------------
+// The default club and its old names (ADR-0005 item 8): one fixture,
+// `bank/fixtures/clubs/aliases.json`, which `pipeline/tests/test_club_twin.py`
+// holds the pipeline's `DEFAULT_CLUB`, `CLUB_ALIASES` and `club_slug` to.
+// --------------------------------------------------------------------------
+
+#[test]
+fn the_default_club_and_its_aliases_match_the_shared_fixture() {
+    use room::club::{ClubSlug, CLUB_ALIASES, DEFAULT_CLUB};
+    let path = common::repo().join("bank/fixtures/clubs/aliases.json");
+    let fixture: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("aliases.json")).unwrap();
+    assert_eq!(DEFAULT_CLUB, fixture["default"]);
+    let ours: std::collections::BTreeMap<&str, &str> = CLUB_ALIASES.iter().copied().collect();
+    let theirs: std::collections::BTreeMap<&str, &str> = fixture["aliases"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str().unwrap()))
+        .collect();
+    assert_eq!(ours, theirs, "the room's aliases are the fixture's");
+    let slugs = fixture["slugs"].as_array().unwrap();
+    assert!(slugs.len() >= 10, "found {} slugs", slugs.len());
+    for pair in slugs {
+        let raw = pair[0].as_str().unwrap();
+        let want = pair[1].as_str();
+        assert_eq!(
+            ClubSlug::parse(raw).as_ref().map(ClubSlug::as_str),
+            want,
+            "{raw:?}"
+        );
+    }
 }

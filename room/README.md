@@ -46,8 +46,8 @@ The binary's environment (`src/server/config.rs`):
 | `DISCORD_CLIENT_ID` | a startup error | the Discord application's id (digits) |
 | `DISCORD_CLIENT_SECRET` | a startup error | the application's OAuth2 secret; never printed, logged or sent anywhere but Discord's token endpoint |
 | `DISCORD_GUILD_ID` | a startup error | the Rust NYC server's id (digits) |
-| `DISCORD_ROLE_ID` | a startup error | the id of the role that may host the default club, `nyc` (digits) — an id, never a name (AC-65) |
-| `POPQUIZ_CLUBS` | none (only `nyc`) | more clubs on this server (D-26): comma-separated `slug=roleid:Zone`, e.g. `la=123456789012345678:America/Los_Angeles`. Zones: `America/New_York`, `America/Chicago`, `America/Denver`, `America/Los_Angeles`. A bad entry, a repeated slug or a repeated role is a startup error |
+| `DISCORD_ROLE_ID` | a startup error | the id of the role that may host the default club, `rustnyc` (digits) — an id, never a name (AC-65) |
+| `POPQUIZ_CLUBS` | none (only `rustnyc`) | more clubs on this server (D-26): comma-separated `slug=roleid:Zone`, e.g. `la=123456789012345678:America/Los_Angeles`. Zones: `America/New_York`, `America/Chicago`, `America/Denver`, `America/Los_Angeles`. A bad entry, a repeated slug or a repeated role is a startup error, and so is an entry named `rustnyc` or `nyc` (the default club's, under its name or its old one) |
 
 The OAuth redirect URI is not a variable: it is `POPQUIZ_PUBLIC_URL` +
 `/auth/discord/callback`, and the Discord application must register exactly it.
@@ -149,7 +149,7 @@ else (§3.5) — and hands the browser an opaque **organizer session** in the ho
 page's URL fragment. Discord's tokens never leave the `discord` module. On *Create a
 room* (and *Run it again*) the room refreshes the access token if it is due,
 then asks `GET /users/@me/guilds/{guild}/member` with the organizer's bearer.
-The organizer hosts a club iff `roles` contains *that club's* role ID (`DISCORD_ROLE_ID` for `nyc`, `POPQUIZ_CLUBS` for the rest; D-26, AC-103), compared as a
+The organizer hosts a club iff `roles` contains *that club's* role ID (`DISCORD_ROLE_ID` for `rustnyc`, `POPQUIZ_CLUBS` for the rest; D-26, AC-103), compared as a
 string. The member record is deserialized into `roles` alone, so `permissions`,
 role names and ownership cannot grant anything (AC-65). A `404` is *wrong
 server* — a non-member and a member of another guild hear the same thing — and
@@ -193,22 +193,29 @@ T-10 deleted it whole.
 ### Clubs (D-26)
 
 One server, one Discord guild, one question bank, a host role per club
-(`DISCORD_ROLE_ID` is `nyc`; `POPQUIZ_CLUBS` adds the rest). The organizer names
+(`DISCORD_ROLE_ID` is `rustnyc`; `POPQUIZ_CLUBS` adds the rest). The organizer names
 the club when they create a room: `/host?question=q3&club=la`, through sign-in
 and back. The create check tests *that* club's role ID; a role from another
 club, an unknown club and a malformed one are all `403 wrong_role` (AC-103).
 
+The default club was `nyc` until ADR-0005 item 8. `nyc` is still its alias, for
+at least one release: `ClubSlug::parse` reads it as `rustnyc` wherever a club
+comes in (`?club=`, `/last/{club}`, sign-in, the admin push), so a bookmarked
+`?club=nyc` link still hosts, and nothing is stored or sent as `nyc`. The table
+is `CLUB_ALIASES` in `src/models/club.rs`, held equal to the pipeline's by
+`bank/fixtures/clubs/aliases.json`. Removing the alias is a later step.
+
 - **Never twice is per club.** `used` is keyed `(club, question)`; NYC having run
   `q3` does not retire it for LA (AC-105). Two clubs may hold a room on one
   question at once (AC-104); one live room per `(club, question)` still holds.
-- **Take it home is per club:** `/last/{club}`, and `/last` is `nyc`'s. A club
+- **Take it home is per club:** `/last/{club}`, and `/last` is `rustnyc`'s (so is `/last/nyc`). A club
   that has released nothing, or one that does not exist, gets the empty page.
   A released LA wall links to `/last/la`.
 - **Run it again** stays in the old room's club, whatever the request names.
 - **Scheduling is per club.** What the laptop pushes is the question *arranged
   for one meetup date* (the answer slot moves with the date), so the room keeps
   it per club: `PUT /admin/clubs/{club}/questions/{id}`, and the old
-  `PUT /admin/questions/{id}` is the `nyc` spelling. A club's room is built from
+  `PUT /admin/questions/{id}` is the `rustnyc` spelling. A club's room is built from
   that club's record only; a club with nothing scheduled is refused, never
   handed another club's arrangement (AC-23). Whether a club has run a question
   is checked when its room is made.
@@ -218,7 +225,7 @@ club, an unknown club and a malformed one are all `403 wrong_role` (AC-103).
 
 | Route | What | Credential |
 |---|---|---|
-| `POST /rooms` `{question_id, club?}` | *Create a room* for a club (default `nyc`, D-26) | the organizer session → `HostAuth::authorize_create` (Discord) |
+| `POST /rooms` `{question_id, club?}` | *Create a room* for a club (default `rustnyc`; `nyc` reads as it; D-26) | the organizer session → `HostAuth::authorize_create` (Discord) |
 | `POST /rooms/{id}/put-on-screen`, `close-answers`, `show-split`, `walk-it`, `reveal`, `release`, `step-back`, `step-forward` | one per host action, plus `←`/`→` | the room's host session |
 | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; this one stays released | `authorize_create`, same organizer |
 | `GET /rooms/{id}/wall`, `/buzzer` | the public state query | none |

@@ -259,7 +259,7 @@
         "club": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]{0,23}$",
-          "description": "The club whose room released the question (D-26); absent reads as the default club, nyc. A question is never run twice for one club; another club may still run it."
+          "description": "The club whose room released the question (D-26); absent reads as the default club, rustnyc, and nyc (its old name, ADR-0005 item 8) reads as rustnyc too. A question is never run twice for one club; another club may still run it."
         },
         "affirmed_by": {
           "type": "string",

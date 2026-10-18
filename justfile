@@ -351,10 +351,11 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     used="$(auth -w '\n%{http_code}' "{{ room }}/admin/used")"
     code="${used##*$'\n'}"
     [ "$code" = 200 ] || { echo "GET /admin/used answered $code. 401 means this token is not the room's POPQUIZ_ADMIN_TOKEN." >&2; exit 1; }
-    # The ledger is per club (G-10, AC-105) and this recipe schedules the default club, nyc,
-    # so only an nyc entry for this question counts; another club's use of it does not.
-    if printf '%s' "${used%$'\n'*}" | jq -e --arg q "{{ question }}" 'any(.[]; .club == "nyc" and .question_id == $q)' >/dev/null; then
-        echo "{{ question }} is in the room's used ledger for nyc, so the room will refuse it." >&2
+    # The ledger is per club (G-10, AC-105) and this recipe schedules the default club, rustnyc,
+    # so only its entry for this question counts; another club's use of it does not. A room
+    # on the build before ADR-0005 item 8 names it nyc, its old name, which counts the same.
+    if printf '%s' "${used%$'\n'*}" | jq -e --arg q "{{ question }}" 'any(.[]; (.club == "rustnyc" or .club == "nyc") and .question_id == $q)' >/dev/null; then
+        echo "{{ question }} is in the room's used ledger for rustnyc, so the room will refuse it." >&2
         echo "Only a restart clears that, and it drops live rooms: fly apps restart rustnyc-popquiz" >&2
         echo "Then run just demo {{ question }} again." >&2
         exit 1
@@ -374,6 +375,11 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
 # After a meetup, before anything restarts the room: the used ledger into the bank (T-20).
 sync *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
+
+# The club rename (ADR-0005 item 8): bank used records under nyc become rustnyc. A dry
+# run unless --write, which backs up each file first. docs/RUNBOOK.md has the release order.
+migrate-club *ARGS:
+    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule migrate-club {{ ARGS }}
 
 
 # AC-82…AC-86 over every surface and phase (T-13): keyboard, the live region's

@@ -280,7 +280,7 @@ async fn ac101_the_right_token_schedules_and_reads_the_used_ledger() {
     let entry = &entries[0];
     let keys = |v: &Value| v.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
     assert_eq!(keys(entry), ["club", "question_id", "used"]);
-    assert_eq!(entry["club"], "nyc");
+    assert_eq!(entry["club"], "rustnyc");
     // bank.py's `Used`: meetup_date, room_id, released_at, fit, affirmed_by.
     assert_eq!(
         keys(&entry["used"]),
@@ -962,9 +962,14 @@ async fn d26_the_club_route_and_the_old_route_are_two_records() {
         json!({"id": "q3", "scheduled": "replaced"})
     );
     assert_eq!(
+        push_club(&a, "rustnyc", "q3", &q3_json()).await.1,
+        json!({"id": "q3", "scheduled": "replaced"}),
+        "the old path is the default club's"
+    );
+    assert_eq!(
         push_club(&a, "nyc", "q3", &q3_json()).await.1,
         json!({"id": "q3", "scheduled": "replaced"}),
-        "the old path is nyc's"
+        "nyc is the default club's old name (ADR-0005 item 8)"
     );
 }
 

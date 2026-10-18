@@ -30,7 +30,7 @@ A snapshot, taken on `3c7a477`; the numbers move with every review and every
 night:
 
 ```
-reserve (nyc): 1 ready (accepted, affirmed, unused) - 1 meetup of runway at one question a meetup
+reserve (rustnyc): 1 ready (accepted, affirmed, unused) - 1 meetup of runway at one question a meetup
 trend: +0 accepted awaiting affirmation, +3 not yet reviewed, -0 used in the last 90 days
 warning: 1 ready is below the threshold of 2 - generate and review now; the lead time is 2 meetups
 ```
@@ -104,6 +104,51 @@ hand, `room/README.md`, *Deploying*, has the whole of it. The order matters:
    night.**
 5. Then `just schedule`. A restart or deploy forgets every scheduled question,
    so scheduling comes last.
+
+### Releasing the club rename (`nyc` → `rustnyc`)
+
+The default club's name changed from `nyc` to `rustnyc` (ADR-0005 item 8). The
+merge that ships it is a release step, and it restarts the room, so it goes in
+this order. Nothing here is run during a meetup.
+
+1. **Sync from the rename's branch, against the room still on the old build.**
+   With the branch checked out (`gh pr checkout <PR>`), `just sync --room
+   https://rustnyc-popquiz.fly.dev`. The old room names its ledger entries
+   `nyc`; this sync writes them as `rustnyc`. Then take the baseline step 5
+   compares against: `(cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve)`, from the repository root (the line sync prints first is from before it
+   imported the ledger). No room is created or released from here to the
+   merge; if one is, sync again right before merging and take the baseline
+   again.
+2. **Back up the bank**, outside the repository:
+   `cp -R bank ~/popquiz-bank-backup-<YYYY-MM-DD>`.
+3. **Migrate.** `just migrate-club` is a dry run: it lists each used record
+   still under `nyc` and writes nothing. Then `just migrate-club --write`,
+   which first copies each file it changes into a new dated backup folder in
+   the bank directory, and prints where. A second run says *nothing to migrate*. If any
+   record changed (the sync's or the migration's), commit it under
+   `bank/questions/` onto the branch, so the merge carries the code and the
+   records together. Leave that backup folder out of the commit.
+4. **Merge.** That is a deploy: it restarts the room and empties its ledger,
+   which step 1 already saved.
+5. **Check the reserve:** `(cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve)` shows the same ready count as step 1's baseline,
+   now as `reserve (rustnyc):`.
+6. **Check an old link:** `https://rustnyc-popquiz.fly.dev/last/nyc` is the same
+   page as `/last`, and a bookmarked `/host?question=<id>&club=nyc` signs in
+   and creates the default club's room.
+7. Then `just schedule` as usual: the deploy forgot every scheduled question.
+
+`nyc` stays an alias for at least one release; removing it is a later change.
+
+**Fix forward.** The old build reads a used record under `rustnyc` as another
+club's, so after a rollback a question this club already ran would look
+unused. Restoring the step-2 backup is not enough: step 1 already wrote its
+records as `rustnyc`. Before a rolled-back build schedules anything, every used
+record under `rustnyc` in `bank/questions/` must say `"club": "nyc"` again
+(`rg -l '"club": "rustnyc"' bank/questions` lists them; change that value and
+nothing else), and that change committed. Leave every other club's records as
+they are.
 
 **Never run the deployed burst during a meetup.** The `deployed-burst`
 workflow, or `just burst` / `just smoke` against the deployed room, shares the

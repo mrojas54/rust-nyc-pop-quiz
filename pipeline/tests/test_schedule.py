@@ -506,7 +506,7 @@ def test_ac105_two_clubs_may_each_run_a_question_once(bank, room, capsys):
     assert (q3.used_by("nyc").room_id, q3.used_by("la").room_id) == ("room-a", "room-l")
     assert q3.used_by("sf") is None
     out = capsys.readouterr().out
-    assert "used: q3 by nyc on 2026-10-14, room room-a" in out
+    assert "used: q3 by rustnyc on 2026-10-14, room room-a" in out
     assert "used: q3 by la on 2026-10-15, room room-l" in out
 
 
@@ -558,12 +558,12 @@ def test_sync_writes_used_from_the_ledger_and_a_null_fit_is_an_absent_key(bank, 
     assert sync(bank) == 0
     q3 = json.loads((bank / "questions" / "q3.json").read_text())
     assert q3["used"] == [
-        {"meetup_date": "2026-10-14", "room_id": "room-a", "released_at": "2026-10-14T01:40:00Z", "club": "nyc"}
+        {"meetup_date": "2026-10-14", "room_id": "room-a", "released_at": "2026-10-14T01:40:00Z", "club": "rustnyc"}
     ]
     assert load_question(bank, "q3").used_by().fit is None
     assert load_question(bank, "q4").used_by().fit == "clipped_x"
     out = capsys.readouterr().out
-    assert "used: q3 by nyc on 2026-10-14, room room-a" in out
+    assert "used: q3 by rustnyc on 2026-10-14, room room-a" in out
     assert "fit: room room-a (q3) - the wall never reported a verdict" in out
     assert "fit: room room-b (q4) - clipped_x" in out
 
@@ -581,8 +581,8 @@ def test_sync_writes_who_affirmed_the_question_the_room_ran(bank, room, capsys):
     assert load_question(bank, "q3").used_by().affirmed_by == "queenrose54"
     assert "affirmed_by" not in json.loads((bank / "questions" / "q4.json").read_text())["used"][0]
     out = capsys.readouterr().out
-    assert "used: q3 by nyc on 2026-10-14, room room-a, affirmed by queenrose54" in out
-    assert "used: q4 by nyc on 2026-10-15, room room-b\n" in out
+    assert "used: q3 by rustnyc on 2026-10-14, room room-a, affirmed by queenrose54" in out
+    assert "used: q4 by rustnyc on 2026-10-15, room room-b\n" in out
     # The same ledger again changes nothing.
     after_first = snapshot(bank)
     assert sync(bank) == 0
@@ -649,7 +649,7 @@ def test_ac75_the_count_is_what_in_reserve_admits(bank):
     questions = schedule.load_bank(bank)
     expected = sum(1 for q in questions if audit.in_reserve(q))
     assert expected == 2
-    assert schedule.reserve_lines(questions, today=NIGHT)[0].startswith(f"reserve (nyc): {expected} ready")
+    assert schedule.reserve_lines(questions, today=NIGHT)[0].startswith(f"reserve (rustnyc): {expected} ready")
 
 
 def test_ac75_the_reserve_and_trend_are_the_first_lines_of_every_command(affirmed, room, tmp_path, capsys):
@@ -679,7 +679,7 @@ def test_ac75_the_trend_counts_what_comes_in_and_what_went_out(bank):
     data["used"] = {"meetup_date": "2026-09-09", "room_id": "r", "released_at": "2026-09-10T01:00:00Z"}
     path.write_text(json.dumps(data))
     reserve, trend = schedule.reserve_lines(schedule.load_bank(bank), today=NIGHT)[:2]
-    assert reserve.startswith("reserve (nyc): 1 ready")
+    assert reserve.startswith("reserve (rustnyc): 1 ready")
     unreviewed = len(drafts) - 3
     assert trend == f"trend: +1 accepted awaiting affirmation, +{unreviewed} not yet reviewed, -1 used in the last 90 days"
 
@@ -927,3 +927,168 @@ def test_p2_an_explicit_home_link_wins(affirmed, tmp_path):
     assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", out, "--bank", affirmed,
                "--club", "la", "--home-link", "https://example.test/mine") == 0
     assert _baked_home_link(out) == "https://example.test/mine"
+
+
+# --------------------------------------------------------------------------- #
+# ADR-0005 item 8: the default club is rustnyc, and nyc is its old name
+# --------------------------------------------------------------------------- #
+
+
+def _used_under(bank_dir: Path, qid: str, club: str | None) -> Path:
+    """Give `qid` a used record as a bank written before the rename holds it."""
+    path = bank_dir / "questions" / f"{qid}.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    record = {"meetup_date": "2026-10-14", "room_id": "room-a", "released_at": "2026-10-14T01:40:00Z"}
+    if club is not None:
+        record["club"] = club
+    data["used"] = [record]
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
+
+
+def test_sync_from_a_room_on_the_old_build_writes_rustnyc(bank, room):
+    room((200, club_ledger(("nyc", "q3", "2026-10-14", "room-a", "fits"))))
+    assert sync(bank) == 0
+    text = (bank / "questions" / "q3.json").read_text(encoding="utf-8")
+    assert json.loads(text)["used"][0]["club"] == "rustnyc"
+    assert '"nyc"' not in text
+    # Syncing the old room again (the release order's "sync again right before
+    # merging") changes nothing, and nor does the new room's spelling of it.
+    after_first = snapshot(bank)
+    for club in ("nyc", "rustnyc"):
+        room((200, club_ledger((club, "q3", "2026-10-14", "room-a", "fits"))))
+        assert sync(bank) == 0, club
+        assert snapshot(bank) == after_first, club
+
+
+def test_sync_refuses_a_ledger_club_that_is_not_a_slug(bank, room, capsys):
+    before = snapshot(bank)
+    room((200, club_ledger(("NYC", "q3", "2026-10-14", "room-a", "fits"))))
+    assert sync(bank) == 1
+    assert "not a club slug" in capsys.readouterr().err
+    assert snapshot(bank) == before
+
+
+@pytest.mark.parametrize("stored", ["nyc", "rustnyc", None])
+def test_a_question_used_under_nyc_is_used_under_rustnyc(affirmed, tmp_path, stored, capsys):
+    _used_under(affirmed, "q3", stored)
+    question = load_question(affirmed, "q3")
+    for club in ("rustnyc", "nyc"):
+        assert "never run twice for a club" in schedule.refusal(question, club), (stored, club)
+        assert not audit.in_reserve(question, club)
+    assert schedule.refusal(question, "la") is None
+    lines = schedule.reserve_lines(schedule.load_bank(affirmed), today=NIGHT)
+    assert lines[0].startswith("reserve (rustnyc): 0 ready"), lines[0]
+    for extra in ([], ["--club", "nyc"], ["--club", "rustnyc"]):
+        out = tmp_path / f"o-{len(extra)}-{extra[-1] if extra else 'default'}"
+        assert run("schedule", "q3", "--date", NIGHT.isoformat(), "--no-push", "--out", out, "--bank", affirmed, *extra) == 1
+        assert "was already used by rustnyc" in capsys.readouterr().err
+
+
+def test_the_club_flag_reads_nyc_as_rustnyc(affirmed, room, capsys):
+    assert run("reserve", "--bank", affirmed, "--club", "nyc") == 0
+    assert capsys.readouterr().out.startswith("reserve (rustnyc): 1 ready")
+    assert schedule.home_link_for("nyc") == schedule.home_link_for("rustnyc") == schedule.fallback.DEFAULT_HOME_LINK
+
+
+def migrate(bank_dir: Path, *extra) -> int:
+    return run("migrate-club", "--bank", bank_dir, *extra)
+
+
+def test_migrate_club_is_a_dry_run_by_default(bank, capsys):
+    _used_under(bank, "q3", "nyc")
+    before = snapshot(bank)
+    assert migrate(bank) == 0
+    assert "would rewrite q3: used[0].club nyc -> rustnyc" in capsys.readouterr().out
+    assert snapshot(bank) == before, "a dry run writes nothing, not even a backup"
+
+
+def test_migrate_club_backs_up_then_rewrites_and_a_second_run_does_nothing(bank, tmp_path, capsys):
+    path = _used_under(bank, "q3", "nyc")
+    _used_under(bank, "q4", None)
+    original_q3 = path.read_bytes()
+    original_q4 = (bank / "questions" / "q4.json").read_bytes()
+    backups = tmp_path / "backups"
+    assert migrate(bank, "--write", "--backup-dir", backups) == 0
+    out = capsys.readouterr().out
+    assert "rewrote q3: used[0].club nyc -> rustnyc" in out and f"backup: {backups / 'q3.json'}" in out
+    assert (backups / "q3.json").read_bytes() == original_q3
+    assert sorted(p.name for p in backups.iterdir()) == ["q3.json"], "only a file it changes is backed up"
+    assert (bank / "questions" / "q4.json").read_bytes() == original_q4, "an absent club already reads as rustnyc"
+    rewritten = json.loads(path.read_text(encoding="utf-8"))
+    assert rewritten["used"][0]["club"] == "rustnyc"
+    assert rewritten == {**json.loads(original_q3), "used": [{**json.loads(original_q3)["used"][0], "club": "rustnyc"}]}
+    assert load_question(bank, "q3").used_by("rustnyc").room_id == "room-a"
+    # Idempotent: the second run finds nothing, writes nothing, backs up nothing.
+    after_first = snapshot(bank)
+    again = tmp_path / "again"
+    assert migrate(bank, "--write", "--backup-dir", again) == 0
+    assert "nothing to migrate" in capsys.readouterr().out
+    assert snapshot(bank) == after_first and not again.exists()
+
+
+def test_migrate_club_backs_up_inside_the_bank_by_default_and_never_overwrites_a_backup(bank, tmp_path, capsys):
+    _used_under(bank, "q3", "nyc")
+    assert migrate(bank, "--write") == 0
+    made = list((bank / "backups").glob("club-rename-*/q3.json"))
+    assert len(made) == 1
+    assert [q.id for q in schedule.load_bank(bank)] == sorted(p.stem for p in (bank / "questions").glob("*.json"))
+    capsys.readouterr()
+    # A backup already there is never replaced, and then nothing is rewritten.
+    _used_under(bank, "q3", "nyc")
+    before = snapshot(bank)
+    assert migrate(bank, "--write", "--backup-dir", made[0].parent) == 1
+    assert "never overwritten" in capsys.readouterr().err
+    assert snapshot(bank) == before
+
+
+def test_migrate_club_refuses_a_record_it_does_not_understand_and_writes_nothing(bank, capsys):
+    _used_under(bank, "q3", "nyc")
+    broken = bank / "questions" / "q4.json"
+    data = json.loads(broken.read_text(encoding="utf-8"))
+    data["used"] = "yesterday"
+    broken.write_text(json.dumps(data), encoding="utf-8")
+    before = snapshot(bank)
+    assert migrate(bank, "--write") == 1
+    assert "refused q4.json: does not read as a bank record" in capsys.readouterr().err
+    assert snapshot(bank) == before
+
+
+def test_migrate_club_leaves_every_record_whole_when_a_rewrite_cannot_be_written(bank, tmp_path, monkeypatch, capsys):
+    _used_under(bank, "q3", "nyc")
+    _used_under(bank, "q4", "nyc")
+    before = snapshot(bank)
+    real = Path.write_text
+
+    def full_disk(self, *args, **kwargs):
+        if self.name == "q4.json.club-rename":
+            real(self, "{", encoding="utf-8")
+            raise OSError(28, "No space left on device")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", full_disk)
+    assert migrate(bank, "--write", "--backup-dir", tmp_path / "b") == 1
+    assert "nothing was rewritten" in capsys.readouterr().err
+    assert snapshot(bank) == before, "no original touched, no staged file left behind"
+
+
+def test_migrate_club_replaces_whole_files_and_a_rerun_finishes(bank, tmp_path, monkeypatch, capsys):
+    _used_under(bank, "q3", "nyc")
+    _used_under(bank, "q4", "nyc")
+    real = schedule.os.replace
+
+    def fail_on_q4(src, dst):
+        if Path(dst).name == "q4.json":
+            raise OSError(5, "Input/output error")
+        return real(src, dst)
+
+    monkeypatch.setattr(schedule.os, "replace", fail_on_q4)
+    assert migrate(bank, "--write", "--backup-dir", tmp_path / "b1") == 1
+    assert "already rewritten: q3.json" in capsys.readouterr().err
+    # Each file is whole and reads the same either way; nothing staged is left.
+    assert [q.used_by("rustnyc").room_id for q in schedule.load_bank(bank) if q.id in ("q3", "q4")] == ["room-a"] * 2
+    assert not list((bank / "questions").glob("*.club-rename"))
+    monkeypatch.setattr(schedule.os, "replace", real)
+    assert migrate(bank, "--write", "--backup-dir", tmp_path / "b2") == 0
+    assert "rewrote q4: used[0].club nyc -> rustnyc" in capsys.readouterr().out
+    assert migrate(bank) == 0 and "nothing to migrate" in capsys.readouterr().out
