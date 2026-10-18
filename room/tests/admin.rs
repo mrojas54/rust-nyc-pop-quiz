@@ -1045,6 +1045,10 @@ async fn g12_a_push_not_affirmed_for_its_text_is_refused_with_its_reason() {
         .as_object_mut()
         .unwrap()
         .remove("affirmed_digest");
+    // Bound to its text, but rejected at review: `schedule.refusal` refuses it
+    // too, so the room may not run it either.
+    let mut rejected = q3_json();
+    rejected["review"]["status"] = "rejected".into();
     for (record, why) in [
         (none, "q3: is not affirmed; affirm it at review"),
         (nobody, "q3: is not affirmed; affirm it at review"),
@@ -1053,6 +1057,7 @@ async fn g12_a_push_not_affirmed_for_its_text_is_refused_with_its_reason() {
             unbound,
             "q3: its affirmation records who and when but not what",
         ),
+        (rejected, "q3: is affirmed but was not accepted at review"),
     ] {
         let (status, body) = push(&a, "q3", &record).await;
         assert_eq!(status, StatusCode::CONFLICT, "{body}");
@@ -1128,8 +1133,39 @@ fn g12_a_room_is_never_made_from_an_unaffirmed_record() {
         Err(e) => panic!("refused for another reason: {e:?}"),
         Ok(_) => panic!("a room was made from an unaffirmed record"),
     }
+    let mut v = q3_json();
+    v["review"]["status"] = "rejected".into();
+    let rejected = room::answers::load(&v.to_string()).expect("loads");
+    assert_eq!(rejected.affirmation().state(), "bound");
+    let state = AppState::new(Arc::new(TestAuth), vec![rejected], Urls::default());
+    match state.create_room(Some(ORGANIZER), "q3", SystemTime::now()) {
+        Err(room::rooms::RoomError::Refused(why)) => {
+            assert!(
+                why.starts_with("q3: is affirmed but was not accepted"),
+                "{why}"
+            )
+        }
+        Err(e) => panic!("refused for another reason: {e:?}"),
+        Ok(_) => panic!("a room was made from a record rejected at review"),
+    }
     let state = AppState::new(Arc::new(TestAuth), vec![q3()], Urls::default());
     assert!(state
         .create_room(Some(ORGANIZER), "q3", SystemTime::now())
         .is_ok());
+}
+
+#[tokio::test]
+async fn g12_a_record_typed_looser_than_the_schema_fails_closed() {
+    // Python reads `pivot: 1` as true and could bind a digest to it; the room
+    // types the record by the schema and refuses it, so the twins can disagree
+    // only by the room refusing what `just schedule` passed (never the reverse).
+    let a = admin();
+    let mut loose = q3_json();
+    let steps = loose["trace"]["steps"].as_array_mut().unwrap();
+    let pivot = steps.iter_mut().find(|s| s.get("pivot").is_some()).unwrap();
+    pivot["pivot"] = 1.into();
+    let (status, body) = push(&a, "q3", &loose).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    let (status, body) = create_q3(&a).await;
+    assert_ne!(status, StatusCode::CREATED, "{body}");
 }

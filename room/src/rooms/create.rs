@@ -134,7 +134,7 @@ impl AppState {
             .get(&(club.clone(), question_id.to_string()))
             .cloned()
             .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
-        if let Some(why) = question.affirmation().refusal(question_id) {
+        if let Some(why) = question.refusal(question_id) {
             return Err(RoomError::Refused(why));
         }
         let ended = lock(&self.ended);

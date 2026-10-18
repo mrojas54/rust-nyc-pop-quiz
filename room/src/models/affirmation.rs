@@ -27,7 +27,6 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Review {
-    #[allow(dead_code)]
     status: Option<serde_json::Value>,
     #[allow(dead_code)]
     reason: Option<serde_json::Value>,
@@ -43,6 +42,14 @@ pub(crate) struct Review {
 }
 
 impl Review {
+    /// The twin of `audit.is_accepted`: `accepted` or `edited` at review.
+    pub(crate) fn accepted(&self) -> bool {
+        matches!(
+            self.status.as_ref().and_then(|s| s.as_str()),
+            Some("accepted" | "edited")
+        )
+    }
+
     /// The twin of `bank.Review.affirmed`: who *and* when, both non-empty.
     fn affirmed(&self) -> bool {
         self.affirmed_by.as_deref().is_some_and(|s| !s.is_empty())

@@ -659,6 +659,7 @@ pub struct Scheduled {
     public: PublicQuestion,
     vault: vault::Vault,
     affirmation: Affirmation,
+    accepted: bool,
 }
 
 impl Scheduled {
@@ -671,6 +672,17 @@ impl Scheduled {
     /// [`Affirmation::Bound`] one (G-12).
     pub fn affirmation(&self) -> &Affirmation {
         &self.affirmation
+    }
+
+    /// Why the room will not run this record as question `id`, or `None` when
+    /// it may: the affirmation's refusal, then acceptance at review, in the
+    /// order `schedule.refusal` checks them. Quotes no question text.
+    pub fn refusal(&self, id: &str) -> Option<String> {
+        self.affirmation.refusal(id).or_else(|| {
+            (!self.accepted).then(|| {
+                format!("{id}: is affirmed but was not accepted at review; accept it at review, then schedule it again.")
+            })
+        })
     }
 
     /// Decide §4.5's middle beat from the frozen totals. Sealed.
@@ -693,8 +705,8 @@ impl Scheduled {
 /// (D-10), or an incorrect option with no `why_tempting` (§4.5, AC-95), or a
 /// malformed affirmation (GAP-24).
 ///
-/// An unaffirmed or stale record still loads: whether it may run is the
-/// room's call ([`Scheduled::affirmation`]), made when it is scheduled and
+/// An unaffirmed, stale or unaccepted record still loads: whether it may run
+/// is the room's call ([`Scheduled::refusal`]), made when it is scheduled and
 /// again when a room is made from it.
 pub fn load(json: &str) -> Result<Scheduled, LoadError> {
     load_arranged(json, None)
@@ -724,6 +736,7 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
         );
     }
     let affirmation = record.affirmation(bank_order)?;
+    let accepted = record.review.as_ref().is_some_and(|r| r.accepted());
 
     let Some(verified) = &record.verified else {
         return refuse(&id, "has no verified record, so it has no answer");
@@ -820,6 +833,7 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
             HowWeKnow::of(verified),
         ),
         affirmation,
+        accepted,
     })
 }
 

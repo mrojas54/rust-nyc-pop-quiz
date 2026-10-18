@@ -244,7 +244,7 @@ impl AppState {
         question: Scheduled,
     ) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
-        if let Some(why) = question.affirmation().refusal(&id) {
+        if let Some(why) = question.refusal(&id) {
             return Err(RoomError::Refused(why));
         }
         // Invariant: `questions`, then `rooms`, the order `create_for` takes
