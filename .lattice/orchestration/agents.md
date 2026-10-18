@@ -4,13 +4,13 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-10-16 19:0x EDT. **Orchestrator wound down at the context ceiling mid-gate. PQ-42 at `review`: PR #85 @ `9059a84` on `2058d3e`, OPEN / MERGEABLE, exact-head CI `just test` SUCCESS and `test-full` in progress, a Sonnet exact-head review in flight from this seat (verdict recorded in run-state's resume note if it lands before the wind-down wakes end). Board 49 done / 1 review / 25 backlog (19 held; PQ-72, PQ-73, PQ-76, PQ-77 dispatchable) / 2 cancelled.** c11: `panel:6` (this seat, `area:5`) and `panel:13` (PQ-42 delegator, idle after DONE, `area:9`) in `workspace:2`. Refs change on every c11 restart: `c11 tree` first.
+Snapshot: 2026-10-18 18:3xZ. **PQ-76 dispatched; nothing else in flight. `origin/main` = `c5c42f7` (PR #93), CI + deploy green. Open PRs: none from this run. PQ-73, PQ-77 done; PQ-63 cancelled into PQ-77.** c11: `panel:16` (this seat, `area:9`) and `panel:24` (PQ-76 delegator, `area:12`) in `workspace:5`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Panel ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `panel:6` | ai-c11-cc/lattice-build | **Winding down** (context ceiling); a fresh `/lattice-orchestrator` "resume the run" session finishes PQ-42's gate from run-state's resume note |
-| agent:delegator-pq42 (Opus, inline-full) | PQ-42 / copy lint follow-ups: trace notes, freeze blind spots, normalization, crash sentinel, log guard | `panel:13` | ai-c11-cc/copy-lint-followups off `2058d3e` | launched 18:1x; READY verified 18:19 (HEAD = BASE = `2058d3e`); auto mode on (client); PLAN 18:26 (11 findings resolved, 2 Critical accepted); `in_progress`; DONE 18:48 (22:48Z): **PR #85** @ `9059a84` on `2058d3e`, PQ-42 `review`; web 303 / pipeline 953 / rust ok, `just test` 15 s warm, test-full green bar the known `burst_on_loopback_at_200` flake (passed on rerun), 29 mutations (27 killed, 2 fixed in `9059a84` then killed). Merge gate running from this seat: exact-head CI (`just test` SUCCESS, `test-full` in progress), Sonnet exact-head review in flight |
-| Waiting on the client | releasing the other held tickets · dispatching PQ-72 / PQ-73 / PQ-76 / PQ-77 · the two docs PRs from the 10-16 handoff (RUNBOOK reserve snapshot; `REHEARSAL-GUIDE.md` to main) · worktree and branch cleanup · F-46, F-48's §7.6 text, F-49…F-58 upstream · H-4 / HC-2 (the generator has never called the API) · the closeout word | — | — | all held |
+| Orchestrator | — | `panel:16` | ai-c11-cc/lattice-build | dispatching; waiting on PQ-76's READY / PLAN / DONE by mailbox (`pq-orchestrator`) |
+| agent:delegator-pq76 (Opus, inline-full, `--delegated`) | PQ-76 / rename the default club `nyc` to `rustnyc` (ADR-0005 item 8) | `panel:24` | ai-c11-cc/rustnyc-rename off `c5c42f7` | launched 18:3xZ; boot `templates/boot-PQ-76.md`; no planned halt |
+| Waiting on the client | PQ-76's merge (a release step: `just sync` first) · PQ-72 / PQ-78 · the held tickets · cleanup of `…-worktrees/validate-2026-10-18` and `pty-state-waits` | — | — | held |
 
 ### Archived (run history)
 

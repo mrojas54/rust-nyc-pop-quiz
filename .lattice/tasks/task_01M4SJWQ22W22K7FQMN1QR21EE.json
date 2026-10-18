@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-10-13T02:53:58Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M4SJWQ22W22K7FQMN1QR21EE",
-  "last_event_id": "ev_01M57NGDME9KCWFGXZB6DFJARV",
+  "last_event_id": "ev_01M58414CWN5HQQFPCQBVRRD0D",
   "last_status_changed_at": "2026-10-13T02:53:58Z",
   "priority": "low",
   "relationships_out": [],
@@ -21,6 +21,6 @@
   "tags": null,
   "title": "ADR-0005 item 8: rename the default club nyc to rustnyc",
   "type": "chore",
-  "updated_at": "2026-10-18T14:09:03Z",
+  "updated_at": "2026-10-18T18:22:51Z",
   "urgency": null
 }
