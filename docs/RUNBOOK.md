@@ -115,8 +115,8 @@ this order. Nothing here is run during a meetup.
    With the branch checked out (`gh pr checkout <PR>`), `just sync --room
    https://rustnyc-popquiz.fly.dev`. The old room names its ledger entries
    `nyc`; this sync writes them as `rustnyc`. Then take the baseline step 5
-   compares against: `cd pipeline && uv run --offline --no-sync python -m
-   popquiz.schedule reserve` (the line sync prints first is from before it
+   compares against: `(cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve)`, from the repository root (the line sync prints first is from before it
    imported the ledger). No room is created or released from here to the
    merge; if one is, sync again right before merging and take the baseline
    again.
@@ -131,8 +131,8 @@ this order. Nothing here is run during a meetup.
    records together. Leave that backup folder out of the commit.
 4. **Merge.** That is a deploy: it restarts the room and empties its ledger,
    which step 1 already saved.
-5. **Check the reserve:** `cd pipeline && uv run --offline --no-sync python -m
-   popquiz.schedule reserve` shows the same ready count as step 1's baseline,
+5. **Check the reserve:** `(cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve)` shows the same ready count as step 1's baseline,
    now as `reserve (rustnyc):`.
 6. **Check an old link:** `https://rustnyc-popquiz.fly.dev/last/nyc` is the same
    page as `/last`, and a bookmarked `/host?question=<id>&club=nyc` signs in
