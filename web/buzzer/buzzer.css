@@ -20,15 +20,19 @@
 
 /* The prototype's `.btn`, `.btn-primary`, `.panel` and `.meta`
    (prototypes/_shared/tokens.css) are not in web/shared, which ported only
-   what every surface needs; the buzzer carries its own, scoped to it. */
+   what every surface needs; the buzzer carries its own, scoped to it.
+   AC-84 (PQ-43, owner ruling 2026-10-18): button and letter edges are held at
+   3:1 (SC 1.4.11), not the prototype's --border-default (about 1.4:1).
+   --text-muted for the plain edge, --accent-hover for the primary's; no token
+   value moves. */
 .buzzer .meta { font-size: var(--text-xs); color: var(--text-secondary); }
 .buzzer .btn { font-family: var(--font-mono); font-size: var(--text-sm);
                min-height: var(--touch-target); min-width: var(--touch-target); padding: 10px 18px;
-               border: var(--border-w) solid var(--border-default); border-radius: var(--radius);
+               border: var(--border-w) solid var(--text-muted); border-radius: var(--radius);
                background: var(--bg-input); color: var(--text-primary); cursor: pointer; }
 .buzzer .btn:hover { background: var(--bg-tertiary); }
 .buzzer .btn:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
-.buzzer .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary);
+.buzzer .btn-primary { background: var(--accent-primary); border-color: var(--accent-hover);
                        color: var(--gray-800); font-weight: 600; }
 .buzzer .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
 .buzzer .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -64,7 +68,7 @@ body { overflow-x: hidden; }
 .buzz {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
   min-height: var(--touch-target); min-width: var(--touch-target);
-  border: 2px solid var(--border-default); border-radius: var(--radius);
+  border: 2px solid var(--text-muted); border-radius: var(--radius);
   background: var(--white); color: var(--text-primary);
   font-family: var(--font-heading); font-size: 46px; line-height: 1; cursor: pointer;
 }

@@ -257,11 +257,14 @@ function pair(surface, what, fg, bg, need, verdict) {
 test.after(() => {
   if (process.env.A11Y_MATRIX !== '1') return;
   const ACS = ['AC-82', 'AC-83', 'AC-84', 'AC-85', 'AC-86'];
+  // Each column as wide as its widest cell: a cell is never cut short.
+  const rows = Object.values(MATRIX).flatMap((screens) => Object.values(screens));
+  const wide = Object.fromEntries(ACS.map((a) => [a, Math.max(a.length, ...rows.map((r) => String(r[a] || '·').length))]));
   const lines = ['', '=== a11y: surface × screen × criterion ===',
-    `${'surface'.padEnd(8)} ${'screen'.padEnd(26)} ${ACS.map((a) => a.padEnd(18)).join(' ')}`];
+    `${'surface'.padEnd(8)} ${'screen'.padEnd(26)} ${ACS.map((a) => a.padEnd(wide[a])).join(' ')}`];
   for (const [surface, screens] of Object.entries(MATRIX)) {
     for (const [screen, row] of Object.entries(screens)) {
-      lines.push(`${surface.padEnd(8)} ${screen.slice(0, 26).padEnd(26)} ${ACS.map((a) => String(row[a] || '·').slice(0, 18).padEnd(18)).join(' ')}`);
+      lines.push(`${surface.padEnd(8)} ${screen.slice(0, 26).padEnd(26)} ${ACS.map((a) => String(row[a] || '·').padEnd(wide[a])).join(' ')}`);
     }
   }
   lines.push('', '=== a11y: contrast pairs (WCAG 2.1 relative luminance) ===');
@@ -318,6 +321,7 @@ function ac82(surface) {
         assert.ok(!isAction(n) && !NATIVE(n), `${sc.name}: a control taken out of the Tab order`);
       }
     }
+    let weakest = Infinity;
     for (const n of controls) {
       const label = `${sc.name}: <${n.tag} class="${n.attrs.class || ''}">`;
       if (isAction(n)) assert.ok(NATIVE(n), `${label} acts on click but is not a native control, so no key reaches it`);
@@ -328,9 +332,11 @@ function ac82(surface) {
       if (!n.disabled) {
         const r = ring(surface, n);
         assert.ok(r.ok, `${label}: ${r.why}`);
+        weakest = Math.min(weakest, r.ratio);
       }
     }
-    mark(surface, sc.name, 'AC-82', controls.length ? `${controls.length} ctl, ring ok` : 'none');
+    const rings = Number.isFinite(weakest) ? `ring ≥${weakest.toFixed(2)}` : 'all disabled';
+    mark(surface, sc.name, 'AC-82', controls.length ? `${controls.length} ctl, ${rings}` : 'none');
   }
 }
 
@@ -343,7 +349,9 @@ test('ac82_wall: no control on any phase or step (AC-79); the reading region is 
     assert.equal(stops.length, reads ? 1 : 0, `${sc.name}: Tab stops`);
     if (reads) {
       assert.ok(stops[0].classes.includes('rn-src-scroll') && stops[0].getAttribute('role') === 'region', sc.name);
-      mark('wall', sc.name, 'AC-82', 'region, ring ok');
+      const r = ring('wall', stops[0]);
+      assert.ok(r.ok, `${sc.name}: ${r.why}`);
+      mark('wall', sc.name, 'AC-82', `region, ring ${r.ratio.toFixed(2)}`);
     }
   }
 });
@@ -461,7 +469,8 @@ test('ac82_buzzer: a letter, retry and the hint keep the keyboard where it was a
   handle.dispatch({ type: 'frame', frame: attach(BF.closed, 'C') });
   assert.equal(doc.activeElement, outside);
   const n = restoredWithoutScroll(doc, 'buzzer');
-  mark('buzzer', 'live, saving', 'AC-82', `focus kept, ${n} no-scroll`);
+  // Its own row: 'live, saving' carries ac82's control count and ring.
+  mark('buzzer', 'repaint (driven)', 'AC-82', `kept, ${n} no-scroll`);
 });
 
 test('ac82_buzzer: a refused join hands the focus to the code field, without scrolling', () => {
@@ -571,7 +580,15 @@ test('ac82_host: an answer arriving rewrites the count, not the focused button; 
   ws.onmessage(frame(hostPayload('reveal'), 2 + ticks.length));
   assert.equal(said.length, before + 1);
   assert.equal(doc.activeElement.getAttribute('data-primary'), NEXT.reveal);
-  mark('host', 'live, count tick', 'AC-82', `same node, ${ticks.length} ticks`);
+  // The tick reads the count as render()'s last element (host.js, aboveCount):
+  // anything rendered after it would be sliced into .host-count, and the tick
+  // above would still pass. Every phase's screen ends with the count.
+  const phased = SCREENS.host.filter((s) => s.phase);
+  for (const sc of phased) {
+    const tail = sc.html.slice(sc.html.lastIndexOf('<div class="host-count">'));
+    assert.match(tail, /^<div class="host-count">[^<]*<\/div>$/, `${sc.name}: render() ends with the count`);
+  }
+  mark('host', 'live, count tick', 'AC-82', `${ticks.length} ticks, ${phased.length} last`);
 });
 
 test('ac82_home: a trace button keeps the focus as the walk is redrawn, and hands it over at the end', () => {
@@ -645,7 +662,7 @@ test('ac83_wall: the static fallback, stepped from the keyboard, says exactly wh
     key('ArrowLeft');
     key(' ');
     assert.deepEqual(said, expectWall(BAKE.correct));
-    mark('wall', 'static (driven)', 'AC-83', '6 strings, =live');
+    mark('wall', 'static (driven)', 'AC-83', `${said.length} strings, =live`);
   } finally {
     sb.document = doc0;
   }
@@ -780,14 +797,16 @@ test('ac83_home: a trace step is said in words; opening the page and a step past
 // is exempt (SC 1.4.3's "inactive user interface component"). A dimmed trace
 // line is held like any other text: the client picked a dim that passes
 // (PQ-40, .70, 4.78:1). Its line number is the one thing under AA — it starts
-// at --text-muted and falls to 3.57:1 — and is held to that floor so it cannot
-// drift lower (F-46, for AC-84's owner). Only a .rn-src-ln inside a
-// .rn-src-line.dim gets that floor; any other .dim is held at AA.
+// at --text-secondary (wall.css and home.css override components.css's
+// --text-muted) and falls to 3.57:1 — and is held to that floor so it cannot
+// drift lower (F-46; the owner kept the floor, PQ-43). Only a .rn-src-ln inside
+// a .rn-src-line.dim gets that floor; any other .dim is held at AA.
 //
 // AC-84's dim-room presentation does not exist in the build (no dark mode in
 // v1, DESIGN.md; touchpoint T-16): this proves the one presentation there is.
 
-// The dimmed line number at the client's .70 (components.css:47), rounded down.
+// The dimmed line number (--text-secondary) at the client's .70
+// (components.css, .rn-src-line.dim), rounded down.
 const DIM_GUTTER_FLOOR = 3.57;
 
 function textPairs(surface, sc) {
@@ -857,14 +876,11 @@ function edge(surface, html, selector, prop, against, what, supplementary) {
 }
 const parentBg = (n, css) => [W.background(css, n.parent).color];
 // SC 1.4.11 asks for 3:1 on the visual information *required* to identify a
-// control. A button identified by its own label — a word, a letter, an arrow —
-// does not need its edge to be found (Understanding SC 1.4.11, "text buttons":
-// a text-only button passes with no boundary at all), and that label is held to
-// AA as text above. So the --border-default edges of .btn and .buzz (about
-// 1.4:1) are printed, not held. Were a control ever identified by its edge
-// alone — an empty field, an icon with no glyph — the edge would be held, as
-// the join field's is.
-const LABELLED = 'its label identifies it (1.4.11)';
+// control. A button found by its own label would pass with no boundary at all,
+// but AC-84's owner ruled the edges of .btn, .btn-primary and .buzz essential
+// (PQ-43, 2026-10-18), so they are held at 3:1 like the join field's: the
+// prototype's --border-default (about 1.4:1) and the primary's amber-500
+// (about 2:1) both fail here.
 const ownAndParent = (n, css) => [W.background(css, n.parent).color, W.background(css, n).color];
 
 test('ac84_wall: every text on every phase, step and fallback view is AA; the ✓, the highlight edge and the bars', () => {
@@ -879,7 +895,7 @@ test('ac84_wall: every text on every phase, step and fallback view is AA; the �
   edge('wall', reveal, '.bar-row:not(:has(.rn-correct)) .bar-fill', 'background', (n, css) => [W.background(css, n.parent).color], 'bar fill on its track', '`n · p%` carries it');
 });
 
-test('ac84_buzzer: every text on every screen is AA; the join field\'s edge and the ✓ are 3:1', () => {
+test('ac84_buzzer: every text on every screen is AA; the join field\'s, letters\' and buttons\' edges and the ✓ are 3:1', () => {
   ac84('buzzer');
   edge('buzzer', SCREENS.buzzer[0].html, '.buzz-input', 'border', parentBg, 'join field edge (identifies the field)');
   const reveal = SCREENS.buzzer.find((s) => s.name === 'reveal, answered').html;
@@ -887,13 +903,16 @@ test('ac84_buzzer: every text on every screen is AA; the join field\'s edge and 
   const saved = SCREENS.buzzer.find((s) => s.name === 'live, saved').html;
   edge('buzzer', saved, '.buzz[aria-pressed="true"]', 'border-color', parentBg, 'your saved letter\'s edge', 'fill, ✓ and "saved — X" carry it');
   const live = SCREENS.buzzer.find((s) => s.name === 'live, no answer').html;
-  edge('buzzer', live, '.buzz:not([aria-pressed="true"])', 'border', parentBg, 'a letter\'s edge', LABELLED);
-  edge('buzzer', SCREENS.buzzer.find((s) => s.name === 'live, failed').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a secondary button\'s edge', LABELLED);
+  edge('buzzer', live, '.buzz:not([aria-pressed="true"])', 'border', parentBg, 'a letter\'s edge');
+  edge('buzzer', SCREENS.buzzer.find((s) => s.name === 'live, failed').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a secondary button\'s edge');
+  edge('buzzer', SCREENS.buzzer[0].html, '.btn-primary', 'border-color', parentBg, 'the join button\'s edge');
 });
 
-test('ac84_host: every text on every screen is AA; the step buttons\' edge is printed', () => {
+test('ac84_host: every text on every screen is AA; the step and primary buttons\' edges are 3:1', () => {
   ac84('host');
-  edge('host', SCREENS.host.find((s) => s.name === 'work').html, '.btn:not(.btn-primary)', 'border', parentBg, 'a step button\'s edge', LABELLED);
+  const work = SCREENS.host.find((s) => s.name === 'work').html;
+  edge('host', work, '.btn:not(.btn-primary)', 'border', parentBg, 'a step button\'s edge');
+  edge('host', work, '.btn-primary', 'border-color', parentBg, 'the primary action\'s edge');
 });
 
 test('ac84_landing: every text, the koan bubble and the join button are AA', () => ac84('landing'));
@@ -981,26 +1000,32 @@ const STATIC_CUES = [
 
 // What moves on one screen, from the cascade outside any @media block (a
 // reduce block is the only place motion may live) and the inline styles: every
-// element whose animation or transition is not none.
-const MOTION_PROPS = ['animation', 'animation-name', 'transition', 'transition-property'];
+// element whose animation or transition is not none. `seen` is how many
+// elements were looked at.
+const MOTION_PROPS = ['animation', 'animation-name', 'animation-duration',
+  'transition', 'transition-property', 'transition-duration'];
 function moving(surface, html) {
   const css = SURFACES[surface].css;
   const out = [];
+  let seen = 0;
   for (const n of D.page(html, SURFACES[surface].chain).root.walk()) {
+    seen++;
     for (const prop of MOTION_PROPS) {
       const w = D.winner(css, n, prop);
       if (w && !/^(none|all 0s|0s?|0\.01ms)$/.test(w.value)) out.push(`<${n.tag} class="${n.attrs.class || ''}"> ${prop}: ${w.value}`);
     }
   }
-  return out;
+  return { out, seen };
 }
 // Nothing moves today, so this passes on every screen; it is the guard that a
 // transition added outside a reduce block fails on the screen that shows it
 // (PQ-40 showed it failing on the buzzer's letters and the wall's lines).
+// The cell is "moving/looked at", both from the check that ran.
 function still(surface, sc) {
-  const m = moving(surface, sc.html);
-  assert.deepEqual(m, [], `${surface} ${sc.name}: moves`);
-  return m.length;
+  const { out, seen } = moving(surface, sc.html);
+  assert.deepEqual(out, [], `${surface} ${sc.name}: moves`);
+  assert.ok(seen > 0, `${surface} ${sc.name}: nothing was looked at`);
+  return `${out.length}/${seen} mv`;
 }
 
 test('ac86_buzzer: every state has a static cue; none is motion', () => {
@@ -1011,8 +1036,8 @@ test('ac86_buzzer: every state has a static cue; none is motion', () => {
     cues[name] = cue;
   }
   for (const sc of SCREENS.buzzer) {
-    const n = still('buzzer', sc);
-    mark('buzzer', sc.name, 'AC-86', cues[sc.name] ? `${cues[sc.name].slice(0, 9)}…, ${n} mv` : `${n} moving`);
+    const mv = still('buzzer', sc);
+    mark('buzzer', sc.name, 'AC-86', cues[sc.name] ? `${cues[sc.name].slice(0, 9)}…, ${mv}` : mv);
   }
 });
 
@@ -1028,7 +1053,7 @@ test('ac86_wall: each phase is its own static frame, and each trace step says it
       cell = m[0];
     }
     prev = sc;
-    mark('wall', sc.name, 'AC-86', `${cell}, ${still('wall', sc)} mv`);
+    mark('wall', sc.name, 'AC-86', `${cell}, ${still('wall', sc)}`);
   }
 });
 
@@ -1040,14 +1065,14 @@ test('ac86_host: each phase is a different primary action; nothing moves', () =>
     const doc = D.page(sc.html, SURFACES.host.chain);
     const primary = doc.root.querySelector('[data-primary],[data-sign-in]');
     assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
-    mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)} mv`);
+    mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)}`);
   }
 });
 
 test('ac86_landing: the front door says what it is in words; nothing moves', () => {
   const sc = SCREENS.landing[0];
   assert.ok(text(sc.html).includes(C.wall_idle_title), 'the headline');
-  mark('landing', sc.name, 'AC-86', `${still('landing', sc)} mv`);
+  mark('landing', sc.name, 'AC-86', still('landing', sc));
 });
 
 test('ac86_home: each step says its number in words; nothing moves', () => {
@@ -1055,6 +1080,6 @@ test('ac86_home: each step says its number in words; nothing moves', () => {
     const m = /Step \d+ of \d+/.exec(text(sc.html));
     if (sc.name.startsWith('nothing')) assert.equal(m, null, `${sc.name}: no trace to step`);
     else assert.ok(m, sc.name);
-    mark('home', sc.name, 'AC-86', `${m ? m[0] : 'no trace'}, ${still('home', sc)} mv`);
+    mark('home', sc.name, 'AC-86', `${m ? m[0] : 'no trace'}, ${still('home', sc)}`);
   }
 });
