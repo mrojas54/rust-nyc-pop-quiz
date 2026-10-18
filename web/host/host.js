@@ -8,7 +8,9 @@
                                         /auth/discord?question=<id> (T-10).
                                         &club=<slug> names the club the room
                                         is for (D-26); absent, the default
-                                        club (nyc), so older links work.
+                                        club (rustnyc), so older links work;
+                                        the server reads club=nyc, its old
+                                        name, as rustnyc (ADR-0005 item 8).
      /host?question=<id>#<organizer     the first screen, signed in: Discord's
       session>                          callback lands here. *Create a room*
                                         presents the organizer session as a
