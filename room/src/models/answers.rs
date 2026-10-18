@@ -375,6 +375,17 @@ impl Record {
     }
 }
 
+/// Python's `str.strip()`: `str.isspace` is Rust's `char::is_whitespace` plus
+/// the four separators U+001C–U+001F and less the two direction marks
+/// U+200E/U+200F. `str.lower()` needs no twin here: nothing outside ASCII
+/// lower-cases to a letter of `stdout` in either language.
+fn py_strip(s: &str) -> &str {
+    s.trim_matches(|c: char| {
+        (c.is_whitespace() && !matches!(c, '\u{200E}' | '\u{200F}'))
+            || matches!(c, '\u{1C}'..='\u{1F}')
+    })
+}
+
 /// `stdout` as an option's text spells it: exactly one trailing newline off,
 /// nothing else (the twin of `bank.normalized_output`).
 fn normalized_output(stdout: &str) -> &str {
@@ -766,7 +777,7 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
     if let Some(i) = steps[..steps.len() - 1].iter().position(|s| {
         s.values
             .iter()
-            .any(|v| v.name.trim().to_lowercase() == "stdout")
+            .any(|v| py_strip(&v.name).to_lowercase() == "stdout")
     }) {
         return refuse(
             &id,

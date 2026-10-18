@@ -1182,6 +1182,31 @@ async fn a_stdout_row_before_the_last_step_is_refused_as_python_refuses_it() {
 }
 
 #[tokio::test]
+async fn the_stdout_name_is_stripped_as_python_strips_it() {
+    // `str.strip()` takes U+001C–U+001F and leaves U+200E; `bank.py` refuses
+    // the first name in a middle step and loads the second, so the room must.
+    let a = admin();
+    for (name, refused) in [("\u{1c}stdout\u{1f}", true), ("\u{200e}stdout", false)] {
+        let mut v = q3_json();
+        v["trace"]["steps"][0]["values"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"name": name, "was": "—", "now": "x"}));
+        let (status, body) = push(&a, "q3", &affirmed(&v)).await;
+        if refused {
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{name:?}: {body}");
+            let reason = body["reason"].as_str().unwrap();
+            assert!(
+                reason.starts_with("q3: trace step 1 names stdout"),
+                "{reason}"
+            );
+        } else {
+            assert!(status.is_success(), "{name:?}: {status} {body}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn g12_a_record_typed_looser_than_the_schema_fails_closed() {
     // Python reads `pivot: 1` as true and could bind a digest to it; the room
     // types the record by the schema and refuses it, so the twins can disagree
