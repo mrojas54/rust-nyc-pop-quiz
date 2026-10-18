@@ -1,0 +1,21 @@
+{
+  "about": "The default club and its old names (ADR-0005 item 8). room/tests/twins.rs and pipeline/tests/test_club_twin.py hold the room's and the pipeline's tables to this file, and so to each other. Each slug is [as typed, the club it reads as, or null for not a club slug].",
+  "default": "rustnyc",
+  "aliases": {
+    "nyc": "rustnyc"
+  },
+  "slugs": [
+    ["rustnyc", "rustnyc"],
+    ["nyc", "rustnyc"],
+    ["la", "la"],
+    ["la-2", "la-2"],
+    ["nyc-2", "nyc-2"],
+    ["NYC", null],
+    ["Rustnyc", null],
+    ["-la", null],
+    ["", null],
+    ["la/../nyc", null],
+    ["a b", null],
+    ["aaaaaaaaaaaaaaaaaaaaaaaaa", null]
+  ]
+}
