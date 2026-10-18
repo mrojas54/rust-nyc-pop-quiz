@@ -952,11 +952,13 @@ def test_sync_from_a_room_on_the_old_build_writes_rustnyc(bank, room):
     text = (bank / "questions" / "q3.json").read_text(encoding="utf-8")
     assert json.loads(text)["used"][0]["club"] == "rustnyc"
     assert '"nyc"' not in text
-    # The new room's spelling of the same release changes nothing.
+    # Syncing the old room again (the release order's "sync again right before
+    # merging") changes nothing, and nor does the new room's spelling of it.
     after_first = snapshot(bank)
-    room((200, club_ledger(("rustnyc", "q3", "2026-10-14", "room-a", "fits"))))
-    assert sync(bank) == 0
-    assert snapshot(bank) == after_first
+    for club in ("nyc", "rustnyc"):
+        room((200, club_ledger((club, "q3", "2026-10-14", "room-a", "fits"))))
+        assert sync(bank) == 0, club
+        assert snapshot(bank) == after_first, club
 
 
 def test_sync_refuses_a_ledger_club_that_is_not_a_slug(bank, room, capsys):
