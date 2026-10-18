@@ -8,7 +8,6 @@ No scheduling actions or network requests are performed.
 import codecs
 import fcntl
 import os
-from pathlib import Path
 import pty
 import re
 import select
@@ -16,12 +15,14 @@ import struct
 import subprocess
 import termios
 import time
+from collections.abc import Callable
+from pathlib import Path
 
 BINARY = Path(__file__).resolve().parents[1] / 'target/debug/organizer-preview'
 ANSI = re.compile(r'\x1b\[[0-9;:?><=]*[A-Za-z]')
 
 
-def check(enhanced):
+def check(enhanced: bool, before_reveal: Callable[[int], None] | None = None) -> None:
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 50, 120, 0, 0))
     child = subprocess.Popen([str(BINARY), '--question', 'q3'], stdin=slave,
@@ -66,6 +67,8 @@ def check(enhanced):
             assert 'Correct answer' not in plain, plain
             assert 'How we know' not in plain, plain
         assert 'Press Enter to reveal' in ANSI.sub('', raw), raw
+        if before_reveal is not None:
+            before_reveal(child.pid)
         send(b'\x1b[13;1:1u' if enhanced else b'\r')
         assert 'Correct answer' in ANSI.sub('', raw), raw
         send(b'\x1b[113;1:1u' if enhanced else b'q')
