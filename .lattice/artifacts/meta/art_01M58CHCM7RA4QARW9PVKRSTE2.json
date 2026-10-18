@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-18T20:51:32Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M58CHCM7RA4QARW9PVKRSTE2",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M58CHCM7RA4QARW9PVKRSTE2.md",
+    "size_bytes": 687
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged PR #95 at 20:22:36Z, merge commit fe092af062d1abb2f1c020f0d212136fc72bb2e5 (--match-head-commit 56aa27e; same-minute gate OPEN/MERGEABLE/CLEAN, origin/main c5c42f7). Orchestrator read 56aa27e (",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
