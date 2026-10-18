@@ -48,3 +48,22 @@ This proves the controlled timing regression and the local suite. It does not
 establish the cause of the original uninstrumented audit failure. F-46 and its
 contrast ruling are outside this change. Docker/Miri checks are left to the
 PR's `just test-full` CI job; they were not run locally.
+
+## Shutdown race follow-up
+
+The subsequent PR review found an exit between the success-predicate poll and
+error-path poll could report a successful shutdown as a failure. RED `a5f24ac`
+adds a deterministic terminal replay: the first two polls after quit see a
+running child and the third sees exit. Exit 0 failed on the previous helper.
+
+GREEN `3b376a0` rechecks the success predicate before raising the exit/timeout
+error. The replay now accepts exit 0 and still rejects exit 7. Existing real-PTY
+delayed-child, missing-Enter, repeat-key and protocol-restoration checks pass.
+
+VERIFY `f318fe2` records a passing full `just test`: 953 pipeline, 303 web and
+325 Rust tests, plus all three PTY regression methods. Ruff and strict mypy
+pass for both Python files. The existing q3 warning and four ignored Rust tests
+remain. The targeted exit-interleaving regression also passed on GREEN.
+
+The second review pass checked the fix and its effects on deadline handling,
+nonzero exits, output draining and cleanup. No remaining blocker was found.

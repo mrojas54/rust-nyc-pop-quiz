@@ -173,7 +173,9 @@ Repeated-key checks retain their observation windows to catch an early reveal.
 
 The recipe also runs harness regressions that pause the real child before Enter
 in both keyboard modes and drop Enter to check timeout diagnostics. They use
-Python's standard library and POSIX signals. To run those regressions alone
+Python's standard library and POSIX signals. A deterministic terminal replay
+also checks an exit between polling checks: successful exit is accepted and
+nonzero exit still fails. To run those regressions alone
 after building the organizer, from the repository root:
 
 ```sh
