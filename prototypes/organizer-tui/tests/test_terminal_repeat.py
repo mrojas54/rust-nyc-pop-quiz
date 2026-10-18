@@ -3,12 +3,62 @@ import os
 import signal
 import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from terminal_repeat import check
 
 
 class RevealWaitTests(unittest.TestCase):
+    def test_exit_between_predicate_and_exit_check(self) -> None:
+        # Replay terminal states without scheduling luck. The first two polls
+        # after q see a running child; the error-path poll observes its exit.
+        for exit_code in (0, 7):
+            with self.subTest(exit_code=exit_code):
+                child = Mock()
+                child.returncode = None
+                quitting = False
+                polls = 0
+                output = b'Question preview'
+
+                def write(fd: int, data: bytes) -> int:
+                    nonlocal output, quitting
+                    if data == b'r':
+                        output = b'Press Enter to reveal'
+                    elif data == b'\r':
+                        output = b'Correct answer'
+                    elif data == b'q':
+                        quitting = True
+                    return len(data)
+
+                def read(fd: int, size: int) -> bytes:
+                    nonlocal output
+                    chunk, output = output, b''
+                    return chunk
+
+                def poll() -> int | None:
+                    nonlocal polls
+                    if quitting:
+                        polls += 1
+                        if polls >= 3:
+                            child.returncode = exit_code
+                            return exit_code
+                    return None
+
+                child.poll.side_effect = poll
+                with (
+                    patch('terminal_repeat.subprocess.Popen', return_value=child),
+                    patch('terminal_repeat.os.write', side_effect=write),
+                    patch('terminal_repeat.os.read', side_effect=read),
+                    patch('terminal_repeat.select.select', return_value=([0], [], [])),
+                ):
+                    if exit_code == 0:
+                        check(False)
+                    else:
+                        with self.assertRaises(AssertionError):
+                            check(False)
+                self.assertGreaterEqual(polls, 3)
+                child.kill.assert_not_called()
+
     def test_delayed_child_reveals_in_both_protocols(self) -> None:
         for enhanced in (False, True):
             with self.subTest(enhanced=enhanced):
