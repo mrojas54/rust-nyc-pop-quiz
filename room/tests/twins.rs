@@ -358,10 +358,10 @@ fn the_public_half_holds_nothing_sealed() {
         common::PLANT_RESOLVING_NOTE,
         common::PLANT_WHAT,
         common::PLANT_TAKEAWAY,
-        common::PLANT_MIDDLE_STDOUT,
     ] {
         assert!(!dump.contains(plant), "{plant} is in the public half");
     }
+    common::assert_middle_stdout_refused();
     for letter in ["A", "B", "C", "D", "E"] {
         assert!(!dump.contains(&common::plant_why(letter)));
     }

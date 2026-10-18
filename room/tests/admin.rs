@@ -1155,6 +1155,33 @@ fn g12_a_room_is_never_made_from_an_unaffirmed_record() {
 }
 
 #[tokio::test]
+async fn a_stdout_row_before_the_last_step_is_refused_as_python_refuses_it() {
+    // `bank.validate_question` refuses it; affirmed for its own text, the room
+    // must refuse it too, or the room would run what the bank will not load.
+    let a = admin();
+    let mut v = q3_json();
+    let steps = v["trace"]["steps"].as_array_mut().unwrap();
+    let last = steps.last().unwrap().clone();
+    let row = last["values"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "stdout")
+        .unwrap()
+        .clone();
+    let mut planted = row;
+    planted["name"] = " STDOUT ".into();
+    steps[0]["values"].as_array_mut().unwrap().push(planted);
+    let (status, body) = push(&a, "q3", &affirmed(&v)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    let reason = body["reason"].as_str().unwrap();
+    assert!(
+        reason.starts_with("q3: trace step 1 names stdout"),
+        "{reason}"
+    );
+}
+
+#[tokio::test]
 async fn g12_a_record_typed_looser_than_the_schema_fails_closed() {
     // Python reads `pivot: 1` as true and could bind a digest to it; the room
     // types the record by the schema and refuses it, so the twins can disagree

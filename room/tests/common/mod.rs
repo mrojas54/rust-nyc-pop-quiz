@@ -205,8 +205,9 @@ pub fn plant_why(letter: &str) -> String {
 }
 
 /// q3, id `planted`, with canaries in the resolving step's note, both beats,
-/// every `why_tempting`, the hint, and a `stdout` row slipped into a middle
-/// step (G-3 withholds *any* values entry named `stdout`, not only the last).
+/// every `why_tempting`, and the hint. A `stdout` row in a middle step is not
+/// planted here: the room refuses that record at load, as the bank does (see
+/// [`assert_middle_stdout_refused`]).
 pub fn planted() -> Value {
     let mut v = q3_json();
     v["id"] = "planted".into();
@@ -221,11 +222,28 @@ pub fn planted() -> Value {
     let steps = v["trace"]["steps"].as_array_mut().unwrap();
     let last = steps.len() - 1;
     steps[last]["note"] = PLANT_RESOLVING_NOTE.into();
-    steps[2]["values"]
+    v
+}
+
+/// [`planted`] with a `stdout` row slipped into a middle step. G-3 withholds
+/// *any* values entry named `stdout`; the room never gets that far with this
+/// record, because `bank.validate_question` refuses it and so does the room.
+pub fn middle_stdout() -> Value {
+    let mut v = planted();
+    v["trace"]["steps"][2]["values"]
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({"name": "stdout", "was": "—", "now": PLANT_MIDDLE_STDOUT}));
     v
+}
+
+/// The middle `stdout` canary is refused at load, affirmed for its own text,
+/// so it can reach no page, frame or public half.
+pub fn assert_middle_stdout_refused() {
+    match answers::load(&affirmed(&middle_stdout()).to_string()) {
+        Ok(_) => panic!("loaded a record with a stdout row before the last step"),
+        Err(e) => assert!(e.0.starts_with("planted: trace step 3 names stdout"), "{e}"),
+    }
 }
 
 /// A SYNTHETIC does-not-compile record, id `planted-dnc`: q3's prose with a
@@ -596,8 +614,6 @@ pub struct Plants {
     pub resolving: String,
     /// A non-`stdout` value in the second step.
     pub trace_value: String,
-    /// A `stdout` row slipped into a middle step (G-3: *any* such row).
-    pub middle_stdout: String,
     /// The does-not-compile twin's one error code.
     pub error_code: String,
     /// `POPQUIZ_ADMIN_TOKEN` (AC-101's canary half).
@@ -616,7 +632,6 @@ impl Plants {
             ("source".into(), self.source.as_str()),
             ("resolving".into(), self.resolving.as_str()),
             ("trace_value".into(), self.trace_value.as_str()),
-            ("middle_stdout".into(), self.middle_stdout.as_str()),
             ("error_code".into(), self.error_code.as_str()),
             ("admin".into(), self.admin.as_str()),
         ];
@@ -660,7 +675,6 @@ pub fn plants() -> &'static Plants {
             notes: (0..steps - 1).map(|i| p(&format!("NOTE-{i}"))).collect(),
             resolving: p("RESOLVING-NOTE"),
             trace_value: p("TRACE-VALUE"),
-            middle_stdout: p("MIDDLE-STDOUT"),
             error_code: format!("E{}", p("ERROR")),
             admin: p("ADMIN-TOKEN"),
         };
@@ -716,10 +730,8 @@ pub fn canary_question() -> Value {
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({"name": "canary", "was": "—", "now": p.trace_value}));
-    steps[2]["values"]
-        .as_array_mut()
-        .unwrap()
-        .push(serde_json::json!({"name": "stdout", "was": "—", "now": p.middle_stdout}));
+    // No `stdout` row in a middle step: the room refuses that record at load,
+    // as the bank does (`canary_middle_stdout_is_refused` in the scan).
     affirmed(&v)
 }
 

@@ -760,6 +760,22 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
     {
         return refuse(&id, "the trace's final step names no stdout");
     }
+    // The twin of `bank.validate_question`: only the verifier writes `stdout`,
+    // on the last step, so a `stdout` row earlier is a claim nobody observed.
+    // Same name test as the generator's: stripped and lower-cased.
+    if let Some(i) = steps[..steps.len() - 1].iter().position(|s| {
+        s.values
+            .iter()
+            .any(|v| v.name.trim().to_lowercase() == "stdout")
+    }) {
+        return refuse(
+            &id,
+            format_args!(
+                "trace step {} names stdout, but only the last step may, and only the verifier writes it",
+                i + 1
+            ),
+        );
+    }
 
     let mut why_tempting: [Option<String>; 5] = Default::default();
     for (i, option) in record.options.iter().enumerate() {
@@ -797,6 +813,8 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
 
     // The walk-through's half: steps 0..=M-2, and no `stdout` row in any of
     // them (G-3 says "any values entry named stdout", not only the last's).
+    // The check above already refuses such a record; this filter stays as
+    // defence in depth, so a gap in that check still leaks nothing.
     let walk: Vec<TraceStep> = trace[..trace.len() - 1]
         .iter()
         .map(|s| TraceStep {
