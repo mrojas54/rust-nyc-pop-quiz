@@ -114,10 +114,12 @@ this order. Nothing here is run during a meetup.
 1. **Sync from the rename's branch, against the room still on the old build.**
    With the branch checked out (`gh pr checkout <PR>`), `just sync --room
    https://rustnyc-popquiz.fly.dev`. The old room names its ledger entries
-   `nyc`; this sync writes them as `rustnyc`. Note the `reserve (rustnyc):`
-   line it prints first: that is the count step 5 compares against. No room is
-   created or released from here to the merge; if one is, sync again right
-   before merging.
+   `nyc`; this sync writes them as `rustnyc`. Then take the baseline step 5
+   compares against: `cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve` (the line sync prints first is from before it
+   imported the ledger). No room is created or released from here to the
+   merge; if one is, sync again right before merging and take the baseline
+   again.
 2. **Back up the bank**, outside the repository:
    `cp -R bank ~/popquiz-bank-backup-<YYYY-MM-DD>`.
 3. **Migrate.** `just migrate-club` is a dry run: it lists each used record
@@ -130,17 +132,23 @@ this order. Nothing here is run during a meetup.
 4. **Merge.** That is a deploy: it restarts the room and empties its ledger,
    which step 1 already saved.
 5. **Check the reserve:** `cd pipeline && uv run --offline --no-sync python -m
-   popquiz.schedule reserve` shows the same ready count as step 1, now as
-   `reserve (rustnyc):`.
+   popquiz.schedule reserve` shows the same ready count as step 1's baseline,
+   now as `reserve (rustnyc):`.
 6. **Check an old link:** `https://rustnyc-popquiz.fly.dev/last/nyc` is the same
    page as `/last`, and a bookmarked `/host?question=<id>&club=nyc` signs in
    and creates the default club's room.
 7. Then `just schedule` as usual: the deploy forgot every scheduled question.
 
 `nyc` stays an alias for at least one release; removing it is a later change.
-Fix forward. A rollback to the old build would read the bank's `rustnyc`
-records as another club, so before any rollback restore `bank/questions/` from
-the step-2 backup, and write any night synced since back under `nyc`.
+
+**Fix forward.** The old build reads a used record under `rustnyc` as another
+club's, so after a rollback a question this club already ran would look
+unused. Restoring the step-2 backup is not enough: step 1 already wrote its
+records as `rustnyc`. Before a rolled-back build schedules anything, every used
+record under `rustnyc` in `bank/questions/` must say `"club": "nyc"` again
+(`rg -l '"club": "rustnyc"' bank/questions` lists them; change that value and
+nothing else), and that change committed. Leave every other club's records as
+they are.
 
 **Never run the deployed burst during a meetup.** The `deployed-burst`
 workflow, or `just burst` / `just smoke` against the deployed room, shares the
