@@ -194,7 +194,7 @@ trusting one organizer.
 
 ## Where it lives
 
-`room/src/club.rs` · `room/src/host/discord/mod.rs` · `room/src/rooms.rs` ·
-`room/src/used.rs` · `room/src/routes.rs` · `room/src/view.rs` ·
+`room/src/models/club.rs` · `room/src/host/discord/mod.rs` · `room/src/rooms/` ·
+`room/src/models/used.rs` · `room/src/server/routes/` · `room/src/models/view.rs` ·
 `web/host/host.js` · `pipeline/src/popquiz/bank.py` ·
 `pipeline/src/popquiz/schedule.py` · tests: `room/tests/clubs.rs`
