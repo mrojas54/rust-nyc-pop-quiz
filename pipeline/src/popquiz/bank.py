@@ -217,10 +217,30 @@ class Review:
 
 #: The club a record or request that names none belongs to (D-26); the room's
 #: `DEFAULT_CLUB` (room/src/models/club.rs).
-DEFAULT_CLUB = "nyc"
+DEFAULT_CLUB = "rustnyc"
+
+#: Old slugs and the club each became (ADR-0005 item 8): the room's
+#: `CLUB_ALIASES`, and `bank/fixtures/clubs/aliases.json` holds both to it. A
+#: used record or a `--club` naming `nyc` is the default club's, so a question
+#: used under `nyc` is never unused under `rustnyc`. Kept for at least one
+#: release after the rename; removing an entry is a later, deliberate step.
+CLUB_ALIASES: dict[str, str] = {"nyc": DEFAULT_CLUB}
 
 #: A club's short name, as the room validates it (room/src/models/club.rs).
 CLUB_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,23}")
+
+
+def canonical_club(slug: str) -> str:
+    """The club a slug names: an old slug in `CLUB_ALIASES` is the club it became."""
+    return CLUB_ALIASES.get(slug, slug)
+
+
+def club_slug(raw: object) -> str | None:
+    """`raw` as a club, or `None` if it is not a club slug: the room's
+    `ClubSlug::parse`, alias and all."""
+    if not isinstance(raw, str) or not CLUB_SLUG.fullmatch(raw):
+        return None
+    return canonical_club(raw)
 
 
 @dataclass(frozen=True)
@@ -250,6 +270,10 @@ class Used:
     fit: Fit | None = None
     club: str = DEFAULT_CLUB
     affirmed_by: str | None = None
+
+    def __post_init__(self) -> None:
+        # However a `Used` is built, it never holds an old slug (ADR-0005 item 8).
+        object.__setattr__(self, "club", canonical_club(self.club))
 
 
 # --------------------------------------------------------------------------- #
@@ -352,6 +376,7 @@ class Question:
 
     def used_by(self, club: str = DEFAULT_CLUB) -> Used | None:
         """This club's use of the question, or `None`: a question is used per club (D-26)."""
+        club = canonical_club(club)
         return next((u for u in self.used if u.club == club), None)
 
 
@@ -877,14 +902,16 @@ def question_from_dict(data: dict[str, Any]) -> Question:
         used_raw = [used_raw]
     elif not isinstance(used_raw, list):
         raise BankError(f"{where}.used: expected a list of records, one per club")
+    clubs: list[str] = []
     for n, raw in enumerate(used_raw):
         if not isinstance(raw, dict):
             raise BankError(f"{where}.used[{n}]: expected a record")
         _require_keys(raw, _field_names(Used), f"{where}.used[{n}]")
-        club = raw.get("club", DEFAULT_CLUB)
-        if not isinstance(club, str) or not CLUB_SLUG.fullmatch(club):
+        club = club_slug(raw.get("club", DEFAULT_CLUB))
+        if club is None:
             raise BankError(f"{where}.used[{n}].club: not a club slug (a-z, 0-9, -, 1 to 24)")
-    clubs = [raw.get("club", DEFAULT_CLUB) for raw in used_raw]
+        clubs.append(club)
+    # Counted by club, not by spelling: `nyc` and `rustnyc` are one club.
     if len(set(clubs)) != len(clubs):
         raise BankError(f"{where}.used: one club appears twice; a question is never run twice for a club (G-10)")
     verified_raw = data.get("verified")
@@ -928,10 +955,10 @@ def question_from_dict(data: dict[str, Any]) -> Question:
                 room_id=raw["room_id"],
                 released_at=raw["released_at"],
                 fit=raw.get("fit"),
-                club=raw.get("club", DEFAULT_CLUB),
+                club=club,
                 affirmed_by=raw.get("affirmed_by"),
             )
-            for raw in used_raw
+            for raw, club in zip(used_raw, clubs, strict=True)
         ),
     )
     validate_question(question)
