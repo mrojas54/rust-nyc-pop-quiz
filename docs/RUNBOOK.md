@@ -66,6 +66,14 @@ against one, it names what is missing, exits 1 and writes nothing:
 popquiz.schedule: q4 is not affirmed - it has no affirmed_by and no affirmed_at, and it has not been accepted at review - and an unaffirmed question cannot be scheduled (AC-72)
 ```
 
+The room checks the same rule itself and refuses a push that is not affirmed
+for its text, with `PUT answered 409` and its reason (`just demo` prints it
+too): *is not affirmed*, *its text changed after it was affirmed*, or *records
+who and when but not what*. The fix is the same each time: affirm it again at
+review, then schedule it again. The record already in the room stays until a
+push is accepted. After release, `just sync` prints who affirmed each question
+that ran (`affirmed by …`).
+
 ### Deploy before the rehearsal
 
 The room follows `main`. `.github/workflows/deploy.yml` deploys Fly app
