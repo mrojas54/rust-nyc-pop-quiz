@@ -166,6 +166,25 @@ locked dependencies. Tests exercise terminal key events as well as app actions. 
 stdlib-only Python PTY regressions on macOS/Linux for both legacy repeat bytes
 and enhanced keyboard events, including protocol restoration.
 
+Positive terminal transitions use a three-second deadline and report the expected
+state, elapsed time, child status and captured output on failure. The harness
+keeps reading output while waiting for keyboard restoration and process exit.
+Repeated-key checks retain their observation windows to catch an early reveal.
+
+The recipe also runs harness regressions that pause the real child before Enter
+in both keyboard modes and drop Enter to check timeout diagnostics. They use
+Python's standard library and POSIX signals. A deterministic terminal replay
+also checks an exit between polling checks: successful exit is accepted and
+nonzero exit still fails. To run those regressions alone
+after building the organizer, from the repository root:
+
+```sh
+python3 -m unittest discover -s prototypes/organizer-tui/tests -p 'test_terminal_repeat.py'
+```
+
+See [PTY wait verification](docs/PTY_WAIT_VALIDATION.md) for the RED/GREEN evidence
+and full-suite results.
+
 ```sh
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings

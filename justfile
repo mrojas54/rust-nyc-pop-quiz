@@ -54,6 +54,7 @@ test-organizer:
     cd prototypes/organizer-tui && cargo fmt --check
     cd prototypes/organizer-tui && cargo build --offline --locked
     python3 prototypes/organizer-tui/tests/terminal_repeat.py
+    python3 -m unittest discover -s prototypes/organizer-tui/tests -p 'test_terminal_repeat.py'
 
 # The pipeline's decision logic, against StubRunner's recorded outputs.
 #
