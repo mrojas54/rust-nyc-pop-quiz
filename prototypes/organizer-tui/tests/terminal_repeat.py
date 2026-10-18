@@ -63,6 +63,9 @@ def check(enhanced: bool, before_reveal: Callable[[int], None] | None = None) ->
                 if predicate():
                     return
             if remaining <= 0 or child.poll() is not None:
+                # Exit can satisfy the predicate between the two polls.
+                if predicate():
+                    return
                 mode = 'enhanced' if enhanced else 'legacy'
                 elapsed = time.monotonic() - started
                 raise AssertionError(
