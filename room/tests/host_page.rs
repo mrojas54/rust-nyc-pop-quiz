@@ -25,10 +25,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::Body;
-use axum::extract::Path;
 use axum::http::{header, Method, Request, StatusCode};
-use axum::response::IntoResponse;
-use axum::routing::get;
 use axum::Router;
 use common::*;
 use room::phase::{Command, HostAction, Phase};
