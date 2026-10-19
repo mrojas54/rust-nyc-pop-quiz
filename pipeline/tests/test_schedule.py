@@ -65,7 +65,11 @@ def as_drafted(bank_dir: Path, qid: str) -> None:
 
 @pytest.fixture
 def bank(tmp_path) -> Path:
+    """The real questions, every one back to a draft, so a test affirms what it counts
+    and an organizer's review in the bank changes no test's arithmetic."""
     shutil.copytree(BANK / "questions", tmp_path / "bank" / "questions")
+    for path in sorted((tmp_path / "bank" / "questions").glob("*.json")):
+        as_drafted(tmp_path / "bank", path.stem)
     return tmp_path / "bank"
 
 
@@ -276,21 +280,21 @@ def test_gap24_a_hand_typed_affirmation_on_a_verified_record_is_refused(bank, ro
     assert not audit.in_reserve(load_question(bank, "q4"))
 
 
-def test_gap24_q3s_hand_affirmation_is_unbound_and_refused(bank, room, tmp_path, capsys):
+def test_gap24_q3s_hand_affirmation_is_unbound_and_refused(affirmed, room, tmp_path, capsys):
     """RULING PQ-23 (client, 2026-10-12): q3 was affirmed by hand before the digest
     existed (F-52). That affirmation no longer counts, so q3 leaves the reserve until
     the organizer affirms it again through `popquiz.review`. The organizer has since
     done so, so the copy is put back to the hand affirmation: digest removed."""
-    path = bank / "questions" / "q3.json"
+    path = affirmed / "questions" / "q3.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     data["review"].pop("affirmed_digest", None)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    q3 = load_question(bank, "q3")
+    q3 = load_question(affirmed, "q3")
     assert q3.review.affirmed_digest is None
     assert not is_affirmed(q3) and not audit.in_reserve(q3)
     fake = room((201, {"scheduled": "new"}))
     out = tmp_path / "out"
-    assert_refused(schedule_q3(bank, out), capsys, fake, out, "not what was affirmed")
+    assert_refused(schedule_q3(affirmed, out), capsys, fake, out, "not what was affirmed")
 
 
 def test_g10_a_used_question_is_refused(affirmed, room, tmp_path, capsys):
