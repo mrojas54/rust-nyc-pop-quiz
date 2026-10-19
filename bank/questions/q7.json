@@ -36,7 +36,88 @@
     "legacy": "sort_by_key is a STABLE sort: elements whose keys compare equal keep their original relative order. bob came before amy in the input, but they have different keys so that does not matter; what matters is that amy preceded dan (both key 1) and bob preceded cal (both key 2), and both of those orders survive. sort_unstable_by_key makes no such promise and is usually a little faster -- the standard library gives you the choice deliberately."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          2
+        ],
+        "note": "Four letters, each paired with a number. The number is the key. Read the keys in order: 2, 1, 1, 2.",
+        "values": [
+          {
+            "name": "v",
+            "was": "—",
+            "now": "[('b', 2), ('a', 1), ('d', 1), ('c', 2)]"
+          }
+        ]
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "sort_by_key sorts by whatever the closure returns. This closure returns the number and drops the letter, so the letters take no part in the comparison.",
+        "values": []
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "The 1s go first, then the 2s. But two pairs tie: a and d both have key 1, b and c both have key 2. sort_by_key is stable, so tied entries keep the order they went in: a before d, b before c. This is the step the question turns on.",
+        "values": [
+          {
+            "name": "v",
+            "was": "[('b', 2), ('a', 1), ('d', 1), ('c', 2)]",
+            "now": "[('a', 1), ('d', 1), ('b', 2), ('c', 2)]"
+          }
+        ],
+        "pivot": true
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "into_iter hands over the pairs in their sorted order, and map keeps only the letter from each.",
+        "values": [
+          {
+            "name": "names",
+            "was": "—",
+            "now": "['a', 'd', 'b', 'c']"
+          }
+        ]
+      },
+      {
+        "lines": [
+          5
+        ],
+        "focus": [
+          1,
+          6
+        ],
+        "note": "{:?} prints the Vec with its brackets, and each char in single quotes.",
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "['a', 'd', 'b', 'c']"
+          }
+        ]
+      }
+    ]
   },
   "verified": {
     "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
@@ -64,11 +145,14 @@
         0
       ]
     },
-    "verified_at": "2026-09-30T08:28:17Z",
-    "verifier_version": "popquiz-verify 7b1bc351e4dd"
+    "verified_at": "2026-10-19T06:05:45Z",
+    "verifier_version": "popquiz-verify a222c57d5aa6"
   },
   "review": {
     "status": "accepted",
-    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the program now prints just the names, so the Debug output fits on one line, and the machine re-verified the answer. Same stability question, same two equal-key pairs. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). NOTE: explains.legacy still names bob/amy/cal/dan from the August program; legacy text is frozen by schema and needs the organizer's eye at affirm. Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
+    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the program now prints just the names, so the Debug output fits on one line, and the machine re-verified the answer. Same stability question, same two equal-key pairs. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). NOTE: explains.legacy still names bob/amy/cal/dan from the August program; legacy text is frozen by schema and needs the organizer's eye at affirm. Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above.",
+    "affirmed_by": "queenrose54",
+    "affirmed_at": "2026-10-19T06:32:29+00:00",
+    "affirmed_digest": "sha256:15d9968886a46deb9ad1abe5b1475799fa987bc5436e4d670b28cb93ef6c6afa"
   }
 }
