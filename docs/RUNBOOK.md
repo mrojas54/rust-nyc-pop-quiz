@@ -26,12 +26,12 @@ advances on its own.
 The reserve is every question that is accepted, affirmed and unused (`SPEC.md`
 §3.3). `just schedule` and `just sync` print it before they do anything else;
 `python -m popquiz.schedule reserve` prints it on its own and writes nothing.
-A snapshot, taken 2026-10-18 after q4 was affirmed; the numbers move with every
+A snapshot, taken 2026-10-19 after q7 was affirmed; the numbers move with every
 review and every night:
 
 ```
-reserve (rustnyc): 2 ready (accepted, affirmed, unused) - 2 meetups of runway at one question a meetup
-trend: +1 accepted awaiting affirmation, +1 not yet reviewed, -0 used in the last 90 days
+reserve (rustnyc): 3 ready (accepted, affirmed, unused) - 3 meetups of runway at one question a meetup
+trend: +0 accepted awaiting affirmation, +1 not yet reviewed, -0 used in the last 90 days
 ```
 
 A `warning:` line follows when fewer than two meetups of supply are ready. Generating (T-16, `just
@@ -58,10 +58,10 @@ every command. Never by hand. The affirmation records `affirmed_by`,
 q3 is affirmed and bound: the organizer affirmed it again through
 `popquiz.review` on 2026-10-13 (RULING PQ-23), replacing the hand edit of
 F-52, which carried no digest. q4 was accepted and affirmed through
-`popquiz.review` on 2026-10-18, so the reserve holds q3 and q4. q7 is accepted
-but unaffirmed (its walk-through trace has no steps yet, and `affirm` refuses
-it), and q8 is unreviewed. `just schedule` refuses both; run against one, it
-names what is missing, exits 1 and writes nothing:
+`popquiz.review` on 2026-10-18. q7 got its walk-through trace and was affirmed
+through the organizer TUI's review screen on 2026-10-19, so the reserve holds
+q3, q4 and q7. q8 is unreviewed. `just schedule` refuses it; it names what is
+missing, exits 1 and writes nothing:
 
 ```
 popquiz.schedule: q8 is not affirmed - it has no affirmed_by and no affirmed_at, and it has not been accepted at review - and an unaffirmed question cannot be scheduled (AC-72)

@@ -208,12 +208,11 @@ skipped. A question the ledger names under a second room is refused for that
 record, and the run exits non-zero; so is a record already synced from the same
 room whose details differ from the ledger's. Running it twice changes nothing.
 
-**Today two committed questions can be scheduled.** q3 and q4 are accepted and
-affirmed through `popquiz.review`, each affirmation bound to its text (PQ-23),
-and the reserve reads 2 ready (`docs/RUNBOOK.md`, *The reserve*, has the
-snapshot). q7 is accepted but unaffirmed (its trace has no steps yet) and q8 is
-unreviewed, so `schedule` refuses them until an organizer affirms them through
-`popquiz.review` (*Reviewing*, above).
+**Today three committed questions can be scheduled.** q3, q4 and q7 are
+accepted and affirmed through `popquiz.review`, each affirmation bound to its
+text (PQ-23), and the reserve reads 3 ready (`docs/RUNBOOK.md`, *The reserve*,
+has the snapshot). q8 is unreviewed, so `schedule` refuses it until an
+organizer accepts and affirms it through `popquiz.review` (*Reviewing*, above).
 
 ## The bank record, in one paragraph
 
