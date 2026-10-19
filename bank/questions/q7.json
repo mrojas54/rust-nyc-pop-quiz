@@ -109,7 +109,13 @@
           6
         ],
         "note": "{:?} prints the Vec with its brackets, and each char in single quotes.",
-        "values": []
+        "values": [
+          {
+            "name": "stdout",
+            "was": "—",
+            "now": "['a', 'd', 'b', 'c']"
+          }
+        ]
       }
     ]
   },
@@ -139,8 +145,8 @@
         0
       ]
     },
-    "verified_at": "2026-09-30T08:28:17Z",
-    "verifier_version": "popquiz-verify 7b1bc351e4dd"
+    "verified_at": "2026-10-19T06:05:45Z",
+    "verifier_version": "popquiz-verify a222c57d5aa6"
   },
   "review": {
     "status": "accepted",
