@@ -150,6 +150,9 @@
   },
   "review": {
     "status": "edited",
-    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the program now prints just the names, so the Debug output fits on one line, and the machine re-verified the answer. Same stability question, same two equal-key pairs. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). NOTE: explains.legacy still names bob/amy/cal/dan from the August program; legacy text is frozen by schema and needs the organizer's eye at affirm. Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
+    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the program now prints just the names, so the Debug output fits on one line, and the machine re-verified the answer. Same stability question, same two equal-key pairs. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). NOTE: explains.legacy still names bob/amy/cal/dan from the August program; legacy text is frozen by schema and needs the organizer's eye at affirm. Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above.",
+    "affirmed_by": "queenrose54",
+    "affirmed_at": "2026-10-20T08:10:20+00:00",
+    "affirmed_digest": "sha256:21e5ab0e278ff6bfc0204d74b5c9c637d33c30d1959b8c13ec6f389a0b7124ce"
   }
 }
