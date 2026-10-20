@@ -45,7 +45,7 @@
           2,
           2
         ],
-        "note": "Four letters, each paired with a number. The number is the key. In order, the keys are 2, 1, 1, 2.",
+        "note": "Four tuples of a char and an int, using the second element of each as the key. In order, the keys are 2, 1, 1, 2.",
         "values": [
           {
             "name": "v",
