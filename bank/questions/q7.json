@@ -45,7 +45,7 @@
           2,
           2
         ],
-        "note": "Four letters, each paired with a number. The number is the key. Read the keys in order: 2, 1, 1, 2.",
+        "note": "Four letters, each paired with a number. The number is the key. In order, the keys are 2, 1, 1, 2.",
         "values": [
           {
             "name": "v",
@@ -62,7 +62,7 @@
           3,
           3
         ],
-        "note": "sort_by_key sorts by whatever the closure returns. This closure returns the number and drops the letter, so the letters take no part in the comparison.",
+        "note": "sort_by_key sorts by whatever the closure returns. This closure returns the number and drops the letter, so the letters are never compared.",
         "values": []
       },
       {
@@ -73,7 +73,7 @@
           3,
           3
         ],
-        "note": "The 1s go first, then the 2s. But two pairs tie: a and d both have key 1, b and c both have key 2. sort_by_key is stable, so tied entries keep the order they went in: a before d, b before c. This is the step the question turns on.",
+        "note": "The 1s go first, then the 2s. But two pairs tie: a and d both have key 1, b and c both have key 2. sort_by_key is stable, so tied entries keep the order they went in: a before d, b before c.",
         "values": [
           {
             "name": "v",
@@ -149,10 +149,7 @@
     "verifier_version": "popquiz-verify a222c57d5aa6"
   },
   "review": {
-    "status": "accepted",
-    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the program now prints just the names, so the Debug output fits on one line, and the machine re-verified the answer. Same stability question, same two equal-key pairs. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). NOTE: explains.legacy still names bob/amy/cal/dan from the August program; legacy text is frozen by schema and needs the organizer's eye at affirm. Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above.",
-    "affirmed_by": "queenrose54",
-    "affirmed_at": "2026-10-19T06:32:29+00:00",
-    "affirmed_digest": "sha256:15d9968886a46deb9ad1abe5b1475799fa987bc5436e4d670b28cb93ef6c6afa"
+    "status": "edited",
+    "reason": "Re-authored 2026-09-29 for the wall's one-line 29-char rule (D-15, SPEC 5.2): the program now prints just the names, so the Debug output fits on one line, and the machine re-verified the answer. Same stability question, same two equal-key pairs. why_tempting beats drafted for every incorrect option. Trace still empty; affirm needs the walk-through steps (SPEC 7.4). NOTE: explains.legacy still names bob/amy/cal/dan from the August program; legacy text is frozen by schema and needs the organizer's eye at affirm. Re-verified 2026-09-30 by the pinned verifier (just verify --expect ran, rustc 1.98.1; Miri clean on the paths it executed), which wrote the verified record above."
   }
 }
