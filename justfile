@@ -325,6 +325,14 @@ generate *ARGS:
 bank-audit *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.audit --repo .. {{ ARGS }}
 
+# The organizer's review decisions on one question, as the TUI's review screen runs them
+# (pipeline/README.md, Reviewing). --bank has no default and is relative to the repo root.
+#   just review affirm q8 --bank bank --by "First Last"
+# Positional, so a name with a space arrives whole.
+[positional-arguments]
+review *ARGS:
+    uv run --offline --no-sync --project pipeline python -m popquiz.review "$@"
+
 # One question for a meetup: the affirm gate, the push, the fallback and host sheet (T-20).
 schedule *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
