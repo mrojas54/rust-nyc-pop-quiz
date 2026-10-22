@@ -191,6 +191,19 @@ the `answer-history.json` record.
   editing `CLAUDE.md`, run `cp CLAUDE.md AGENTS.md`, or `just test` fails on
   that one test.
 
+## Conventions
+
+- **`lib.rs`, `main.rs` and `mod.rs` are required, not banned** (ADR-0005,
+  "File names"). The crate root is `lib.rs`, the server binary is
+  `server/main.rs`, and every directory module is `<folder>/mod.rs`, never a
+  `<folder>.rs` beside its folder. Every other file is a noun named for what
+  it holds.
+- **Room commands take `--room <url>`.** `just schedule` and `just sync` need
+  it (`--no-push` replaces it on `schedule` when the room is down). `just
+  --list` shows these recipes only as `*ARGS`, so read the required arguments
+  in `docs/RUNBOOK.md` before running one, rather than learning them from a
+  failed run.
+
 ## Tone arc
 
 `tone-initiation` (done) → `tone-prototype` (done, **2026-09-03: *"yes i love it"***)
