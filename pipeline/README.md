@@ -42,7 +42,8 @@ so the interpreter and every dependency are the same everywhere.
 `python -m popquiz.review <command> <id> --bank DIR` records the organizer's
 decisions on one question. It is the only writer of a review decision; the
 organizer TUI's review screen (`v`, `prototypes/organizer-tui`) runs it as a
-subprocess. `--bank` has no default.
+subprocess. `--bank` has no default. From the repo root, `just review <command>
+<id> --bank bank` runs the same thing.
 
 | Command | What it records |
 |---|---|
