@@ -36,7 +36,75 @@
     "legacy": "&v[0] takes a shared borrow pointing into the vector's heap buffer. push needs &mut v and may reallocate that buffer to grow it -- which would leave `first` dangling at a freed address. The borrow checker rejects this at compile time with E0502: cannot borrow `v` as mutable because it is also borrowed as immutable. The detail worth arguing about: the borrow is only still alive because `first` is USED after the push. Delete the final println and the same program compiles -- that is non-lexical lifetimes, and it is why this error moves around when you edit seemingly unrelated lines."
   },
   "trace": {
-    "steps": []
+    "steps": [
+      {
+        "lines": [
+          2
+        ],
+        "focus": [
+          2,
+          2
+        ],
+        "note": "v is a vector of three integers: length 3, and room for only three for now. mut means we can alter the vector later.",
+        "values": []
+      },
+      {
+        "lines": [
+          3
+        ],
+        "focus": [
+          3,
+          3
+        ],
+        "note": "first borrows the first element of v: it holds a shared reference to it.",
+        "values": []
+      },
+      {
+        "lines": [
+          4
+        ],
+        "focus": [
+          4,
+          4
+        ],
+        "note": "push needs to change v to add a fourth element. The vector has room for three, so push may have to move everything to a bigger block of memory.",
+        "values": [],
+        "pivot": true
+      },
+      {
+        "lines": [
+          5
+        ],
+        "focus": [
+          5,
+          5
+        ],
+        "note": "println uses first after the push. That use keeps the borrow from line 3 alive through line 4.",
+        "values": []
+      },
+      {
+        "lines": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "focus": [
+          1,
+          6
+        ],
+        "note": "During borrow checking the compiler refuses the push on line 4: first still borrows v, because line 5 uses it later. Nothing runs.",
+        "values": [
+          {
+            "name": "error",
+            "was": "—",
+            "now": "E0502"
+          }
+        ]
+      }
+    ]
   },
   "verified": {
     "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
