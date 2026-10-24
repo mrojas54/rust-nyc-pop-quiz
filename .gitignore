@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# op:// references only, never values (justfile, `op run`)
+!.env.op
 *.pem
 *.key
 

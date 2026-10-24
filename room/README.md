@@ -1169,10 +1169,12 @@ and handed to curl on stdin, never on its command line:
 restart or deploy in between loses the scheduled ids — *A restart loses every
 room*, above):
 
-    export POPQUIZ_ORGANIZER_SESSION=…   # what follows the # after signing in at /host
+    # POPQUIZ_ORGANIZER_SESSION is what follows the # after signing in at /host. Put the
+    # fresh value in the 1Password item .env.op names; each recipe runs under `op run`,
+    # which sets it for that process only (justfile; docs/RUNBOOK.md, Secrets). Nothing
+    # to export, nothing to unset.
     just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 --out burst.json   # 500: fly.toml's hard_limit
     just smoke https://rustnyc-popquiz.fly.dev --participants 200
-    unset POPQUIZ_ORGANIZER_SESSION
 
 **From CI** (`.github/workflows/deployed-burst.yml`, `workflow_dispatch` only):
 

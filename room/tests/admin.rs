@@ -814,7 +814,9 @@ async fn ac101_the_binarys_router_opens_to_the_configured_token() {
 ///
 /// 1. The variable's name assigned a literal: `NAME=value`, `NAME: value`,
 ///    `"NAME": "value"`, with a value of 8 or more characters. A value that
-///    opens with `$`, `<`, `‹`, `…` or `{` is a substitution or a placeholder.
+///    opens with `$`, `<`, `‹`, `…` or `{` is a substitution or a placeholder,
+///    and one that opens with `op://` is a 1Password reference (`.env.op`, read
+///    by `op run` in the justfile): the secret's name, not the secret.
 /// 2. The admin plant's shape: `CANARY-ADMIN-TOKEN-` and 16 hex digits.
 /// 3. `live`, if given: a value this process holds for the variable.
 fn token_findings(text: &str, live: Option<&str>) -> Vec<String> {
@@ -836,7 +838,8 @@ fn token_findings(text: &str, live: Option<&str>) -> Vec<String> {
             .chars()
             .take_while(|c| !c.is_whitespace() && !matches!(c, '"' | '\'' | '`' | ',' | ')' | ';'))
             .collect();
-        let placeholder = value.starts_with(['$', '<', '‹', '…', '{']);
+        let placeholder =
+            value.starts_with(['$', '<', '‹', '…', '{']) || value.starts_with("op://");
         if value.chars().count() >= 8 && !placeholder {
             out.push(format!(
                 "{VAR} is given a {}-character value",
@@ -933,6 +936,7 @@ fn ac101_the_repository_scan_catches_a_plant() {
         format!("fly secrets set {VAR}=\"$(openssl rand -hex 32)\""),
         format!("fly secrets set {VAR}=…"),
         format!("{VAR}=<the token>"),
+        format!("{VAR}=\"op://Personal/Rust NYC - {VAR}/password\""),
         format!("Authorization: Bearer ‹{VAR}›"),
         format!("pub const VAR: &str = \"{VAR}\";"),
         format!("room::admin::VAR, the variable {VAR}, is required"),
