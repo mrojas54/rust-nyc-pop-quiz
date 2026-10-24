@@ -28,6 +28,15 @@
 # stays for the next reserved name that lands before its suite.
 PENDING := ""
 
+# Secrets for the recipes that need one (`generate`, `schedule`, `sync`, `smoke`,
+# `burst`) come from 1Password: `.env.op` holds op:// references, never values,
+# and `op run` resolves them into the environment of that one subprocess. Sign
+# in first (`op signin`, or the app's CLI integration). A value already exported
+# in the shell is overridden by the reference, so 1Password is the only source
+# here; `demo` keeps its own `op read` fallback. Every reference in `.env.op`
+# must resolve, whichever recipe runs: a missing item fails all five.
+op_run := "op run --env-file='" + justfile_directory() + "/.env.op' --"
+
 _default:
     @just --list --unsorted
 
@@ -259,8 +268,8 @@ secret-scan:
 # The deployed room end to end (T-09): all seven phases over real sockets with
 # mock participants, the join link and the stand-in's refusals checked, q3's
 # secrets scanned for in every pre-reveal frame (room/README.md, Deploying).
-# The organizer's credential is read from POPQUIZ_ORGANIZER_SESSION in the
-# environment, never from the command line. `test-full` runs it against an
+# The organizer's credential is read from POPQUIZ_ORGANIZER_SESSION, which
+# `op run` sets from `.env.op`, never from the command line. `test-full` runs it against an
 # in-process room (harness-full); against the deployed room it is by hand or
 # the deployed-burst workflow.
 #
@@ -272,13 +281,13 @@ secret-scan:
 # `--spend-bank-question` is given, and plain http is refused. Never run it
 # during a meetup.
 #
-# The deployed room, all seven phases (POPQUIZ_ORGANIZER_SESSION in the environment).
+# The deployed room, all seven phases (POPQUIZ_ORGANIZER_SESSION from 1Password via .env.op).
 smoke URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
     cd room
-    cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
+    {{ op_run }} cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
 
 # AC-54, AC-53, AC-41 and AC-52 on the room's own protocol (T-21): 200
 # participants, isolated deadline bursts, then a full segment to release. JSON
@@ -293,13 +302,13 @@ smoke URL *ARGS:
 #
 #   just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 [--out PATH]   (--help for the rest)
 #
-# AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION in the environment).
+# AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION from 1Password via .env.op).
 burst URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
     cd room
-    cargo run --release --offline --locked --features burst --bin burst -- --url "{{ URL }}" {{ ARGS }}
+    {{ op_run }} cargo run --release --offline --locked --features burst --bin burst -- --url "{{ URL }}" {{ ARGS }}
 
 # --- Reserved names whose suites do not exist yet ------------------------------
 # Each fails loudly rather than passing quietly. `test` and `test-full` do not
@@ -313,11 +322,13 @@ verify *ARGS:
 
 # Candidate questions from the Message Batches API (T-16). --replay FIXTURE runs on a
 # recorded batch with no key and no network; without it a run needs ANTHROPIC_API_KEY
-# and --cap-usd, and has never been run (HC-2). pipeline/README.md, Generating.
+# (from 1Password via .env.op) and --cap-usd, and has never been run (HC-2).
+# `op run` wraps the replay too, so 1Password has to be signed in either way.
+# pipeline/README.md, Generating.
 # Positional, so a talk's title and abstract arrive whole rather than split on spaces.
 [positional-arguments]
 generate *ARGS:
-    uv run --offline --no-sync --project pipeline python -m popquiz.generate "$@"
+    {{ op_run }} uv run --offline --no-sync --project pipeline python -m popquiz.generate "$@"
 
 # The whole bank against SPEC 7.6; writes bank/audit/<date>.json (T-19). Every
 # check also runs inside `test`. Room flags: --screen-width-ft --screen-height-ft
@@ -334,8 +345,9 @@ review *ARGS:
     uv run --offline --no-sync --project pipeline python -m popquiz.review "$@"
 
 # One question for a meetup: the affirm gate, the push, the fallback and host sheet (T-20).
+# POPQUIZ_ADMIN_TOKEN comes from 1Password via .env.op.
 schedule *ARGS:
-    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
+    cd pipeline && {{ op_run }} uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
 
 # A demo in one command: check the room's used ledger, push one bank question, print the
 # host link. For rehearsals and demos, not a meetup: `schedule` arranges the options for
@@ -381,8 +393,9 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     echo "Host: {{ room }}/host?question={{ question }}  (sign in with Discord, then Create a room)"
 
 # After a meetup, before anything restarts the room: the used ledger into the bank (T-20).
+# POPQUIZ_ADMIN_TOKEN comes from 1Password via .env.op.
 sync *ARGS:
-    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
+    cd pipeline && {{ op_run }} uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
 
 # The club rename (ADR-0005 item 8): bank used records under nyc become rustnyc. A dry
 # run unless --write, which backs up each file first. docs/RUNBOOK.md has the release order.
