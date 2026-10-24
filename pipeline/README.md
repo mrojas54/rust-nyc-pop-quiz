@@ -212,8 +212,10 @@ room whose details differ from the ledger's. Running it twice changes nothing.
 **Today three committed questions can be scheduled.** q3, q4 and q7 are
 accepted and affirmed through `popquiz.review`, each affirmation bound to its
 text (PQ-23), and the reserve reads 3 ready (`docs/RUNBOOK.md`, *The reserve*,
-has the snapshot). q8 is unreviewed, so `schedule` refuses it until an
-organizer accepts and affirms it through `popquiz.review` (*Reviewing*, above).
+has the snapshot). q8 is accepted, with its walk-through trace, but not
+affirmed: a question that does not compile has no resolving step the affirm
+gate recognizes until ruling F-15 lands. `schedule` refuses it until an
+organizer affirms it through `popquiz.review` (*Reviewing*, above).
 
 ## The bank record, in one paragraph
 

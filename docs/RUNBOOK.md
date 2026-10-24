@@ -26,12 +26,12 @@ advances on its own.
 The reserve is every question that is accepted, affirmed and unused (`SPEC.md`
 §3.3). `just schedule` and `just sync` print it before they do anything else;
 `python -m popquiz.schedule reserve` prints it on its own and writes nothing.
-A snapshot, taken 2026-10-19 after q7 was affirmed; the numbers move with every
+A snapshot, taken 2026-10-24 after q8 was accepted; the numbers move with every
 review and every night:
 
 ```
 reserve (rustnyc): 3 ready (accepted, affirmed, unused) - 3 meetups of runway at one question a meetup
-trend: +0 accepted awaiting affirmation, +1 not yet reviewed, -0 used in the last 90 days
+trend: +1 accepted awaiting affirmation, +0 not yet reviewed, -0 used in the last 90 days
 ```
 
 A `warning:` line follows when fewer than two meetups of supply are ready. Generating (T-16, `just
@@ -60,11 +60,14 @@ q3 is affirmed and bound: the organizer affirmed it again through
 F-52, which carried no digest. q4 was accepted and affirmed through
 `popquiz.review` on 2026-10-18. q7 got its walk-through trace and was affirmed
 through the organizer TUI's review screen on 2026-10-19, so the reserve holds
-q3, q4 and q7. q8 is unreviewed. `just schedule` refuses it; it names what is
-missing, exits 1 and writes nothing:
+q3, q4 and q7. q8 has its walk-through trace and was accepted through
+`popquiz.review` on 2026-10-24, but it is not affirmed: it does not compile, and
+the contract has no resolving step for that class until ruling F-15 lands
+(`.lattice/orchestration/run-state.md`, *Amendments routed upstream*).
+`just schedule` refuses it; it names what is missing, exits 1 and writes nothing:
 
 ```
-popquiz.schedule: q8 is not affirmed - it has no affirmed_by and no affirmed_at, and it has not been accepted at review - and an unaffirmed question cannot be scheduled (AC-72)
+popquiz.schedule: q8 is not affirmed - it has no affirmed_by and no affirmed_at - and an unaffirmed question cannot be scheduled (AC-72)
 ```
 
 The room checks the same rule itself and refuses a push that is not affirmed
