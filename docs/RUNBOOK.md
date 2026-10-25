@@ -61,9 +61,10 @@ F-52, which carried no digest. q4 was accepted and affirmed through
 `popquiz.review` on 2026-10-18. q7 got its walk-through trace and was affirmed
 through the organizer TUI's review screen on 2026-10-19, so the reserve holds
 q3, q4 and q7. q8 has its walk-through trace and was accepted through
-`popquiz.review` on 2026-10-24, but it is not affirmed: it does not compile, and
-the contract has no resolving step for that class until ruling F-15 lands (the
-run board, *Amendments routed upstream*). `just schedule` refuses it; it names
+`popquiz.review` on 2026-10-24, but it is not affirmed yet. It does not
+compile, so its last step names `error` with the compiler's code instead of
+`stdout` (ruling F-15, 2026-10-25), and the affirm gate accepts that. Affirming
+it is the organizer's next step. Until then `just schedule` refuses it; it names
 what is missing, exits 1 and writes nothing:
 
 ```
