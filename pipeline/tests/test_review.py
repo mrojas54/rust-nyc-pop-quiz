@@ -218,11 +218,61 @@ def test_ac95_every_incorrect_option_needs_its_why_tempting(bank_dir, capsys):
     assert f"Choice {'ABCDE'[wrong]}" in err
 
 
-def test_f15_a_question_that_does_not_compile_waits_rather_than_errors(bank_dir, capsys):
-    report = review.report(load(bank_dir, "q8"))
-    assert report["blocked_on"] == "F-15"
-    assert report["answer_error"] is None
-    refused(run("affirm", "q8", "--by", NAME, "--bank", bank_dir), capsys, "waits on a ruling (F-15)")
+def with_trace(bank_dir: Path, qid: str, *last_values: dict, early: tuple[dict, ...] = ()) -> None:
+    """Give `qid` a two-step trace: `early` on step 1, `last_values` on the last.
+    Its quoted spans are marked checked, as the organizer checked q8's (AC-73)."""
+    path = bank.question_path(bank_dir, qid)
+    data = json.loads(path.read_text())
+    data["review"]["quotes_checked"] = [q["span"] for q in review.quotes(load(bank_dir, qid))]
+    data["trace"]["steps"] = [
+        {"lines": [2], "focus": [2, 3], "note": "first", "values": list(early)},
+        {"lines": [1, 6], "focus": [1, 6], "note": "last", "values": list(last_values)},
+    ]
+    path.write_text(json.dumps(data))
+
+
+def error_row(now: str = "E0502") -> dict:
+    return {"name": "error", "was": "—", "now": now}
+
+
+def test_f15_a_question_that_does_not_compile_affirms_when_its_last_step_names_the_error(bank_dir, capsys):
+    """RULING F-15 (client, 2026-10-25): for a does-not-compile question the resolving
+    step is the one whose values name `error`, with the compiler's code from the record."""
+    with_trace(bank_dir, "q8", error_row())
+    q8 = load(bank_dir, "q8")
+    report = review.report(q8)
+    assert report["blocked_on"] is None
+    assert report["affirm_blockers"] == []
+    assert run("affirm", "q8", "--by", NAME, "--bank", bank_dir) == 0
+    q8 = load(bank_dir, "q8")
+    assert bank.affirmation_state(q8) == "bound" and q8.review.affirmed_by == NAME
+    assert schedule.refusal(q8) is None and audit.in_reserve(q8)
+
+
+def test_f15_a_last_step_that_names_no_error_cannot_be_affirmed(bank_dir, capsys):
+    with_trace(bank_dir, "q8", {"name": "v", "was": "—", "now": "[1, 2, 3]"})
+    before = raw(bank_dir, "q8")
+    refused(run("affirm", "q8", "--by", NAME, "--bank", bank_dir), capsys, "last step names no error")
+    assert raw(bank_dir, "q8") == before
+
+
+def test_f15_the_error_row_must_say_what_the_compiler_said(bank_dir, capsys):
+    with_trace(bank_dir, "q8", error_row("E0499"))
+    err = refused(run("affirm", "q8", "--by", NAME, "--bank", bank_dir), capsys, "E0499")
+    assert "E0502" in err
+
+
+def test_f15_an_error_row_before_the_last_step_cannot_be_affirmed(bank_dir, capsys):
+    """`work` shows every step but the last; an earlier `error` row would give the
+    answer away before reveal (G-3)."""
+    with_trace(bank_dir, "q8", error_row(), early=(error_row(),))
+    refused(run("affirm", "q8", "--by", NAME, "--bank", bank_dir), capsys, "step 1 names error")
+
+
+def test_f15_an_empty_trace_reports_the_two_step_minimum_and_no_error_row(bank_dir):
+    blockers = review.affirm_blockers(load(bank_dir, "q8"))
+    assert "The trace needs at least two steps; it has 0." in blockers
+    assert not any("F-15" in b for b in blockers)
 
 
 def test_ac73_a_wrong_quote_also_blocks_affirmation(bank_dir, capsys):
