@@ -62,9 +62,9 @@ F-52, which carried no digest. q4 was accepted and affirmed through
 through the organizer TUI's review screen on 2026-10-19, so the reserve holds
 q3, q4 and q7. q8 has its walk-through trace and was accepted through
 `popquiz.review` on 2026-10-24, but it is not affirmed: it does not compile, and
-the contract has no resolving step for that class until ruling F-15 lands
-(`.lattice/orchestration/run-state.md`, *Amendments routed upstream*).
-`just schedule` refuses it; it names what is missing, exits 1 and writes nothing:
+the contract has no resolving step for that class until ruling F-15 lands (the
+run board, *Amendments routed upstream*). `just schedule` refuses it; it names
+what is missing, exits 1 and writes nothing:
 
 ```
 popquiz.schedule: q8 is not affirmed - it has no affirmed_by and no affirmed_at - and an unaffirmed question cannot be scheduled (AC-72)
