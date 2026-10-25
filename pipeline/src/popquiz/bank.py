@@ -155,8 +155,8 @@ class Trace:
 
         SPEC 3.1 and D-10 require this of a question that ran. It is *not* required
         of a does-not-compile question, which has no `stdout` for a step to name
-        (SPEC 3.2) - see `validate_question`, and the defect reported with this
-        ticket about what that means for the affirm gate.
+        (SPEC 3.2); its last step names `error` instead (F-15, ruled 2026-10-25),
+        which the affirm gate checks (`review.error_row_blockers`).
         """
         last = self.resolving_step()
         return last is not None and any(v.name == "stdout" for v in last.values)
@@ -681,9 +681,9 @@ def validate_question(question: Question) -> None:
     is the one whose `values` names `stdout`, but SPEC 3.2 says a does-not-compile
     record has no `stdout`, so requiring it of that class would make a class of
     question unstorable. Requiring it only of a record that ran is the narrowest
-    reading that keeps both sentences true. It does not resolve the affirm gate,
-    which asks for two trace steps from a question that can never have a resolving
-    one - a contract defect reported with this ticket, not fixed in it.
+    reading that keeps both sentences true. F-15 (ruled 2026-10-25) gave that class
+    its resolving step, the last one naming `error`; the affirm gate checks it
+    (`review.error_row_blockers`), and storing does not.
     """
     if len(question.options) != OPTION_COUNT:
         raise BankError(

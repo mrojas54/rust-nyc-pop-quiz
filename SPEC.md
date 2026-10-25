@@ -1,6 +1,6 @@
 # Specification — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server).** This is the
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server); amended 2026-10-25 (F-15, a does-not-compile question resolves on an `error` row).** This is the
 build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
 `prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
 (`sequence/USER_STORIES.md`, AC-1…AC-102) so that an implementer who has never
@@ -57,7 +57,7 @@ code (`mvp/tools/`), the audit ticket audits that code too.
 |---|---|---|---|
 | **G-1** | The correct-answer position is a pure function of the date. No history, ledger, bank state, or prior position is an input. Balancing, quotas, and *never the same as last time* are prohibited. (AC-23, 23a, 23b) | `slot_for_day(date, n_options=5) → 0..4`, no other parameter, and `n_options` is the constant 5, never derived from data; a static lint that no module reading `answer-history` is imported by the slot path; `bank-audit` both tails. | Audit `mvp/tools/build_deck.py` on inheritance; every PR touching the slot path re-runs the perfect-memory simulation. This has regressed four times. |
 | **G-2** | No hand-written answer reaches a deck or a room. (AC-7) | The correct option is derived only from the verifier's recorded output; a provenance field names the verifier run; the build refuses a question whose answer field lacks it. | Audit `mvp/tools/verify.py` and `build_deck.py`; test that a hand-edited `correct` fails. |
-| **G-3** | Nothing pre-reveal carries the **join between the options and the verified output** — which option is correct, by letter, flag, ✓, ordering, or `verified.stdout` itself — nor the explanation, the receipt, or the trace's resolving step (any `values` entry named `stdout`, and the final step), which is withheld until `reveal`. Option **texts** are public in every phase (AC-62); program state in the trace from `closed` on is allowed (that is what walking a program is). (AC-47, AC-60, AC-61, AC-79, AC-97; **D-10**) | Answer storage is a separate module/type unreachable from the public state query (compile-time or module boundary); `canary` plants secrets and scans every payload with the phase-scoped rules above. | `canary` in `test`; a ticket that proves AC-61 structurally, not by review. |
+| **G-3** | Nothing pre-reveal carries the **join between the options and the verified output** — which option is correct, by letter, flag, ✓, ordering, or `verified.stdout` itself — nor the explanation, the receipt, or the trace's resolving step (any `values` entry named `stdout`, or `error` for a question that does not compile (F-15), and the final step), which is withheld until `reveal`. Option **texts** are public in every phase (AC-62); program state in the trace from `closed` on is allowed (that is what walking a program is). (AC-47, AC-60, AC-61, AC-79, AC-97; **D-10**) | Answer storage is a separate module/type unreachable from the public state query (compile-time or module boundary); `canary` plants secrets and scans every payload with the phase-scoped rules above. | `canary` in `test`; a ticket that proves AC-61 structurally, not by review. |
 | **G-4** | Nothing per-person is stored beyond the room, and nothing per-person leaves the phone after close. (AC-56, AC-57, AC-58) | Schema has no per-participant answer table; totals carry an expiry; the recap is client-computed. | Schema audit ticket; `canary` on post-close traffic. |
 | **G-5** | No participant-facing string obliges anyone to speak or interact. (AC-98) | A forbidden-copy lint over every participant-facing string in `test`; no UI element counts, prompts for, or waits on a contribution. | The lint is a ticket; the string list lives in §11 and is the only place copy is authored. |
 | **G-6** | The phase order is `idle → live → closed → split → work → reveal → released`, each transition a host action, none skippable. (AC-45, AC-93, AC-97) | A phase machine with exactly these transitions; the wall, buzzer and host phone render from the same phase value (AC-81). | State-machine test; `canary` that `work` carries no ✓, receipt, or colour. |
@@ -86,7 +86,7 @@ reader is deleted; a field with no writer is a defect.
 | `correct` — the option whose text equals the verified output, **derived** (G-2) | the verifier's output reader | reveal, review, take-it-home, `bank-audit` |
 | `hint` | generator / organizer edit | buzzer (live), review |
 | `explains` — `what`; `why_tempting` — **one short text per incorrect option** (why a reader would pick it); `takeaway` (AC-95, D-9) | generator / organizer edit | host phone (reveal), take-it-home, review |
-| `trace` — `{steps: [{lines, focus, note, values, pivot?}]}` — §5.3 defines the semantics; the last step is the one whose `values` names `stdout` | generator / organizer edit | wall (work, reveal), take-it-home |
+| `trace` — `{steps: [{lines, focus, note, values, pivot?}]}` — §5.3 defines the semantics; the last step is the one whose `values` names `stdout`, or `error` for a question that does not compile (F-15) | generator / organizer edit | wall (work, reveal), take-it-home |
 | `verified` — §3.2 | the verifier only | receipt, `bank-audit`, scheduling |
 | `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
 | `used` — one record per club, `{club: {meetup_date, room_id, released_at, fit}}` (D-26), each where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the organizer's ledger report (`popquiz sync`), which lists any room whose `fit` was not *fits* |
@@ -334,7 +334,10 @@ words the host reads for this step; `values` — `[{name, was, now}]` shown as
 a small table beneath the source, inside the reserved block, `was`/`now` verbatim strings, `—` for
 absent; `pivot` — optional, marks the one step to pause on (the wall
 adds *Pause here.*). The last step's `values` names `stdout`
-and is the resolving step (D-10).
+and is the resolving step (D-10). A question that does not compile has no
+`stdout` (§3.2), so its last step's `values` names `error` instead, with the
+compiler's code or codes from `compile_error_code`, and no earlier step names
+`error` (F-15, client ruling 2026-10-25).
 
 ### 5.4 The split
 
@@ -442,8 +445,9 @@ on any source or option change). **Affirm** is separate and blocking (G-12):
 records who and when; **every incorrect option must have a non-empty
 `why_tempting` text** (AC-95, §4.5); **the trace has at least two steps** — `work`
 shows steps `0..M-2`, so a one-step trace would leave the walk-through empty
-(D-10); quoted output is checked against `verified.stdout` (AC-73). The
-surface states that the reviewer has seen the answers (AC-22). Every §11.1 match
+(D-10); for a question that does not compile, the last step names `error` with
+the code the verifier recorded, and no earlier step does (F-15); quoted output
+is checked against `verified.stdout` (AC-73). The surface states that the reviewer has seen the answers (AC-22). Every §11.1 match
 in `explains`, `why_tempting` and `hint` is highlighted beside the text as a
 warning; it blocks neither accept nor affirm (D-23).
 
