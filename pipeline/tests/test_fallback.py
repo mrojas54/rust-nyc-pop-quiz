@@ -294,13 +294,17 @@ def test_no_standalone_command_builds_a_fallback(tmp_path, monkeypatch, capsys):
     """GAP-2 (PQ-52): a file built straight from the bank shows the stored order,
     the answer at E on every such night. `popquiz schedule` is the only way in: it
     refuses an unaffirmed or used question and arranges into the date's slot first.
-    The module runs in this process, as `python -m` would run it; nothing is spawned."""
+    The module runs in this process, as `python -m` would run it; nothing is spawned.
+    It fails loudly rather than exiting 0: a script that still calls it must not
+    carry on as though it rebuilt a file, and an older file at `--out` stays as it was."""
     assert not hasattr(fallback, "main")
     out = tmp_path / "q3.html"
+    out.write_text("an older fallback", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["popquiz.fallback", "q3", "--out", str(out), "--bank", str(BANK)])
-    try:
+    with pytest.raises(SystemExit) as stopped:
         runpy.run_module("popquiz.fallback", run_name="__main__")
-    except SystemExit:
-        pass
+    assert stopped.value.code not in (0, None)
+    assert "popquiz.schedule" in str(stopped.value.code)
     assert capsys.readouterr().out == ""
-    assert list(tmp_path.iterdir()) == []
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["q3.html"]
+    assert out.read_text(encoding="utf-8") == "an older fallback"
