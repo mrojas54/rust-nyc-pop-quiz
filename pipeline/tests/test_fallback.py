@@ -19,7 +19,7 @@ import dataclasses
 import json
 import pathlib
 import re
-import subprocess
+import runpy
 import sys
 
 import pytest
@@ -140,7 +140,9 @@ def test_the_baked_record_is_the_bake_and_cannot_close_its_script(q3, page):
 
 def test_the_committed_bake_fixture_is_the_bake_of_q3(q3):
     """web/wall/fixtures/q3-static.json feeds the JS parity test; it is generated,
-    never edited. Regenerate: `python -m popquiz.fallback q3 --bake > …`."""
+    never edited. It is the stored order, which the parity test needs and no night
+    projects. Regenerate from `pipeline/`:
+    `uv run python -c 'import json, sys; from popquiz import fallback; from popquiz.bank import load_question; sys.stdout.write(json.dumps(fallback.bake(load_question("../bank", "q3")), ensure_ascii=False, indent=2) + "\\n")' > ../web/wall/fixtures/q3-static.json`."""
     assert json.loads(BAKE_FIXTURE.read_text(encoding="utf-8")) == fallback.bake(q3)
 
 
@@ -287,15 +289,18 @@ def test_a_refused_record_writes_neither_file(q3, tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_no_standalone_command_builds_a_fallback(tmp_path):
+@pytest.mark.filterwarnings("ignore:'popquiz.fallback' found in sys.modules:RuntimeWarning")
+def test_no_standalone_command_builds_a_fallback(tmp_path, monkeypatch, capsys):
     """GAP-2 (PQ-52): a file built straight from the bank shows the stored order,
     the answer at E on every such night. `popquiz schedule` is the only way in: it
-    refuses an unaffirmed or used question and arranges into the date's slot first."""
+    refuses an unaffirmed or used question and arranges into the date's slot first.
+    The module runs in this process, as `python -m` would run it; nothing is spawned."""
     assert not hasattr(fallback, "main")
     out = tmp_path / "q3.html"
-    ran = subprocess.run(
-        [sys.executable, "-m", "popquiz.fallback", "q3", "--out", str(out), "--bank", str(BANK)],
-        capture_output=True, text=True, timeout=60,
-    )
-    assert ran.stdout == ""
+    monkeypatch.setattr(sys, "argv", ["popquiz.fallback", "q3", "--out", str(out), "--bank", str(BANK)])
+    try:
+        runpy.run_module("popquiz.fallback", run_name="__main__")
+    except SystemExit:
+        pass
+    assert capsys.readouterr().out == ""
     assert list(tmp_path.iterdir()) == []
