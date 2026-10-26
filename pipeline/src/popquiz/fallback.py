@@ -301,3 +301,14 @@ def write_fallback(
     sheet_file = sheet_path(out)
     sheet_file.write_text(sheet, encoding="utf-8")
     return out, sheet_file
+
+
+# The command this module once had baked the stored order (GAP-2, PQ-52). A script
+# that still calls it must stop here, not carry on with whatever file it left before.
+if __name__ == "__main__":
+    raise SystemExit(
+        "popquiz.fallback: there is no standalone fallback command (PQ-52); it would show "
+        "the bank's stored order. Build the fallback for a night with "
+        "`python -m popquiz.schedule schedule <id> --date YYYY-MM-DD --out <dir>` "
+        "(`just schedule`; add --no-push to leave the room alone)."
+    )
