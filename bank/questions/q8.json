@@ -124,6 +124,9 @@
   "review": {
     "status": "accepted",
     "reason": "Re-authored 2026-09-29: the one option that broke the wall's one-line 29-char rule (index 3, \"1\\n4\") was replaced with a single-line distractor, and why_tempting beats were drafted for every incorrect option. The program's tokens are unchanged, so the answer stands; its source lost only the trailing newline the migration carried from the MVP (commit 6cac9ec). Trace still empty; affirm needs the walk-through steps (SPEC 7.4). Re-verified 2026-10-03 by the pinned verifier (just verify --expect does_not_compile, rustc 1.98.1; refused with E0502, nothing ran), which replaced the August legacy record whole with the verified record above.",
+    "affirmed_by": "queenrose54",
+    "affirmed_at": "2026-10-26T04:18:14+00:00",
+    "affirmed_digest": "sha256:4df6e43cbed221052277cb2536e53f5df6690d24102c779d34872594a538d321",
     "quotes_checked": [
       "[0]",
       "first",
