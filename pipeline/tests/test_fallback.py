@@ -19,6 +19,8 @@ import dataclasses
 import json
 import pathlib
 import re
+import subprocess
+import sys
 
 import pytest
 
@@ -285,9 +287,15 @@ def test_a_refused_record_writes_neither_file(q3, tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_the_cli_builds_from_the_bank(tmp_path, capsys):
+def test_no_standalone_command_builds_a_fallback(tmp_path):
+    """GAP-2 (PQ-52): a file built straight from the bank shows the stored order,
+    the answer at E on every such night. `popquiz schedule` is the only way in: it
+    refuses an unaffirmed or used question and arranges into the date's slot first."""
+    assert not hasattr(fallback, "main")
     out = tmp_path / "q3.html"
-    assert fallback.main(["q3", "--out", str(out), "--bank", str(BANK)]) == 0
-    assert out.is_file() and (tmp_path / "q3.host-sheet.txt").is_file()
-    assert fallback.main(["nope", "--out", str(out), "--bank", str(BANK)]) == 1
-    assert "no question 'nope'" in capsys.readouterr().err
+    ran = subprocess.run(
+        [sys.executable, "-m", "popquiz.fallback", "q3", "--out", str(out), "--bank", str(BANK)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert ran.stdout == ""
+    assert list(tmp_path.iterdir()) == []
