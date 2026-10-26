@@ -710,8 +710,12 @@ still not scrolling. The sources q4, q7 and q8 are run under q3's payloads — t
 model reads only the source — because only q3 has a trace today.
 
 **The static fallback (AC-102, T-26)**, same reason for being outside
-`test-full`: `python -m popquiz.fallback q3 --out <dir>/q3.html` writes the file
-and `q3.host-sheet.txt` beside it; open the file in a browser and step it with
+`test-full`: from `pipeline/`,
+`uv run python -m popquiz.schedule schedule q3 --date <night> --no-push --out <dir>`
+(a `<dir>` outside the repository; `--no-push` needs no secret) writes `q3.html`
+arranged for that night and `q3.host-sheet.txt` beside it. There is no standalone
+fallback command (PQ-52): one would show the bank's stored order. Open the file
+in a browser and step it with
 `Space`, `←` `→` and `Esc`. The file carries a Content-Security-Policy of
 `default-src 'none'` and `connect-src 'none'`, so the browser itself refuses any
 request, fetch and WebSocket included. Last run, 2026-09-26, c11 browser
