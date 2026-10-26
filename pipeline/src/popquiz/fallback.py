@@ -27,20 +27,20 @@ organizer's laptop and are never served - no room route carries either.
 **The options are rendered in the order they are given.** Arranging them into the
 meetup date's slot (AC-23) is the caller's job, before the room and this file both
 see the question, so the two can never disagree about where the answer sits.
+That is why this module has no command of its own: one would bake the bank's stored
+order, the answer at E for every question (GAP-2, PQ-52). `popquiz schedule` is the
+only way to a fallback.
 """
 
 from __future__ import annotations
 
-import argparse
 import base64
 import json
 import re
-import sys
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from popquiz.bank import BankError, Question, correct_index, load_question, receipt_class
+from popquiz.bank import BankError, Question, correct_index, receipt_class
 from popquiz.receipt import RECEIPT_HEADING, receipt_lines
 
 LETTERS = ("A", "B", "C", "D", "E")
@@ -301,37 +301,3 @@ def write_fallback(
     sheet_file = sheet_path(out)
     sheet_file.write_text(sheet, encoding="utf-8")
     return out, sheet_file
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="popquiz.fallback",
-        description="Write one question's static fallback file and its host sheet (SPEC 12).",
-    )
-    parser.add_argument("question_id")
-    parser.add_argument("--out", type=Path, help="the HTML file; the sheet is written beside it")
-    parser.add_argument("--bank", type=Path, default=REPO / "bank", help="the bank directory")
-    parser.add_argument("--home-link", default=DEFAULT_HOME_LINK, help="the take-it-home link")
-    parser.add_argument("--bake", action="store_true", help="print the bake as JSON and write nothing")
-    args = parser.parse_args(argv)
-
-    try:
-        question = load_question(args.bank, args.question_id)
-        if args.bake:
-            sys.stdout.write(
-                json.dumps(bake(question, home_link=args.home_link), ensure_ascii=False, indent=2) + "\n"
-            )
-            return 0
-        if args.out is None:
-            parser.error("--out is required unless --bake is given")
-        page, sheet = write_fallback(question, args.out, home_link=args.home_link)
-    except BankError as e:
-        print(f"popquiz.fallback: {e}", file=sys.stderr)
-        return 1
-    print(page)
-    print(sheet)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
