@@ -310,5 +310,7 @@ if __name__ == "__main__":
         "popquiz.fallback: there is no standalone fallback command (PQ-52); it would show "
         "the bank's stored order. Build the fallback for a night with "
         "`python -m popquiz.schedule schedule <id> --date YYYY-MM-DD --out <dir> --no-push` "
-        "(or `just schedule`; --no-push leaves the room alone)."
+        "(or `just schedule`; --no-push leaves the room alone). "
+        "`--out` is now a directory, not the HTML file: it gets "
+        "`<id>.html` and `<id>.host-sheet.txt`."
     )
