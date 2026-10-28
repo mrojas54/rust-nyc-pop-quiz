@@ -148,7 +148,8 @@ this order. Nothing here is run during a meetup.
    the bank directory, and prints where. A second run says *nothing to migrate*. If any
    record changed (the sync's or the migration's), commit it under
    `bank/questions/` onto the branch, so the merge carries the code and the
-   records together. Leave that backup folder out of the commit.
+   records together. Git ignores that backup folder, so it stays out of the
+   commit.
 4. **Merge.** That is a deploy: it restarts the room and empties its ledger,
    which step 1 already saved.
 5. **Check the reserve:** `(cd pipeline && uv run --offline --no-sync python -m
