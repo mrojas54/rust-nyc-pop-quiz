@@ -304,7 +304,11 @@ def test_no_standalone_command_builds_a_fallback(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit) as stopped:
         runpy.run_module("popquiz.fallback", run_name="__main__")
     assert stopped.value.code not in (0, None)
-    assert "popquiz.schedule" in str(stopped.value.code)
+    example = (
+        "`python -m popquiz.schedule schedule <id> "
+        "--date YYYY-MM-DD --out <dir> --no-push`"
+    )
+    assert example in str(stopped.value.code)
     assert capsys.readouterr().out == ""
     assert sorted(p.name for p in tmp_path.iterdir()) == ["q3.html"]
     assert out.read_text(encoding="utf-8") == "an older fallback"

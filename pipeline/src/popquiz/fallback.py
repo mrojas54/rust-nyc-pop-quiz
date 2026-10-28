@@ -309,6 +309,6 @@ if __name__ == "__main__":
     raise SystemExit(
         "popquiz.fallback: there is no standalone fallback command (PQ-52); it would show "
         "the bank's stored order. Build the fallback for a night with "
-        "`python -m popquiz.schedule schedule <id> --date YYYY-MM-DD --out <dir>` "
-        "(`just schedule`; add --no-push to leave the room alone)."
+        "`python -m popquiz.schedule schedule <id> --date YYYY-MM-DD --out <dir> --no-push` "
+        "(or `just schedule`; --no-push leaves the room alone)."
     )
