@@ -1,0 +1,1 @@
+PR #105 merged 2026-10-28T03:53Z as 2aee00d (head 56f2187, CI 2/2 green, Codex review pass 2 approve). Closed on the client's 'close PQ-52'.
