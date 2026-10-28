@@ -8,7 +8,7 @@
       "repo": null
     }
   ],
-  "comment_count": 3,
+  "comment_count": 4,
   "complexity": null,
   "created_at": "2026-10-05T12:46:00Z",
   "created_by": "agent:orchestrator",
@@ -28,7 +28,7 @@
     }
   ],
   "id": "task_01M461K0RRTQ65X5FY55HR0QQZ",
-  "last_event_id": "ev_01M60C5KR2T9GXB91WATJEMS9H",
+  "last_event_id": "ev_01M6255DDBAH40V9BFHK517DGW",
   "last_status_changed_at": "2026-10-28T04:26:53Z",
   "priority": "medium",
   "relationships_out": [],
@@ -44,6 +44,6 @@
   ],
   "title": "The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check",
   "type": "bug",
-  "updated_at": "2026-10-28T04:26:53Z",
+  "updated_at": "2026-10-28T21:02:55Z",
   "urgency": null
 }
