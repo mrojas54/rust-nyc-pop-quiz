@@ -1,0 +1,1 @@
+Fast-track inline self-review by the orchestrator seat: 3 files +16/-1; RED proven (aa78275 fails without the rule); git check-ignore matches by hand; just test rc 0; exact-head CI success on 853b5c5. Merged #108 as 9c718c3; main CI success; deploy failed at setup-flyctl (Fly 503), not re-run.
