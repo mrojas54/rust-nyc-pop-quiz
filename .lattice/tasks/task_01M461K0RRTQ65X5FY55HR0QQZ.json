@@ -1,7 +1,14 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 1,
+  "branch_links": [
+    {
+      "branch": "ai-c11-cc/pq-52-fallback-cli",
+      "linked_at": "2026-10-26T12:35:03Z",
+      "linked_by": "agent:orchestrator",
+      "repo": null
+    }
+  ],
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-10-05T12:46:00Z",
   "created_by": "agent:orchestrator",
@@ -10,14 +17,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K0RRTQ65X5FY55HR0QQZ",
-  "last_event_id": "ev_01M4QGMNFXKGK597SBBEMT5ERM",
-  "last_status_changed_at": "2026-10-05T12:46:00Z",
+  "last_event_id": "ev_01M5W4N0A5MXXD4ASVAYDFR73B",
+  "last_status_changed_at": "2026-10-26T12:35:03Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-52",
-  "status": "backlog",
+  "status": "review",
   "tags": [
     "audit-gap",
     "held",
@@ -26,6 +33,6 @@
   ],
   "title": "The standalone fallback builder bakes stored order, answer at E for every bank question, with no date, no arrange, no affirmation or used check",
   "type": "bug",
-  "updated_at": "2026-10-12T07:36:08Z",
+  "updated_at": "2026-10-26T12:58:31Z",
   "urgency": null
 }
