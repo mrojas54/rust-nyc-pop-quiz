@@ -308,7 +308,11 @@ def test_no_standalone_command_builds_a_fallback(tmp_path, monkeypatch, capsys):
         "`python -m popquiz.schedule schedule <id> "
         "--date YYYY-MM-DD --out <dir> --no-push`"
     )
-    assert example in str(stopped.value.code)
+    message = str(stopped.value.code)
+    assert example in message
+    # The old `--out` was the HTML file; schedule's is the directory both files go in.
+    assert "`--out` is now a directory, not the HTML file" in message
+    assert "`<id>.html` and `<id>.host-sheet.txt`" in message
     assert capsys.readouterr().out == ""
     assert sorted(p.name for p in tmp_path.iterdir()) == ["q3.html"]
     assert out.read_text(encoding="utf-8") == "an older fallback"
