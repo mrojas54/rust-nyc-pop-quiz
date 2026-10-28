@@ -34,6 +34,9 @@ target/
 .vscode/*
 !.vscode/extensions.json
 
+# `just migrate-club --write` backups (local copies, never committed)
+/bank/backups/
+
 # Local agent state
 .claude/settings.local.json
 

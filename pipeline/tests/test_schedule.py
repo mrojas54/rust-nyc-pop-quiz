@@ -1046,6 +1046,17 @@ def test_migrate_club_backs_up_inside_the_bank_by_default_and_never_overwrites_a
     assert snapshot(bank) == before
 
 
+def test_migrate_club_default_backups_are_ignored_by_git(bank):
+    # A real migration writes into the repository's bank; `git add bank` must not sweep its backups in.
+    # Read as a .gitignore line rather than by running git: `just test` starts no process.
+    _used_under(bank, "q3", "nyc")
+    assert migrate(bank, "--write") == 0
+    (made,) = bank.glob("*/club-rename-*/q3.json")
+    rule = f"/{BANK.relative_to(REPO)}/{made.relative_to(bank).parts[0]}/"
+    assert rule == "/bank/backups/"
+    assert rule in (REPO / ".gitignore").read_text().splitlines(), f"{rule} is not in .gitignore"
+
+
 def test_migrate_club_refuses_a_record_it_does_not_understand_and_writes_nothing(bank, capsys):
     _used_under(bank, "q3", "nyc")
     broken = bank / "questions" / "q4.json"
