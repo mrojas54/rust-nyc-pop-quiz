@@ -1,0 +1,1894 @@
+diff --git a/.dockerignore b/.dockerignore
+index a5a2429..74d2ea4 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -12,4 +12,5 @@
+ !room/src
+ !web
+ web/test
+-!bank/questions/q3.json
++!room/build.rs
++!bank/questions/*.json
+diff --git a/Dockerfile b/Dockerfile
+index ff643d4..e432445 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -18,6 +18,8 @@
+ FROM rust:1.96-slim-bookworm AS build
+ WORKDIR /src
+ COPY room/Cargo.toml room/Cargo.lock room/
++COPY room/build.rs room/build.rs
++COPY bank/questions bank/questions
+ COPY room/src room/src
+ COPY web web
+ RUN cd room && cargo build --release --locked --bin room
+diff --git a/SPEC.md b/SPEC.md
+index 5a879a9..b7934ee 100644
+--- a/SPEC.md
++++ b/SPEC.md
+@@ -643,6 +643,30 @@ same homes.
+ | Receipt | §7.5 — a step list headed *How we know*: four lines for a record that ran, three for a does-not-compile record. No sentences. |
+ | **Forbidden** anywhere participant-facing — the one normative list; the lint (G-5, AC-98) is these case-insensitive patterns and `EVALUATION.md` cites this row | `turn to`, `ask (someone\|the person\|your neighbou?r)`, `find someone`, `volunteer`, `who (said\|picked\|chose)`, `\bwrong\b`, `\bincorrect\b`, `✗`, `argu`. The wall's *‹n› of us said ‹X›* and the host phone's *Why ‹n› of us said ‹X›* do not match `who (said|picked|chose)` and are allowed. |
+ 
++### Organizer scheduling copy
++
++The signed-in host setup lists approved, unused question IDs and topics, accepts a meetup date, then schedules before creating a room. No source, options, explanation or answer is returned to this screen.
++
++| Key | Text |
++|---|---|
++| host_schedule_question | Question |
++| host_schedule_choose | Choose a question |
++| host_schedule_date | Meetup date |
++| host_schedule_action | Schedule question |
++| host_schedule_loading | Loading available questions… |
++| host_schedule_empty | No approved, unused questions are available for this club. |
++| host_schedule_help | Choose the date you will run this question. Scheduling makes it available immediately. |
++| host_schedule_ready | ‹id› is scheduled for ‹date›. |
++| host_schedule_retry | Reload questions |
++| host_schedule_failed | Could not confirm scheduling. Check your connection and try again. |
++| host_schedule_load_failed | Could not load questions. Check your connection and reload. |
++| host_schedule_edit | Change question or date |
++| host_schedule_existing | Use previously scheduled question ‹id› |
++| host_schedule_unknown | The question in this link is not available to schedule. Choose another question, or use it if it was already scheduled. |
++| host_schedule_changed | The question or date changed. Schedule it before creating a room. |
++| host_schedule_inflight | Scheduling question… |
++
++
+ ### 11.1 The trope check
+ 
+ A second lint, for the patterns that make writing read as generated and fall
+diff --git a/room/Cargo.lock b/room/Cargo.lock
+index 1a5d893..51f5903 100644
+--- a/room/Cargo.lock
++++ b/room/Cargo.lock
+@@ -69,6 +69,15 @@ version = "0.22.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+ 
++[[package]]
++name = "blake2"
++version = "0.10.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
++dependencies = [
++ "digest",
++]
++
+ [[package]]
+ name = "block-buffer"
+ version = "0.10.4"
+@@ -133,6 +142,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+ dependencies = [
+  "block-buffer",
+  "crypto-common",
++ "subtle",
+ ]
+ 
+ [[package]]
+@@ -449,6 +459,7 @@ name = "room"
+ version = "0.1.0"
+ dependencies = [
+  "axum",
++ "blake2",
+  "futures-util",
+  "getrandom 0.3.4",
+  "rustls",
+diff --git a/room/Cargo.toml b/room/Cargo.toml
+index fba1cba..3f542bc 100644
+--- a/room/Cargo.toml
++++ b/room/Cargo.toml
+@@ -125,6 +125,7 @@ webpki-roots = "1"
+ # SinkExt/StreamExt over the split socket. Already in the lock via axum. The
+ # room's transport uses it (T-04c), so it is no longer optional.
+ futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
++blake2 = "0.10"
+ # serde and serde_json are no longer spike-only: the room itself uses them (T-04a),
+ # so they are ordinary dependencies above and the spike bins use those.
+ 
+diff --git a/room/src/answers.rs b/room/src/answers.rs
+index 50c702c..07a1219 100644
+--- a/room/src/answers.rs
++++ b/room/src/answers.rs
+@@ -55,6 +55,7 @@ use crate::question::{Letter, PublicQuestion, TraceStep, ValueRow};
+ use crate::rooms::Totals;
+ 
+ pub use vault::Verdict;
++pub mod catalog;
+ 
+ /// Why a record cannot be scheduled into a room. Plain words, for the
+ /// organizer's pipeline; never shown to participants.
+@@ -578,7 +579,10 @@ impl Scheduled {
+ /// steps (§7.4, D-10), a record that ran whose final step names no `stdout`
+ /// (D-10), or an incorrect option with no `why_tempting` (§4.5, AC-95).
+ pub fn load(json: &str) -> Result<Scheduled, LoadError> {
+-    let record = Record::from_json(json)?;
++    load_record(Record::from_json(json)?)
++}
++
++fn load_record(record: Record) -> Result<Scheduled, LoadError> {
+     let id = record.id.clone();
+ 
+     if record.options.len() != 5 {
+diff --git a/room/src/copy.rs b/room/src/copy.rs
+index 01c61ec..4e0bb45 100644
+--- a/room/src/copy.rs
++++ b/room/src/copy.rs
+@@ -11,6 +11,23 @@
+ //! Do not edit a string here. Edit SPEC §11, then `copy.js`, then this file.
+ //! Placeholders keep §11's ‹guillemet› form; [`fill`] substitutes them.
+ 
++pub const HOST_SCHEDULE_QUESTION: &str = "Question";
++pub const HOST_SCHEDULE_CHOOSE: &str = "Choose a question";
++pub const HOST_SCHEDULE_DATE: &str = "Meetup date";
++pub const HOST_SCHEDULE_ACTION: &str = "Schedule question";
++pub const HOST_SCHEDULE_LOADING: &str = "Loading available questions…";
++pub const HOST_SCHEDULE_EMPTY: &str = "No approved, unused questions are available for this club.";
++pub const HOST_SCHEDULE_HELP: &str = "Choose the date you will run this question. Scheduling makes it available immediately.";
++pub const HOST_SCHEDULE_READY: &str = "‹id› is scheduled for ‹date›.";
++pub const HOST_SCHEDULE_RETRY: &str = "Reload questions";
++pub const HOST_SCHEDULE_FAILED: &str = "Could not confirm scheduling. Check your connection and try again.";
++pub const HOST_SCHEDULE_LOAD_FAILED: &str = "Could not load questions. Check your connection and reload.";
++pub const HOST_SCHEDULE_EDIT: &str = "Change question or date";
++pub const HOST_SCHEDULE_EXISTING: &str = "Use previously scheduled question ‹id›";
++pub const HOST_SCHEDULE_UNKNOWN: &str = "The question in this link is not available to schedule. Choose another question, or use it if it was already scheduled.";
++pub const HOST_SCHEDULE_CHANGED: &str = "The question or date changed. Schedule it before creating a room.";
++pub const HOST_SCHEDULE_INFLIGHT: &str = "Scheduling question…";
++
+ pub const WALL_IDLE_TITLE: &str = "Time for a pop quiz.";
+ pub const WALL_IDLE_JOIN: &str = "join @ ‹link›";
+ pub const WALL_LIVE_JOIN: &str = "join @ ‹link›";
+@@ -133,6 +150,23 @@ pub const PROPOSED_WELL_LABEL: &str = "Source code";
+ 
+ /// Every constant above with its `copy.js` key, in file order.
+ pub const ALL: &[(&str, &str)] = &[
++    ("host_schedule_question", HOST_SCHEDULE_QUESTION),
++    ("host_schedule_choose", HOST_SCHEDULE_CHOOSE),
++    ("host_schedule_date", HOST_SCHEDULE_DATE),
++    ("host_schedule_action", HOST_SCHEDULE_ACTION),
++    ("host_schedule_loading", HOST_SCHEDULE_LOADING),
++    ("host_schedule_empty", HOST_SCHEDULE_EMPTY),
++    ("host_schedule_help", HOST_SCHEDULE_HELP),
++    ("host_schedule_ready", HOST_SCHEDULE_READY),
++    ("host_schedule_retry", HOST_SCHEDULE_RETRY),
++    ("host_schedule_failed", HOST_SCHEDULE_FAILED),
++    ("host_schedule_load_failed", HOST_SCHEDULE_LOAD_FAILED),
++    ("host_schedule_edit", HOST_SCHEDULE_EDIT),
++    ("host_schedule_existing", HOST_SCHEDULE_EXISTING),
++    ("host_schedule_unknown", HOST_SCHEDULE_UNKNOWN),
++    ("host_schedule_changed", HOST_SCHEDULE_CHANGED),
++    ("host_schedule_inflight", HOST_SCHEDULE_INFLIGHT),
++
+     ("wall_idle_title", WALL_IDLE_TITLE),
+     ("wall_idle_join", WALL_IDLE_JOIN),
+     ("wall_live_join", WALL_LIVE_JOIN),
+diff --git a/room/src/discord.rs b/room/src/discord.rs
+index 18be2c3..bdb3934 100644
+--- a/room/src/discord.rs
++++ b/room/src/discord.rs
+@@ -294,7 +294,7 @@ impl Discord {
+     /// Start a sign-in for `question`: the `state` (for the cookie) and the
+     /// URL of Discord's consent screen. `None` if `question` is not an id.
+     pub fn begin(&self, question: &str, club: &ClubSlug) -> Option<(String, String)> {
+-        if !is_question_id(question) {
++        if !question.is_empty() && !is_question_id(question) {
+             return None;
+         }
+         let inner = &self.inner;
+diff --git a/room/src/lib.rs b/room/src/lib.rs
+index e22b004..08cfd62 100644
+--- a/room/src/lib.rs
++++ b/room/src/lib.rs
+@@ -56,6 +56,7 @@ pub mod requestlog;
+ pub mod rooms;
+ mod routes;
+ pub mod sessions;
++pub mod slot;
+ pub mod used;
+ pub mod view;
+ pub mod ws;
+diff --git a/room/src/rooms.rs b/room/src/rooms.rs
+index d3613c3..041d74a 100644
+--- a/room/src/rooms.rs
++++ b/room/src/rooms.rs
+@@ -670,6 +670,7 @@ pub struct AppState {
+     // T-10: the Discord backend's sign-in half, for the OAuth routes. The same
+     // object is `auth`; it holds the organizer records (§3.5) beside the rooms.
+     discord: Option<Arc<crate::discord::Discord>>,
++    catalog: crate::answers::catalog::Catalog,
+ }
+ 
+ // T-04b: what the participant routes hand back.
+@@ -730,9 +731,32 @@ impl AppState {
+             urls,
+             capacity: crate::sessions::DEFAULT_CAPACITY,
+             discord: None,
++            catalog: crate::answers::catalog::Catalog::default(),
+         }
+     }
+ 
++    pub fn with_catalog(mut self, catalog: crate::answers::catalog::Catalog) -> Self {
++        self.catalog = catalog;
++        self
++    }
++
++    pub async fn organizer_questions(&self, bearer: Option<&str>, club: &ClubSlug)
++        -> Result<Vec<crate::answers::catalog::Choice>, RoomError> {
++        self.auth.authorize_create(bearer, club).await?;
++        let rooms = lock(&self.rooms);
++        Ok(self.catalog.choices(club).into_iter().filter(|q| {
++            !self.used.contains(club, &q.id)
++                && !rooms.values().any(|e| &e.room.club == club && e.room.question_id() == q.id)
++        }).collect())
++    }
++
++    pub async fn schedule_from_bank(&self, bearer: Option<&str>, club: &ClubSlug, id: &str, day: &str)
++        -> Result<Scheduling, RoomError> {
++        self.auth.authorize_create(bearer, club).await?;
++        let question = self.catalog.prepare(id, day, club).map_err(|e| RoomError::Refused(e.to_string()))?;
++        self.schedule_for(club, question)
++    }
++
+     /// T-10: serve Discord sign-in (`/auth/discord`) through this backend.
+     /// The binary passes the same backend as `auth` ([`crate::serving_state`]).
+     pub fn with_discord(mut self, discord: Arc<crate::discord::Discord>) -> AppState {
+@@ -879,6 +903,9 @@ impl AppState {
+                 "A room is running {id}; it can be replaced once that room is gone."
+             )));
+         }
++        if self.used.contains(club, &id) {
++            return Err(RoomError::Refused("That question has already been run. Pick another.".into()));
++        }
+         drop(rooms);
+         Ok(match questions.insert((club.clone(), id), Arc::new(question)) {
+             None => Scheduling::New,
+diff --git a/room/src/routes.rs b/room/src/routes.rs
+index 31c884b..c3e1658 100644
+--- a/room/src/routes.rs
++++ b/room/src/routes.rs
+@@ -115,6 +115,48 @@ async fn create(
+     }
+ }
+ 
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct ScheduleBody {
++    question_id: String,
++    date: String,
++    club: Option<String>,
++}
++
++async fn organizer_headers(mut response: Response) -> Response {
++    response.headers_mut().insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
++    response.headers_mut().insert(header::REFERRER_POLICY, "no-referrer".parse().unwrap());
++    response
++}
++
++async fn organizer_questions(State(state): State<Arc<AppState>>, headers: HeaderMap,
++    Query(query): Query<std::collections::HashMap<String, String>>) -> Response {
++    let club = match club_of(query.get("club").map(String::as_str)) {
++        Ok(club) => club, Err(e) => return failure(e),
++    };
++    match state.organizer_questions(bearer(&headers), &club).await {
++        Ok(questions) => Json(serde_json::json!({"questions": questions})).into_response(),
++        Err(e) => failure(e),
++    }
++}
++
++async fn schedule_question(State(state): State<Arc<AppState>>, headers: HeaderMap,
++    Json(body): Json<ScheduleBody>) -> Response {
++    let club = match club_of(body.club.as_deref()) {
++        Ok(club) => club, Err(e) => return failure(e),
++    };
++    match state.schedule_from_bank(bearer(&headers), &club, &body.question_id, &body.date).await {
++        Ok(scheduled) => {
++            let (status, label) = match scheduled {
++                crate::rooms::Scheduling::New => (StatusCode::CREATED, "new"),
++                crate::rooms::Scheduling::Replaced => (StatusCode::OK, "replaced"),
++            };
++            (status, Json(serde_json::json!({"id": body.question_id, "date": body.date, "scheduled": label}))).into_response()
++        }
++        Err(e) => failure(e),
++    }
++}
++
+ async fn run_again(
+     State(state): State<Arc<AppState>>,
+     Path(id): Path<String>,
+@@ -528,7 +570,9 @@ pub(crate) fn admin_routes(state: Arc<AppState>, token: crate::admin::AdminToken
+ // end T-25 routes ----------------------------------------------------------
+ 
+ pub(crate) fn routes(state: Arc<AppState>) -> Router {
+-    let mut router = Router::new().route("/rooms", post(create));
++    let mut router = Router::new().route("/rooms", post(create))
++        .route("/organizer/questions", get(organizer_questions).layer(axum::middleware::map_response(organizer_headers)))
++        .route("/organizer/schedule", post(schedule_question).layer(axum::middleware::map_response(organizer_headers)));
+     router = session_routes(router); // T-04b
+     for (command, path) in host_routes() {
+         router = match command {
+diff --git a/room/tests/auth.rs b/room/tests/auth.rs
+index 43bef2c..025fa84 100644
+--- a/room/tests/auth.rs
++++ b/room/tests/auth.rs
+@@ -536,7 +536,8 @@ async fn sign_in_redirects_with_both_scopes_and_the_public_redirect_uri() {
+         assert!(set_cookie.contains(attr), "{set_cookie}");
+     }
+     assert_eq!(r.header("cache-control"), Some("no-store"));
+-    for bad in ["", "q3%23x", "..%2Fq", "q3%26state%3D1"] {
++    assert_eq!(rig.raw(Method::GET, "/auth/discord", &[], None).await.status, StatusCode::SEE_OTHER);
++    for bad in ["q3%23x", "..%2Fq", "q3%26state%3D1"] {
+         let r = rig.raw(Method::GET, &format!("/auth/discord?question={bad}"), &[], None).await;
+         assert_eq!(r.status, StatusCode::BAD_REQUEST, "{bad}");
+         assert!(r.body.is_empty());
+diff --git a/room/tests/canary_scan/mod.rs b/room/tests/canary_scan/mod.rs
+index 2a593fc..ca305e1 100644
+--- a/room/tests/canary_scan/mod.rs
++++ b/room/tests/canary_scan/mod.rs
+@@ -563,6 +563,8 @@ pub const DRIVEN: &[(&str, &str)] = &[
+ /// The host actions (`POST /rooms/{id}/<action>`) are driven by the walk
+ /// itself and checked against `room::host_routes()` separately.
+ pub const UNSCANNED: &[(&str, &str, &str)] = &[
++    ("GET", "/organizer/questions", "organizer_schedule.rs catalog_canary_never_leaves_the_sealed_module scans a planted private bank and exact response fields"),
++    ("POST", "/organizer/schedule", "organizer_schedule.rs catalog_canary_never_leaves_the_sealed_module scans scheduling success and refusal with a planted private bank"),
+     // T-10 ------------------------------------------------------------------
+     ("GET", "/auth/discord", "T-10 sign-in start: a redirect to Discord; served only with the Discord backend, which the canary's TestAuth state has not; tests/auth.rs secrecy_* scans it with Discord canaries"),
+     ("GET", "/auth/discord/callback", "T-10 sign-in callback: served only with the Discord backend, which the canary's TestAuth state has not; tests/auth.rs secrecy_* scans it with Discord canaries"),
+diff --git a/room/tests/organizer_schedule.rs b/room/tests/organizer_schedule.rs
+new file mode 100644
+index 0000000..c7b2047
+--- /dev/null
++++ b/room/tests/organizer_schedule.rs
+@@ -0,0 +1,139 @@
++//! Browser scheduling uses organizer auth, never the pipeline admin secret.
++mod common;
++use std::sync::Arc;
++use axum::http::{Method, StatusCode};
++use common::*;
++use room::rooms::{AppState, Urls};
++use serde_json::json;
++
++fn app() -> axum::Router {
++    room::router_with(Arc::new(AppState::new(Arc::new(TestAuth), vec![], Urls::default())))
++}
++
++#[tokio::test]
++async fn catalog_and_schedule_require_the_clubs_organizer_role() {
++    let app = app();
++    for token in [None, Some("unknown")] {
++        assert_eq!(http(&app, Method::GET, "/organizer/questions?club=nyc", token, None).await.0, StatusCode::UNAUTHORIZED);
++        assert_eq!(http(&app, Method::POST, "/organizer/schedule", token,
++            Some(json!({"question_id":"q3", "date":"2026-10-21", "club":"nyc"}))).await.0, StatusCode::UNAUTHORIZED);
++    }
++    assert_eq!(http(&app, Method::GET, "/organizer/questions?club=la", Some(NYC_ONLY), None).await.0, StatusCode::FORBIDDEN);
++    assert_eq!(http(&app, Method::POST, "/organizer/schedule", Some(NYC_ONLY),
++        Some(json!({"question_id":"q3", "date":"2026-10-21", "club":"la"}))).await.0, StatusCode::FORBIDDEN);
++}
++
++#[tokio::test]
++async fn organizer_can_pick_schedule_and_create_without_an_admin_token() {
++    let app = app();
++    let (status, catalog) = http(&app, Method::GET, "/organizer/questions", Some(ORGANIZER), None).await;
++    assert_eq!(status, StatusCode::OK, "{catalog}");
++    let q = catalog["questions"].as_array().unwrap().iter().find(|q| q["id"] == "q3").expect("approved q3");
++    assert_eq!(q.as_object().unwrap().keys().map(String::as_str).collect::<Vec<_>>(), ["id", "topic"]);
++    let (status, scheduled) = http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++        Some(json!({"question_id":"q3", "date":"2026-10-21"}))).await;
++    assert_eq!(status, StatusCode::CREATED, "{scheduled}");
++    assert_eq!(scheduled, json!({"id":"q3", "date":"2026-10-21", "scheduled":"new"}));
++    let hosted = host_room(&app).await;
++    let (_, host) = http(&app, Method::GET, &format!("/rooms/{}/host", hosted.id), Some(&hosted.host), None).await;
++    assert!(host.get("correct").is_none());
++    // A second schedule must not replace a question held by a room.
++    assert_eq!(http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++        Some(json!({"question_id":"q3", "date":"2026-10-22"}))).await.0, StatusCode::CONFLICT);
++}
++
++#[tokio::test]
++async fn invalid_dates_and_unapproved_questions_never_become_rooms() {
++    let app = app();
++    for date in ["2026-02-29", "2026-13-01", "2026-1-01", "0000-01-01", "2026-10-21T00:00:00"] {
++        let (status, _) = http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++            Some(json!({"question_id":"q3", "date":date}))).await;
++        assert_eq!(status, StatusCode::CONFLICT, "{date}");
++    }
++    for id in ["unknown", "q4", "../q3"] {
++        assert_eq!(http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++            Some(json!({"question_id":id, "date":"2026-10-21"}))).await.0, StatusCode::CONFLICT);
++    }
++    assert_eq!(http(&app, Method::POST, "/rooms", Some(ORGANIZER),
++        Some(json!({"question_id":"q3"}))).await.0, StatusCode::CONFLICT);
++}
++
++fn with_records(records: Vec<serde_json::Value>) -> axum::Router {
++    room::router_with(Arc::new(AppState::new(Arc::new(TestAuth), vec![], Urls::default())
++        .with_catalog(room::answers::catalog::Catalog::from_records(records.iter().map(ToString::to_string).collect()))))
++}
++
++#[tokio::test]
++async fn catalog_canary_never_leaves_the_sealed_module() {
++    use axum::{body::Body, http::Request};
++    use tower::ServiceExt;
++    let app = with_records(vec![planted()]);
++    let (status, list) = http(&app, Method::GET, "/organizer/questions", Some(ORGANIZER), None).await;
++    assert_eq!(status, StatusCode::OK);
++    assert_eq!(list, json!({"questions":[{"id":"planted", "topic":q3_json()["topic"]}]}));
++    for (day, expected) in [("2026-10-21", StatusCode::CREATED), ("invalid", StatusCode::CONFLICT)] {
++        let (status, body) = http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++            Some(json!({"question_id":"planted", "date":day}))).await;
++        assert_eq!(status, expected);
++        assert!(!body.to_string().contains("CANARY"), "{body}");
++        let keys: Vec<_> = body.as_object().unwrap().keys().map(String::as_str).collect();
++        assert_eq!(keys, if expected == StatusCode::CREATED { vec!["date", "id", "scheduled"] } else { vec!["reason"] });
++    }
++    let response = app.oneshot(Request::builder().uri("/organizer/questions")
++        .header("Authorization", format!("Bearer {ORGANIZER}")).body(Body::empty()).unwrap()).await.unwrap();
++    assert_eq!(response.headers()["cache-control"], "no-store");
++}
++
++#[test]
++fn browser_order_matches_the_pipeline_over_two_years_including_leap_day() {
++    use room::{answers::catalog::Catalog, club::ClubSlug, slot::{MeetupDate, slot_for_day}};
++    let cases: serde_json::Value = serde_json::from_str(include_str!("../../bank/fixtures/scheduling-order.json")).unwrap();
++    assert_eq!(cases.as_array().unwrap().len(), 731);
++    let q = q3_json();
++    let catalog = Catalog::from_records(vec![q.to_string()]);
++    for case in cases.as_array().unwrap() {
++        let day = case[0].as_str().unwrap();
++        assert_eq!(slot_for_day(&MeetupDate::parse(day).unwrap()), case[1].as_u64().unwrap() as usize, "{day}");
++        let arranged = catalog.prepare("q3", day, &ClubSlug::default_club()).unwrap();
++        for (i, index) in case[2].as_array().unwrap().iter().enumerate() {
++            assert_eq!(arranged.public().options()[i], q["options"][index.as_u64().unwrap() as usize]["text"], "{day}: {i}");
++        }
++    }
++}
++
++#[tokio::test]
++async fn affirmation_verification_and_both_used_record_formats_are_enforced() {
++    let mut cases = vec![];
++    for field in ["affirmed_by", "affirmed_at"] {
++        let mut q = q3_json(); q["review"].as_object_mut().unwrap().remove(field); cases.push(q);
++    }
++    let mut q = q3_json(); q["review"]["status"] = "pending".into(); cases.push(q);
++    let mut q = q3_json(); q["verified"] = serde_json::Value::Null; cases.push(q);
++    let mut q = q3_json(); q["used"] = json!({"meetup_date":"2026-10-01", "room_id":"old"}); cases.push(q);
++    let mut q = q3_json(); q["used"] = json!([{"club":"nyc", "meetup_date":"2026-10-01", "room_id":"old"}]); cases.push(q);
++    for q in cases {
++        let app = with_records(vec![q]);
++        assert_eq!(http(&app, Method::GET, "/organizer/questions", Some(ORGANIZER), None).await.1, json!({"questions":[]}));
++        assert_eq!(http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++            Some(json!({"question_id":"q3", "date":"2026-10-21"}))).await.0, StatusCode::CONFLICT);
++    }
++    // Use in another club does not retire this club's question.
++    let mut q = q3_json(); q["used"] = json!([{"club":"la", "meetup_date":"2026-10-01", "room_id":"old"}]);
++    assert_eq!(http(&with_records(vec![q]), Method::POST, "/organizer/schedule", Some(NYC_ONLY),
++        Some(json!({"question_id":"q3", "date":"2026-10-21"}))).await.0, StatusCode::CREATED);
++}
++
++#[tokio::test]
++async fn releasing_a_browser_scheduled_question_removes_it_from_the_picker() {
++    let app = app();
++    http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++        Some(json!({"question_id":"q3", "date":"2026-10-21"}))).await;
++    let hosted = host_room(&app).await;
++    for action in ["put-on-screen", "close-answers", "show-split", "walk-it", "reveal", "release"] {
++        assert_eq!(http(&app, Method::POST, &format!("/rooms/{}/{action}", hosted.id), Some(&hosted.host), None).await.0, StatusCode::OK);
++    }
++    let (_, body) = http(&app, Method::GET, "/organizer/questions", Some(ORGANIZER), None).await;
++    assert!(!body["questions"].as_array().unwrap().iter().any(|q| q["id"] == "q3"));
++    assert_eq!(http(&app, Method::POST, "/organizer/schedule", Some(ORGANIZER),
++        Some(json!({"question_id":"q3", "date":"2026-10-21"}))).await.0, StatusCode::CONFLICT);
++}
+diff --git a/web/host/host.css b/web/host/host.css
+index bbe1b2d..5af15ce 100644
+--- a/web/host/host.css
++++ b/web/host/host.css
+@@ -80,3 +80,16 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
+   *, *::before, *::after { animation-duration: 0.01ms !important;
+     animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+ }
++
++/* Organizer setup uses the same phone column and controls as the live host. */
++.host-setup { margin-top: var(--space-4); }
++.host-setup label { font-size: var(--text-sm); margin-top: var(--space-3); }
++.host-setup select, .host-setup input {
++  width: 100%; min-width: var(--touch-target); min-height: var(--touch-target);
++  padding: 10px 12px; border: var(--border-w) solid var(--border-default);
++  border-radius: var(--radius); background: var(--bg-input); color: var(--text-primary);
++  font: inherit; font-size: 16px;
++}
++.host-setup select:disabled, .host-setup input:disabled { opacity: .6; }
++.host-setup p { line-height: var(--leading-body); }
++.host-setup form .btn { margin-top: var(--space-3); }
+diff --git a/web/host/host.js b/web/host/host.js
+index 542d9c8..ecac411 100644
+--- a/web/host/host.js
++++ b/web/host/host.js
+@@ -185,6 +185,42 @@
+       '<div class="stack">' + primaryHtml("create", ui) + statusHtml(ui) + "</div>";
+   }
+ 
++  function renderSetup(ui) {
++    ui = ui || {};
++    var disabled = ui.busy ? " disabled" : "";
++    var html = titleHtml("idle") + '<div class="stack host-setup">';
++    if (ui.loading) return html + '<p role="status">' + esc(PQ.t("host_schedule_loading")) + '</p></div>';
++    if (ui.scheduled) {
++      return html + '<p>' + esc(PQ.t("host_schedule_ready", { id: ui.question, date: ui.date })) + '</p>' +
++        primaryHtml("create", ui) + '<button type="button" class="btn" data-edit-schedule' + disabled + '>' +
++        esc(PQ.t("host_schedule_edit")) + '</button>' + statusHtml(ui) + '</div>';
++    }
++    if (ui.questions && ui.questions.length) {
++      html += '<form class="stack" data-schedule-form aria-describedby="schedule-help">' +
++        '<label for="schedule-question">' + esc(PQ.t("host_schedule_question")) + '</label>' +
++        '<select id="schedule-question" name="question" required' + disabled + '>' +
++        '<option value="">' + esc(PQ.t("host_schedule_choose")) + '</option>';
++      ui.questions.forEach(function (q) {
++        html += '<option value="' + PQ.escapeAttr(q.id) + '"' + (q.id === ui.question ? ' selected' : '') + '>' +
++          esc(q.id + " · " + q.topic) + '</option>';
++      });
++      html += '</select><label for="schedule-date">' + esc(PQ.t("host_schedule_date")) + '</label>' +
++        '<input type="date" id="schedule-date" name="date" required value="' + PQ.escapeAttr(ui.date || "") + '"' + disabled + '>' +
++        '<p id="schedule-help" class="meta">' + esc(PQ.t("host_schedule_help")) + '</p>' +
++        '<button type="submit" class="btn btn-primary" data-schedule' + disabled + '>' +
++        esc(PQ.t("host_schedule_action")) + '</button></form>';
++    } else {
++      if (ui.questions) html += '<p>' + esc(PQ.t("host_schedule_empty")) + '</p>';
++      html += '<button type="button" class="btn" data-reload-questions' + disabled + '>' + esc(PQ.t("host_schedule_retry")) + '</button>';
++    }
++    if (ui.existing) {
++      html += '<p class="meta">' + esc(PQ.t("host_schedule_unknown")) + '</p>' +
++        '<button type="button" class="btn" data-existing-question' + disabled + '>' +
++        esc(PQ.t("host_schedule_existing", { id: ui.existing })) + '</button>';
++    }
++    return html + statusHtml(ui) + '</div>';
++  }
++
+   /* The first screen signed out (T-10): one way on, to Discord's consent
+      screen through the room's /auth/discord, carrying the question. A link,
+      not a button: it is a navigation, and it works with no script after this. */
+@@ -266,6 +302,9 @@
+     function keyOf(node) {
+       if (!node || !node.getAttribute) return null;
+       if (node.getAttribute("data-primary") !== null) return "primary";
++      if (node.getAttribute("data-schedule") !== null) return "schedule";
++      if (node.getAttribute("data-reload-questions") !== null) return "reload";
++      if (node.getAttribute("data-edit-schedule") !== null) return "edit";
+       var step = node.getAttribute("data-step");
+       return step ? "step:" + step : null;
+     }
+@@ -273,6 +312,9 @@
+     function focusTarget(key) {
+       if (!key || !el.querySelector) return null;
+       if (key === "primary") return el.querySelector("[data-primary]:not([disabled])");
++      if (key === "schedule") return el.querySelector("[data-schedule]:not([disabled]), [data-primary]:not([disabled])");
++      if (key === "reload") return el.querySelector("#schedule-question, [data-reload-questions]:not([disabled])");
++      if (key === "edit") return el.querySelector("#schedule-question");
+       var slug = key.slice(5);
+       var other = slug === "step-back" ? "step-forward" : "step-back";
+       return el.querySelector('[data-step="' + slug + '"]:not([disabled])') ||
+@@ -311,12 +353,77 @@
+     }
+ 
+     if (where.mode === "create") {
++      ui.question = where.question || "";
++      ui.date = "";
++      ui.questions = null;
+       var paintCreate = function () {
+-        repaint(where.token ? renderCreate(ui) : renderSignIn(ui, where.question, where.club));
++        repaint(where.token ? renderSetup(ui) : renderSignIn(ui, where.question, where.club));
+       };
++      function signedOut() {
++        where.token = null;
++        win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
++        ui.busy = false; ui.loading = false; ui.status = null; paintCreate();
++      }
++      function request(url, body) {
++        var controller = new win.AbortController();
++        var timer = win.setTimeout(function () { controller.abort(); }, 15000);
++        var headers = { Authorization: "Bearer " + where.token };
++        if (body) headers["Content-Type"] = "application/json";
++        return win.fetch(url, { method: body ? "POST" : "GET", headers: headers,
++          body: body ? JSON.stringify(body) : undefined, signal: controller.signal })
++          .then(function (res) { return res.json().catch(function () { return null; }).then(function (data) {
++            return { res: res, body: data };
++          }); }).finally(function () { win.clearTimeout(timer); });
++      }
++      function loadQuestions() {
++        ui.loading = true; ui.busy = true; ui.status = null; paintCreate();
++        request("/organizer/questions?club=" + encodeURIComponent(where.club || "nyc")).then(function (r) {
++          if (r.res.status === 401) { signedOut(); return; }
++          ui.loading = false; ui.busy = false;
++          if (r.res.ok && r.body && Array.isArray(r.body.questions)) {
++            ui.questions = r.body.questions;
++            ui.existing = where.question && !ui.questions.some(function (q) { return q.id === where.question; }) ? where.question : null;
++          } else {
++            ui.questions = null; ui.status = statusLine(r.res, r.body);
++          }
++          paintCreate();
++        }, function () {
++          ui.loading = false; ui.busy = false; ui.questions = null;
++          ui.status = PQ.t("host_schedule_load_failed"); paintCreate();
++        });
++      }
++      el.addEventListener("change", function (ev) {
++        if (ev.target.id === "schedule-question") ui.question = ev.target.value;
++        if (ev.target.id === "schedule-date") ui.date = ev.target.value;
++        ui.scheduled = false;
++      });
++      el.addEventListener("submit", function (ev) {
++        if (!ev.target.matches || !ev.target.matches("[data-schedule-form]")) return;
++        ev.preventDefault();
++        if (ui.busy || !where.token || !ev.target.reportValidity()) return;
++        ui.question = el.querySelector("#schedule-question").value;
++        ui.date = el.querySelector("#schedule-date").value;
++        ui.busy = true; ui.status = PQ.t("host_schedule_inflight"); paintCreate();
++        var body = roomBody(ui.question, where.club); body.date = ui.date;
++        request("/organizer/schedule", body).then(function (r) {
++          if (r.res.status === 401) { signedOut(); return; }
++          ui.busy = false;
++          if (r.res.ok && r.body && r.body.id === ui.question && r.body.date === ui.date) {
++            ui.scheduled = true; ui.status = null; where.question = ui.question;
++          } else { ui.status = statusLine(r.res, r.body); }
++          paintCreate();
++        }, function () {
++          ui.busy = false; ui.status = PQ.t("host_schedule_failed"); paintCreate();
++        });
++      });
+       el.addEventListener("click", function (ev) {
+-        var b = ev.target.closest && ev.target.closest("[data-primary]");
+-        if (!b || ui.busy) return;
++        if (!ev.target.closest || ui.busy) return;
++        if (ev.target.closest("[data-reload-questions]")) { loadQuestions(); return; }
++        if (ev.target.closest("[data-edit-schedule]")) { ui.scheduled = false; ui.status = null; paintCreate(); return; }
++        var existing = ev.target.closest("[data-existing-question]");
++        var b = ev.target.closest("[data-primary]");
++        if (!b && !existing) return;
++        if (existing) where.question = ui.existing;
+         ui.busy = true; ui.status = null; paintCreate();
+         post("/rooms", where.token, roomBody(where.question, where.club)).then(function (r) {
+           if (r.res.status === 201 && r.body) {
+@@ -324,19 +431,16 @@
+             win.location.replace(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
+             return;
+           }
+-          if (r.res.status === 401) {
+-            // The organizer session is unknown or expired (T-10): sign in again.
+-            where.token = null;
+-            win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
+-            ui.busy = false; ui.status = null; paintCreate();
+-            return;
+-          }
+-          ui.busy = false; ui.status = statusLine(r.res, r.body); paintCreate();
++          if (r.res.status === 401) { signedOut(); return; }
++          ui.busy = false; ui.status = statusLine(r.res, r.body);
++          // A server restart can forget a schedule. Keep the chosen question
++          // and date so the host can schedule it again on this screen.
++          ui.scheduled = false; paintCreate();
+         }, function (e) {
+           ui.busy = false; ui.status = String(e && e.message || e); paintCreate();
+         });
+       });
+-      paintCreate();
++      if (where.token) loadQuestions(); else paintCreate();
+       return;
+     }
+ 
+@@ -448,6 +552,7 @@
+     isTerminalClose: isTerminalClose,
+     render: render,
+     renderCreate: renderCreate,
++    renderSetup: renderSetup,
+     renderSignIn: renderSignIn,
+     signInHref: signInHref,
+     roomBody: roomBody,
+diff --git a/web/shared/copy.js b/web/shared/copy.js
+index dddba1b..d1fb039 100644
+--- a/web/shared/copy.js
++++ b/web/shared/copy.js
+@@ -29,6 +29,23 @@
+   var PQ = (root.PopQuiz = root.PopQuiz || {});
+ 
+   var COPY = {
++    host_schedule_question: "Question",
++    host_schedule_choose: "Choose a question",
++    host_schedule_date: "Meetup date",
++    host_schedule_action: "Schedule question",
++    host_schedule_loading: "Loading available questions…",
++    host_schedule_empty: "No approved, unused questions are available for this club.",
++    host_schedule_help: "Choose the date you will run this question. Scheduling makes it available immediately.",
++    host_schedule_ready: "‹id› is scheduled for ‹date›.",
++    host_schedule_retry: "Reload questions",
++    host_schedule_failed: "Could not confirm scheduling. Check your connection and try again.",
++    host_schedule_load_failed: "Could not load questions. Check your connection and reload.",
++    host_schedule_edit: "Change question or date",
++    host_schedule_existing: "Use previously scheduled question ‹id›",
++    host_schedule_unknown: "The question in this link is not available to schedule. Choose another question, or use it if it was already scheduled.",
++    host_schedule_changed: "The question or date changed. Schedule it before creating a room.",
++    host_schedule_inflight: "Scheduling question…",
++
+ 
+     /* --- Wall, idle ----------------------------------------------------- */
+     wall_idle_title: "Time for a pop quiz.",
+@@ -257,6 +274,7 @@
+      that appears in COPY and not here was authored somewhere other than §11,
+      which is what §11's "authored here and only here" forbids. */
+   var COPY_ROWS = {
++    "Host, scheduling": ["host_schedule_question", "host_schedule_choose", "host_schedule_date", "host_schedule_action", "host_schedule_loading", "host_schedule_empty", "host_schedule_help", "host_schedule_ready", "host_schedule_retry", "host_schedule_failed", "host_schedule_load_failed", "host_schedule_edit", "host_schedule_existing", "host_schedule_unknown", "host_schedule_changed", "host_schedule_inflight"],
+     "Wall, idle": ["wall_idle_title", "wall_idle_join"],
+     "Wall, live": ["wall_live_join", "wall_live_well_header"],
+     "Wall, trace (work, reveal)": ["wall_trace_step", "wall_trace_pivot"],
+diff --git a/web/test/a11y.test.js b/web/test/a11y.test.js
+index d40c409..1efc3f3 100644
+--- a/web/test/a11y.test.js
++++ b/web/test/a11y.test.js
+@@ -209,7 +209,11 @@ function hostPayload(phase, extra = {}) {
+ function hostScreens() {
+   return [
+     { name: 'sign in', phase: null, html: H.renderSignIn({ status: null, busy: false }, 'q3') },
+-    { name: 'create', phase: null, html: H.renderCreate({ status: null, busy: false }) },
++    { name: 'setup', phase: null, html: H.renderSetup({ questions: [{ id: 'q3', topic: 'Collections' }], question: 'q3', date: '2026-10-21' }) },
++    { name: 'setup, busy', phase: null, html: H.renderSetup({ questions: [{ id: 'q3', topic: 'Collections' }], question: 'q3', date: '2026-10-21', busy: true }) },
++    { name: 'setup, empty', phase: null, html: H.renderSetup({ questions: [] }) },
++    { name: 'setup, error', phase: null, html: H.renderSetup({ status: 'Could not load questions.' }) },
++    { name: 'create', phase: null, html: H.renderSetup({ scheduled: true, question: 'q3', date: '2026-10-21' }) },
+     { name: 'create, refused', phase: null, html: H.renderCreate({ status: 'FIXTURE-REASON', busy: false }) },
+     ...PHASES.map((ph) => ({ name: ph, phase: ph, html: H.render(hostPayload(ph), { status: null, busy: false }) })),
+     { name: 'work, in flight', phase: 'work', html: H.render(hostPayload('work'), { status: null, busy: true }) },
+@@ -496,7 +500,7 @@ function hostWindow(pathname) {
+     location: { pathname, hash: '#FIXTURE-SESSION', search: '', protocol: 'http:', host: 'h', replace() {}, assign() {} },
+     history: { replaceState() {} },
+     sessionStorage: { getItem: () => null, setItem() {} },
+-    setTimeout: () => 0,
++    setTimeout: () => 0, clearTimeout() {}, AbortController,
+     WebSocket: FakeSocket,
+     fetch: (url, init) => {
+       if (init && init.method === 'POST') {
+@@ -717,20 +721,18 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
+ });
+ 
+ // The screens before a room exists, booted for real: nothing is said on them.
+-test('ac83_host: sign in, create and a refused create say nothing', async () => {
+-  const cases = [['sign in', '', false], ['create', '#FIXTURE-SESSION', false], ['create, refused', '#FIXTURE-SESSION', true]];
+-  for (const [name, hash, press] of cases) {
++test('ac83_host: setup does not announce a live-room phase', async () => {
++  for (const hash of ['', '#FIXTURE-SESSION']) {
+     const { win, el } = hostWindow('/host');
+     win.location.hash = hash;
++    win.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ questions: [] }) });
+     const said = [];
+     hostEnv.PQ.announce = (t) => said.push(t);
+     H.boot(win);
+-    if (press) { click(el, el.querySelector('[data-primary]')); await settle(); await settle(); }
+-    const screen = hostScreens().find((s) => s.name === name);
+-    assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
+-    if (press) assert.match(el.textContent, /200/, `${name}: the refusal is on screen`);
+-    assert.deepEqual(said, [], name);
+-    mark('host', name, 'AC-83', `silent (booted, ${said.length})`);
++    await settle();
++    assert.equal(el.querySelector('[data-sign-in]') !== null, !hash);
++    assert.deepEqual(said, []);
++    mark('host', hash ? 'setup' : 'sign in', 'AC-83', 'no live-room phase announced');
+   }
+ });
+ 
+@@ -1038,7 +1040,7 @@ test('ac86_host: each phase is a different primary action; nothing moves', () =>
+   assert.equal(new Set(PHASES.map((p) => H.actionLabel(NEXT[p]))).size, PHASES.length, 'seven different actions');
+   for (const sc of SCREENS.host) {
+     const doc = D.page(sc.html, SURFACES.host.chain);
+-    const primary = doc.root.querySelector('[data-primary],[data-sign-in]');
++    const primary = doc.root.querySelector('[data-primary],[data-sign-in],[data-schedule],[data-reload-questions]');
+     assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
+     mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)} mv`);
+   }
+diff --git a/web/test/host.test.js b/web/test/host.test.js
+index 29592fe..3363ef1 100644
+--- a/web/test/host.test.js
++++ b/web/test/host.test.js
+@@ -117,12 +117,16 @@ test('AC-45: ← and → are disabled when the room cannot step that way', () =>
+   assert.ok(!/\bdisabled\b/.test(back.tag));
+ });
+ 
+-test('the create screen: the wordmark, Host, and Create a room, nothing else', () => {
+-  const html = PQ.host.renderCreate({});
+-  assert.equal(primaries(html).length, 1);
+-  assert.ok(html.includes('data-primary="create"'));
+-  const t = unescape(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+-  assert.equal(t, `${PQ.COPY.title_wordmark} ${PQ.COPY.host_title_role} ${PQ.COPY.host_action_create}`);
++test('the setup screen has a question picker, date and schedule action without an answer preview', () => {
++  const html = PQ.host.renderSetup({ questions: [{ id: 'q3', topic: 'Collections' }], question: 'q3', date: '2026-10-21' });
++  assert.match(html, /<label[^>]*for="schedule-question"/);
++  assert.match(html, /<select[^>]*id="schedule-question"/);
++  assert.match(html, /<label[^>]*for="schedule-date"/);
++  assert.match(html, /type="date"[^>]*id="schedule-date"/);
++  assert.match(html, /data-schedule/);
++  assert.ok(!html.includes('data-primary="create"'));
++  const ready = PQ.host.renderSetup({ questions: [], scheduled: true, question: 'q3', date: '2026-10-21' });
++  assert.match(ready, /data-primary="create"/);
+ });
+ 
+ test('AC-46: one count line — Joined: n in idle, Answered: n from live on', () => {
+diff --git a/bank/fixtures/scheduling-order.json b/bank/fixtures/scheduling-order.json
+new file mode 100644
+index 0000000..3412e38
+--- /dev/null
++++ b/bank/fixtures/scheduling-order.json
+@@ -0,0 +1,733 @@
++[
++["2024-01-01",2,[0,3,4,1,2]],
++["2024-01-02",0,[4,0,1,3,2]],
++["2024-01-03",1,[1,4,2,3,0]],
++["2024-01-04",3,[1,3,2,4,0]],
++["2024-01-05",3,[1,2,0,4,3]],
++["2024-01-06",4,[1,3,0,2,4]],
++["2024-01-07",2,[0,3,4,1,2]],
++["2024-01-08",1,[1,4,0,3,2]],
++["2024-01-09",1,[0,4,1,2,3]],
++["2024-01-10",2,[1,0,4,2,3]],
++["2024-01-11",2,[2,1,4,0,3]],
++["2024-01-12",4,[1,2,0,3,4]],
++["2024-01-13",0,[4,0,3,2,1]],
++["2024-01-14",0,[4,3,1,2,0]],
++["2024-01-15",1,[0,4,3,2,1]],
++["2024-01-16",4,[2,1,0,3,4]],
++["2024-01-17",3,[1,2,0,4,3]],
++["2024-01-18",2,[0,3,4,2,1]],
++["2024-01-19",3,[0,1,3,4,2]],
++["2024-01-20",4,[1,0,3,2,4]],
++["2024-01-21",1,[1,4,2,3,0]],
++["2024-01-22",2,[1,3,4,0,2]],
++["2024-01-23",2,[3,1,4,2,0]],
++["2024-01-24",2,[3,0,4,2,1]],
++["2024-01-25",0,[4,1,0,3,2]],
++["2024-01-26",3,[1,2,0,4,3]],
++["2024-01-27",0,[4,1,0,2,3]],
++["2024-01-28",0,[4,3,2,1,0]],
++["2024-01-29",2,[1,0,4,2,3]],
++["2024-01-30",2,[3,0,4,1,2]],
++["2024-01-31",0,[4,2,1,0,3]],
++["2024-02-01",2,[3,2,4,1,0]],
++["2024-02-02",0,[4,0,3,2,1]],
++["2024-02-03",2,[2,3,4,0,1]],
++["2024-02-04",2,[1,2,4,0,3]],
++["2024-02-05",4,[3,0,1,2,4]],
++["2024-02-06",3,[3,0,1,4,2]],
++["2024-02-07",2,[1,0,4,2,3]],
++["2024-02-08",4,[3,0,2,1,4]],
++["2024-02-09",2,[0,2,4,3,1]],
++["2024-02-10",4,[1,3,0,2,4]],
++["2024-02-11",1,[0,4,3,2,1]],
++["2024-02-12",3,[3,2,0,4,1]],
++["2024-02-13",1,[0,4,1,3,2]],
++["2024-02-14",2,[1,3,4,2,0]],
++["2024-02-15",4,[1,2,3,0,4]],
++["2024-02-16",1,[1,4,2,0,3]],
++["2024-02-17",1,[1,4,3,2,0]],
++["2024-02-18",2,[0,3,4,1,2]],
++["2024-02-19",1,[1,4,3,0,2]],
++["2024-02-20",0,[4,0,2,1,3]],
++["2024-02-21",4,[0,1,2,3,4]],
++["2024-02-22",0,[4,2,0,3,1]],
++["2024-02-23",1,[1,4,0,2,3]],
++["2024-02-24",1,[3,4,1,2,0]],
++["2024-02-25",0,[4,2,0,3,1]],
++["2024-02-26",1,[3,4,0,1,2]],
++["2024-02-27",1,[3,4,1,2,0]],
++["2024-02-28",4,[2,0,1,3,4]],
++["2024-02-29",4,[2,1,3,0,4]],
++["2024-03-01",2,[1,0,4,2,3]],
++["2024-03-02",0,[4,1,0,2,3]],
++["2024-03-03",2,[0,1,4,3,2]],
++["2024-03-04",2,[0,2,4,1,3]],
++["2024-03-05",1,[0,4,2,3,1]],
++["2024-03-06",1,[3,4,2,1,0]],
++["2024-03-07",3,[0,1,3,4,2]],
++["2024-03-08",3,[0,2,1,4,3]],
++["2024-03-09",1,[0,4,3,1,2]],
++["2024-03-10",3,[0,1,3,4,2]],
++["2024-03-11",3,[1,0,2,4,3]],
++["2024-03-12",2,[0,2,4,3,1]],
++["2024-03-13",4,[1,2,0,3,4]],
++["2024-03-14",4,[0,3,1,2,4]],
++["2024-03-15",1,[0,4,2,3,1]],
++["2024-03-16",4,[1,3,0,2,4]],
++["2024-03-17",4,[1,0,2,3,4]],
++["2024-03-18",0,[4,2,1,0,3]],
++["2024-03-19",0,[4,2,1,0,3]],
++["2024-03-20",2,[3,2,4,0,1]],
++["2024-03-21",1,[0,4,3,1,2]],
++["2024-03-22",0,[4,0,2,1,3]],
++["2024-03-23",4,[0,3,1,2,4]],
++["2024-03-24",2,[2,1,4,3,0]],
++["2024-03-25",0,[4,0,1,2,3]],
++["2024-03-26",0,[4,1,3,0,2]],
++["2024-03-27",3,[0,3,1,4,2]],
++["2024-03-28",1,[3,4,2,0,1]],
++["2024-03-29",0,[4,1,2,3,0]],
++["2024-03-30",2,[1,0,4,3,2]],
++["2024-03-31",1,[0,4,3,2,1]],
++["2024-04-01",1,[0,4,3,2,1]],
++["2024-04-02",0,[4,3,2,0,1]],
++["2024-04-03",2,[0,2,4,1,3]],
++["2024-04-04",0,[4,0,3,1,2]],
++["2024-04-05",4,[1,3,0,2,4]],
++["2024-04-06",0,[4,3,2,1,0]],
++["2024-04-07",4,[0,2,1,3,4]],
++["2024-04-08",4,[0,1,3,2,4]],
++["2024-04-09",2,[2,3,4,1,0]],
++["2024-04-10",0,[4,1,0,3,2]],
++["2024-04-11",4,[0,1,2,3,4]],
++["2024-04-12",2,[2,1,4,3,0]],
++["2024-04-13",0,[4,0,1,3,2]],
++["2024-04-14",4,[0,1,2,3,4]],
++["2024-04-15",2,[0,1,4,3,2]],
++["2024-04-16",2,[2,3,4,1,0]],
++["2024-04-17",3,[0,1,3,4,2]],
++["2024-04-18",4,[0,1,2,3,4]],
++["2024-04-19",1,[1,4,3,0,2]],
++["2024-04-20",1,[2,4,0,1,3]],
++["2024-04-21",2,[2,1,4,0,3]],
++["2024-04-22",0,[4,0,1,3,2]],
++["2024-04-23",3,[1,2,0,4,3]],
++["2024-04-24",4,[0,1,3,2,4]],
++["2024-04-25",3,[0,1,2,4,3]],
++["2024-04-26",0,[4,1,2,3,0]],
++["2024-04-27",0,[4,2,1,3,0]],
++["2024-04-28",0,[4,3,2,0,1]],
++["2024-04-29",1,[1,4,2,3,0]],
++["2024-04-30",2,[0,3,4,2,1]],
++["2024-05-01",0,[4,2,1,0,3]],
++["2024-05-02",0,[4,1,3,2,0]],
++["2024-05-03",2,[1,2,4,3,0]],
++["2024-05-04",1,[0,4,3,1,2]],
++["2024-05-05",1,[3,4,2,1,0]],
++["2024-05-06",1,[0,4,3,2,1]],
++["2024-05-07",3,[2,1,0,4,3]],
++["2024-05-08",0,[4,0,1,3,2]],
++["2024-05-09",1,[0,4,1,3,2]],
++["2024-05-10",1,[1,4,0,3,2]],
++["2024-05-11",3,[1,3,2,4,0]],
++["2024-05-12",2,[0,2,4,3,1]],
++["2024-05-13",3,[1,3,0,4,2]],
++["2024-05-14",0,[4,2,3,0,1]],
++["2024-05-15",2,[2,1,4,3,0]],
++["2024-05-16",3,[2,0,3,4,1]],
++["2024-05-17",2,[3,0,4,1,2]],
++["2024-05-18",3,[2,3,1,4,0]],
++["2024-05-19",2,[0,1,4,3,2]],
++["2024-05-20",0,[4,1,3,2,0]],
++["2024-05-21",0,[4,1,2,0,3]],
++["2024-05-22",2,[1,0,4,2,3]],
++["2024-05-23",2,[0,2,4,3,1]],
++["2024-05-24",2,[3,1,4,0,2]],
++["2024-05-25",3,[1,2,3,4,0]],
++["2024-05-26",0,[4,0,3,1,2]],
++["2024-05-27",1,[0,4,3,1,2]],
++["2024-05-28",2,[2,1,4,0,3]],
++["2024-05-29",3,[1,2,3,4,0]],
++["2024-05-30",4,[1,3,0,2,4]],
++["2024-05-31",1,[2,4,1,3,0]],
++["2024-06-01",4,[2,1,3,0,4]],
++["2024-06-02",1,[1,4,2,3,0]],
++["2024-06-03",0,[4,0,3,1,2]],
++["2024-06-04",2,[2,1,4,3,0]],
++["2024-06-05",2,[3,0,4,1,2]],
++["2024-06-06",3,[2,0,3,4,1]],
++["2024-06-07",2,[0,1,4,2,3]],
++["2024-06-08",2,[3,1,4,0,2]],
++["2024-06-09",1,[2,4,1,0,3]],
++["2024-06-10",3,[2,1,0,4,3]],
++["2024-06-11",2,[0,2,4,3,1]],
++["2024-06-12",0,[4,0,2,1,3]],
++["2024-06-13",2,[0,3,4,1,2]],
++["2024-06-14",0,[4,1,2,3,0]],
++["2024-06-15",4,[0,1,3,2,4]],
++["2024-06-16",0,[4,1,2,0,3]],
++["2024-06-17",3,[1,0,3,4,2]],
++["2024-06-18",2,[1,2,4,3,0]],
++["2024-06-19",3,[2,0,3,4,1]],
++["2024-06-20",4,[3,1,2,0,4]],
++["2024-06-21",0,[4,2,1,3,0]],
++["2024-06-22",2,[3,2,4,0,1]],
++["2024-06-23",4,[1,2,3,0,4]],
++["2024-06-24",1,[1,4,0,3,2]],
++["2024-06-25",2,[0,1,4,3,2]],
++["2024-06-26",4,[2,0,3,1,4]],
++["2024-06-27",4,[2,3,1,0,4]],
++["2024-06-28",1,[2,4,0,3,1]],
++["2024-06-29",2,[3,0,4,2,1]],
++["2024-06-30",4,[1,3,2,0,4]],
++["2024-07-01",2,[2,1,4,0,3]],
++["2024-07-02",3,[3,2,1,4,0]],
++["2024-07-03",2,[3,2,4,1,0]],
++["2024-07-04",1,[3,4,0,2,1]],
++["2024-07-05",1,[2,4,0,3,1]],
++["2024-07-06",2,[1,2,4,3,0]],
++["2024-07-07",4,[2,1,0,3,4]],
++["2024-07-08",3,[3,0,2,4,1]],
++["2024-07-09",4,[0,2,1,3,4]],
++["2024-07-10",1,[0,4,3,1,2]],
++["2024-07-11",3,[1,2,3,4,0]],
++["2024-07-12",0,[4,3,0,1,2]],
++["2024-07-13",3,[0,3,2,4,1]],
++["2024-07-14",3,[0,2,1,4,3]],
++["2024-07-15",4,[1,3,2,0,4]],
++["2024-07-16",3,[0,1,3,4,2]],
++["2024-07-17",2,[2,0,4,1,3]],
++["2024-07-18",4,[1,2,0,3,4]],
++["2024-07-19",4,[2,0,1,3,4]],
++["2024-07-20",3,[2,0,1,4,3]],
++["2024-07-21",3,[3,0,2,4,1]],
++["2024-07-22",2,[3,0,4,1,2]],
++["2024-07-23",3,[2,3,1,4,0]],
++["2024-07-24",4,[2,0,1,3,4]],
++["2024-07-25",2,[0,1,4,2,3]],
++["2024-07-26",3,[3,0,1,4,2]],
++["2024-07-27",4,[0,2,1,3,4]],
++["2024-07-28",0,[4,2,0,3,1]],
++["2024-07-29",3,[3,1,2,4,0]],
++["2024-07-30",1,[0,4,3,2,1]],
++["2024-07-31",2,[0,2,4,3,1]],
++["2024-08-01",2,[1,2,4,0,3]],
++["2024-08-02",3,[1,3,2,4,0]],
++["2024-08-03",2,[1,3,4,2,0]],
++["2024-08-04",2,[0,1,4,2,3]],
++["2024-08-05",1,[1,4,3,0,2]],
++["2024-08-06",4,[2,1,3,0,4]],
++["2024-08-07",0,[4,1,3,2,0]],
++["2024-08-08",2,[3,1,4,2,0]],
++["2024-08-09",2,[0,3,4,1,2]],
++["2024-08-10",4,[1,0,2,3,4]],
++["2024-08-11",3,[1,3,2,4,0]],
++["2024-08-12",4,[3,1,2,0,4]],
++["2024-08-13",2,[3,1,4,2,0]],
++["2024-08-14",3,[2,3,1,4,0]],
++["2024-08-15",4,[0,1,2,3,4]],
++["2024-08-16",0,[4,0,1,2,3]],
++["2024-08-17",1,[3,4,2,0,1]],
++["2024-08-18",3,[0,2,3,4,1]],
++["2024-08-19",1,[2,4,0,3,1]],
++["2024-08-20",1,[0,4,3,2,1]],
++["2024-08-21",3,[3,1,0,4,2]],
++["2024-08-22",0,[4,0,2,3,1]],
++["2024-08-23",2,[0,3,4,1,2]],
++["2024-08-24",4,[2,0,3,1,4]],
++["2024-08-25",0,[4,3,0,2,1]],
++["2024-08-26",2,[2,0,4,3,1]],
++["2024-08-27",0,[4,0,3,2,1]],
++["2024-08-28",3,[2,1,3,4,0]],
++["2024-08-29",2,[2,0,4,1,3]],
++["2024-08-30",0,[4,2,3,0,1]],
++["2024-08-31",0,[4,0,1,3,2]],
++["2024-09-01",3,[3,2,0,4,1]],
++["2024-09-02",2,[2,3,4,0,1]],
++["2024-09-03",2,[2,1,4,0,3]],
++["2024-09-04",2,[0,3,4,2,1]],
++["2024-09-05",2,[3,0,4,1,2]],
++["2024-09-06",0,[4,0,3,2,1]],
++["2024-09-07",3,[1,3,0,4,2]],
++["2024-09-08",0,[4,2,3,1,0]],
++["2024-09-09",2,[1,3,4,2,0]],
++["2024-09-10",2,[1,2,4,3,0]],
++["2024-09-11",0,[4,3,2,0,1]],
++["2024-09-12",0,[4,0,1,3,2]],
++["2024-09-13",4,[0,1,2,3,4]],
++["2024-09-14",3,[3,2,1,4,0]],
++["2024-09-15",3,[0,2,3,4,1]],
++["2024-09-16",3,[3,2,0,4,1]],
++["2024-09-17",3,[3,0,1,4,2]],
++["2024-09-18",2,[2,3,4,1,0]],
++["2024-09-19",2,[2,3,4,1,0]],
++["2024-09-20",1,[3,4,1,0,2]],
++["2024-09-21",3,[2,3,1,4,0]],
++["2024-09-22",2,[1,0,4,3,2]],
++["2024-09-23",0,[4,1,0,2,3]],
++["2024-09-24",0,[4,1,3,2,0]],
++["2024-09-25",3,[1,0,3,4,2]],
++["2024-09-26",1,[2,4,0,3,1]],
++["2024-09-27",3,[1,0,3,4,2]],
++["2024-09-28",1,[3,4,1,2,0]],
++["2024-09-29",3,[3,2,0,4,1]],
++["2024-09-30",3,[1,0,3,4,2]],
++["2024-10-01",2,[2,1,4,3,0]],
++["2024-10-02",0,[4,3,1,0,2]],
++["2024-10-03",0,[4,0,2,1,3]],
++["2024-10-04",1,[3,4,2,0,1]],
++["2024-10-05",1,[3,4,1,0,2]],
++["2024-10-06",3,[0,3,1,4,2]],
++["2024-10-07",3,[1,3,0,4,2]],
++["2024-10-08",0,[4,0,1,3,2]],
++["2024-10-09",1,[0,4,3,2,1]],
++["2024-10-10",3,[0,1,3,4,2]],
++["2024-10-11",4,[3,2,0,1,4]],
++["2024-10-12",1,[3,4,0,1,2]],
++["2024-10-13",4,[1,0,3,2,4]],
++["2024-10-14",2,[0,2,4,1,3]],
++["2024-10-15",1,[0,4,3,1,2]],
++["2024-10-16",4,[2,1,3,0,4]],
++["2024-10-17",4,[2,3,0,1,4]],
++["2024-10-18",2,[1,0,4,3,2]],
++["2024-10-19",4,[3,2,0,1,4]],
++["2024-10-20",0,[4,2,0,1,3]],
++["2024-10-21",0,[4,2,3,1,0]],
++["2024-10-22",0,[4,1,0,3,2]],
++["2024-10-23",1,[3,4,1,2,0]],
++["2024-10-24",1,[0,4,1,2,3]],
++["2024-10-25",4,[2,0,3,1,4]],
++["2024-10-26",1,[3,4,1,2,0]],
++["2024-10-27",3,[1,3,0,4,2]],
++["2024-10-28",4,[3,1,0,2,4]],
++["2024-10-29",2,[0,3,4,2,1]],
++["2024-10-30",2,[2,1,4,3,0]],
++["2024-10-31",4,[1,2,3,0,4]],
++["2024-11-01",0,[4,3,2,1,0]],
++["2024-11-02",1,[3,4,2,1,0]],
++["2024-11-03",3,[3,2,1,4,0]],
++["2024-11-04",2,[0,1,4,3,2]],
++["2024-11-05",0,[4,0,2,3,1]],
++["2024-11-06",4,[2,0,1,3,4]],
++["2024-11-07",2,[0,3,4,1,2]],
++["2024-11-08",2,[0,3,4,1,2]],
++["2024-11-09",4,[2,0,3,1,4]],
++["2024-11-10",0,[4,3,0,1,2]],
++["2024-11-11",3,[3,0,2,4,1]],
++["2024-11-12",3,[0,3,1,4,2]],
++["2024-11-13",3,[2,0,3,4,1]],
++["2024-11-14",4,[0,1,3,2,4]],
++["2024-11-15",1,[1,4,0,3,2]],
++["2024-11-16",0,[4,3,1,2,0]],
++["2024-11-17",0,[4,1,2,3,0]],
++["2024-11-18",2,[0,2,4,1,3]],
++["2024-11-19",0,[4,0,2,1,3]],
++["2024-11-20",0,[4,1,3,0,2]],
++["2024-11-21",0,[4,2,1,3,0]],
++["2024-11-22",1,[3,4,0,2,1]],
++["2024-11-23",4,[3,0,2,1,4]],
++["2024-11-24",2,[2,1,4,3,0]],
++["2024-11-25",4,[1,3,2,0,4]],
++["2024-11-26",4,[2,0,3,1,4]],
++["2024-11-27",1,[0,4,1,2,3]],
++["2024-11-28",1,[2,4,0,3,1]],
++["2024-11-29",3,[3,1,0,4,2]],
++["2024-11-30",2,[2,1,4,0,3]],
++["2024-12-01",4,[2,0,3,1,4]],
++["2024-12-02",3,[0,1,3,4,2]],
++["2024-12-03",0,[4,0,1,3,2]],
++["2024-12-04",0,[4,0,1,2,3]],
++["2024-12-05",3,[3,0,1,4,2]],
++["2024-12-06",4,[3,0,2,1,4]],
++["2024-12-07",2,[0,3,4,1,2]],
++["2024-12-08",0,[4,3,2,0,1]],
++["2024-12-09",0,[4,1,0,2,3]],
++["2024-12-10",4,[1,2,0,3,4]],
++["2024-12-11",0,[4,1,2,3,0]],
++["2024-12-12",2,[3,2,4,1,0]],
++["2024-12-13",2,[3,0,4,2,1]],
++["2024-12-14",3,[2,3,1,4,0]],
++["2024-12-15",1,[0,4,3,2,1]],
++["2024-12-16",0,[4,2,3,1,0]],
++["2024-12-17",2,[2,1,4,0,3]],
++["2024-12-18",2,[2,1,4,0,3]],
++["2024-12-19",1,[2,4,1,0,3]],
++["2024-12-20",4,[1,2,0,3,4]],
++["2024-12-21",4,[1,2,0,3,4]],
++["2024-12-22",1,[2,4,1,0,3]],
++["2024-12-23",4,[0,2,3,1,4]],
++["2024-12-24",3,[0,3,1,4,2]],
++["2024-12-25",2,[0,1,4,3,2]],
++["2024-12-26",4,[2,0,3,1,4]],
++["2024-12-27",3,[0,1,3,4,2]],
++["2024-12-28",3,[0,1,3,4,2]],
++["2024-12-29",1,[3,4,0,1,2]],
++["2024-12-30",4,[3,0,1,2,4]],
++["2024-12-31",2,[0,3,4,1,2]],
++["2025-01-01",2,[1,3,4,2,0]],
++["2025-01-02",1,[1,4,2,0,3]],
++["2025-01-03",2,[0,2,4,3,1]],
++["2025-01-04",3,[0,2,1,4,3]],
++["2025-01-05",4,[2,0,1,3,4]],
++["2025-01-06",0,[4,0,1,2,3]],
++["2025-01-07",4,[2,1,0,3,4]],
++["2025-01-08",3,[1,3,2,4,0]],
++["2025-01-09",1,[3,4,2,0,1]],
++["2025-01-10",0,[4,1,3,0,2]],
++["2025-01-11",3,[1,0,2,4,3]],
++["2025-01-12",4,[3,1,2,0,4]],
++["2025-01-13",0,[4,2,1,0,3]],
++["2025-01-14",3,[3,1,2,4,0]],
++["2025-01-15",1,[2,4,0,1,3]],
++["2025-01-16",0,[4,2,0,3,1]],
++["2025-01-17",1,[1,4,0,3,2]],
++["2025-01-18",0,[4,2,0,1,3]],
++["2025-01-19",2,[3,1,4,0,2]],
++["2025-01-20",4,[1,3,0,2,4]],
++["2025-01-21",2,[3,2,4,1,0]],
++["2025-01-22",3,[1,3,0,4,2]],
++["2025-01-23",1,[2,4,3,1,0]],
++["2025-01-24",2,[1,2,4,0,3]],
++["2025-01-25",4,[3,2,1,0,4]],
++["2025-01-26",0,[4,3,2,0,1]],
++["2025-01-27",3,[0,2,3,4,1]],
++["2025-01-28",1,[1,4,3,0,2]],
++["2025-01-29",4,[0,1,2,3,4]],
++["2025-01-30",0,[4,2,1,3,0]],
++["2025-01-31",0,[4,0,1,2,3]],
++["2025-02-01",4,[0,3,1,2,4]],
++["2025-02-02",4,[0,3,1,2,4]],
++["2025-02-03",4,[3,0,2,1,4]],
++["2025-02-04",0,[4,3,1,0,2]],
++["2025-02-05",3,[3,0,1,4,2]],
++["2025-02-06",2,[3,2,4,1,0]],
++["2025-02-07",3,[1,3,2,4,0]],
++["2025-02-08",3,[3,1,0,4,2]],
++["2025-02-09",3,[0,1,2,4,3]],
++["2025-02-10",0,[4,3,0,1,2]],
++["2025-02-11",4,[2,3,1,0,4]],
++["2025-02-12",4,[0,2,1,3,4]],
++["2025-02-13",4,[0,1,3,2,4]],
++["2025-02-14",2,[0,2,4,3,1]],
++["2025-02-15",1,[0,4,1,2,3]],
++["2025-02-16",0,[4,3,1,2,0]],
++["2025-02-17",3,[0,3,1,4,2]],
++["2025-02-18",3,[0,3,1,4,2]],
++["2025-02-19",4,[2,1,3,0,4]],
++["2025-02-20",4,[1,2,3,0,4]],
++["2025-02-21",2,[2,3,4,1,0]],
++["2025-02-22",3,[2,1,3,4,0]],
++["2025-02-23",0,[4,2,3,0,1]],
++["2025-02-24",1,[1,4,0,3,2]],
++["2025-02-25",1,[1,4,0,3,2]],
++["2025-02-26",0,[4,2,0,3,1]],
++["2025-02-27",4,[0,2,3,1,4]],
++["2025-02-28",2,[3,0,4,2,1]],
++["2025-03-01",2,[2,0,4,3,1]],
++["2025-03-02",2,[0,1,4,3,2]],
++["2025-03-03",1,[2,4,3,0,1]],
++["2025-03-04",0,[4,0,3,1,2]],
++["2025-03-05",1,[0,4,3,1,2]],
++["2025-03-06",2,[2,3,4,0,1]],
++["2025-03-07",1,[1,4,0,3,2]],
++["2025-03-08",1,[0,4,1,2,3]],
++["2025-03-09",0,[4,3,2,1,0]],
++["2025-03-10",0,[4,1,2,3,0]],
++["2025-03-11",0,[4,0,2,1,3]],
++["2025-03-12",2,[3,0,4,1,2]],
++["2025-03-13",2,[2,1,4,3,0]],
++["2025-03-14",2,[3,1,4,0,2]],
++["2025-03-15",3,[2,0,1,4,3]],
++["2025-03-16",4,[1,0,2,3,4]],
++["2025-03-17",1,[2,4,0,3,1]],
++["2025-03-18",0,[4,2,0,1,3]],
++["2025-03-19",4,[2,0,3,1,4]],
++["2025-03-20",3,[2,1,0,4,3]],
++["2025-03-21",0,[4,1,3,0,2]],
++["2025-03-22",2,[1,0,4,3,2]],
++["2025-03-23",0,[4,3,2,0,1]],
++["2025-03-24",0,[4,1,3,2,0]],
++["2025-03-25",4,[3,1,0,2,4]],
++["2025-03-26",3,[0,1,2,4,3]],
++["2025-03-27",4,[2,1,0,3,4]],
++["2025-03-28",3,[0,2,1,4,3]],
++["2025-03-29",0,[4,2,1,3,0]],
++["2025-03-30",1,[1,4,3,0,2]],
++["2025-03-31",3,[1,3,0,4,2]],
++["2025-04-01",4,[3,1,0,2,4]],
++["2025-04-02",0,[4,0,2,1,3]],
++["2025-04-03",4,[3,0,2,1,4]],
++["2025-04-04",2,[1,2,4,3,0]],
++["2025-04-05",2,[1,0,4,2,3]],
++["2025-04-06",0,[4,1,0,2,3]],
++["2025-04-07",4,[0,1,2,3,4]],
++["2025-04-08",2,[0,2,4,3,1]],
++["2025-04-09",1,[0,4,3,2,1]],
++["2025-04-10",1,[2,4,1,3,0]],
++["2025-04-11",1,[2,4,1,0,3]],
++["2025-04-12",0,[4,3,1,0,2]],
++["2025-04-13",4,[0,2,1,3,4]],
++["2025-04-14",1,[3,4,1,0,2]],
++["2025-04-15",0,[4,3,1,0,2]],
++["2025-04-16",0,[4,0,1,2,3]],
++["2025-04-17",2,[0,3,4,1,2]],
++["2025-04-18",2,[2,3,4,1,0]],
++["2025-04-19",1,[0,4,2,3,1]],
++["2025-04-20",1,[3,4,2,1,0]],
++["2025-04-21",2,[3,2,4,0,1]],
++["2025-04-22",2,[0,1,4,2,3]],
++["2025-04-23",0,[4,1,0,2,3]],
++["2025-04-24",1,[1,4,2,0,3]],
++["2025-04-25",3,[2,0,3,4,1]],
++["2025-04-26",0,[4,1,3,2,0]],
++["2025-04-27",1,[2,4,0,1,3]],
++["2025-04-28",1,[1,4,2,3,0]],
++["2025-04-29",2,[3,2,4,0,1]],
++["2025-04-30",1,[0,4,1,3,2]],
++["2025-05-01",0,[4,1,0,2,3]],
++["2025-05-02",4,[2,3,1,0,4]],
++["2025-05-03",4,[3,2,0,1,4]],
++["2025-05-04",1,[0,4,1,3,2]],
++["2025-05-05",4,[3,1,0,2,4]],
++["2025-05-06",4,[1,3,0,2,4]],
++["2025-05-07",0,[4,2,1,3,0]],
++["2025-05-08",3,[2,1,3,4,0]],
++["2025-05-09",2,[2,1,4,3,0]],
++["2025-05-10",3,[0,1,3,4,2]],
++["2025-05-11",0,[4,2,0,1,3]],
++["2025-05-12",1,[0,4,3,1,2]],
++["2025-05-13",4,[1,3,0,2,4]],
++["2025-05-14",1,[0,4,2,3,1]],
++["2025-05-15",1,[0,4,3,1,2]],
++["2025-05-16",1,[0,4,2,3,1]],
++["2025-05-17",4,[2,1,0,3,4]],
++["2025-05-18",4,[0,1,3,2,4]],
++["2025-05-19",4,[0,2,1,3,4]],
++["2025-05-20",3,[1,2,0,4,3]],
++["2025-05-21",1,[1,4,2,3,0]],
++["2025-05-22",1,[2,4,1,0,3]],
++["2025-05-23",0,[4,0,3,2,1]],
++["2025-05-24",1,[0,4,2,1,3]],
++["2025-05-25",4,[2,3,0,1,4]],
++["2025-05-26",2,[0,1,4,3,2]],
++["2025-05-27",3,[2,1,3,4,0]],
++["2025-05-28",4,[0,2,1,3,4]],
++["2025-05-29",4,[1,0,3,2,4]],
++["2025-05-30",4,[2,1,0,3,4]],
++["2025-05-31",3,[3,1,2,4,0]],
++["2025-06-01",2,[0,3,4,1,2]],
++["2025-06-02",3,[3,2,0,4,1]],
++["2025-06-03",1,[0,4,1,2,3]],
++["2025-06-04",1,[3,4,2,0,1]],
++["2025-06-05",0,[4,3,0,1,2]],
++["2025-06-06",2,[3,1,4,2,0]],
++["2025-06-07",2,[2,0,4,1,3]],
++["2025-06-08",2,[3,1,4,0,2]],
++["2025-06-09",4,[0,2,1,3,4]],
++["2025-06-10",4,[2,1,3,0,4]],
++["2025-06-11",1,[3,4,0,1,2]],
++["2025-06-12",0,[4,1,3,2,0]],
++["2025-06-13",0,[4,1,2,3,0]],
++["2025-06-14",3,[3,0,2,4,1]],
++["2025-06-15",3,[1,2,3,4,0]],
++["2025-06-16",2,[3,1,4,0,2]],
++["2025-06-17",4,[1,0,2,3,4]],
++["2025-06-18",2,[2,0,4,3,1]],
++["2025-06-19",4,[1,2,0,3,4]],
++["2025-06-20",1,[3,4,0,1,2]],
++["2025-06-21",4,[1,0,2,3,4]],
++["2025-06-22",0,[4,2,3,0,1]],
++["2025-06-23",1,[3,4,0,2,1]],
++["2025-06-24",2,[2,3,4,0,1]],
++["2025-06-25",4,[3,1,2,0,4]],
++["2025-06-26",1,[2,4,0,1,3]],
++["2025-06-27",1,[2,4,1,0,3]],
++["2025-06-28",2,[1,2,4,0,3]],
++["2025-06-29",1,[2,4,1,0,3]],
++["2025-06-30",2,[0,2,4,3,1]],
++["2025-07-01",0,[4,2,3,1,0]],
++["2025-07-02",0,[4,2,3,1,0]],
++["2025-07-03",2,[0,3,4,1,2]],
++["2025-07-04",3,[0,3,2,4,1]],
++["2025-07-05",3,[0,3,2,4,1]],
++["2025-07-06",2,[1,0,4,3,2]],
++["2025-07-07",0,[4,0,3,1,2]],
++["2025-07-08",2,[3,2,4,0,1]],
++["2025-07-09",3,[1,3,0,4,2]],
++["2025-07-10",3,[2,0,3,4,1]],
++["2025-07-11",4,[1,0,2,3,4]],
++["2025-07-12",1,[0,4,2,3,1]],
++["2025-07-13",4,[3,2,1,0,4]],
++["2025-07-14",0,[4,3,0,2,1]],
++["2025-07-15",1,[0,4,3,1,2]],
++["2025-07-16",1,[1,4,3,2,0]],
++["2025-07-17",4,[3,1,2,0,4]],
++["2025-07-18",3,[1,0,2,4,3]],
++["2025-07-19",4,[2,0,3,1,4]],
++["2025-07-20",2,[2,1,4,0,3]],
++["2025-07-21",4,[1,2,0,3,4]],
++["2025-07-22",0,[4,2,3,1,0]],
++["2025-07-23",4,[3,0,2,1,4]],
++["2025-07-24",1,[1,4,3,2,0]],
++["2025-07-25",3,[3,2,0,4,1]],
++["2025-07-26",0,[4,0,1,3,2]],
++["2025-07-27",1,[2,4,0,3,1]],
++["2025-07-28",1,[2,4,3,0,1]],
++["2025-07-29",1,[3,4,1,2,0]],
++["2025-07-30",1,[2,4,1,0,3]],
++["2025-07-31",1,[2,4,3,0,1]],
++["2025-08-01",0,[4,0,2,1,3]],
++["2025-08-02",4,[2,0,3,1,4]],
++["2025-08-03",2,[1,2,4,0,3]],
++["2025-08-04",1,[1,4,2,3,0]],
++["2025-08-05",3,[2,3,0,4,1]],
++["2025-08-06",1,[0,4,2,3,1]],
++["2025-08-07",0,[4,2,1,0,3]],
++["2025-08-08",1,[0,4,1,3,2]],
++["2025-08-09",3,[1,2,0,4,3]],
++["2025-08-10",3,[1,0,2,4,3]],
++["2025-08-11",1,[1,4,2,0,3]],
++["2025-08-12",2,[2,0,4,1,3]],
++["2025-08-13",2,[1,3,4,2,0]],
++["2025-08-14",0,[4,3,1,0,2]],
++["2025-08-15",2,[3,2,4,1,0]],
++["2025-08-16",0,[4,1,2,3,0]],
++["2025-08-17",3,[1,3,2,4,0]],
++["2025-08-18",3,[3,2,0,4,1]],
++["2025-08-19",1,[0,4,3,2,1]],
++["2025-08-20",2,[3,1,4,2,0]],
++["2025-08-21",3,[3,0,2,4,1]],
++["2025-08-22",3,[3,0,1,4,2]],
++["2025-08-23",1,[2,4,3,0,1]],
++["2025-08-24",0,[4,1,2,0,3]],
++["2025-08-25",0,[4,2,1,0,3]],
++["2025-08-26",4,[1,3,0,2,4]],
++["2025-08-27",2,[1,0,4,2,3]],
++["2025-08-28",1,[0,4,2,1,3]],
++["2025-08-29",1,[3,4,2,1,0]],
++["2025-08-30",2,[0,3,4,1,2]],
++["2025-08-31",3,[2,3,0,4,1]],
++["2025-09-01",1,[2,4,3,1,0]],
++["2025-09-02",2,[3,2,4,1,0]],
++["2025-09-03",1,[0,4,2,3,1]],
++["2025-09-04",0,[4,1,3,0,2]],
++["2025-09-05",2,[2,0,4,3,1]],
++["2025-09-06",4,[3,1,2,0,4]],
++["2025-09-07",4,[2,1,3,0,4]],
++["2025-09-08",3,[2,0,3,4,1]],
++["2025-09-09",4,[1,3,0,2,4]],
++["2025-09-10",3,[2,0,3,4,1]],
++["2025-09-11",1,[3,4,1,2,0]],
++["2025-09-12",2,[0,1,4,3,2]],
++["2025-09-13",2,[3,0,4,1,2]],
++["2025-09-14",1,[3,4,0,2,1]],
++["2025-09-15",1,[0,4,3,1,2]],
++["2025-09-16",2,[3,0,4,2,1]],
++["2025-09-17",0,[4,2,1,0,3]],
++["2025-09-18",1,[2,4,3,1,0]],
++["2025-09-19",3,[2,0,1,4,3]],
++["2025-09-20",1,[3,4,1,0,2]],
++["2025-09-21",0,[4,3,2,0,1]],
++["2025-09-22",0,[4,2,1,3,0]],
++["2025-09-23",4,[0,1,3,2,4]],
++["2025-09-24",4,[1,0,3,2,4]],
++["2025-09-25",0,[4,3,2,0,1]],
++["2025-09-26",3,[1,3,0,4,2]],
++["2025-09-27",1,[1,4,3,2,0]],
++["2025-09-28",2,[2,0,4,3,1]],
++["2025-09-29",1,[1,4,3,2,0]],
++["2025-09-30",4,[2,3,1,0,4]],
++["2025-10-01",1,[2,4,1,0,3]],
++["2025-10-02",2,[1,3,4,0,2]],
++["2025-10-03",3,[1,0,3,4,2]],
++["2025-10-04",4,[1,3,0,2,4]],
++["2025-10-05",1,[2,4,0,1,3]],
++["2025-10-06",3,[3,0,1,4,2]],
++["2025-10-07",4,[3,2,0,1,4]],
++["2025-10-08",0,[4,0,1,2,3]],
++["2025-10-09",2,[2,1,4,3,0]],
++["2025-10-10",3,[1,3,0,4,2]],
++["2025-10-11",2,[2,3,4,0,1]],
++["2025-10-12",3,[0,2,3,4,1]],
++["2025-10-13",4,[0,3,2,1,4]],
++["2025-10-14",4,[1,0,3,2,4]],
++["2025-10-15",3,[3,1,0,4,2]],
++["2025-10-16",1,[1,4,3,0,2]],
++["2025-10-17",0,[4,1,3,2,0]],
++["2025-10-18",0,[4,0,1,2,3]],
++["2025-10-19",2,[3,1,4,2,0]],
++["2025-10-20",0,[4,3,1,0,2]],
++["2025-10-21",0,[4,1,2,0,3]],
++["2025-10-22",0,[4,2,0,3,1]],
++["2025-10-23",0,[4,0,2,1,3]],
++["2025-10-24",0,[4,1,3,2,0]],
++["2025-10-25",3,[1,2,3,4,0]],
++["2025-10-26",1,[1,4,3,0,2]],
++["2025-10-27",3,[0,1,3,4,2]],
++["2025-10-28",4,[1,3,2,0,4]],
++["2025-10-29",0,[4,1,2,0,3]],
++["2025-10-30",1,[1,4,3,2,0]],
++["2025-10-31",0,[4,1,2,0,3]],
++["2025-11-01",4,[2,1,3,0,4]],
++["2025-11-02",1,[0,4,1,2,3]],
++["2025-11-03",2,[1,2,4,3,0]],
++["2025-11-04",0,[4,1,3,0,2]],
++["2025-11-05",3,[2,0,1,4,3]],
++["2025-11-06",0,[4,0,2,3,1]],
++["2025-11-07",2,[3,2,4,0,1]],
++["2025-11-08",3,[3,2,1,4,0]],
++["2025-11-09",3,[1,0,3,4,2]],
++["2025-11-10",0,[4,0,3,1,2]],
++["2025-11-11",2,[0,1,4,2,3]],
++["2025-11-12",1,[2,4,3,1,0]],
++["2025-11-13",4,[2,1,3,0,4]],
++["2025-11-14",0,[4,3,0,2,1]],
++["2025-11-15",1,[1,4,3,2,0]],
++["2025-11-16",1,[1,4,3,0,2]],
++["2025-11-17",3,[2,3,1,4,0]],
++["2025-11-18",0,[4,3,1,2,0]],
++["2025-11-19",3,[0,2,3,4,1]],
++["2025-11-20",2,[2,1,4,0,3]],
++["2025-11-21",4,[0,3,2,1,4]],
++["2025-11-22",2,[0,3,4,1,2]],
++["2025-11-23",1,[3,4,0,2,1]],
++["2025-11-24",0,[4,2,3,1,0]],
++["2025-11-25",4,[1,3,0,2,4]],
++["2025-11-26",3,[3,2,0,4,1]],
++["2025-11-27",4,[2,3,0,1,4]],
++["2025-11-28",2,[2,1,4,3,0]],
++["2025-11-29",1,[1,4,3,2,0]],
++["2025-11-30",1,[3,4,2,0,1]],
++["2025-12-01",2,[3,1,4,2,0]],
++["2025-12-02",1,[1,4,2,0,3]],
++["2025-12-03",2,[0,3,4,2,1]],
++["2025-12-04",3,[2,1,3,4,0]],
++["2025-12-05",2,[2,3,4,1,0]],
++["2025-12-06",2,[3,2,4,0,1]],
++["2025-12-07",2,[0,1,4,2,3]],
++["2025-12-08",1,[3,4,0,1,2]],
++["2025-12-09",3,[2,1,3,4,0]],
++["2025-12-10",4,[1,0,3,2,4]],
++["2025-12-11",4,[2,3,0,1,4]],
++["2025-12-12",4,[3,0,2,1,4]],
++["2025-12-13",1,[1,4,2,3,0]],
++["2025-12-14",2,[0,1,4,2,3]],
++["2025-12-15",1,[1,4,0,2,3]],
++["2025-12-16",0,[4,3,2,1,0]],
++["2025-12-17",3,[0,1,2,4,3]],
++["2025-12-18",3,[1,3,2,4,0]],
++["2025-12-19",1,[3,4,2,0,1]],
++["2025-12-20",2,[2,1,4,3,0]],
++["2025-12-21",4,[1,3,2,0,4]],
++["2025-12-22",1,[2,4,0,1,3]],
++["2025-12-23",3,[2,3,0,4,1]],
++["2025-12-24",4,[0,1,2,3,4]],
++["2025-12-25",0,[4,3,2,0,1]],
++["2025-12-26",3,[3,1,0,4,2]],
++["2025-12-27",3,[1,2,3,4,0]],
++["2025-12-28",1,[0,4,3,2,1]],
++["2025-12-29",3,[2,1,3,4,0]],
++["2025-12-30",0,[4,2,0,1,3]],
++["2025-12-31",0,[4,3,1,2,0]]
++]
+diff --git a/pipeline/tests/test_browser_schedule_order.py b/pipeline/tests/test_browser_schedule_order.py
+new file mode 100644
+index 0000000..3586e09
+--- /dev/null
++++ b/pipeline/tests/test_browser_schedule_order.py
+@@ -0,0 +1,19 @@
++"""Shared ordering vectors keep browser scheduling and the CLI in agreement."""
++import json
++from datetime import date
++from pathlib import Path
++
++from popquiz.bank import load_question
++from popquiz.schedule import arrange
++from popquiz.slot import slot_for_day
++
++
++def test_browser_scheduling_vectors_match_pipeline() -> None:
++    repo = Path(__file__).resolve().parents[2]
++    question = load_question(repo / "bank", "q3")
++    cases = json.loads((repo / "bank/fixtures/scheduling-order.json").read_text())
++    assert len(cases) == 731
++    for raw_date, slot, order in cases:
++        day = date.fromisoformat(raw_date)
++        assert slot_for_day(day) == slot
++        assert [question.options.index(o) for o in arrange(question, day).options] == order
+diff --git a/room/build.rs b/room/build.rs
+new file mode 100644
+index 0000000..b232b22
+--- /dev/null
++++ b/room/build.rs
+@@ -0,0 +1,16 @@
++// Embed the private bank in the server binary, never in a browser asset.
++use std::{env, fs, path::PathBuf};
++
++fn main() {
++    let bank = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../bank/questions");
++    println!("cargo:rerun-if-changed={}", bank.display());
++    let mut paths: Vec<_> = fs::read_dir(bank).expect("private question bank")
++        .map(|e| e.unwrap().path()).filter(|p| p.extension().is_some_and(|e| e == "json")).collect();
++    paths.sort();
++    let mut code = String::from("const RECORDS: &[&str] = &[\n");
++    for path in paths {
++        code.push_str(&format!("{:?},\n", fs::read_to_string(path).expect("bank record")));
++    }
++    code.push_str("];\n");
++    fs::write(PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("bank.rs"), code).unwrap();
++}
+diff --git a/room/src/answers/catalog.rs b/room/src/answers/catalog.rs
+new file mode 100644
+index 0000000..a79219d
+--- /dev/null
++++ b/room/src/answers/catalog.rs
+@@ -0,0 +1,83 @@
++//! Private bank access for the organizer picker. Only id/topic leave this module;
++//! arranging a record hands back a sealed Scheduled, never an answer or JSON.
++use super::{load_record, LoadError, Record, Scheduled};
++use crate::club::ClubSlug;
++use crate::slot::MeetupDate;
++use serde::Serialize;
++
++include!(concat!(env!("OUT_DIR"), "/bank.rs"));
++
++pub struct Catalog {
++    records: Vec<String>,
++}
++
++#[derive(Serialize)]
++pub struct Choice {
++    pub id: String,
++    pub topic: String,
++}
++
++impl Default for Catalog {
++    fn default() -> Self {
++        Self::from_records(RECORDS.iter().map(|s| s.to_string()).collect())
++    }
++}
++
++impl Catalog {
++    /// Also supports a private bank supplied by a test, without adding a route
++    /// that can upload or approve arbitrary records through an organizer login.
++    pub fn from_records(records: Vec<String>) -> Self { Self { records } }
++
++    pub fn choices(&self, club: &ClubSlug) -> Vec<Choice> {
++        self.records.iter().filter_map(|json| {
++            let record = Record::from_json(json).ok()?;
++            if !eligible(&record, club) { return None; }
++            let choice = Choice { id: record.id.clone(), topic: record.topic.clone() };
++            load_record(record).ok()?;
++            Some(choice)
++        }).collect()
++    }
++
++    pub fn prepare(&self, id: &str, day: &str, club: &ClubSlug) -> Result<Scheduled, LoadError> {
++        let day = MeetupDate::parse(day).ok_or_else(|| LoadError("Choose a valid meetup date.".into()))?;
++        for json in &self.records {
++            let Ok(mut record) = Record::from_json(json) else { continue; };
++            if record.id != id || !eligible(&record, club) { continue; }
++            // Validate before indexing: a malformed bank entry must not panic.
++            super::load(json).map_err(|_| unavailable())?;
++            let correct = record.correct_index().map_err(|_| unavailable())?.ok_or_else(unavailable)?;
++            let answer = record.options.remove(correct);
++            let mut random = crate::slot::shuffle_stream(day.as_str(), id);
++            for i in (1..record.options.len()).rev() {
++                record.options.swap(i, random.next(i + 1));
++            }
++            record.options.insert(crate::slot::slot_for_day(&day), answer);
++            return load_record(record).map_err(|_| unavailable());
++        }
++        Err(unavailable())
++    }
++}
++
++fn unavailable() -> LoadError {
++    LoadError("That question is not ready for this club. Choose an approved, unused question.".into())
++}
++
++fn eligible(record: &Record, club: &ClubSlug) -> bool {
++    let Some(review) = &record.review else { return false; };
++    if !matches!(review.get("status").and_then(|v| v.as_str()), Some("accepted" | "edited")) {
++        return false;
++    }
++    if ["affirmed_by", "affirmed_at"].iter().any(|key| {
++        !review.get(key).and_then(|v| v.as_str()).is_some_and(|s| !s.trim().is_empty())
++    }) { return false; }
++    let unused = |entry: &serde_json::Value| {
++        entry.is_object() && entry.get("club").map_or(Some("nyc"), |v| v.as_str())
++            .is_some_and(|used_club| used_club != club.as_str())
++    };
++    match &record.used {
++        None | Some(serde_json::Value::Null) => true,
++        Some(serde_json::Value::Array(entries)) => entries.iter().all(unused),
++        Some(entry) if entry.is_object() => unused(entry),
++        _ => false,
++    }
++}
+diff --git a/room/src/slot.rs b/room/src/slot.rs
+new file mode 100644
+index 0000000..68ee36c
+--- /dev/null
++++ b/room/src/slot.rs
+@@ -0,0 +1,45 @@
++//! Twin of pipeline/popquiz/slot.py: the answer position depends on the date
++//! alone. No bank, club, history, previous letter, balancing, or quota input.
++use blake2::{Blake2bVar, digest::{Update, VariableOutput}};
++
++pub struct MeetupDate(String);
++impl MeetupDate {
++    pub fn parse(raw: &str) -> Option<Self> {
++        let bytes = raw.as_bytes();
++        if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-'
++            || bytes.iter().enumerate().any(|(i, b)| i != 4 && i != 7 && !b.is_ascii_digit()) {
++            return None;
++        }
++        let year: u32 = raw[..4].parse().ok()?;
++        let month: usize = raw[5..7].parse().ok()?;
++        let day: u32 = raw[8..].parse().ok()?;
++        let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
++        let days = [0, 31, if leap {29} else {28}, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
++        if year == 0 || month == 0 || month > 12 || day == 0 || day > days[month] { return None; }
++        Some(Self(raw.into()))
++    }
++    pub fn as_str(&self) -> &str { &self.0 }
++}
++
++pub(crate) struct Stream(u64);
++impl Stream {
++    fn new(seed: &str) -> Self {
++        let mut hash = Blake2bVar::new(8).expect("eight-byte BLAKE2b");
++        hash.update(seed.as_bytes());
++        let mut bytes = [0; 8];
++        hash.finalize_variable(&mut bytes).expect("eight-byte output");
++        Self(u64::from_be_bytes(bytes))
++    }
++    pub(crate) fn next(&mut self, bound: usize) -> usize {
++        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        ((self.0 >> 33) % bound as u64) as usize
++    }
++}
++
++pub fn slot_for_day(day: &MeetupDate) -> usize {
++    Stream::new(&format!("meetup-slot|{}", day.as_str())).next(5)
++}
++
++pub(crate) fn shuffle_stream(day: &str, id: &str) -> Stream {
++    Stream::new(&format!("distractors|{day}|{id}"))
++}
+diff --git a/room/tests/scheduling_preview.rs b/room/tests/scheduling_preview.rs
+new file mode 100644
+index 0000000..0af849c
+--- /dev/null
++++ b/room/tests/scheduling_preview.rs
+@@ -0,0 +1,9 @@
++mod common;
++#[tokio::test]
++#[ignore]
++async fn preview() {
++    let state = std::sync::Arc::new(room::rooms::AppState::new(
++        std::sync::Arc::new(common::TestAuth), vec![], room::rooms::Urls { base: "http://127.0.0.1:8769".into(), home: "http://127.0.0.1:8769/last".into() }));
++    let listener = tokio::net::TcpListener::bind("127.0.0.1:8769").await.unwrap();
++    axum::serve(listener, room::router_with(state)).await.unwrap();
++}
+diff --git a/web/test/host-scheduling.test.js b/web/test/host-scheduling.test.js
+new file mode 100644
+index 0000000..ee2d0dc
+--- /dev/null
++++ b/web/test/host-scheduling.test.js
+@@ -0,0 +1,119 @@
++// Drive the real host controller against deterministic HTTP replies.
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const path = require('node:path');
++const vm = require('node:vm');
++const { load } = require('./_load.js');
++const D = require('./a11y/dom.js');
++const settle = () => new Promise(resolve => setImmediate(resolve));
++const response = (status, body) => ({ok: status >= 200 && status < 300, status,
++  json: async () => body, text: async () => JSON.stringify(body)});
++
++function rig(reply, search = '?club=nyc') {
++  const { PQ, sandbox } = load('all', { timers: false });
++  vm.runInContext(fs.readFileSync(path.join(__dirname, '../host/host.js'), 'utf8'), sandbox);
++  const doc = D.page('', [{tag:'body',attrs:{}},{tag:'main',attrs:{id:'host',class:'host-phone'}}]);
++  const el = doc.root, handlers = {}, calls = [], navigations = [], timers = [];
++  el.addEventListener = (event, handler) => { handlers[event] = handler; };
++  const win = {document:doc, AbortController,
++    location:{pathname:'/host',search,hash:'#organizer-test',replace:url=>navigations.push(url)},
++    history:{replaceState(){}},sessionStorage:{setItem(){}},
++    setTimeout:fn=>{timers.push(fn); return timers.length;},clearTimeout(){},
++    fetch:(url, init)=>{calls.push({url,init}); return reply(url, init);}};
++  PQ.host.boot(win);
++  function submit(valid = true) {
++    const form = el.querySelector('[data-schedule-form]');
++    assert.ok(form, 'form is present');
++    form.matches = selector => selector === '[data-schedule-form]';
++    form.reportValidity = () => valid;
++    const question = el.querySelector('#schedule-question'), date = el.querySelector('#schedule-date');
++    question.value = 'q3'; date.value = '2026-10-21';
++    handlers.submit({target:form,preventDefault(){}});
++  }
++  function click(selector) { const target = el.querySelector(selector); assert.ok(target, selector); handlers.click({target}); }
++  return {PQ,win,doc,el,calls,navigations,timers,submit,click};
++}
++const catalog = () => Promise.resolve(response(200,{questions:[{id:'q3',topic:'Collections'}]}));
++
++test('pick, schedule, confirm, and create use the same question and club', async () => {
++  const r = rig((url) => {
++    if (url.startsWith('/organizer/questions')) return catalog();
++    if (url === '/organizer/schedule') return Promise.resolve(response(201,{id:'q3',date:'2026-10-21',scheduled:'new'}));
++    return Promise.resolve(response(201,{host_resume_url:'/host/test-room#host-test'}));
++  }, '?club=la');
++  await settle();
++  assert.ok(!r.el.querySelector('[data-primary]'));
++  r.submit(false); assert.equal(r.calls.length,1, 'invalid form cannot schedule');
++  r.el.querySelector('[data-schedule]').focus();
++  r.submit(); await settle();
++  assert.match(r.el.textContent,/q3 is scheduled for 2026-10-21/);
++  assert.equal(r.doc.activeElement.getAttribute('data-primary'),'create');
++  assert.deepEqual(JSON.parse(r.calls[1].init.body),{question_id:'q3',club:'la',date:'2026-10-21'});
++  assert.equal(r.calls[1].init.headers.Authorization,'Bearer organizer-test');
++  assert.ok(!r.el.innerHTML.includes('organizer-test'));
++  r.click('[data-primary]'); await settle();
++  assert.deepEqual(JSON.parse(r.calls[2].init.body),{question_id:'q3',club:'la'});
++  assert.deepEqual(r.navigations,['/host/test-room#host-test']);
++});
++
++test('double submit is suppressed and changing the date requires scheduling again', async () => {
++  let finish;
++  const r = rig(url => url.startsWith('/organizer/questions') ? catalog() : new Promise(resolve=>{finish=resolve;}));
++  await settle(); r.submit(); r.submit();
++  assert.equal(r.calls.length,2);
++  assert.ok(r.el.querySelector('[data-schedule]').disabled);
++  finish(response(200,{id:'q3',date:'2026-10-21',scheduled:'replaced'})); await settle();
++  r.click('[data-edit-schedule]');
++  assert.ok(!r.el.querySelector('[data-primary]'));
++  assert.equal(r.el.querySelector('#schedule-date').getAttribute('value'),'2026-10-21');
++});
++
++test('refusal retains the selection and date, with no create action', async () => {
++  const r = rig(url=>url.startsWith('/organizer/questions') ? catalog() : Promise.resolve(response(409,{reason:'Already in a room.'})));
++  await settle(); r.submit(); await settle();
++  assert.match(r.el.textContent,/Already in a room/);
++  assert.equal(r.el.querySelector('#schedule-date').getAttribute('value'),'2026-10-21');
++  assert.ok(!r.el.querySelector('[data-primary]'));
++});
++
++test('expired scheduling authorization returns to Discord sign-in', async () => {
++  const r = rig(url=>url.startsWith('/organizer/questions') ? catalog() : Promise.resolve(response(401,null)));
++  await settle(); r.submit(); await settle();
++  assert.ok(r.el.querySelector('[data-sign-in]'));
++  assert.ok(!r.el.querySelector('[data-primary]'));
++});
++
++test('lost scheduling response unlocks retry without claiming success', async () => {
++  const r = rig(url=>url.startsWith('/organizer/questions') ? catalog() : Promise.reject(new Error('offline')));
++  await settle(); r.submit(); await settle();
++  assert.match(r.el.textContent,/Could not confirm scheduling/);
++  assert.ok(!r.el.querySelector('[data-schedule]').disabled);
++  assert.ok(!r.el.querySelector('[data-primary]'));
++});
++
++test('a missing server schedule returns to the form after creation refusal', async () => {
++  const r = rig(url=>url.startsWith('/organizer/questions') ? catalog() : Promise.resolve(url === '/organizer/schedule'
++    ? response(201,{id:'q3',date:'2026-10-21',scheduled:'new'})
++    : response(409,{reason:'No question is scheduled with that id.'})));
++  await settle(); r.submit(); await settle(); r.click('[data-primary]'); await settle();
++  assert.match(r.el.textContent,/No question is scheduled/);
++  assert.ok(r.el.querySelector('[data-schedule]'));
++  assert.equal(r.el.querySelector('#schedule-date').getAttribute('value'),'2026-10-21');
++});
++
++test('empty catalog and failed catalog both provide a working reload', async () => {
++  let count=0;
++  const r = rig(()=>++count === 1 ? Promise.reject(new Error('offline')) : Promise.resolve(response(200,{questions:[]})));
++  await settle(); assert.match(r.el.textContent,/Could not load questions/);
++  r.click('[data-reload-questions]'); await settle();
++  assert.match(r.el.textContent,/No approved, unused questions/);
++  assert.ok(!r.el.querySelector('[data-primary]'));
++});
++
++test('catalog strings and errors are escaped', async () => {
++  const r = rig(()=>Promise.resolve(response(200,{questions:[{id:'<id>',topic:'<script>secret</script>'}]})));
++  await settle();
++  assert.ok(!r.el.innerHTML.includes('<script>'));
++  assert.match(r.el.innerHTML,/&lt;script&gt;/);
++});

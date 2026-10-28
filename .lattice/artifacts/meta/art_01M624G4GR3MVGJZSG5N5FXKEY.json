@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-28T20:51:18Z",
+  "created_by": "agent:claude",
+  "custom_fields": {},
+  "id": "art_01M624G4GR3MVGJZSG5N5FXKEY",
+  "model": null,
+  "payload": {
+    "content_type": null,
+    "file": "art_01M624G4GR3MVGJZSG5N5FXKEY.patch",
+    "size_bytes": 81728
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "ff574da + uncommitted + untracked, 26 files; git apply on 046779c; sha256 f03f3dc302a19ed1\u2026",
+  "tags": [],
+  "title": "codex/app-question-scheduling WIP patch (base 046779c)",
+  "token_usage": null,
+  "type": "file"
+}
