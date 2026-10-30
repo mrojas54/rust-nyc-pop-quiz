@@ -12,8 +12,8 @@ use crate::auth::OrganizerId;
 use crate::club::ClubSlug;
 use crate::phase::{Command, HostAction, Phase};
 
-use super::state_manager::{lock, Entry};
-use super::{random_bytes, Acted, AppState, Room, RoomError, CODE_ALPHABET};
+use crate::quiz_session::state_manager::{lock, Entry};
+use crate::quiz_session::{random_bytes, Acted, AppState, Room, RoomError, CODE_ALPHABET};
 
 /// What a new room's creator is handed, once.
 #[derive(Clone, Debug, Serialize)]

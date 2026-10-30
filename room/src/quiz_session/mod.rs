@@ -89,8 +89,8 @@
 
 use std::time::Duration;
 
-mod create;
 mod errors;
+pub mod host;
 pub mod lifecycle;
 pub mod models;
 mod open;
@@ -98,8 +98,8 @@ mod participants;
 mod seams;
 mod state_manager;
 
-pub use create::{new_code, Created};
 pub use errors::{AnswerError, Joined, RoomError, Scheduling};
+pub use host::create::{new_code, Created};
 pub use models::rooms::{Acted, Fit, Room, Totals, Urls};
 pub use open::{Opened, PublicView};
 pub use seams::{CloseSnapshot, LiveCounts, NoSessions, Sessions};

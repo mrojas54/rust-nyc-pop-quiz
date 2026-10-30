@@ -50,7 +50,6 @@ use axum::Router;
 
 pub mod connections;
 pub mod copy;
-pub mod host;
 mod quiz_session;
 pub mod server;
 
@@ -58,7 +57,7 @@ pub mod server;
 pub use connections::{requestlog, sessions, ws};
 pub use host::{auth, discord};
 pub use models::{affirmation, answers, club, phase, question, used, view};
-pub use quiz_session::{lifecycle, models};
+pub use quiz_session::{host, lifecycle, models};
 use server::routes;
 pub use server::{admin, config};
 
