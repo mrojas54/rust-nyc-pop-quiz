@@ -19,7 +19,7 @@
 // same treatment.
 //
 // The wall's words come from the room, not from PQ.t: the room fills §11's
-// templates in room/src/models/view.rs from room/src/copy.rs, which twins.rs pins to
+// templates in room/src/quiz_session/models/view.rs from room/src/copy.rs, which twins.rs pins to
 // copy.js. So each text field of a wall frame fixture must fully match one of
 // copy.js's real templates — which is checked — and is then swapped for the
 // same key's marker.
