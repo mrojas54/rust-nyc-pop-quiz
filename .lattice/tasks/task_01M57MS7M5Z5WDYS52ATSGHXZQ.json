@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-10-18T13:56:23Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M57MS7M5Z5WDYS52ATSGHXZQ",
-  "last_event_id": "ev_01M57MS7M7B7VDWFQ3ZTM4Q49G",
+  "last_event_id": "ev_01M677PPXNYB7VYH6VVMSSVAC1",
   "last_status_changed_at": "2026-10-18T13:56:23Z",
   "priority": "low",
   "relationships_out": [],
@@ -24,6 +24,6 @@
   ],
   "title": "Home's trace step buttons have no .btn base rule; the browser draws their edges",
   "type": "task",
-  "updated_at": "2026-10-18T13:56:23Z",
+  "updated_at": "2026-10-30T20:23:31Z",
   "urgency": null
 }
