@@ -73,6 +73,10 @@ fn review_walks_accept_affirm_edit_and_reaffirm_through_the_cli() {
     assert!(keys(&mut app, "ay").contains("q4 accepted."));
     assert_eq!(record(&bank)["review"]["status"], "accepted");
 
+    keys(&mut app, "\n");
+    assert!(keys(&mut app, "d4y").contains("q4 judged difficulty 4"));
+    assert_eq!(record(&bank)["review"]["difficulty_judged"], 4);
+
     // No name, no affirmation: the CLI refuses and the record is unchanged.
     keys(&mut app, "\n");
     let refused = keys(&mut app, "Ay");
@@ -111,6 +115,10 @@ fn review_walks_accept_affirm_edit_and_reaffirm_through_the_cli() {
 
     assert!(keys(&mut app, "Ay").contains("q4 affirmed by Test Organizer"));
     assert_eq!(record(&bank)["verified"], verified);
+
+    keys(&mut app, "\n");
+    assert!(keys(&mut app, "xToo close\ny").contains("q4 rejected: Too close"));
+    assert_eq!(record(&bank)["review"]["status"], "rejected");
     std::env::remove_var("POPQUIZ_ORGANIZER");
     std::env::remove_var("VISUAL");
     fs::remove_dir_all(&bank).unwrap();
