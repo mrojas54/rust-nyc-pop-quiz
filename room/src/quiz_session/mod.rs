@@ -94,7 +94,7 @@ pub mod host;
 pub mod lifecycle;
 pub mod models;
 mod open;
-mod participants;
+mod participant;
 mod seams;
 mod state_manager;
 
