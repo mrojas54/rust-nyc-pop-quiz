@@ -366,6 +366,89 @@ def test_an_edit_that_changes_nothing_writes_nothing(bank_dir, tmp_path, capsys)
     assert "nothing written" in capsys.readouterr().out
 
 
+class NoRunner:
+    """Fails a test that reaches the verifier when it should not."""
+
+    def run(self, kind, program_id):
+        raise AssertionError(f"the verifier ran: {kind} {program_id}")
+
+
+def test_gap24_an_identical_edit_of_an_affirmed_question_keeps_it_affirmed(bank_dir, tmp_path, capsys):
+    accepted_and_affirmed(bank_dir)
+    before = load(bank_dir, "q4")
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: None)
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir, runner=NoRunner()) == 0
+    q = load(bank_dir, "q4")
+    assert q.review.status == "accepted"
+    assert q.review.affirmed_by == NAME and q.review.affirmed_digest == before.review.affirmed_digest
+    assert bank.affirmation_state(q) == "bound"
+    assert schedule.refusal(q) is None
+
+
+def option_edit(bank_dir: Path, tmp_path: Path, qid: str = "q4") -> Path:
+    """An edit that changes a wrong choice's text, which re-verifies (`_verify_into_bank`)."""
+    q = load(bank_dir, qid)
+    correct = bank.correct_index(q)
+    other = next(i for i in range(5) if i != correct and q.options[i].kind == "output")
+    return edit_file(bank_dir, tmp_path, qid, lambda d: d["options"][other].update(text="-9 -9 | -9 9"))
+
+
+def re_verified(bank_dir: Path, path: Path, capsys, qid: str = "q4") -> str:
+    """Run the edit and prove it took the re-verify path: the verifier said so, and
+    wrote a new record."""
+    before = load(bank_dir, qid)
+    capsys.readouterr()
+    assert run("edit", qid, "--from", path, "--bank", bank_dir, runner=stub()) == 0
+    out = capsys.readouterr().out
+    assert "re-verified" in out and "ACCEPTED" in out
+    assert load(bank_dir, qid).verified.verified_at != before.verified.verified_at
+    return out
+
+
+def test_a_re_verifying_edit_does_not_accept_a_rejected_question(bank_dir, tmp_path, capsys):
+    assert run("reject", "q4", "--reason", "Too close to q3", "--bank", bank_dir) == 0
+    out = re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
+    assert "stays rejected" in out
+    q = load(bank_dir, "q4")
+    assert (q.review.status, q.review.reason) == ("rejected", "Too close to q3")
+    assert not audit.is_accepted(q) and not audit.in_reserve(q)
+    refused(run("affirm", "q4", "--by", NAME, "--bank", bank_dir), capsys, "It has not been accepted")
+
+
+def test_a_re_verifying_edit_does_not_accept_an_unreviewed_question(bank_dir, tmp_path, capsys):
+    assert load(bank_dir, "q4").review.status is None
+    out = re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
+    assert "not accepted yet" in out
+    q = load(bank_dir, "q4")
+    assert q.review.status is None
+    assert not audit.is_accepted(q) and not audit.in_reserve(q)
+    refused(run("affirm", "q4", "--by", NAME, "--bank", bank_dir), capsys, "It has not been accepted")
+
+
+def test_ac73_a_checked_quote_lasts_exactly_as_long_as_its_text(bank_dir, tmp_path, capsys):
+    span = "not what it printed"
+    file = bank.question_path(bank_dir, "q4")
+    data = json.loads(file.read_text())
+    data["explains"]["what"] += f' Someone might say "{span}".'
+    file.write_text(json.dumps(data))
+    assert run("accept", "q4", "--checked-quote", span, "--bank", bank_dir) == 0
+
+    # A prose edit and a re-verify both leave the span's text alone: still checked.
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: d.update(hint=d["hint"] + " More."))
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
+    re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
+    q = load(bank_dir, "q4")
+    assert q.review.quotes_checked == (span,)
+    assert review.accept_blockers(q) == []
+
+    # Reword the span and it is new text, which nobody has checked.
+    path = edit_file(
+        bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"].replace(span, "reworded"))
+    )
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
+    assert any('"reworded"' in b for b in review.accept_blockers(load(bank_dir, "q4")))
+
+
 def test_an_option_edit_re_verifies_through_the_verifier(bank_dir, tmp_path, capsys):
     assert run("accept", "q4", "--bank", bank_dir) == 0
     capsys.readouterr()
