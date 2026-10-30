@@ -96,14 +96,14 @@ mod open;
 mod participants;
 mod room;
 mod seams;
-mod state;
+mod state_manager;
 
 pub use create::{new_code, Created};
 pub use errors::{AnswerError, Joined, RoomError, Scheduling};
 pub use open::{Opened, PublicView};
 pub use room::{Acted, Fit, Room, Urls};
 pub use seams::{CloseSnapshot, LiveCounts, NoSessions, Sessions};
-pub use state::AppState;
+pub use state_manager::AppState;
 
 /// Per-option counts, A–E in arrival order. The only answer data a room holds
 /// (AC-56, D-12).

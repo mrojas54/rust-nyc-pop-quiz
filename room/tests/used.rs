@@ -162,10 +162,12 @@ fn g10_the_release_transition_is_the_only_writer() {
             }
         }
     }
-    // One `append` and the one `UsedRecord` it appends, both in rooms/state.rs.
+    // One `append` and the one `UsedRecord` it appends, both in quiz_session/state_manager.rs.
     assert_eq!(writers.len(), 2, "{writers:#?}");
     assert!(
-        writers.iter().all(|(f, _, _)| f == "rooms/state.rs"),
+        writers
+            .iter()
+            .all(|(f, _, _)| f == "quiz_session/state_manager.rs"),
         "{writers:#?}"
     );
     assert!(
@@ -175,9 +177,9 @@ fn g10_the_release_transition_is_the_only_writer() {
         "{writers:#?}"
     );
     // And that call sits in `AppState::act`, behind the release transition's
-    // parting, which only `Room::act`'s `Released` arm (rooms/room.rs) builds.
-    let state = file("rooms/state.rs");
-    let room = file("rooms/room.rs");
+    // parting, which only `Room::act`'s `Released` arm (quiz_session/room.rs) builds.
+    let state = file("quiz_session/state_manager.rs");
+    let room = file("quiz_session/room.rs");
     let act = state.rfind("    pub fn act(").expect("AppState::act");
     let append = state.find("self.used.append(").unwrap();
     let parting = state[act..]
@@ -190,7 +192,7 @@ fn g10_the_release_transition_is_the_only_writer() {
     // The parting is set once in the whole `rooms` module, and only in room.rs.
     let sets: usize = all
         .iter()
-        .filter(|(name, _)| name.starts_with("rooms/"))
+        .filter(|(name, _)| name.starts_with("quiz_session/"))
         .map(|(_, text)| text.matches("self.parting = Some(").count())
         .sum();
     assert_eq!(sets, 1);

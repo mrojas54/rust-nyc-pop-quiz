@@ -267,7 +267,7 @@ fn gap8_concurrent_creates_on_one_question_make_one_room() {
 /// lets neither go before the room is in.
 #[test]
 fn gap8_create_for_checks_and_inserts_in_one_critical_section() {
-    let src = std::fs::read_to_string(repo().join("room/src/rooms/create.rs")).unwrap();
+    let src = std::fs::read_to_string(repo().join("room/src/quiz_session/create.rs")).unwrap();
     let start = src.find("    fn create_for(").expect("create_for");
     let body = &src[start..start + src[start..].find("\n    }\n").expect("end of create_for")];
     let at = |needle: &str| {

@@ -52,18 +52,28 @@ pub mod connections;
 pub mod copy;
 pub mod host;
 pub mod models;
-pub mod rooms;
+mod quiz_session;
 pub mod server;
 
 // The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
 pub use connections::{requestlog, sessions, ws};
 pub use host::{auth, discord};
 pub use models::{affirmation, answers, club, phase, question, used, view};
-pub use rooms::lifecycle;
+pub use quiz_session::lifecycle;
 use server::routes;
 pub use server::{admin, config};
 
 pub use server::routes::host_routes;
+
+/// The room's public path. The source lives in `quiz_session/` (ADR-0005);
+/// `room::rooms::AppState`, `room::rooms::Room` and the rest stay as they were.
+pub mod rooms {
+    pub use crate::quiz_session::{
+        lifecycle, new_code, Acted, AnswerError, AppState, CloseSnapshot, Created, Fit, Joined,
+        LiveCounts, NoSessions, Opened, PublicView, Room, RoomError, Scheduling, Sessions, Totals,
+        Urls, CODE_ALPHABET, ROOM_LIFETIME,
+    };
+}
 
 /// The state the binary serves: *Create a room* authorized by Discord (T-10),
 /// which also signs organizers in, and nothing scheduled — questions arrive

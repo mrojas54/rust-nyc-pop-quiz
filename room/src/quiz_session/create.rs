@@ -12,7 +12,7 @@ use crate::auth::OrganizerId;
 use crate::club::ClubSlug;
 use crate::phase::{Command, HostAction, Phase};
 
-use super::state::{lock, Entry};
+use super::state_manager::{lock, Entry};
 use super::{Acted, AppState, Room, RoomError, CODE_ALPHABET};
 
 /// What a new room's creator is handed, once.

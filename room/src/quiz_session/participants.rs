@@ -5,7 +5,7 @@
 
 use crate::phase::Phase;
 
-use super::state::{lock, AppState};
+use super::state_manager::{lock, AppState};
 use super::{AnswerError, Joined, LiveCounts, RoomError};
 
 impl AppState {
