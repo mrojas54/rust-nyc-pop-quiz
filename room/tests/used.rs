@@ -203,7 +203,7 @@ fn g10_the_release_transition_is_the_only_writer() {
         "the parting is built outside the Released arm"
     );
     // The ledger's `append` is crate-private.
-    assert!(file("models/used.rs").contains("pub(crate) fn append("));
+    assert!(file("quiz_session/models/used.rs").contains("pub(crate) fn append("));
 }
 
 #[test]

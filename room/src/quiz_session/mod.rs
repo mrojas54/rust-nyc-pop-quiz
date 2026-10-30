@@ -92,6 +92,7 @@ use std::time::Duration;
 mod create;
 mod errors;
 pub mod lifecycle;
+pub mod models;
 mod open;
 mod participants;
 mod room;
