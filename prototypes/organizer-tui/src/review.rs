@@ -321,7 +321,8 @@ impl Review {
                 self.message = format!("Could not prepare the edit.\n{said}");
             }
             Job::Decide(decision) => {
-                self.changed = true;
+                // Sticky: a refusal after an earlier decision still leaves that one to reload.
+                self.changed |= out.ok;
                 let mut message = format!(
                     "{}\n{said}",
                     if out.ok { "Recorded." } else { "Not recorded." }
@@ -731,6 +732,37 @@ mod tests {
             args(&r.command(&Job::Show))[2..],
             ["show", "--bank", "/tmp/bank", "--", "-x"]
         );
+    }
+
+    fn finish_decision(r: &mut Review, ok: bool) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(Some(Outcome {
+            ok,
+            stdout: String::new(),
+            stderr: String::new(),
+        }))
+        .unwrap();
+        r.job = Some((Job::Decide(Decision::Affirm), rx));
+        r.poll();
+    }
+
+    #[test]
+    fn a_refused_decision_does_not_ask_for_a_reload() {
+        let mut r = review(None);
+        finish_decision(&mut r, false);
+        assert!(r.text().contains("Not recorded."));
+        assert!(!r.changed);
+    }
+
+    #[test]
+    fn a_refusal_does_not_undo_the_reload_an_earlier_decision_asked_for() {
+        let mut r = review(None);
+        finish_decision(&mut r, true);
+        assert!(r.text().contains("Recorded."));
+        assert!(r.changed);
+        finish_decision(&mut r, false);
+        assert!(r.text().contains("Not recorded."));
+        assert!(r.changed);
     }
 
     #[test]
