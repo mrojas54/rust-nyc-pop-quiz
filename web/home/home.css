@@ -59,6 +59,21 @@
 .walk .trace-note, .walk .tval { overflow-wrap: anywhere; min-width: 0; }
 .walk .tval { flex-wrap: wrap; }
 .walk .trace-nav { flex-wrap: wrap; }
+/* The prototype's `.btn` and `.btn-primary` are not in web/shared; home carries
+   its own, scoped to it, as the buzzer does. Focus is .home-page :focus-visible,
+   below. trace.js's inline padding and min-height win over these.
+   AC-84 (PQ-78, the PQ-43 owner ruling of 2026-10-18): a button's edge is held
+   at 3:1 (SC 1.4.11). --text-muted for the plain edge, --accent-hover for the
+   primary's; no token value moves. */
+.home-page .btn { font-family: var(--font-mono); font-size: var(--text-sm);
+                  min-height: var(--touch-target); min-width: var(--touch-target); padding: 10px 18px;
+                  border: var(--border-w) solid var(--text-muted); border-radius: var(--radius);
+                  background: var(--bg-input); color: var(--text-primary); cursor: pointer; }
+.home-page .btn:hover { background: var(--bg-tertiary); }
+.home-page .btn-primary { background: var(--accent-primary); border-color: var(--accent-hover);
+                          color: var(--gray-800); font-weight: 600; }
+.home-page .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #ffffff; }
+.home-page .btn:disabled { opacity: .5; cursor: not-allowed; }
 /* AC-85 (T-13): trace.js sizes its step buttons inline at 34 px, for the
    review surfaces; here they are a reader's touch targets. */
 .walk .trace-nav .btn { min-height: var(--touch-target) !important; min-width: var(--touch-target); }
