@@ -917,11 +917,13 @@ test('ac84_host: every text on every screen is AA; the step and primary buttons\
 
 test('ac84_landing: every text, the koan bubble and the join button are AA', () => ac84('landing'));
 
-test('ac84_home: every text at every step is AA; the ✓ and the highlight edge are 3:1', () => {
+test('ac84_home: every text at every step is AA; the ✓, the highlight edge and the step buttons\' edges are 3:1', () => {
   ac84('home');
   const html = HOME.html(HOME_FIX.q3, { step: 1 });
   edge('home', html, '.rn-check', 'color', (n, css) => [W.background(css, n).color], 'the ✓ glyph (correct marker)');
   edge('home', html, '.rn-src-line.hl', 'border-left-color', ownAndParent, 'trace highlight edge (the line running now)');
+  edge('home', html, '.trace-nav .btn:not(.btn-primary)', 'border', parentBg, 'the back step button\'s edge');
+  edge('home', html, '.trace-nav .btn-primary', 'border-color', parentBg, 'the forward step button\'s edge');
 });
 
 // --- AC-85: touch targets ------------------------------------------------------------
