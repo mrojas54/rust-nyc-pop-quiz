@@ -95,20 +95,15 @@ pub mod lifecycle;
 pub mod models;
 mod open;
 mod participants;
-mod room;
 mod seams;
 mod state_manager;
 
 pub use create::{new_code, Created};
 pub use errors::{AnswerError, Joined, RoomError, Scheduling};
+pub use models::rooms::{Acted, Fit, Room, Totals, Urls};
 pub use open::{Opened, PublicView};
-pub use room::{Acted, Fit, Room, Urls};
 pub use seams::{CloseSnapshot, LiveCounts, NoSessions, Sessions};
 pub use state_manager::AppState;
-
-/// Per-option counts, A–E in arrival order. The only answer data a room holds
-/// (AC-56, D-12).
-pub type Totals = [u32; 5];
 
 /// A room lives at most four hours from creation (AC-69).
 pub const ROOM_LIFETIME: Duration = Duration::from_secs(4 * 60 * 60);
@@ -116,3 +111,13 @@ pub const ROOM_LIFETIME: Duration = Duration::from_secs(4 * 60 * 60);
 /// The code alphabet: letters and digits without `O 0 I 1` (SPEC §3.4). 32
 /// symbols, so a random byte masked to five bits picks one without bias.
 pub const CODE_ALPHABET: &[u8; 32] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+fn random_bytes<const N: usize>() -> [u8; N] {
+    let mut buf = [0u8; N];
+    getrandom::fill(&mut buf).expect("the OS random source is available");
+    buf
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}

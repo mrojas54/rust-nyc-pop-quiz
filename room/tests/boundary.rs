@@ -179,8 +179,8 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         ("quiz_session/models/answers.rs", "pub struct Vault"),
         ("quiz_session/models/answers.rs", "pub struct Verdict"),
         ("quiz_session/models/answers.rs", "pub struct Scheduled"),
-        ("quiz_session/room.rs", "pub struct Room "),
-        ("quiz_session/room.rs", "struct Frozen"),
+        ("quiz_session/models/rooms.rs", "pub struct Room "),
+        ("quiz_session/models/rooms.rs", "struct Frozen"),
         ("quiz_session/open.rs", "pub struct Opened"),
     ];
     let everything = common::room_sources(&[]);
@@ -226,12 +226,12 @@ fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
             assert!(!code.contains(".question.open("), "{name} opens a question");
         }
         // phase.rs binds a local `machine` inside `apply`, which is the machine.
-        if name != "quiz_session/room.rs" && name != "quiz_session/models/phase.rs" {
+        if name != "quiz_session/models/rooms.rs" && name != "quiz_session/models/phase.rs" {
             assert!(!code.contains("machine ="), "{name} assigns a machine");
         }
     }
-    // In quiz_session/room.rs, `machine` is assigned once — in `act`, from `apply`.
-    let rooms = code(&src("quiz_session/room.rs"));
+    // In quiz_session/models/rooms.rs, `machine` is assigned once — in `act`, from `apply`.
+    let rooms = code(&src("quiz_session/models/rooms.rs"));
     assert_eq!(rooms.matches("self.machine =").count(), 1);
     let act = block(&rooms, "pub fn act(");
     assert!(act.contains("apply(State::Room(self.machine.clone()), command)?"));
@@ -275,7 +275,9 @@ fn within_rooms_only_open_rs_names_the_sealed_answer_types() {
     // only the one that opens a question may import or hold them (ADR-0003).
     let mut seen_in_open = false;
     for (name, text) in common::room_sources(&[]) {
-        if !name.starts_with("quiz_session/") || name.starts_with("quiz_session/models/") {
+        if !name.starts_with("quiz_session/")
+            || (name.starts_with("quiz_session/models/") && name != "quiz_session/models/rooms.rs")
+        {
             continue;
         }
         let code = code(&text);

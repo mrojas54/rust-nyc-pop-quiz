@@ -177,9 +177,9 @@ fn g10_the_release_transition_is_the_only_writer() {
         "{writers:#?}"
     );
     // And that call sits in `AppState::act`, behind the release transition's
-    // parting, which only `Room::act`'s `Released` arm (quiz_session/room.rs) builds.
+    // parting, which only `Room::act`'s `Released` arm (quiz_session/models/rooms.rs) builds.
     let state = file("quiz_session/state_manager.rs");
-    let room = file("quiz_session/room.rs");
+    let room = file("quiz_session/models/rooms.rs");
     let act = state.rfind("    pub fn act(").expect("AppState::act");
     let append = state.find("self.used.append(").unwrap();
     let parting = state[act..]
@@ -189,7 +189,7 @@ fn g10_the_release_transition_is_the_only_writer() {
         parting.is_some_and(|p| p < append),
         "the append is not behind take_parting"
     );
-    // The parting is set once in the whole `rooms` module, and only in room.rs.
+    // The parting is set once in the whole `quiz_session` module, and only in models/rooms.rs.
     let sets: usize = all
         .iter()
         .filter(|(name, _)| name.starts_with("quiz_session/"))

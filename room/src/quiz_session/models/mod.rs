@@ -10,6 +10,8 @@
 //!   of the pipeline's rule, which the room checks before it runs one (G-12).
 //! - [`question`] — the public half of a question.
 //! - [`club`] — which club a room belongs to, and its time zone.
+//! - `rooms` — one room's record and the writes the phase machine drives
+//!   ([`Room`](crate::rooms::Room)).
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`used`] — the used-question ledger and the take-it-home snapshot.
 
@@ -18,5 +20,6 @@ pub mod answers;
 pub mod club;
 pub mod phase;
 pub mod question;
+pub(in crate::quiz_session) mod rooms;
 pub mod used;
 pub mod view;
