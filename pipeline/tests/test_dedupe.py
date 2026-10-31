@@ -21,7 +21,9 @@ from popquiz.bank import (
     History,
     Question,
     Review,
+    Runs,
     Trace,
+    Verified,
     load_bank,
     load_history,
     load_question,
@@ -1469,6 +1471,147 @@ def test_the_command_line_exit_codes(
     assert cli(repeat, "--bank", bank_copy, cwd=here).returncode == 1
     assert cli(passing, "--bank", bank_copy, "--threshold", "2", cwd=here).returncode == 2
     assert cli(here / "absent.json", "--bank", bank_copy, cwd=here).returncode == 2
+
+
+# --------------------------------------------------------------------------- #
+# Equal tokens, and the verifier says the programs differ
+# --------------------------------------------------------------------------- #
+
+# A name's meaning can need the compiler's types, which tokens cannot show. This
+# pair normalizes equal, and rustc 1.96.1 exits 0 on the first and 1 (E0599) on the
+# second: `std::primitive::u32` is the library's type, not the program's `struct u32`.
+SAME_TOKENS_COMPILES = "struct u32; impl u32 { fn count_ones(&self) -> u8 { 0 } } trait Tr { fn go(&self); } impl Tr for std::primitive::u32 { fn go(&self) { let _ = self.count_ones(); } } fn main() { Tr::go(&3u32); }"
+SAME_TOKENS_FAILS = "struct u32; impl u32 { fn zzq(&self) -> u8 { 0 } } trait Tr { fn go(&self); } impl Tr for std::primitive::u32 { fn go(&self) { let _ = self.zzq(); } } fn main() { Tr::go(&3u32); }"
+# A true renaming, so these rows hold whatever the name rules do.
+RENAMED_ONE = "fn main() { let a = 1; let _ = a; }"
+RENAMED_TWO = "fn main() { let b = 1; let _ = b; }"
+
+
+def ran(exit_code: int | None = 0) -> Verified:
+    return Verified(
+        rustc="rustc",
+        edition="2021",
+        legacy=exit_code is None,
+        runs=Runs(count=1, byte_identical=True),
+        exit_code=exit_code,
+    )
+
+
+def fails(*codes: str) -> Verified:
+    return Verified(rustc="rustc", edition="2021", compile_error_code=codes)
+
+
+def verified_candidate(
+    base: Question, qid: str, source: str, record: Verified | None
+) -> Question:
+    return dataclasses.replace(candidate(base, qid, source), verified=record)
+
+
+def test_the_token_pair_is_equal_and_only_the_record_separates_it() -> None:
+    """If a name rule ever closes this pair, the next test stops exercising the check."""
+    assert normalized_tokens(SAME_TOKENS_COMPILES) == normalized_tokens(SAME_TOKENS_FAILS)
+
+
+@pytest.mark.parametrize(
+    "first, second",
+    [(SAME_TOKENS_COMPILES, SAME_TOKENS_FAILS), (SAME_TOKENS_FAILS, SAME_TOKENS_COMPILES)],
+    ids=["the compiling program is in the bank", "the failing program is in the bank"],
+)
+def test_one_compiles_and_one_does_not_reaches_the_organizer(
+    bank: dict[str, Question], bank_copy: pathlib.Path, first: str, second: str
+) -> None:
+    record = {SAME_TOKENS_COMPILES: ran(), SAME_TOKENS_FAILS: fails("E0599")}
+    run(bank_copy, [verified_candidate(bank["q3"], "one", first, record[first])])
+    report = run(bank_copy, [verified_candidate(bank["q3"], "two", second, record[second])])
+
+    assert [v.kind for v in report.verdicts] == ["near_duplicate"]
+    assert report.verdicts[0].duplicate_of == "one"
+    assert report.verdicts[0].similarity == 1.0
+    queued = load_question(bank_copy, "two")
+    assert queued.review is not None
+    assert queued.review.near_duplicate_of == "one"
+    assert queued.review.status is None
+
+
+def test_the_command_line_reads_the_record_from_a_candidate_file(
+    bank: dict[str, Question], bank_copy: pathlib.Path, cli
+) -> None:
+    here = bank_copy.parent
+    one = write_candidate(
+        here / "one.json", verified_candidate(bank["q3"], "one", SAME_TOKENS_COMPILES, ran())
+    )
+    two = write_candidate(
+        here / "two.json",
+        verified_candidate(bank["q3"], "two", SAME_TOKENS_FAILS, fails("E0599")),
+    )
+    assert cli(one, "--bank", bank_copy, cwd=here).returncode == 0
+    assert cli(two, "--bank", bank_copy, cwd=here).returncode == 0
+    queued = load_question(bank_copy, "two")
+    assert queued.review is not None and queued.review.near_duplicate_of == "one"
+
+
+# Equal tokens. Each row: the bank's record, the candidate's, and the verdict.
+RECORD_COMPARISONS = [
+    ("the same exit code", ran(0), ran(0), "normalized_duplicate"),
+    ("different exit codes", ran(0), ran(101), "near_duplicate"),
+    ("the same error code", fails("E0599"), fails("E0599"), "normalized_duplicate"),
+    ("the same error codes in another order", fails("E0382", "E0599"), fails("E0599", "E0382"), "normalized_duplicate"),
+    ("different error codes", fails("E0382"), fails("E0599"), "near_duplicate"),
+    ("ran against does not compile", ran(0), fails("E0599"), "near_duplicate"),
+    ("no record in the bank", None, ran(0), "normalized_duplicate"),
+    ("no record on the candidate", ran(0), None, "normalized_duplicate"),
+    ("no record on either", None, None, "normalized_duplicate"),
+    ("a legacy record has no exit code to compare", ran(None), ran(101), "normalized_duplicate"),
+    ("a record of neither shape says nothing", Verified(rustc="rustc", edition="2021"), fails("E0599"), "normalized_duplicate"),
+]
+
+
+@pytest.mark.parametrize(
+    "label, held, new, kind", RECORD_COMPARISONS, ids=[row[0] for row in RECORD_COMPARISONS]
+)
+def test_equal_tokens_are_compared_on_the_verifier_record(
+    bank: dict[str, Question],
+    bank_copy: pathlib.Path,
+    label: str,
+    held: Verified | None,
+    new: Verified | None,
+    kind: str,
+) -> None:
+    run(bank_copy, [verified_candidate(bank["q3"], "held", RENAMED_ONE, held)])
+    report = run(bank_copy, [verified_candidate(bank["q3"], "new", RENAMED_TWO, new)])
+    assert [v.kind for v in report.verdicts] == [kind], label
+
+
+def test_a_batch_compares_records_and_any_matching_record_rejects(
+    bank: dict[str, Question], bank_copy: pathlib.Path
+) -> None:
+    """Within one batch, and across several token matches: one with the same result
+    is a duplicate, whichever order they sit in."""
+    report = run(
+        bank_copy,
+        [
+            verified_candidate(bank["q3"], "a", RENAMED_ONE, ran()),
+            verified_candidate(bank["q3"], "b", RENAMED_TWO, fails("E0599")),
+            verified_candidate(
+                bank["q3"], "c", "fn main() { let c = 1; let _ = c; }", fails("E0599")
+            ),
+            verified_candidate(bank["q3"], "d", "fn main() { let d = 1; let _ = d; }", ran()),
+        ],
+    )
+    assert [(v.kind, v.duplicate_of) for v in report.verdicts] == [
+        ("cleared", None),
+        ("near_duplicate", "a"),
+        ("normalized_duplicate", "b"),
+        ("normalized_duplicate", "a"),
+    ]
+
+
+def test_an_exact_duplicate_is_rejected_whatever_the_records_say(
+    bank: dict[str, Question], bank_copy: pathlib.Path
+) -> None:
+    run(bank_copy, [verified_candidate(bank["q3"], "one", RENAMED_ONE, ran())])
+    report = run(bank_copy, [verified_candidate(bank["q3"], "two", RENAMED_ONE, fails("E0599"))])
+    assert [v.kind for v in report.verdicts] == ["exact_duplicate"]
 
 
 # --------------------------------------------------------------------------- #

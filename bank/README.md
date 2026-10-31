@@ -265,6 +265,14 @@ Everything else joins the queue unmarked. The only thing dedupe says about a
 candidate that passed is **no exact or normalized duplicate found**, and it says
 nothing beyond that (AC-18).
 
+**Equal tokens are not always a duplicate.** Tokens cannot always show whether a
+name means the program's type or the library's. So when two programs normalize
+equal and their `verified` records show they differ (one ran and one did not
+compile, or their error or exit codes differ), the candidate is not rejected. It
+joins the queue as a near duplicate at similarity 1.00. This works only where both
+programs have a record, and output is not compared. Two programs with the same
+recorded result are still treated as duplicates, even if they mean different things.
+
 **The review queue is the bank.** Dedupe admits a candidate by appending it
 under `questions/` with `review.status` unset, beside the migrated questions
 already waiting there. Rejected candidates are written nowhere. Every check runs

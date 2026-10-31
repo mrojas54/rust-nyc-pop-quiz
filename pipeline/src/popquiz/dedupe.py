@@ -45,6 +45,16 @@ this quiz a program that does not compile is as good a question as one that does
 comma would throw away a question. Documentation comments outside recognized
 item positions are kept as markers, including comments before parameters.
 
+**The verifier's record is the backstop for that rule, because tokens cannot keep
+it alone.** Whether a spelling means the program's type or the library's can take
+the compiler's types to answer. So in a run, equal tokens are rejected only if the
+two records do not show different programs (`_results_differ`). Where one ran and
+one did not compile, or their error or exit codes differ, the candidate falls
+through to the near check at similarity 1.00 and an organizer decides. This closes
+a false match only where both programs have a record, and only where the record
+differs: two programs with the same result stay merged, even if they mean different
+things, and `check`, which is given no records, compares tokens alone.
+
 **A declared name is renamed only where the tokens place it in scope.** Each
 declaration reaches a token range that approximates its Rust scope: parameters and
 generics their function, closure parameters their closure, `let` / `if let` /
@@ -138,7 +148,7 @@ import json
 import re
 import sys
 from bisect import bisect_right
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
@@ -150,11 +160,13 @@ from popquiz.bank import (
     History,
     Question,
     Review,
+    Verified,
     append_question,
     history_path,
     load_bank,
     load_history,
     question_from_dict,
+    receipt_class,
     save_history,
     source_hash,
 )
@@ -2724,19 +2736,45 @@ def _require_threshold(threshold: float) -> None:
         )
 
 
+def _results_differ(a: Verified | None, b: Verified | None) -> bool:
+    """Whether the verifier's records show two programs are not the same program: one
+    ran and one did not compile, or the error codes or exit codes differ. Printed
+    output is not compared, since a true renaming can change it (`{:?}`, `stringify!`).
+    A missing or partial record shows nothing, and neither does a legacy record's
+    absent exit code."""
+    kind = receipt_class(a)
+    other = receipt_class(b)
+    if a is None or b is None or kind is None or other is None:
+        return False
+    if kind != other:
+        return True
+    if kind == "does_not_compile":
+        return set(a.compile_error_code or ()) != set(b.compile_error_code or ())
+    return (
+        a.exit_code is not None
+        and b.exit_code is not None
+        and a.exit_code != b.exit_code
+    )
+
+
 def _check_entry(
     candidate_id: str,
     entry: Entry,
     history: History,
     threshold: float,
     excluding: str | None,
+    result: Verified | None = None,
+    results: Mapping[str, Verified | None] | None = None,
 ) -> Verdict:
     ids = [qid for qid in sorted(recorded_ids(history)) if qid != excluding]
+    known = results or {}
     for qid in ids:
         if history.exact_hashes.get(qid) == entry.exact_hash:
             return Verdict(candidate_id, "exact_duplicate", threshold, duplicate_of=qid)
     for qid in ids:
-        if history.ast_fingerprints.get(qid) == entry.fingerprint:
+        if history.ast_fingerprints.get(qid) == entry.fingerprint and not _results_differ(
+            result, known.get(qid)
+        ):
             return Verdict(
                 candidate_id, "normalized_duplicate", threshold, duplicate_of=qid
             )
@@ -2935,15 +2973,19 @@ def run(
     # Lex every candidate before anything is written, so one that cannot be lexed
     # stops the run with the bank untouched.
     entries = [entry_for(candidate.source) for candidate in candidates]
+    results = {question.id: question.verified for question in questions}
 
     verdicts: list[Verdict] = []
     queued: list[Question] = []
     for candidate, entry in zip(candidates, entries):
-        verdict = _check_entry(candidate.id, entry, history, threshold, None)
+        verdict = _check_entry(
+            candidate.id, entry, history, threshold, None, candidate.verified, results
+        )
         verdicts.append(verdict)
         if verdict.admitted:
             queued.append(_into_review_queue(candidate, verdict))
             history = _with_entry(history, candidate.id, entry)
+            results[candidate.id] = candidate.verified
 
     if write:
         for question in queued:
