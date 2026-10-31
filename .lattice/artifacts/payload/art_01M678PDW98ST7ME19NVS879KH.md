@@ -1,0 +1,1 @@
+PASS, reviewed HEAD 40a33c4d9db37fb976379785fb6964ed3a9dae5c. No Critical, Major, Minor or NIT findings. One pass of the two allowed. codex review --base refuses custom instructions, so the prompt named git diff origin/main...HEAD; the transcript shows Codex ran that diff. Codex also ran the Python mutations itself, and each failed the named test. The tree was clean afterwards.

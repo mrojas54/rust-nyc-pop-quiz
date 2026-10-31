@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-30T20:42:21Z",
+  "created_by": "agent:delegator-pq78",
+  "custom_fields": {},
+  "id": "art_01M678S6A0R3G4R253HQ59NBXM",
+  "model": null,
+  "payload": {
+    "content_type": "image/png",
+    "file": "art_01M678S6A0R3G4R253HQ59NBXM.png",
+    "size_bytes": 269198
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "after-wide-end",
+  "token_usage": null,
+  "type": "file"
+}

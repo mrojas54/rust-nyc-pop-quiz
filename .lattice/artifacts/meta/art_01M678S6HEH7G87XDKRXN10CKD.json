@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-30T20:42:21Z",
+  "created_by": "agent:delegator-pq78",
+  "custom_fields": {},
+  "id": "art_01M678S6HEH7G87XDKRXN10CKD",
+  "model": null,
+  "payload": {
+    "content_type": "image/png",
+    "file": "art_01M678S6HEH7G87XDKRXN10CKD.png",
+    "size_bytes": 186331
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "after-phone-step2",
+  "token_usage": null,
+  "type": "file"
+}

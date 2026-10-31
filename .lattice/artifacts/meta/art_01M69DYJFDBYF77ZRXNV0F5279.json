@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-31T16:51:09Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M69DYJFDBYF77ZRXNV0F5279",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M69DYJFDBYF77ZRXNV0F5279.md",
+    "size_bytes": 203
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged on the client's word (PR #109, merge commit 0deed94). Exact-head PR CI green at 40a33c4; main deploy success; main CI test-full failed on runner disk (No space left on device), re-run in progre",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
