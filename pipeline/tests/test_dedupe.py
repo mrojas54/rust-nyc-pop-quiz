@@ -771,6 +771,31 @@ SCOPE_NEVER_THE_SAME = [
         "fn main() { if let drop = |x: i32| -> () { drop(x) } { } }",
         "fn main() { if let zzq = |x: i32| -> () { zzq(x) } { } }",
     ),
+    (
+        "a block-level use shadows a function of the same name",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::drop; drop(1); } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::drop; zzq(1); } zzq(1, 2); }",
+    ),
+    (
+        "a nested path in a block-level use group shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::{mem::drop, mem::swap}; drop(1); let _ = swap::<i32>; } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::{mem::drop, mem::swap}; zzq(1); let _ = swap::<i32>; } zzq(1, 2); }",
+    ),
+    (
+        "a block-level use group's bare name shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::{drop, swap}; drop(1); let _ = swap::<i32>; } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::{drop, swap}; zzq(1); let _ = swap::<i32>; } zzq(1, 2); }",
+    ),
+    (
+        "a block-level glob use shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::*; drop(1); } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::*; zzq(1); } zzq(1, 2); }",
+    ),
+    (
+        "a use in a function body shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn f() { use std::mem::drop; drop(1); } fn main() { f(); drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn f() { use std::mem::drop; zzq(1); } fn main() { f(); zzq(1, 2); }",
+    ),
 ]
 
 
@@ -888,6 +913,21 @@ SCOPED_THE_SAME = [
         "an if-let and a for after a plain call",
         "fn y() -> Option<i32> { None } fn main() { if let Some(a) = y() { let _ = a; } for b in [1] { let _ = b; } }",
         "fn y() -> Option<i32> { None } fn main() { if let Some(c) = y() { let _ = c; } for d in [1] { let _ = d; } }",
+    ),
+    (
+        "a block-level use beside an unrelated function",
+        "fn go() {} fn main() { { use std::mem::drop; drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::drop; drop(1); } run(); }",
+    ),
+    (
+        "a block-level glob use beside a function outside its block",
+        "fn go() {} fn main() { { use std::mem::*; drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::*; drop(1); } run(); }",
+    ),
+    (
+        "a block-level use's alias",
+        "fn helper(_: i32) {} fn main() { { use std::mem::drop as d; d(1); } helper(1); }",
+        "fn aid(_: i32) {} fn main() { { use std::mem::drop as e; e(1); } aid(1); }",
     ),
 ]
 

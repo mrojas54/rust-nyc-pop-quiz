@@ -807,6 +807,8 @@ class _Declared:
     `assoc_owners` maps each associated name to the spellings of the types and
     traits that declare it. `impl_owner` maps the `{` of each `impl` or `trait` to
     its owner's spelling, so `Self` can be followed to the type around it.
+    `block_use_names` are the spellings a `use` inside a block may bring in, which
+    can shadow a program's item there, so they are kept.
     """
 
     names: frozenset[str]
@@ -824,6 +826,7 @@ class _Declared:
     assoc_owners: dict[str, set[str]]
     impl_owner: dict[int, str]
     enclosing: list[int | None]
+    block_use_names: frozenset[str]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -1064,6 +1067,7 @@ class _Collector:
             (b, s.partner[b]) for bodies in self.module_bodies.values() for b in bodies
         )
         self.module_starts = [b for b, _ in self.module_spans]
+        self.block_use_names: set[str] = set()
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1139,6 +1143,32 @@ class _Collector:
     def local(self, names: Iterable[str], lo: int, hi: int) -> None:
         """A binding reaches `[lo, hi]`, and like an item stops at nested modules."""
         self.scope_outside_modules(names, lo, lo, hi)
+
+    def block_use(self, k: int, end: int) -> None:
+        """The `use` at `k`, ending at `end`, if it sits in a block rather than at the
+        top level or directly in a module. Each name it imports may shadow an item
+        here, and tokens cannot tell, so its spelling is kept. An alias is not
+        recorded: it is the program's own name, and scoped as an item. A glob may
+        bring in any name, so every name in the block is kept."""
+        s = self.s
+        brace = self.enclosing[k]
+        if brace is None or brace in self.module_starts:
+            return
+        for j in range(k + 1, min(end, s.n)):
+            t = s.tokens[j]
+            if _is(t, "*"):
+                self.block_use_names |= {
+                    x.text
+                    for x in s.tokens[brace : s.partner[brace]]
+                    if x.kind == "ident"
+                }
+            elif (
+                t.kind == "ident"
+                and not s.path_sep[j + 1]
+                and not _kw(s.at(j + 1), "as")
+                and not _kw(s.at(j - 1), "as")
+            ):
+                self.block_use_names.add(t.text)
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
@@ -1385,6 +1415,8 @@ def _declared(s: _Stream) -> _Declared:
                 c.scope(found, k, c.item_end(gt + 1))
             elif word == "use":
                 end = s.find(k + 1, s.n, lambda j: _is(tokens[j], ";"))
+                if not _is(s.at(k + 1), "<"):  # not `+ use<'a>`
+                    c.block_use(k, end)
                 for j in range(k + 1, min(end, s.n)):
                     alias = s.at(j + 1)
                     if (
@@ -1434,6 +1466,7 @@ def _declared(s: _Stream) -> _Declared:
         c.assoc_owners,
         c.impl_owner,
         c.enclosing,
+        frozenset(c.block_use_names),
     )
 
 
@@ -2056,6 +2089,7 @@ def _normalize(
         protected |= declared.names | declared.members | declared.macros
     # A library trait fixes the names declared in its `impl`.
     protected |= declared.library_impl_items
+    protected |= declared.block_use_names
     # A protected head keeps its tails verbatim, which may protect more: repeat
     # until nothing changes. Each round only grows `protected`.
     while extra := _unreached_path_tails(s, declared, protected) - protected:
