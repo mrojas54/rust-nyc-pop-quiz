@@ -726,6 +726,51 @@ SCOPE_NEVER_THE_SAME = [
         "fn main() { match 1 { drop => { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } } }",
         "fn main() { match 1 { zzq => { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } } }",
     ),
+    (
+        "an if-let initializer block is not the binding's block",
+        "fn main() { if let Some(drop) = { drop(1); Some(2) } { } }",
+        "fn main() { if let Some(zzq) = { zzq(1); Some(2) } { } }",
+    ),
+    (
+        "a while-let initializer block is not the binding's block",
+        "fn main() { let mut n = 0; while let Some(drop) = { drop(1); if n == 0 { n = 1; Some(2) } else { None } } { } }",
+        "fn main() { let mut n = 0; while let Some(zzq) = { zzq(1); if n == 0 { n = 1; Some(2) } else { None } } { } }",
+    ),
+    (
+        "a for loop's iterator block is not the binding's block",
+        "fn main() { for drop in { drop(1); [2] } { } }",
+        "fn main() { for zzq in { zzq(1); [2] } { } }",
+    ),
+    (
+        "an unsafe initializer is not the binding's block",
+        "fn main() { if let Some(drop) = unsafe { drop(1); Some(2) } { } }",
+        "fn main() { if let Some(zzq) = unsafe { zzq(1); Some(2) } { } }",
+    ),
+    (
+        "a match initializer is not the binding's block",
+        "fn main() { if let Some(drop) = match 1 { _ => { drop(1); Some(2) } } { } }",
+        "fn main() { if let Some(zzq) = match 1 { _ => { zzq(1); Some(2) } } { } }",
+    ),
+    (
+        "a labelled initializer block is not the binding's block",
+        "fn main() { if let Some(drop) = 'a: { drop(1); break 'a Some(2) } { } }",
+        "fn main() { if let Some(zzq) = 'a: { zzq(1); break 'a Some(2) } { } }",
+    ),
+    (
+        "a macro's braces in the initializer are not the binding's block",
+        "fn main() { if let Some(drop) = vec!{ drop(1) }.pop() { } }",
+        "fn main() { if let Some(zzq) = vec!{ zzq(1) }.pop() { } }",
+    ),
+    (
+        "a closure's block in the initializer is not the binding's block",
+        "fn main() { if let drop = |x: i32| { drop(x); } { } }",
+        "fn main() { if let zzq = |x: i32| { zzq(x); } { } }",
+    ),
+    (
+        "a closure's block after its return type is not the binding's block",
+        "fn main() { if let drop = |x: i32| -> () { drop(x) } { } }",
+        "fn main() { if let zzq = |x: i32| -> () { zzq(x) } { } }",
+    ),
 ]
 
 
@@ -838,6 +883,11 @@ SCOPED_THE_SAME = [
         "a local and a same-spelled local in a nested module",
         "fn main() { let a = 1; mod m { pub fn f() -> i32 { let a = 2; a } } m::f(); let _ = a; }",
         "fn main() { let b = 1; mod m { pub fn f() -> i32 { let b = 2; b } } m::f(); let _ = b; }",
+    ),
+    (
+        "an if-let and a for after a plain call",
+        "fn y() -> Option<i32> { None } fn main() { if let Some(a) = y() { let _ = a; } for b in [1] { let _ = b; } }",
+        "fn y() -> Option<i32> { None } fn main() { if let Some(c) = y() { let _ = c; } for d in [1] { let _ = d; } }",
     ),
 ]
 

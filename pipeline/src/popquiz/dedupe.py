@@ -976,6 +976,39 @@ def _impl_trait(s: _Stream, brace: int) -> str | None:
     return None
 
 
+# Words that open a block inside a condition's head, before the block it guards.
+_HEAD_BLOCK_WORDS = frozenset(
+    ["if", "match", "loop", "while", "for", "unsafe", "async", "const"]
+)
+_EXPRESSION_END_WORDS = frozenset(["self", "true", "false", "await"])
+
+
+def _body_brace(s: _Stream, start: int) -> int | None:
+    """The `{` of the block a condition guards, for the head starting at `start`, or
+    `None` when tokens cannot tell it from a block in the head. Rust forbids a struct
+    literal there, so a `{` after a plain expression's last token is the block. A `{`
+    after anything else (`=`, `|`, `!`, a label's `:`), or after a word like `unsafe`
+    or a closure's `->`, may open the initializer, and then the binding reaches no
+    block at all: its uses are kept, which costs a missed rename rather than a false
+    match."""
+    k = s.find(
+        start,
+        s.n,
+        lambda j: _is(s.tokens[j], "{")
+        or (s.tokens[j].kind == "keyword" and s.tokens[j].text in _HEAD_BLOCK_WORDS)
+        or (_is(s.tokens[j], "-") and s.tokens[j].joint and _is(s.at(j + 1), ">")),
+    )
+    if not _is(s.at(k), "{") or k not in s.partner or k == 0:
+        return None
+    before = s.tokens[k - 1]
+    ends_expression = (
+        before.kind in ("ident", "number", "string", "char")
+        or (before.kind == "keyword" and before.text in _EXPRESSION_END_WORDS)
+        or before.text in (")", "]", "?")
+    )
+    return k if ends_expression else None
+
+
 class _Collector:
     """Gathers declarations, and for each the range where its bare name reaches.
 
@@ -1195,8 +1228,8 @@ class _Collector:
         if conditional:
             # `if let` / `while let`: the block after the condition, not the
             # initializer and not an `else`.
-            brace = s.find(pattern_end, s.n, lambda j: _is(tokens[j], "{"))
-            if _is(s.at(brace), "{") and brace in s.partner:
+            brace = _body_brace(s, pattern_end)
+            if brace is not None:
                 self.local(bound, brace, s.partner[brace])
             return
         # A `let` statement: the rest of its block, after its own `;`, so never
@@ -1219,8 +1252,8 @@ class _Collector:
             return
         bound = self.bind(k + 1, end)
         self.scope(bound, k + 1, end - 1)
-        brace = s.find(end + 1, s.n, lambda j: _is(tokens[j], "{"))
-        if _is(s.at(brace), "{") and brace in s.partner:
+        brace = _body_brace(s, end + 1)
+        if brace is not None:
             self.local(bound, brace, s.partner[brace])
 
     def match_arm(self, arrow: int) -> None:
