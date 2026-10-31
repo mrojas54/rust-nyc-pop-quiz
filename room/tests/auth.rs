@@ -274,12 +274,17 @@ fn ac65_the_member_record_is_read_for_roles_alone() {
     // recursively, do not name one file).
     let files: Vec<(String, String)> = common::room_sources(&[])
         .into_iter()
-        .filter_map(|(rel, src)| Some((rel.strip_prefix("host/discord/")?.to_owned(), src)))
+        .filter_map(|(rel, src)| {
+            Some((
+                rel.strip_prefix("quiz_session/host/discord/")?.to_owned(),
+                src,
+            ))
+        })
         .collect();
     for want in ["config.rs", "http.rs", "mod.rs"] {
         assert!(
             files.iter().any(|(n, _)| n == want),
-            "the walk found no host/discord/{want}"
+            "the walk found no quiz_session/host/discord/{want}"
         );
     }
     let mut members = 0;
@@ -305,7 +310,7 @@ fn ac65_the_member_record_is_read_for_roles_alone() {
         for word in ["permissions", "is_owner", "owner_id", "\"name\""] {
             assert!(
                 !code.iter().any(|l| l.contains(word)),
-                "host/discord/{name} code reads {word}"
+                "quiz_session/host/discord/{name} code reads {word}"
             );
         }
     }

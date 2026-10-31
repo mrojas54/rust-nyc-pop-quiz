@@ -11,7 +11,7 @@ organizer's first screen in this build is the first lines these print:
 
 **The arrangement happens here and nowhere else.** The bank stores options in the
 generator's order, which means nothing (`bank.py`); the room renders the order it
-is pushed (`room/src/models/question.rs`); the fallback renders the order it is given
+is pushed (`room/src/quiz_session/models/question.rs`); the fallback renders the order it is given
 (`fallback.py`). So this module is the one place the wall's order is made: the
 correct option goes to `slot_for_day(meetup_date)`, a uniform draw from the date
 and nothing else (AC-23, G-1), and the record the room receives and the record the
@@ -80,7 +80,7 @@ TOKEN_ENV = "POPQUIZ_ADMIN_TOKEN"
 REPO = Path(__file__).resolve().parents[3]
 DEFAULT_BANK = REPO / "bank"
 
-#: Rust NYC meets in New York; the room dates a meetup the same way (room/src/models/used.rs).
+#: Rust NYC meets in New York; the room dates a meetup the same way (room/src/quiz_session/models/used.rs).
 MEETUP_ZONE = ZoneInfo("America/New_York")
 
 #: SPEC 3.3, AC-76: warn when the reserve is below two meetups. One question a

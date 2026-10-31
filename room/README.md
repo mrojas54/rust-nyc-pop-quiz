@@ -64,28 +64,30 @@ the next section still work as written.
 ```
 src/
   lib.rs  copy.rs                  the crate root; SPEC §11's strings
-  rooms/                           the room itself
-    mod.rs      the sealed-record doctests, the re-exports, the small shared types
-    room.rs     the room record and the writes the phase machine drives
+  quiz_session/                    the room itself (`room::rooms` is its public path)
+    mod.rs      the sealed-record doctests, the re-exports, the small shared helpers
     open.rs     the one way to the answers: Room::open, Room::public, Opened, PublicView
-    state.rs    AppState: every room on this machine, the clock, the ledger; scheduling, host commands, release, the sweep
-    participants.rs  join, answer, leave, a session's buzzer payload, the counts, the sockets' token map
+    state_manager.rs  AppState: every room on this machine, the clock, the ledger; scheduling, host commands, release, the sweep
     seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
     errors.rs   RoomError, AnswerError, Joined, Scheduling
-    create.rs   create a room, run it again
     lifecycle.rs  the clock seam, §4.6's bounds, `Ended` and `verdict` (reachable as `room::lifecycle`)
-  host/                            the organizer
-    auth.rs                          the create check (G-9) and the host check
-    discord/                         Discord sign-in and the role check
-      mod.rs      OAuth, organizer records and sessions, refresh, the check and its retries
-      config.rs   settings and secrets, endpoints, the retry budget, the log sink (re-exported)
-      http.rs     encoding and the HTTP/1.1 client over TCP or TLS
+    models/                          the data
+      phase.rs  answers.rs  affirmation.rs  question.rs  club.rs  view.rs  used.rs
+                                       the machine; the sealed answers; the affirmation rule; the public question; clubs;
+                                       the wall/buzzer/host payloads; the ledger and take-it-home
+      rooms.rs    the room record and the writes the phase machine drives
+    host/                            the organizer
+      auth.rs                          the create check (G-9) and the host check
+      create.rs                        create a room, run it again
+      discord/                         Discord sign-in and the role check
+        mod.rs      OAuth, organizer records and sessions, refresh, the check and its retries
+        config.rs   settings and secrets, endpoints, the retry budget, the log sink (re-exported)
+        http.rs     encoding and the HTTP/1.1 client over TCP or TLS
+    participant/                     what an attendee's phone does
+      join.rs  vote.rs  leave.rs       join, answer, leave
+      buzzer.rs  counts.rs  tokens.rs  a session's payload; the counts; the sockets' token map
   connections/                     the audience
     ws.rs  sessions.rs  requestlog.rs   sockets and one broadcast per room; participant sessions; AC-55's log
-  models/                          the data
-    phase.rs  answers.rs  question.rs  club.rs  view.rs  used.rs
-                                     the machine; the sealed answers; the public question; clubs;
-                                     the wall/buzzer/host payloads; the ledger and take-it-home
   server/                          what the `room` binary serves
     main.rs  config.rs  reaper.rs  admin.rs   the binary; its environment; the sweep task; the pipeline channel
     routes/                          the HTTP surface, one file per user
@@ -98,7 +100,7 @@ src/
   cli/                             the clients: smoke, burst, room_client, the spike
 ```
 
-`models/view.rs` stays one file: the pre-reveal builders (`mod sealed`) are read
+`quiz_session/models/view.rs` stays one file: the pre-reveal builders (`mod sealed`) are read
 as a single block by `tests/boundary.rs`, so the proof that they never see the
 opened room is one thing to review. Its header says where each part is.
 
@@ -202,7 +204,7 @@ The default club was `nyc` until ADR-0005 item 8. `nyc` is still its alias, for
 at least one release: `ClubSlug::parse` reads it as `rustnyc` wherever a club
 comes in (`?club=`, `/last/{club}`, sign-in, the admin push), so a bookmarked
 `?club=nyc` link still hosts, and nothing is stored or sent as `nyc`. The table
-is `CLUB_ALIASES` in `src/models/club.rs`, held equal to the pipeline's by
+is `CLUB_ALIASES` in `src/quiz_session/models/club.rs`, held equal to the pipeline's by
 `bank/fixtures/clubs/aliases.json`. Removing the alias is a later step.
 
 - **Never twice is per club.** `used` is keyed `(club, question)`; NYC having run
@@ -251,7 +253,7 @@ routes, one credential. T-20 builds the laptop side (`popquiz schedule` and
 | `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit, affirmed_by}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). `affirmed_by` is the organizer whose affirmation the room ran it on. | `200` |
 
 **Only affirmed questions run (G-12, GAP-24, ADR-0005 item 9).** The room checks
-a pushed record's affirmation with `models/affirmation.rs`, the twin of
+a pushed record's affirmation with `quiz_session/models/affirmation.rs`, the twin of
 `bank.affirmation_digest` and `affirmation_state`, held to them by
 `bank/fixtures/affirmation/` in both languages. It refuses anything but
 `bound`, and a bound record not accepted at review (`audit.is_accepted`), at
@@ -348,8 +350,8 @@ is not the Fly secret.
 
 ## Lifecycle and what outlives a room (T-11)
 
-SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/rooms/lifecycle.rs`, `src/server/reaper.rs`, `src/models/used.rs`,
-and the release and sweep paths in `src/rooms/`.
+SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/quiz_session/lifecycle.rs`, `src/server/reaper.rs`, `src/quiz_session/models/used.rs`,
+and the release and sweep paths in `src/quiz_session/`.
 
 **How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
 Before that, a room closes for inactivity after `IDLE_QUIET` (30 min, `idle`) or
@@ -567,7 +569,7 @@ phone skips superseded ones instead of lagging behind them, and no receiver can
 drop a reveal the way the spike's `broadcast` could (it had to count `Lagged`).
 The channel exists only while someone is subscribed.
 
-**What triggers a push.** The `rooms/` module has no change hook, and polling is out.
+**What triggers a push.** The `quiz_session/` module has no change hook, and polling is out.
 `Transport::changed(room_id)` publishes only if `Room::revision()` moved, so a
 poke that changed nothing sends nothing. It is called:
 
@@ -765,8 +767,8 @@ builders receive a `PublicView`, which has no path to the vault.
 
 The proof is in two halves, and neither is "we reviewed it":
 
-1. **`compile_fail` doctests**, in `src/models/phase.rs`, `src/models/answers.rs` and
-   `src/rooms/mod.rs`, cover six attempts to cross the boundary:
+1. **`compile_fail` doctests**, in `src/quiz_session/models/phase.rs`, `src/quiz_session/models/answers.rs` and
+   `src/quiz_session/mod.rs`, cover six attempts to cross the boundary:
    - forge a witness;
    - forge a machine in `reveal`;
    - read a room's question;

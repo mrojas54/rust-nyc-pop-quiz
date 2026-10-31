@@ -1,6 +1,7 @@
 //! The live room: one meetup, one question, seven phases.
 //!
-//! The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
+//! The tree is ADR-0005's: `quiz_session/` holds the session and its models,
+//! host and participant operations. The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
 //! them: [`host`] (the organizer), [`connections`] (the audience's sockets and
 //! sessions), [`models`] (the data) and [`server`] (config, routes, admin). Each is also reachable at the crate
 //! root, so `room::phase` and `room::models::phase` are the same module.
@@ -14,7 +15,7 @@
 //! - [`question`] — the public half of a question.
 //! - [`rooms`] — the room record (§3.4) and the seams for sessions (T-04b) and
 //!   the socket (T-04c).
-//!   - `rooms/create` — the one path that makes a room: *Create a room* and
+//!   - `quiz_session/host/create` — the one path that makes a room: *Create a room* and
 //!     *Run it again*, ending at one maker (G-9, GAP-8, G-10).
 //! - [`sessions`] — participant sessions and the answer store (T-04b).
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
@@ -27,7 +28,7 @@
 //!   and the host, and reconnect with the same session token (T-04c).
 //! - [`config`] — what the binary reads from its environment (T-09).
 //! - [`lifecycle`] — how long a room lives and what ends it: the clock seam
-//!   and §4.6's bounds (T-11); lives in `rooms/`, the reaper is `server/`.
+//!   and §4.6's bounds (T-11); lives in `quiz_session/`, the reaper is `server/`.
 //! - [`used`] — what outlives a room: the used-question ledger, written only
 //!   at release (G-10), and the take-it-home snapshot (T-11).
 //! - [`admin`] — SPEC §8.3's pipeline channel: `PUT /admin/questions/{id}`
@@ -50,20 +51,28 @@ use axum::Router;
 
 pub mod connections;
 pub mod copy;
-pub mod host;
-pub mod models;
-pub mod rooms;
+mod quiz_session;
 pub mod server;
 
 // The groups' modules keep their crate-root paths (`room::phase`, `room::ws`).
 pub use connections::{requestlog, sessions, ws};
 pub use host::{auth, discord};
 pub use models::{affirmation, answers, club, phase, question, used, view};
-pub use rooms::lifecycle;
+pub use quiz_session::{host, lifecycle, models};
 use server::routes;
 pub use server::{admin, config};
 
 pub use server::routes::host_routes;
+
+/// The room's public path. The source lives in `quiz_session/` (ADR-0005);
+/// `room::rooms::AppState`, `room::rooms::Room` and the rest stay as they were.
+pub mod rooms {
+    pub use crate::quiz_session::{
+        lifecycle, new_code, Acted, AnswerError, AppState, CloseSnapshot, Created, Fit, Joined,
+        LiveCounts, NoSessions, Opened, PublicView, Room, RoomError, Scheduling, Sessions, Totals,
+        Urls, CODE_ALPHABET, ROOM_LIFETIME,
+    };
+}
 
 /// The state the binary serves: *Create a room* authorized by Discord (T-10),
 /// which also signs organizers in, and nothing scheduled — questions arrive

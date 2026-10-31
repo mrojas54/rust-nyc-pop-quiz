@@ -1,7 +1,7 @@
 //! AC-61's in-crate half: the seal, as the source states it.
 //!
-//! The `compile_fail` doctests in `src/models/phase.rs`, `src/models/answers.rs` and
-//! `src/rooms/mod.rs` prove the boundary as another crate sees it — each paired
+//! The `compile_fail` doctests in `src/quiz_session/models/phase.rs`, `src/quiz_session/models/answers.rs` and
+//! `src/quiz_session/mod.rs` prove the boundary as another crate sees it — each paired
 //! with a twin that compiles and differs only in the forbidden line, so each
 //! can fail for one reason only. What a doctest cannot see is a hole opened
 //! *inside* the crate: a `pub(crate)` constructor for the witness, a second
@@ -89,23 +89,26 @@ fn unsafe_is_forbidden_crate_wide() {
 fn the_witness_is_built_in_one_place() {
     for (name, text) in common::room_sources(&[]) {
         let hits = code(&text).matches("RevealWitness {").count();
-        if name == "models/phase.rs" {
+        if name == "quiz_session/models/phase.rs" {
             // The struct definition, and the one construction in `revealed()`.
-            assert_eq!(hits, 1, "models/phase.rs builds RevealWitness {hits} times");
+            assert_eq!(
+                hits, 1,
+                "quiz_session/models/phase.rs builds RevealWitness {hits} times"
+            );
             assert_eq!(code(&text).matches("RevealWitness<'m> {").count(), 1);
         } else {
             assert_eq!(hits, 0, "{name} builds a RevealWitness");
         }
     }
     // And the one construction is inside `revealed`, under `Phase::Reveal`.
-    let phase = code(&src("models/phase.rs"));
+    let phase = code(&src("quiz_session/models/phase.rs"));
     let revealed = block(&phase, "pub fn revealed(&self)");
     assert!(revealed.contains("Phase::Reveal => Some(RevealWitness {"));
 }
 
 #[test]
 fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness() {
-    let answers = code(&src("models/answers.rs"));
+    let answers = code(&src("quiz_session/models/answers.rs"));
     let vault = block(&answers, "mod vault {");
     let found = fns(vault);
     let names: Vec<&str> = found.iter().map(|(n, _)| n.as_str()).collect();
@@ -173,12 +176,12 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
 #[test]
 fn nothing_sealed_can_be_printed_copied_or_serialized() {
     let sealed_types = [
-        ("models/answers.rs", "pub struct Vault"),
-        ("models/answers.rs", "pub struct Verdict"),
-        ("models/answers.rs", "pub struct Scheduled"),
-        ("rooms/room.rs", "pub struct Room "),
-        ("rooms/room.rs", "struct Frozen"),
-        ("rooms/open.rs", "pub struct Opened"),
+        ("quiz_session/models/answers.rs", "pub struct Vault"),
+        ("quiz_session/models/answers.rs", "pub struct Verdict"),
+        ("quiz_session/models/answers.rs", "pub struct Scheduled"),
+        ("quiz_session/models/rooms.rs", "pub struct Room "),
+        ("quiz_session/models/rooms.rs", "struct Frozen"),
+        ("quiz_session/open.rs", "pub struct Opened"),
     ];
     let everything = common::room_sources(&[]);
     for (file, decl) in sealed_types {
@@ -215,20 +218,20 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
 fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
     for (name, text) in common::room_sources(&[]) {
         let code = code(&text);
-        if name != "models/answers.rs" {
+        if name != "quiz_session/models/answers.rs" {
             assert!(!code.contains(".vault"), "{name} reaches into the vault");
             assert!(!code.contains("Vault::"), "{name} names the vault");
         }
-        if name != "rooms/open.rs" {
+        if name != "quiz_session/open.rs" {
             assert!(!code.contains(".question.open("), "{name} opens a question");
         }
         // phase.rs binds a local `machine` inside `apply`, which is the machine.
-        if name != "rooms/room.rs" && name != "models/phase.rs" {
+        if name != "quiz_session/models/rooms.rs" && name != "quiz_session/models/phase.rs" {
             assert!(!code.contains("machine ="), "{name} assigns a machine");
         }
     }
-    // In rooms/room.rs, `machine` is assigned once — in `act`, from `apply`.
-    let rooms = code(&src("rooms/room.rs"));
+    // In quiz_session/models/rooms.rs, `machine` is assigned once — in `act`, from `apply`.
+    let rooms = code(&src("quiz_session/models/rooms.rs"));
     assert_eq!(rooms.matches("self.machine =").count(), 1);
     let act = block(&rooms, "pub fn act(");
     assert!(act.contains("apply(State::Room(self.machine.clone()), command)?"));
@@ -241,7 +244,7 @@ fn the_vault_is_touched_only_by_answers_and_the_phase_only_by_act() {
 
 #[test]
 fn the_pre_reveal_builders_never_see_the_opened_room() {
-    let view = code(&src("models/view.rs"));
+    let view = code(&src("quiz_session/models/view.rs"));
     let sealed = block(&view, "mod sealed {");
     for forbidden in ["Opened", ".open(", "Middle", "answers", "Room", "revealed"] {
         assert!(
@@ -272,7 +275,9 @@ fn within_rooms_only_open_rs_names_the_sealed_answer_types() {
     // only the one that opens a question may import or hold them (ADR-0003).
     let mut seen_in_open = false;
     for (name, text) in common::room_sources(&[]) {
-        if !name.starts_with("rooms/") {
+        if !name.starts_with("quiz_session/")
+            || (name.starts_with("quiz_session/models/") && name != "quiz_session/models/rooms.rs")
+        {
             continue;
         }
         let code = code(&text);
@@ -280,26 +285,26 @@ fn within_rooms_only_open_rs_names_the_sealed_answer_types() {
             code.split(|c: char| !c.is_alphanumeric() && c != '_')
                 .any(|w| w == *t)
         });
-        if name == "rooms/open.rs" {
+        if name == "quiz_session/open.rs" {
             seen_in_open = names_them;
         } else {
             assert!(
                 !names_them,
-                "{name} names Revealed or Middle; only rooms/open.rs may"
+                "{name} names Revealed or Middle; only quiz_session/open.rs may"
             );
         }
     }
     assert!(
         seen_in_open,
-        "rooms/open.rs no longer names them: the rule has lost its subject"
+        "quiz_session/open.rs no longer names them: the rule has lost its subject"
     );
 }
 
 #[test]
 fn lifecycle_docs_name_a_reaper_that_exists() {
-    // `rooms/lifecycle.rs` names the reaper in plain backticks (the module is
+    // `quiz_session/lifecycle.rs` names the reaper in plain backticks (the module is
     // crate-private, so rustdoc cannot link it). Keep those names true.
-    let doc = src("rooms/lifecycle.rs");
+    let doc = src("quiz_session/lifecycle.rs");
     let reaper = src("server/reaper.rs");
     for (name, decl) in [
         ("REAP_EVERY", "pub const REAP_EVERY"),
