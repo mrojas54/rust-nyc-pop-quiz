@@ -944,6 +944,18 @@ SCOPE_NEVER_THE_SAME = [
         "type A = u32; trait Tr { fn count_ones() -> u8; } impl Tr for u32 { fn count_ones() -> u8 { 1 } } fn main() { let _ = A::count_ones(3); }",
         "type A = u32; trait Tr { fn zzq() -> u8; } impl Tr for u32 { fn zzq() -> u8 { 1 } } fn main() { let _ = A::zzq(3); }",
     ),
+    # The first exits 0 and the second 1 (E0599).
+    (
+        "a local's initializer outside the type's block is the library's name",
+        "fn main() { let mut c = None; { struct None { a: u8 } impl None { fn is_some_and(&self, _: fn(u8) -> bool) -> bool { true } } c = Some(1u8); let _ = c.is_some_and(|_| true); } }",
+        "fn main() { let mut c = None; { struct None { a: u8 } impl None { fn zzq(&self, _: fn(u8) -> bool) -> bool { true } } c = Some(1u8); let _ = c.zzq(|_| true); } }",
+    ),
+    # The first exits 0 and the second 1 (E0599).
+    (
+        "a bare receiver outside the type's block is the library's name",
+        "fn main() { { struct None; impl None { fn is_some_and(&self) {} } } let _ = None.is_some_and(|x: u8| x > 0); }",
+        "fn main() { { struct None; impl None { fn zzq(&self) {} } } let _ = None.zzq(|x: u8| x > 0); }",
+    ),
 ]
 
 
@@ -1131,6 +1143,11 @@ SCOPED_THE_SAME = [
         "a path through a type alias",
         "struct S; impl S { fn mk() -> S { S } } type A = S; fn main() { let _ = A::mk(); }",
         "struct S; impl S { fn build() -> S { S } } type A = S; fn main() { let _ = A::build(); }",
+    ),
+    (
+        "a method called on a local initialized inside the type's block",
+        "fn main() { { struct S; impl S { fn go(&self) {} } let c = S; c.go(); } }",
+        "fn main() { { struct S; impl S { fn run(&self) {} } let d = S; d.run(); } }",
     ),
 ]
 

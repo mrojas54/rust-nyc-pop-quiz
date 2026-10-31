@@ -852,7 +852,8 @@ class _Declared:
     wherever `_in_scope` holds; `module_braces` are the `{` of every module.
     `local_types` maps a local
     to the types it holds, where every binding of its spelling is `let c = S;` or
-    `let c = S { .. };`.
+    `let c = S { .. };` and each `S` is a sole type in scope at that `let`, since a
+    spelling outside its type's block is the library's (`let c = None;`).
     `generic_traits` maps a generic to the program traits that are all it is bound
     by, when tokens show every declaration of its spelling plainly and each trait is
     in scope there. `aliases` maps a `type A = S;` declared once to `S`, a sole
@@ -1147,7 +1148,7 @@ class _Collector:
         self.item_counts: dict[str, int] = {}
         self.type_items: set[str] = set()
         self.bound_counts: dict[str, int] = {}
-        self.let_types: dict[str, list[str]] = {}
+        self.let_types: dict[str, list[tuple[str, int]]] = {}
         # Per generic spelling, each declaration's plain bound, `None` when it has
         # another shape; and the traits declared with no supertrait or generics.
         self.generic_bounds: dict[str, set[tuple[str, int] | None]] = {}
@@ -1378,7 +1379,9 @@ class _Collector:
         if _is(s.at(after), "{") and after in s.partner:
             after = s.partner[after] + 1
         if _is(s.at(after), ";"):
-            self.let_types.setdefault(name.text, []).append(owner.text)
+            self.let_types.setdefault(name.text, []).append(
+                (owner.text, pattern_end + 1)
+            )
 
     def let(self, k: int) -> None:
         s = self.s
@@ -1650,10 +1653,11 @@ def _declared(s: _Stream) -> _Declared:
         module_braces,
         sole_types,
         {
-            local: frozenset(types)
+            local: frozenset(t[0] for t in types)
             for local, types in c.let_types.items()
             if len(types) == c.bound_counts.get(local, 0)
             and local not in c.item_counts
+            and all(sole_here(t) for t in types)
         },
         {
             generic: frozenset(t[0] for t in bounds if t is not None)
