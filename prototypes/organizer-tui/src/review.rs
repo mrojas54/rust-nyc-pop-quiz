@@ -236,37 +236,40 @@ impl Review {
         let mut cmd = pipeline::python("popquiz.review");
         // The name shown on the confirm screen is the only name that can be used.
         cmd.env_remove(ORGANIZER_ENV);
-        let id = self.id.as_str();
         match job {
             Job::Show => {
-                cmd.args(["show", id]);
+                cmd.arg("show");
             }
             Job::Export(path) => {
-                cmd.args(["export", id, "--out"]).arg(path);
+                cmd.args(["export", "--out"]).arg(path);
             }
             Job::Decide(Decision::Accept(quotes)) => {
-                cmd.args(["accept", id]);
+                cmd.arg("accept");
                 for quote in quotes {
                     cmd.arg(format!("--checked-quote={quote}"));
                 }
             }
             Job::Decide(Decision::Reject(reason)) => {
-                cmd.args(["reject", id]).arg(format!("--reason={reason}"));
+                cmd.arg("reject").arg(format!("--reason={reason}"));
             }
-            Job::Decide(Decision::Difficulty(level)) => {
-                cmd.args(["difficulty", id, &level.to_string()]);
+            Job::Decide(Decision::Difficulty(_)) => {
+                cmd.arg("difficulty");
             }
             Job::Decide(Decision::Affirm) => {
-                cmd.args(["affirm", id]);
+                cmd.arg("affirm");
                 if let Some(name) = &self.organizer {
                     cmd.arg(format!("--by={name}"));
                 }
             }
             Job::Decide(Decision::Edit(path)) => {
-                cmd.args(["edit", id, "--from"]).arg(path);
+                cmd.args(["edit", "--from"]).arg(path);
             }
         }
-        cmd.arg("--bank").arg(&self.bank);
+        // Options go first: argparse reads everything after `--` as positional.
+        cmd.arg("--bank").arg(&self.bank).args(["--", &self.id]);
+        if let Job::Decide(Decision::Difficulty(level)) = job {
+            cmd.arg(level.to_string());
+        }
         cmd
     }
 
@@ -318,7 +321,8 @@ impl Review {
                 self.message = format!("Could not prepare the edit.\n{said}");
             }
             Job::Decide(decision) => {
-                self.changed = true;
+                // Sticky: a refusal after an earlier decision still leaves that one to reload.
+                self.changed |= out.ok;
                 let mut message = format!(
                     "{}\n{said}",
                     if out.ok { "Recorded." } else { "Not recorded." }
@@ -675,15 +679,90 @@ mod tests {
             args(&cmd)[2..],
             [
                 "accept",
-                "q4",
                 "--checked-quote=-3 -1",
                 "--checked-quote=-x",
                 "--bank",
-                "/tmp/bank"
+                "/tmp/bank",
+                "--",
+                "q4"
             ]
         );
         let cmd = r.command(&Job::Decide(Decision::Reject("--foo".into())));
-        assert_eq!(args(&cmd)[2..5], ["reject", "q4", "--reason=--foo"]);
+        assert_eq!(args(&cmd)[2..4], ["reject", "--reason=--foo"]);
+    }
+
+    #[test]
+    fn the_id_comes_after_double_dash_with_every_option_before_it() {
+        let named = review(Some("Name"));
+        let end = ["--bank", "/tmp/bank", "--", "q4"];
+        for (job, start) in [
+            (Job::Show, vec!["show"]),
+            (
+                Job::Export(PathBuf::from("/tmp/out.json")),
+                vec!["export", "--out", "/tmp/out.json"],
+            ),
+            (Job::Decide(Decision::Accept(vec![])), vec!["accept"]),
+            (
+                Job::Decide(Decision::Reject("why".into())),
+                vec!["reject", "--reason=why"],
+            ),
+            (Job::Decide(Decision::Affirm), vec!["affirm", "--by=Name"]),
+            (
+                Job::Decide(Decision::Edit(PathBuf::from("/tmp/in.json"))),
+                vec!["edit", "--from", "/tmp/in.json"],
+            ),
+        ] {
+            assert_eq!(
+                args(&named.command(&job))[2..],
+                [start, end.to_vec()].concat()
+            );
+        }
+        // The level is the one positional after the id.
+        let cmd = named.command(&Job::Decide(Decision::Difficulty(4)));
+        assert_eq!(
+            args(&cmd)[2..],
+            ["difficulty", "--bank", "/tmp/bank", "--", "q4", "4"]
+        );
+    }
+
+    #[test]
+    fn an_id_that_looks_like_a_flag_is_still_the_id() {
+        let r = Review::with("-x".into(), PathBuf::from("/tmp/bank"), None, None);
+        assert_eq!(
+            args(&r.command(&Job::Show))[2..],
+            ["show", "--bank", "/tmp/bank", "--", "-x"]
+        );
+    }
+
+    fn finish_decision(r: &mut Review, ok: bool) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(Some(Outcome {
+            ok,
+            stdout: String::new(),
+            stderr: String::new(),
+        }))
+        .unwrap();
+        r.job = Some((Job::Decide(Decision::Affirm), rx));
+        r.poll();
+    }
+
+    #[test]
+    fn a_refused_decision_does_not_ask_for_a_reload() {
+        let mut r = review(None);
+        finish_decision(&mut r, false);
+        assert!(r.text().contains("Not recorded."));
+        assert!(!r.changed);
+    }
+
+    #[test]
+    fn a_refusal_does_not_undo_the_reload_an_earlier_decision_asked_for() {
+        let mut r = review(None);
+        finish_decision(&mut r, true);
+        assert!(r.text().contains("Recorded."));
+        assert!(r.changed);
+        finish_decision(&mut r, false);
+        assert!(r.text().contains("Not recorded."));
+        assert!(r.changed);
     }
 
     #[test]
