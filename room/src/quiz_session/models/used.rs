@@ -77,7 +77,7 @@ const _: fn(UsedEntry) = |UsedEntry {
                           }| {};
 
 /// The used-question ledger. In memory, append-only; its only writer is the
-/// release transition in `rooms/state.rs` (G-10), which `tests/used.rs` checks by
+/// release transition in `quiz_session/state_manager.rs` (G-10), which `tests/used.rs` checks by
 /// scanning the source.
 #[derive(Default)]
 pub struct UsedLedger {

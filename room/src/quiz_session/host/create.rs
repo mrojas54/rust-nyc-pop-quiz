@@ -12,8 +12,8 @@ use crate::auth::OrganizerId;
 use crate::club::ClubSlug;
 use crate::phase::{Command, HostAction, Phase};
 
-use super::state::{lock, Entry};
-use super::{Acted, AppState, Room, RoomError, CODE_ALPHABET};
+use crate::quiz_session::state_manager::{lock, Entry};
+use crate::quiz_session::{random_bytes, Acted, AppState, Room, RoomError, CODE_ALPHABET};
 
 /// What a new room's creator is handed, once.
 #[derive(Clone, Debug, Serialize)]
@@ -23,16 +23,6 @@ pub struct Created {
     pub join_url: String,
     pub host_session: String,
     pub host_resume_url: String,
-}
-
-pub(super) fn random_bytes<const N: usize>() -> [u8; N] {
-    let mut buf = [0u8; N];
-    getrandom::fill(&mut buf).expect("the OS random source is available");
-    buf
-}
-
-pub(super) fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Six characters from [`CODE_ALPHABET`].

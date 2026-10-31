@@ -148,7 +148,7 @@ the `answer-history.json` record.
   `mvp/answer-history.json` is a **record**, never an input.
 - **A question is used when its room is released** (AC-92, G-10). The room
   writes the used record at release and `just sync` brings it into the bank
-  (`room/src/used.rs`). Building a schedule, a fallback or a deck uses nothing,
+  (`room/src/quiz_session/models/used.rs`). Building a schedule, a fallback or a deck uses nothing,
   and neither does reaching reveal. The ledger lives in memory until synced, so
   sync before the room restarts. The retired deck's `build_deck.py` still writes
   `answer-history.json` at **build** time, which falsely retired q3 on 2026-08-12

@@ -22,11 +22,11 @@
 //!
 //! | File | Holds |
 //! |---|---|
-//! | `room.rs` | One room's record and the transitions the phase machine drives |
+//! | `models/rooms.rs` | One room's record and the transitions the phase machine drives |
 //! | `open.rs` | The one way to the answers: [`Room::open`], [`Room::public`] |
-//! | `state.rs` | [`AppState`]'s fields and setup, scheduling, host commands and release, the read paths, expiry |
-//! | `participants.rs` | Join, answer, leave, one session's buzzer payload, the session and live counts, the socket's token map |
-//! | `create.rs` | *Create a room* and *Run it again* |
+//! | `state_manager.rs` | [`AppState`]'s fields and setup, scheduling, host commands and release, the read paths, expiry |
+//! | `participant/` | `join`, `vote` (the answer), `leave`, `buzzer` (one session's payload), `counts` (the session and live counts), `tokens` (the socket's token map) |
+//! | `host/create.rs` | *Create a room* and *Run it again* |
 //! | `seams.rs` · `errors.rs` · `lifecycle.rs` | What sessions plug in; the error types; the clock and §4.6's bounds |
 //!
 //! Every file above is an `impl` of the one [`AppState`] or a type it holds:
@@ -35,10 +35,10 @@
 //! | Operation | Main path |
 //! |---|---|
 //! | Sign in | `server/routes/host.rs` → [`crate::discord::Discord::begin`] / [`finish`](crate::discord::Discord::finish) |
-//! | Create a room | host route → [`HostAuth::authorize_create`](crate::auth::HostAuth::authorize_create) (the organizer session, Discord) → [`AppState::create_room_checked`] (`create.rs`) |
-//! | Host command | host route → [`AppState::act`]: the room's host session, then [`Room::act`] and release's side effects (`state.rs`) |
-//! | Join or answer | participant route → [`AppState::join`] / [`AppState::answer`] → sessions and live counts under the one `rooms` lock (`participants.rs`) |
-//! | Expire a room | the reaper (`server/reaper.rs`) → [`AppState::sweep`] → removal and a tombstone (`state.rs`) |
+//! | Create a room | host route → [`HostAuth::authorize_create`](crate::auth::HostAuth::authorize_create) (the organizer session, Discord) → [`AppState::create_room_checked`] (`host/create.rs`) |
+//! | Host command | host route → [`AppState::act`]: the room's host session, then [`Room::act`] and release's side effects (`state_manager.rs`) |
+//! | Join or answer | participant route → [`AppState::join`] / [`AppState::answer`] → sessions and live counts under the one `rooms` lock (`participant/`) |
+//! | Expire a room | the reaper (`server/reaper.rs`) → [`AppState::sweep`] → removal and a tombstone (`state_manager.rs`) |
 //!
 //! **The one way to the answers** is [`Room::open`], which asks the machine for
 //! a [`crate::phase::RevealWitness`] and returns `None` in every phase but
@@ -89,25 +89,21 @@
 
 use std::time::Duration;
 
-mod create;
 mod errors;
+pub mod host;
 pub mod lifecycle;
+pub mod models;
 mod open;
-mod participants;
-mod room;
+mod participant;
 mod seams;
-mod state;
+mod state_manager;
 
-pub use create::{new_code, Created};
 pub use errors::{AnswerError, Joined, RoomError, Scheduling};
+pub use host::create::{new_code, Created};
+pub use models::rooms::{Acted, Fit, Room, Totals, Urls};
 pub use open::{Opened, PublicView};
-pub use room::{Acted, Fit, Room, Urls};
 pub use seams::{CloseSnapshot, LiveCounts, NoSessions, Sessions};
-pub use state::AppState;
-
-/// Per-option counts, A–E in arrival order. The only answer data a room holds
-/// (AC-56, D-12).
-pub type Totals = [u32; 5];
+pub use state_manager::AppState;
 
 /// A room lives at most four hours from creation (AC-69).
 pub const ROOM_LIFETIME: Duration = Duration::from_secs(4 * 60 * 60);
@@ -115,3 +111,13 @@ pub const ROOM_LIFETIME: Duration = Duration::from_secs(4 * 60 * 60);
 /// The code alphabet: letters and digits without `O 0 I 1` (SPEC §3.4). 32
 /// symbols, so a random byte masked to five bits picks one without bias.
 pub const CODE_ALPHABET: &[u8; 32] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+fn random_bytes<const N: usize>() -> [u8; N] {
+    let mut buf = [0u8; N];
+    getrandom::fill(&mut buf).expect("the OS random source is available");
+    buf
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
