@@ -1,0 +1,1 @@
+Merged on the client's word (PR #111, merge commit 302e47b, head fdc9ddf after update to main). Exact-head CI, main CI and deploy green.

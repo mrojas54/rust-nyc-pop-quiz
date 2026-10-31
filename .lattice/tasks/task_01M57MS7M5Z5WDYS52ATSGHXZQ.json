@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 4,
+  "comment_count": 5,
   "complexity": "low",
   "created_at": "2026-10-18T13:56:23Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Found while building PQ-43 (PR #91, merged at 8098174). web/shared/trace.js renders the take-it-home step buttons as <button class=\"btn\">, and web/home/home.css:64 sizes them (.walk .trace-nav .btn), but nothing in home's stylesheet chain (shared/tokens.css, shared/components.css, home/home.css) defines a .btn base rule: only web/host/host.css and web/buzzer/buzzer.css do. So on home those buttons get the browser's default button look, including its edge, which a11y.test.js does not check. PQ-43's owner ruling (2026-10-18) holds .btn edges at 3:1 (SC 1.4.11): --text-muted for neutral, --accent-hover for primary. Decide whether home's trace buttons get the same .btn rule (as host/buzzer carry it) and hold their edge in ac84_home; re-find line numbers first. Acceptance: just a11y and just test-web green; the edge check fails under its mutation; no copy or token value changes; AC-40, AC-33 hold.",
-  "done_at": null,
+  "done_at": "2026-10-31T17:43:03Z",
   "evidence_refs": [
     {
       "id": "art_01M678S5TD6HVSNXVWVX0EVNEV",
@@ -48,23 +48,33 @@
       "id": "art_01M67AKZG4X9SWCVBGA5GCBPRP",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M69GXKQG619B519BSX5TG7TY",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M69GXKQG619B519BSX5TG7TX",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M57MS7M5Z5WDYS52ATSGHXZQ",
-  "last_event_id": "ev_01M67AKZW9NAGDHPGKXXMF07GC",
-  "last_status_changed_at": "2026-10-30T21:14:27Z",
+  "last_event_id": "ev_01M69GXKQG619B519BSX5TG7V0",
+  "last_status_changed_at": "2026-10-31T17:43:03Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-78",
-  "status": "review",
+  "status": "done",
   "tags": [
     "a11y",
     "home"
   ],
   "title": "Home's trace step buttons have no .btn base rule; the browser draws their edges",
   "type": "task",
-  "updated_at": "2026-10-30T21:14:28Z",
+  "updated_at": "2026-10-31T17:43:03Z",
   "urgency": null
 }

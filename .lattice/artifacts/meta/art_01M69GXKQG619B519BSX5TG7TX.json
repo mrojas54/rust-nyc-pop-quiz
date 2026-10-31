@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-31T17:43:03Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M69GXKQG619B519BSX5TG7TX",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M69GXKQG619B519BSX5TG7TX.md",
+    "size_bytes": 191
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged on the client's word (PR #110, merge commit edce6d8, head d4975c4 after update to main). Client saw the look and kept the amber forward button. Exact-head CI, main CI and deploy green.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

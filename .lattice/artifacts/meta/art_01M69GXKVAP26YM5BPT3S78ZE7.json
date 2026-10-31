@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-31T17:43:03Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M69GXKVAP26YM5BPT3S78ZE7",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M69GXKVAP26YM5BPT3S78ZE7.md",
+    "size_bytes": 136
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged on the client's word (PR #111, merge commit 302e47b, head fdc9ddf after update to main). Exact-head CI, main CI and deploy green.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
