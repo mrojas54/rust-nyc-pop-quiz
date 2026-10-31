@@ -840,7 +840,8 @@ class _Declared:
     to the types it holds, where every binding of its spelling is `let c = S;` or
     `let c = S { .. };`. `bound_names` are every spelling a pattern binds.
     `generic_traits` maps a generic to the program traits that are all it is bound
-    by, when tokens show every declaration of its spelling plainly.
+    by, when tokens show every declaration of its spelling plainly. `aliases` maps a
+    `type A = S;` declared once to `S`, a program type no other item shares.
     """
 
     names: frozenset[str]
@@ -863,6 +864,7 @@ class _Declared:
     local_types: dict[str, frozenset[str]]
     bound_names: frozenset[str]
     generic_traits: dict[str, frozenset[str]]
+    aliases: dict[str, str]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -1114,6 +1116,7 @@ class _Collector:
         # another shape; and the traits declared with no supertrait or generics.
         self.generic_bounds: dict[str, set[str | None]] = {}
         self.plain_traits: set[str] = set()
+        self.alias_targets: dict[str, str | None] = {}
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1492,7 +1495,17 @@ def _declared(s: _Stream) -> _Declared:
                 j = k + 2 if word == "static" and _kw(s.at(k + 1), "mut") else k + 1
                 name = s.at(j)
                 if name is not None and name.kind == "ident":
-                    c.item(j)
+                    associated = c.item(j)
+                    if word == "type" and not associated:
+                        target = s.at(j + 2)
+                        c.alias_targets[name.text] = (
+                            target.text
+                            if _is(s.at(j + 1), "=")
+                            and target is not None
+                            and target.kind == "ident"
+                            and _is(s.at(j + 3), ";")
+                            else None
+                        )
                     if word == "trait":
                         c.type_items.add(name.text)
                         if _is(s.at(j + 1), "{"):
@@ -1572,6 +1585,13 @@ def _declared(s: _Stream) -> _Declared:
             and all(
                 t in c.plain_traits and c.item_counts[t] == 1 for t in bounds
             )
+        },
+        {
+            alias: target
+            for alias, target in c.alias_targets.items()
+            if c.item_counts[alias] == 1
+            and target in c.type_items
+            and c.item_counts[target] == 1
         },
     )
 
@@ -2166,6 +2186,8 @@ def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
     if head.text in declared.generics:
         traits = declared.generic_traits.get(head.text)
         return bool(traits) and traits <= declared.assoc_owners.get(name, set())
+    if head.text in declared.aliases:
+        return declared.aliases[head.text] in declared.assoc_owners.get(name, set())
     if head.text in declared.module_bodies:
         return bool(
             declared.module_bodies[head.text] & declared.item_braces.get(name, set())

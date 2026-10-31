@@ -854,6 +854,11 @@ SCOPE_NEVER_THE_SAME = [
         "trait Tr { fn default() -> u8; } fn f<T: Tr>() where T: Default { T::default(); } fn main() {}",
         "trait Tr { fn zz() -> u8; } fn f<T: Tr>() where T: Default { T::zz(); } fn main() {}",
     ),
+    (
+        "an alias of a library type does not reach a program trait's function",
+        "type A = u32; trait Tr { fn count_ones() -> u8; } impl Tr for u32 { fn count_ones() -> u8 { 1 } } fn main() { let _ = A::count_ones(3); }",
+        "type A = u32; trait Tr { fn zzq() -> u8; } impl Tr for u32 { fn zzq() -> u8 { 1 } } fn main() { let _ = A::zzq(3); }",
+    ),
 ]
 
 
@@ -1006,6 +1011,11 @@ SCOPED_THE_SAME = [
         "a program trait's function called through a generic",
         "trait Tr { fn go() -> i32; } struct S; impl Tr for S { fn go() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::go() } fn main() { f::<S>(); }",
         "trait Tr { fn run() -> i32; } struct S; impl Tr for S { fn run() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::run() } fn main() { f::<S>(); }",
+    ),
+    (
+        "a path through a type alias",
+        "struct S; impl S { fn mk() -> S { S } } type A = S; fn main() { let _ = A::mk(); }",
+        "struct S; impl S { fn build() -> S { S } } type A = S; fn main() { let _ = A::build(); }",
     ),
 ]
 
