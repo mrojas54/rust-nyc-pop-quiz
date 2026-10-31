@@ -808,7 +808,10 @@ class _Declared:
     traits that declare it. `impl_owner` maps the `{` of each `impl` or `trait` to
     its owner's spelling, so `Self` can be followed to the type around it.
     `block_use_names` are the spellings a `use` inside a block may bring in, which
-    can shadow a program's item there, so they are kept.
+    can shadow a program's item there, so they are kept. `sole_types` are the
+    types and traits whose spelling no other item shares. `local_types` maps a local
+    to the types it holds, where every binding of its spelling is `let c = S;` or
+    `let c = S { .. };`. `bound_names` are every spelling a pattern binds.
     """
 
     names: frozenset[str]
@@ -827,6 +830,9 @@ class _Declared:
     impl_owner: dict[int, str]
     enclosing: list[int | None]
     block_use_names: frozenset[str]
+    sole_types: frozenset[str]
+    local_types: dict[str, frozenset[str]]
+    bound_names: frozenset[str]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -1068,6 +1074,12 @@ class _Collector:
         )
         self.module_starts = [b for b, _ in self.module_spans]
         self.block_use_names: set[str] = set()
+        # How many items declare each spelling, which of them are types or traits,
+        # how many patterns bind each spelling, and the types `let` gives a local.
+        self.item_counts: dict[str, int] = {}
+        self.type_items: set[str] = set()
+        self.bound_counts: dict[str, int] = {}
+        self.let_types: dict[str, list[str]] = {}
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1078,6 +1090,8 @@ class _Collector:
         self.patterns.append((a, b))
         bound = _pattern_names(self.s, a, b)
         self.names |= bound
+        for name in bound:
+            self.bound_counts[name] = self.bound_counts.get(name, 0) + 1
         return bound
 
     def item_end(self, start: int) -> int:
@@ -1099,6 +1113,7 @@ class _Collector:
         s = self.s
         name = s.tokens[d].text
         self.names.add(name)
+        self.item_counts[name] = self.item_counts.get(name, 0) + 1
         brace = self.enclosing[d]
         if brace is not None and _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
@@ -1183,6 +1198,7 @@ class _Collector:
         variants."""
         s = self.s
         self.item(k)
+        self.type_items.add(s.tokens[k].text)
         j = k + 1
         found: set[str] = set()
         if _is(s.at(j), "<"):
@@ -1234,6 +1250,27 @@ class _Collector:
         self.local(params, j, end)
         self.scope(found, k + 2, end)
 
+    def local_type(self, k: int, pattern_end: int) -> None:
+        """Records the type of the `let` at `k` when it is exactly `let [mut] c = S;`
+        or `let [mut] c = S { .. };`, the only forms tokens can read a type from."""
+        s = self.s
+        a = k + 2 if _kw(s.at(k + 1), "mut") else k + 1
+        name, owner = s.at(a), s.at(pattern_end + 1)
+        if (
+            a + 1 != pattern_end
+            or not _is(s.at(pattern_end), "=")
+            or name is None
+            or name.kind != "ident"
+            or owner is None
+            or owner.kind != "ident"
+        ):
+            return
+        after = pattern_end + 2
+        if _is(s.at(after), "{") and after in s.partner:
+            after = s.partner[after] + 1
+        if _is(s.at(after), ";"):
+            self.let_types.setdefault(name.text, []).append(owner.text)
+
     def let(self, k: int) -> None:
         s = self.s
         tokens = s.tokens
@@ -1262,6 +1299,7 @@ class _Collector:
             if brace is not None:
                 self.local(bound, brace, s.partner[brace])
             return
+        self.local_type(k, pattern_end)
         # A `let` statement: the rest of its block, after its own `;`, so never
         # its own initializer or `else`.
         block = self.enclosing[k]
@@ -1407,6 +1445,8 @@ def _declared(s: _Stream) -> _Declared:
                 name = s.at(j)
                 if name is not None and name.kind == "ident":
                     c.item(j)
+                    if word == "trait":
+                        c.type_items.add(name.text)
                     if _is(s.at(j + 1), "<"):
                         gt, found = c.generics(j + 1)
                         c.scope(found, j, c.item_end(gt + 1))
@@ -1467,6 +1507,14 @@ def _declared(s: _Stream) -> _Declared:
         c.impl_owner,
         c.enclosing,
         frozenset(c.block_use_names),
+        frozenset(t for t in c.type_items if c.item_counts[t] == 1),
+        {
+            local: frozenset(types)
+            for local, types in c.let_types.items()
+            if len(types) == c.bound_counts.get(local, 0)
+            and local not in c.item_counts
+        },
+        frozenset(c.bound_counts),
     )
 
 
@@ -1977,6 +2025,55 @@ def _unscoped_names(
     return protected
 
 
+def _call_is_tied(s: _Stream, declared: _Declared, k: int) -> bool:
+    """Whether the method call named at `k` can only be a program type's own method:
+    its receiver is `self` in the `impl` or `trait` of a type declaring the name, a
+    bare type declaring it, or a local that holds only such a type. Anything else
+    could be a library value, and tokens cannot tell (`3u32`, `a.b`, `f()`, `S::new()`)."""
+    owners = declared.assoc_owners.get(s.tokens[k].text, set()) & declared.sole_types
+    receiver = s.at(k - 2)
+    if (
+        not owners
+        or receiver is None
+        or _is(s.at(k - 3), ".")
+        or (k >= 3 and s.path_sep[k - 3])
+    ):
+        return False
+    if _kw(receiver, "self"):
+        brace = declared.enclosing[k]
+        while brace is not None and brace not in declared.impl_owner:
+            brace = declared.enclosing[brace]
+        return brace is not None and declared.impl_owner[brace] in owners
+    if receiver.kind != "ident":
+        return False
+    types = declared.local_types.get(receiver.text)
+    if types is not None:
+        return types <= owners
+    return receiver.text in owners and receiver.text not in declared.bound_names
+
+
+def _untied_method_calls(s: _Stream, declared: _Declared) -> set[str]:
+    """Declared members to keep, because a method call of that name is not tied to
+    the program's type. This is what closes a library method missing from
+    `_STD_MEMBERS` without any list: renaming `count_ones` in `3u32.count_ones()`
+    would make it the same token as a method `u32` does not have. It covers method
+    calls only, `.name(` and `.name::<T>(`, and keeps the name of every declared
+    member such a call shares."""
+    found: set[str] = set()
+    for k in range(1, s.n - 1):
+        t = s.tokens[k]
+        if (
+            t.kind == "ident"
+            and t.text in declared.members
+            and _is(s.at(k - 1), ".")
+            and not s.range_dot(k - 1)
+            and (_is(s.at(k + 1), "(") or s.path_sep[k + 1])
+            and not _call_is_tied(s, declared, k)
+        ):
+            found.add(t.text)
+    return found
+
+
 _PATH_KEYWORDS = frozenset(["Self", "self", "crate", "super"])
 
 
@@ -2080,7 +2177,7 @@ def _normalize(
 ) -> list[str]:
     s = _Stream(tokens)
     declared = _declared(s)
-    kept_members = declared.members & _STD_MEMBERS
+    kept_members = (declared.members & _STD_MEMBERS) | _untied_method_calls(s, declared)
     format_strings = _format_strings(s, declared)
     protected = kept_members | {"main"} | _unscoped_names(s, declared, format_strings)
     # Derives can expose names (Debug) or interpret them (other derives). Without

@@ -796,6 +796,47 @@ SCOPE_NEVER_THE_SAME = [
         "fn drop(_: i32, _y: i32) {} fn f() { use std::mem::drop; drop(1); } fn main() { f(); drop(1, 2); }",
         "fn zzq(_: i32, _y: i32) {} fn f() { use std::mem::drop; zzq(1); } fn main() { f(); zzq(1, 2); }",
     ),
+    (
+        "a declared method beside a free function and the library's method",
+        "fn count_ones(x: u32) -> u32 { x } struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); count_ones(1); let _ = 3u32.count_ones(); }",
+        "fn zzq(x: u32) -> u32 { x } struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); zzq(1); let _ = 3u32.zzq(); }",
+    ),
+    (
+        "a declared method beside the library's method",
+        "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); let _ = 3u32.count_ones(); }",
+        "struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); let _ = 3u32.zzq(); }",
+    ),
+    (
+        "a trait's method beside the library's, on a local",
+        "trait T { fn count_ones(&self) -> u32; } struct S; impl T for S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); let n = 3u32; let _ = n.count_ones(); }",
+        "trait T { fn zzq(&self) -> u32; } struct S; impl T for S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); let n = 3u32; let _ = n.zzq(); }",
+    ),
+    (
+        "a local shadowed by a library value is not tied to the type",
+        "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = S; let _ = c.count_ones(); { let c = 3u32; let _ = c.count_ones(); } }",
+        "struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let c = S; let _ = c.zzq(); { let c = 3u32; let _ = c.zzq(); } }",
+    ),
+    # Both exit 0, and they differ: the first calls `u32`'s own method, the second itself.
+    (
+        "self in an impl for a library type means the library's method",
+        "trait Tr { fn count_ones(&self) -> u32; } impl Tr for u32 { fn count_ones(&self) -> u32 { self.count_ones() } } fn main() {}",
+        "trait Tr { fn zzq(&self) -> u32; } impl Tr for u32 { fn zzq(&self) -> u32 { self.zzq() } } fn main() {}",
+    ),
+    (
+        "a const named like a type is not that type",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } const S: u32 = 3; fn main() { let _ = S.count_ones(); let s = S { a: 1 }; let _ = s.a; }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } const S: u32 = 3; fn main() { let _ = S.zzq(); let s = S { a: 1 }; let _ = s.a; }",
+    ),
+    (
+        "a field of a local is not the local",
+        "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } struct W { c: u32 } fn main() { let c = S; let w = W { c: 3 }; let _ = w.c.count_ones(); let _ = c.count_ones(); }",
+        "struct S; impl S { fn zzq(&self) -> u32 { 0 } } struct W { c: u32 } fn main() { let c = S; let w = W { c: 3 }; let _ = w.c.zzq(); let _ = c.zzq(); }",
+    ),
+    (
+        "a declared field beside the library's method",
+        "struct P { count_ones: u32 } fn main() { let p = P { count_ones: 1 }; let _ = p.count_ones; let _ = 3u32.count_ones(); }",
+        "struct P { zzq: u32 } fn main() { let p = P { zzq: 1 }; let _ = p.zzq; let _ = 3u32.zzq(); }",
+    ),
 ]
 
 
@@ -928,6 +969,21 @@ SCOPED_THE_SAME = [
         "a block-level use's alias",
         "fn helper(_: i32) {} fn main() { { use std::mem::drop as d; d(1); } helper(1); }",
         "fn aid(_: i32) {} fn main() { { use std::mem::drop as e; e(1); } aid(1); }",
+    ),
+    (
+        "a method called on self in its own impl",
+        "struct S; impl S { fn a(&self) -> u8 { self.b() } fn b(&self) -> u8 { 1 } } fn main() { S.a(); }",
+        "struct S; impl S { fn a(&self) -> u8 { self.c() } fn c(&self) -> u8 { 1 } } fn main() { S.a(); }",
+    ),
+    (
+        "a method called on self in its own trait",
+        "trait T { fn a(&self) -> u8 { self.b() } fn b(&self) -> u8; } fn main() {}",
+        "trait T { fn a(&self) -> u8 { self.c() } fn c(&self) -> u8; } fn main() {}",
+    ),
+    (
+        "a method called on a local built as its type",
+        "struct S { n: u8 } impl S { fn go(&self) -> u8 { self.n } } fn main() { let c = S { n: 1 }; c.go(); }",
+        "struct S { n: u8 } impl S { fn run(&self) -> u8 { self.n } } fn main() { let d = S { n: 1 }; d.run(); }",
     ),
 ]
 
