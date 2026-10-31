@@ -51,8 +51,8 @@ subprocess. `--bank` has no default. From the repo root, `just review <command>
 | `accept [--checked-quote SPAN]…` | `status: accepted`. Refused while the answer does not derive, or while quoted text that is not a printed line is unchecked (AC-73) |
 | `reject --reason TEXT` | `status: rejected` and the reason; clears any affirmation. `reasons` lists them (AC-19) |
 | `difficulty LEVEL` | `difficulty_judged`, 1 to 5 (AC-88) |
-| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit clears the affirmation; an accepted record becomes `status: edited` (still accepted), and a rejected or unreviewed one keeps its status; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
-| `reverify` | Nothing itself; runs `verify` on the record as it stands |
+| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit clears the affirmation and the checked quotes, so each quote is checked again with `accept --checked-quote` before affirming (AC-73); an accepted record becomes `status: edited` (still accepted), and a rejected or unreviewed one keeps its status; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
+| `reverify` | Runs `verify` on the record as it stands; clears the checked quotes only if that changed the recorded result or the trace's `stdout` row |
 | `affirm [--by NAME]` | `affirmed_by`, `affirmed_at` and `affirmed_digest`. The name comes from `--by` or `POPQUIZ_ORGANIZER`; there is no default (AC-72, G-12) |
 
 Review never writes `verified` or the trace's `stdout` row; only the verifier

@@ -191,7 +191,8 @@ class Review:
 
     `affirmed_digest` binds an affirmation to the text it affirmed (GAP-24); see
     `affirmation_digest`. `quotes_checked` holds the quoted spans the organizer
-    checked and attested are not a claim about the output (AC-73). Only
+    checked and attested are not a claim about the output (AC-73); any edit clears
+    them, as does a re-verify that changes what the question says. Only
     `popquiz.review` writes any of these.
     """
 
