@@ -797,6 +797,21 @@ SCOPE_NEVER_THE_SAME = [
         "fn zzq(_: i32, _y: i32) {} fn f() { use std::mem::drop; zzq(1); } fn main() { f(); zzq(1, 2); }",
     ),
     (
+        "a block-level use of a module through a group's self shadows a module",
+        "mod mem { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self}; mem::drop(1); }",
+        "mod zzq { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self}; zzq::drop(1); }",
+    ),
+    (
+        "a group's self beside another name shadows a module",
+        "mod mem { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self, swap}; mem::drop(1); let _ = swap::<i32>; }",
+        "mod zzq { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self, swap}; zzq::drop(1); let _ = swap::<i32>; }",
+    ),
+    (
+        "a nested group's self shadows a module",
+        "mod mem { pub fn drop(_: i32, _: i32) {} } fn main() { use std::{mem::{self}}; mem::drop(1); }",
+        "mod zzq { pub fn drop(_: i32, _: i32) {} } fn main() { use std::{mem::{self}}; zzq::drop(1); }",
+    ),
+    (
         "a declared method beside a free function and the library's method",
         "fn count_ones(x: u32) -> u32 { x } struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); count_ones(1); let _ = 3u32.count_ones(); }",
         "fn zzq(x: u32) -> u32 { x } struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); zzq(1); let _ = 3u32.zzq(); }",
@@ -815,6 +830,41 @@ SCOPE_NEVER_THE_SAME = [
         "a local shadowed by a library value is not tied to the type",
         "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = S; let _ = c.count_ones(); { let c = 3u32; let _ = c.count_ones(); } }",
         "struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let c = S; let _ = c.zzq(); { let c = 3u32; let _ = c.zzq(); } }",
+    ),
+    (
+        "a parameter named like the type is not the type a local holds",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } fn f(S: u32) { let c = S; let _ = c.count_ones(); } fn main() { f(3); }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } fn f(S: u32) { let c = S; let _ = c.zzq(); } fn main() { f(3); }",
+    ),
+    (
+        "a let named like the type is not the type a local holds",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let S = 3u32; let c = S; let _ = c.count_ones(); }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let S = 3u32; let c = S; let _ = c.zzq(); }",
+    ),
+    (
+        "a closure parameter named like the type is not the type a local holds",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let g = |S: u32| { let c = S; c.count_ones() }; g(3); }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let g = |S: u32| { let c = S; c.zzq() }; g(3); }",
+    ),
+    (
+        "a block-level use named like the type is not the type a local holds",
+        "struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let c = MAX; let _ = c.count_ones(); }",
+        "struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let c = MAX; let _ = c.zzq(); }",
+    ),
+    (
+        "a block-level use named like the type is not the bare type",
+        "struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let _ = MAX.count_ones(); }",
+        "struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let _ = MAX.zzq(); }",
+    ),
+    (
+        "a top-level use named like the type is not the type a local holds",
+        "use std::u32::MAX; struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.count_ones(); }",
+        "use std::u32::MAX; struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.zzq(); }",
+    ),
+    (
+        "a top-level glob may bring in a value named like the type",
+        "use std::u32::*; struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.count_ones(); }",
+        "use std::u32::*; struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.zzq(); }",
     ),
     # Both exit 0, and they differ: the first calls `u32`'s own method, the second itself.
     (
@@ -986,6 +1036,16 @@ SCOPED_THE_SAME = [
         "a block-level glob use beside a function outside its block",
         "fn go() {} fn main() { { use std::mem::*; drop(1); } go(); }",
         "fn run() {} fn main() { { use std::mem::*; drop(1); } run(); }",
+    ),
+    (
+        "a block-level use through a group's self beside an unrelated function",
+        "fn go() {} fn main() { { use std::mem::{self}; mem::drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::{self}; mem::drop(1); } run(); }",
+    ),
+    (
+        "an aliased self in a block-level use beside an unrelated function",
+        "fn go() {} fn main() { { use std::mem::{self as m}; m::drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::{self as m}; m::drop(1); } run(); }",
     ),
     (
         "a block-level use's alias",

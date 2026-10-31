@@ -322,7 +322,9 @@ head (`if let Some(drop) = { drop(1); Some(2) } { }`). A declared member called 
 a dot (`.name(` or `.name::<T>(`) keeps its spelling, with no list needed, unless
 tokens tie every such call to a program type that declares it: the receiver is
 `self` in that type's `impl` or `trait`, the bare type, or a local whose every
-binding is `let c = S;` or `let c = S { .. };`. That rule covers method calls only.
+binding is `let c = S;` or `let c = S { .. };`. No binding or `use` may share the
+type's spelling, and a program with a glob `use` ties nothing. That rule covers
+method calls only.
 
 Known open: this shape still makes a program that compiles normalize equal to one
 that does not (found while closing PQ-66).

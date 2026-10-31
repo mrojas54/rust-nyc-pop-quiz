@@ -557,14 +557,15 @@ class _Stream:
         return parts
 
 
-def _pattern_names(s: _Stream, a: int, b: int) -> set[str]:
+def _pattern_names(s: _Stream, a: int, b: int, *, any_case: bool = False) -> set[str]:
     """The names a pattern in `[a, b)` binds.
 
     An identifier binds when it starts lowercase or with `_`, is not a path segment
     or a tuple-struct, struct or macro name (followed by `(`, `{`, `::` or `!`),
     and is not a field name inside braces (`Point { x: px }` binds `px`). Rust's
     own rule is close to this: an uppercase name in a pattern is a constant, a unit
-    struct or a variant.
+    struct or a variant. It may still be a binding (`fn f(S: u32)`), so `any_case`
+    takes those too, for a check that must not trust a spelling to mean a type.
     """
     names: set[str] = set()
     groups: list[str] = []
@@ -579,7 +580,7 @@ def _pattern_names(s: _Stream, a: int, b: int) -> set[str]:
         if t.kind != "ident":
             continue
         bare = t.text.removeprefix("r#")
-        if not (bare[0] == "_" or bare[0].islower()):
+        if not (any_case or bare[0] == "_" or bare[0].islower()):
             continue
         after = s.at(k + 1)
         if (
@@ -846,9 +847,11 @@ class _Declared:
     its owner's spelling, so `Self` can be followed to the type around it.
     `block_use_names` are the spellings a `use` inside a block may bring in, which
     can shadow a program's item there, so they are kept. `sole_types` are the
-    types and traits whose spelling no other item shares. `local_types` maps a local
+    types and traits whose spelling no other item, binding or `use` shares, and none
+    at all in a program with a glob `use`, so the spelling can only mean the type.
+    `local_types` maps a local
     to the types it holds, where every binding of its spelling is `let c = S;` or
-    `let c = S { .. };`. `bound_names` are every spelling a pattern binds.
+    `let c = S { .. };`.
     `generic_traits` maps a generic to the program traits that are all it is bound
     by, when tokens show every declaration of its spelling plainly. `aliases` maps a
     `type A = S;` declared once to `S`, a program type no other item shares.
@@ -872,7 +875,6 @@ class _Declared:
     block_use_names: frozenset[str]
     sole_types: frozenset[str]
     local_types: dict[str, frozenset[str]]
-    bound_names: frozenset[str]
     generic_traits: dict[str, frozenset[str]]
     aliases: dict[str, str]
 
@@ -1116,6 +1118,8 @@ class _Collector:
         )
         self.module_starts = [b for b, _ in self.module_spans]
         self.block_use_names: set[str] = set()
+        self.imported_names: set[str] = set()
+        self.glob_use = False
         # How many items declare each spelling, which of them are types or traits,
         # how many patterns bind each spelling, and the types `let` gives a local.
         self.item_counts: dict[str, int] = {}
@@ -1140,6 +1144,13 @@ class _Collector:
         for name in bound:
             self.bound_counts[name] = self.bound_counts.get(name, 0) + 1
         return bound
+
+    def pattern_spellings(self) -> set[str]:
+        """Every spelling any pattern may bind, whatever its case."""
+        found: set[str] = set()
+        for a, b in self.patterns:
+            found |= _pattern_names(self.s, a, b, any_case=True)
+        return found
 
     def item_end(self, start: int) -> int:
         """Where the item or closure whose header continues at `start` ends: the
@@ -1206,31 +1217,46 @@ class _Collector:
         """A binding reaches `[lo, hi]`, and like an item stops at nested modules."""
         self.scope_outside_modules(names, lo, lo, hi)
 
-    def block_use(self, k: int, end: int) -> None:
-        """The `use` at `k`, ending at `end`, if it sits in a block rather than at the
-        top level or directly in a module. Each name it imports may shadow an item
-        here, and tokens cannot tell, so its spelling is kept. An alias is not
-        recorded: it is the program's own name, and scoped as an item. A glob may
-        bring in any name, so every name in the block is kept."""
+    def use_leaf(self, k: int, j: int) -> str | None:
+        """The name the token at `j` imports, in the `use` at `k`: an identifier that
+        ends a path, or the parent module of a group's `self`. An alias is not one: it
+        is the program's own name, and scoped as an item."""
+        s = self.s
+        t = s.tokens[j]
+        if _kw(s.at(j + 1), "as") or _kw(s.at(j - 1), "as"):
+            return None
+        if t.kind == "ident":
+            return None if s.path_sep[j + 1] else t.text
+        group = self.enclosing[j]
+        if not _kw(t, "self") or group is None or group <= k or not s.path_sep[group - 1]:
+            return None
+        parent = s.at(group - 3)
+        return parent.text if parent is not None and parent.kind == "ident" else None
+
+    def use_tree(self, k: int, end: int) -> None:
+        """What the `use` at `k`, ending at `end`, may import. Any of it may be a value
+        named like a program type, whatever the `use`'s level. In a block rather than
+        at the top level or directly in a module, each name may also shadow an item
+        there, and tokens cannot tell, so its spelling is kept. A glob may bring in
+        any name, so every name in the block is kept."""
         s = self.s
         brace = self.enclosing[k]
-        if brace is None or brace in self.module_starts:
-            return
+        in_block = brace is not None and brace not in self.module_starts
         for j in range(k + 1, min(end, s.n)):
-            t = s.tokens[j]
-            if _is(t, "*"):
-                self.block_use_names |= {
-                    x.text
-                    for x in s.tokens[brace : s.partner[brace]]
-                    if x.kind == "ident"
-                }
-            elif (
-                t.kind == "ident"
-                and not s.path_sep[j + 1]
-                and not _kw(s.at(j + 1), "as")
-                and not _kw(s.at(j - 1), "as")
-            ):
-                self.block_use_names.add(t.text)
+            if _is(s.tokens[j], "*"):
+                self.glob_use = True
+                if in_block:
+                    self.block_use_names |= {
+                        x.text
+                        for x in s.tokens[brace : s.partner[brace]]
+                        if x.kind == "ident"
+                    }
+                continue
+            leaf = self.use_leaf(k, j)
+            if leaf is not None:
+                self.imported_names.add(leaf)
+                if in_block:
+                    self.block_use_names.add(leaf)
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
@@ -1529,7 +1555,7 @@ def _declared(s: _Stream) -> _Declared:
             elif word == "use":
                 end = s.find(k + 1, s.n, lambda j: _is(tokens[j], ";"))
                 if not _is(s.at(k + 1), "<"):  # not `+ use<'a>`
-                    c.block_use(k, end)
+                    c.use_tree(k, end)
                 for j in range(k + 1, min(end, s.n)):
                     alias = s.at(j + 1)
                     if (
@@ -1580,14 +1606,19 @@ def _declared(s: _Stream) -> _Declared:
         c.impl_owner,
         c.enclosing,
         frozenset(c.block_use_names),
-        frozenset(t for t in c.type_items if c.item_counts[t] == 1),
+        frozenset()
+        if c.glob_use
+        else frozenset(
+            t
+            for t in c.type_items - c.pattern_spellings() - c.imported_names
+            if c.item_counts[t] == 1
+        ),
         {
             local: frozenset(types)
             for local, types in c.let_types.items()
             if len(types) == c.bound_counts.get(local, 0)
             and local not in c.item_counts
         },
-        frozenset(c.bound_counts),
         {
             generic: frozenset(t for t in bounds if t is not None)
             for generic, bounds in c.generic_bounds.items()
@@ -2138,7 +2169,7 @@ def _call_is_tied(s: _Stream, declared: _Declared, k: int) -> bool:
     types = declared.local_types.get(receiver.text)
     if types is not None:
         return types <= owners
-    return receiver.text in owners and receiver.text not in declared.bound_names
+    return receiver.text in owners
 
 
 def _untied_method_calls(s: _Stream, declared: _Declared) -> set[str]:
