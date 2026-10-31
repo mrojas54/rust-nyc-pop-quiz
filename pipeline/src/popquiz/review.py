@@ -448,6 +448,12 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
     # Any edit clears the affirmation (GAP-24). An accepted record becomes `edited`,
     # which still counts as accepted; a rejected or unreviewed one keeps its status,
     # because editing a question is not accepting it.
+    #
+    # `quotes_checked` is carried over. It attests one span's exact text, and `quotes`
+    # looks a span up by that text (AC-73): a span that survives the edit stays checked,
+    # even when the sentence around it or the program changed, and a reworded span is
+    # new text that blocks until it is checked. A removed span stays listed, so it is
+    # checked again if the same text comes back.
     prior = _review(question)
     status = "edited" if prior.status in ACCEPTED else prior.status
     edited = dataclasses.replace(edited, review=dataclasses.replace(prior, status=status, **_cleared()))
