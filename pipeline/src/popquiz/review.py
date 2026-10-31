@@ -449,14 +449,16 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
     # which still counts as accepted; a rejected or unreviewed one keeps its status,
     # because editing a question is not accepting it.
     #
-    # `quotes_checked` is carried over. It attests one span's exact text, and `quotes`
-    # looks a span up by that text (AC-73): a span that survives the edit stays checked,
-    # even when the sentence around it or the program changed, and a reworded span is
-    # new text that blocks until it is checked. A removed span stays listed, so it is
-    # checked again if the same text comes back.
+    # Any edit also clears `quotes_checked` (AC-73; client, 2026-10-31). A check says a
+    # span is not a claim about the output, and that depends on the sentence around it
+    # and on the program, so a span that survives an edit is checked again before the
+    # question can be affirmed. A span removed and later restored comes back unchecked.
+    # Both edit paths below write this record.
     prior = _review(question)
     status = "edited" if prior.status in ACCEPTED else prior.status
-    edited = dataclasses.replace(edited, review=dataclasses.replace(prior, status=status, **_cleared()))
+    edited = dataclasses.replace(
+        edited, review=dataclasses.replace(prior, status=status, quotes_checked=None, **_cleared())
+    )
     if status == "rejected":
         after = "it stays rejected until you accept it"
     elif status is None:
@@ -490,11 +492,27 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
     )
 
 
+def _what_it_says(question: Question) -> tuple[Any, ...]:
+    """What re-verifying can change in a question, leaving out when it ran: the text
+    the organizer read, the trace's `stdout` row with it, and the recorded result."""
+    verified = question.verified
+    return (
+        bank.affirmation_digest(question),
+        verified.stdout if verified else None,
+        verified.compile_error_code if verified else None,
+    )
+
+
 def reverify(bank_dir: Path, qid: str, expect: str | None = None, runner: Runner | None = None) -> str:
     question = bank.load_question(bank_dir, qid)
     ok, said = _verify_into_bank(bank_dir, question, _expect(question, expect), runner)
     if not ok:
         raise ReviewRefused(f"The verifier did not accept {qid}, so its record is unchanged. {said}")
+    # A re-verify that changed what the question says counts as an edit for its checked
+    # quotes (AC-73): each one was checked against an output that is no longer recorded.
+    after = bank.load_question(bank_dir, qid)
+    if _what_it_says(after) != _what_it_says(question):
+        _save(bank_dir, after, quotes_checked=None)
     return f"{qid} re-verified.\n{said}"
 
 
