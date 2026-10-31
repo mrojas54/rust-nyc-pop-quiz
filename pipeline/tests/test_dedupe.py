@@ -837,6 +837,23 @@ SCOPE_NEVER_THE_SAME = [
         "struct P { count_ones: u32 } fn main() { let p = P { count_ones: 1 }; let _ = p.count_ones; let _ = 3u32.count_ones(); }",
         "struct P { zzq: u32 } fn main() { let p = P { zzq: 1 }; let _ = p.zzq; let _ = 3u32.zzq(); }",
     ),
+    (
+        "a generic bound by the library's trait is not the program trait's function",
+        "trait Tr { fn default() -> u8; } struct S; impl Tr for S { fn default() -> u8 { 1 } } fn f<T: Default>() -> T { T::default() } fn main() { S::default(); f::<i32>(); }",
+        "trait Tr { fn zz() -> u8; } struct S; impl Tr for S { fn zz() -> u8 { 1 } } fn f<T: Default>() -> T { T::zz() } fn main() { S::zz(); f::<i32>(); }",
+    ),
+    # The first exits 1 (E0034) and the second 0.
+    (
+        "a supertrait's name makes a program trait's path ambiguous",
+        "trait Tr: Default { fn default() -> u8; } fn f<T: Tr>() { T::default(); } fn main() {}",
+        "trait Tr: Default { fn zz() -> u8; } fn f<T: Tr>() { T::zz(); } fn main() {}",
+    ),
+    # The first exits 1 (E0034) and the second 0.
+    (
+        "a where clause's bound makes a program trait's path ambiguous",
+        "trait Tr { fn default() -> u8; } fn f<T: Tr>() where T: Default { T::default(); } fn main() {}",
+        "trait Tr { fn zz() -> u8; } fn f<T: Tr>() where T: Default { T::zz(); } fn main() {}",
+    ),
 ]
 
 
@@ -984,6 +1001,11 @@ SCOPED_THE_SAME = [
         "a method called on a local built as its type",
         "struct S { n: u8 } impl S { fn go(&self) -> u8 { self.n } } fn main() { let c = S { n: 1 }; c.go(); }",
         "struct S { n: u8 } impl S { fn run(&self) -> u8 { self.n } } fn main() { let d = S { n: 1 }; d.run(); }",
+    ),
+    (
+        "a program trait's function called through a generic",
+        "trait Tr { fn go() -> i32; } struct S; impl Tr for S { fn go() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::go() } fn main() { f::<S>(); }",
+        "trait Tr { fn run() -> i32; } struct S; impl Tr for S { fn run() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::run() } fn main() { f::<S>(); }",
     ),
 ]
 

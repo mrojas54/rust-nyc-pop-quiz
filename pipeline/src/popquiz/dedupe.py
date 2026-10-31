@@ -637,6 +637,33 @@ def _generic_names(s: _Stream, lt: int, names: set[str]) -> int:
     return s.n - 1
 
 
+def _plain_bounds(s: _Stream, lt: int, gt: int) -> dict[str, str]:
+    """The generics in the `<...>` from `lt` to `gt` written exactly `T: Bound`, with
+    one bound that is a single identifier."""
+    bounds: dict[str, str] = {}
+    depth = 0
+    entry_start = True
+    for k in range(lt + 1, gt):
+        t = s.tokens[k]
+        if _is(t, "<"):
+            depth += 1
+        elif _is(t, ">") and not (_is(s.at(k - 1), "-") and s.tokens[k - 1].joint):
+            depth -= 1
+        elif _is(t, ",") and depth == 0:
+            entry_start = True
+            continue
+        if entry_start and depth == 0 and t.kind == "ident" and s.colon(k + 1):
+            bound = s.at(k + 2)
+            if (
+                bound is not None
+                and bound.kind == "ident"
+                and (k + 3 == gt or _is(s.at(k + 3), ","))
+            ):
+                bounds[t.text] = bound.text
+        entry_start = False
+    return bounds
+
+
 def _skip_attributes_and_visibility(s: _Stream, a: int, b: int) -> int:
     """Past any `#[...]` attributes and a `pub` / `pub(...)` at the start of an entry."""
     while a < b:
@@ -812,6 +839,8 @@ class _Declared:
     types and traits whose spelling no other item shares. `local_types` maps a local
     to the types it holds, where every binding of its spelling is `let c = S;` or
     `let c = S { .. };`. `bound_names` are every spelling a pattern binds.
+    `generic_traits` maps a generic to the program traits that are all it is bound
+    by, when tokens show every declaration of its spelling plainly.
     """
 
     names: frozenset[str]
@@ -833,6 +862,7 @@ class _Declared:
     sole_types: frozenset[str]
     local_types: dict[str, frozenset[str]]
     bound_names: frozenset[str]
+    generic_traits: dict[str, frozenset[str]]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -1080,6 +1110,10 @@ class _Collector:
         self.type_items: set[str] = set()
         self.bound_counts: dict[str, int] = {}
         self.let_types: dict[str, list[str]] = {}
+        # Per generic spelling, each declaration's plain bound, `None` when it has
+        # another shape; and the traits declared with no supertrait or generics.
+        self.generic_bounds: dict[str, set[str | None]] = {}
+        self.plain_traits: set[str] = set()
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1188,9 +1222,23 @@ class _Collector:
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
         found: set[str] = set()
-        gt = _generic_names(self.s, lt, found)
+        s = self.s
+        gt = _generic_names(s, lt, found)
         self.names |= found
         self.generic_names |= found
+        bounds = _plain_bounds(s, lt, gt)
+        header_end = s.find(
+            gt + 1,
+            s.n,
+            lambda j: _kw(s.tokens[j], "where")
+            or _is(s.tokens[j], "{")
+            or _is(s.tokens[j], ";"),
+        )
+        where = _kw(s.at(header_end), "where")
+        for name in found:
+            self.generic_bounds.setdefault(name, set()).add(
+                None if where else bounds.get(name)
+            )
         return gt, found
 
     def data_type(self, k: int, kind: str) -> None:
@@ -1447,6 +1495,8 @@ def _declared(s: _Stream) -> _Declared:
                     c.item(j)
                     if word == "trait":
                         c.type_items.add(name.text)
+                        if _is(s.at(j + 1), "{"):
+                            c.plain_traits.add(name.text)
                     if _is(s.at(j + 1), "<"):
                         gt, found = c.generics(j + 1)
                         c.scope(found, j, c.item_end(gt + 1))
@@ -1515,6 +1565,14 @@ def _declared(s: _Stream) -> _Declared:
             and local not in c.item_counts
         },
         frozenset(c.bound_counts),
+        {
+            generic: frozenset(t for t in bounds if t is not None)
+            for generic, bounds in c.generic_bounds.items()
+            if generic not in c.item_counts
+            and all(
+                t in c.plain_traits and c.item_counts[t] == 1 for t in bounds
+            )
+        },
     )
 
 
@@ -2080,8 +2138,9 @@ _PATH_KEYWORDS = frozenset(["Self", "self", "crate", "super"])
 def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
     """Whether the path tail at `k` can be the program's own declaration of its
     name, given the segment before it. Token-level, so it answers no whenever it
-    cannot tell: after a generic parameter (`I::Item`, `T::default()` are the
-    bound trait's), after `Self` unless the name is an associated item, after a
+    cannot tell: after a generic parameter unless the program traits that are all
+    it is bound by declare the name (`I::Item`, `T::default()` are the library
+    trait's), after `Self` unless the name is an associated item, after a
     module or `crate`/`self`/`super` unless the name is an item declared directly
     in a module (a `use` re-export of the library's is not), and after a type
     unless the name is an associated item or a variant of that very type."""
@@ -2102,8 +2161,11 @@ def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
             brace is not None
             and declared.impl_owner[brace] in declared.assoc_owners.get(name, set())
         )
-    if head.kind != "ident" or head.text in declared.generics:
+    if head.kind != "ident":
         return False
+    if head.text in declared.generics:
+        traits = declared.generic_traits.get(head.text)
+        return bool(traits) and traits <= declared.assoc_owners.get(name, set())
     if head.text in declared.module_bodies:
         return bool(
             declared.module_bodies[head.text] & declared.item_braces.get(name, set())
