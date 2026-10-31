@@ -34,8 +34,9 @@ a small hand-written lexer and normalizes the token stream instead:
   entry point, names used outside the scope that declares them, and names in
   sources with derives stay;
 * every other name is kept exactly: keywords, every standard-library type,
-  function, method and macro the program uses without declaring, and declared
-  members on the library keep-list (`fn len`). That list is incomplete.
+  function, method and macro the program uses without declaring, declared members
+  on the library keep-list (`fn len`), which is incomplete, and declared members a
+  method call may share with the library (`3u32.count_ones()`).
 
 The rule behind all of it: **no normalization may make two different programs
 equal.** A normalized duplicate is *rejected*, with no person in the loop, and in
@@ -63,17 +64,21 @@ closing them is closed too: a name declared in an `impl` of a library trait
 (`type Item` in an `impl Iterator`) is kept, and a tail after a type or `Self` is
 renamed only when that type, its trait or its enum declares it.
 
-Known open: these shapes still make a program that compiles normalize equal to
-one that does not (PQ-66).
+PQ-66 closes the four shapes PQ-30's exact-head review left open, for the forms in
+the test tables. A binding stops at a `mod` nested in its range. A name a block-level
+`use` may import keeps its spelling, and with a glob so does every name in that
+block. A binding reaches no block when that block may belong to its condition's
+head (`if let Some(drop) = { drop(1); Some(2) } { }`). A declared member called with
+a dot (`.name(` or `.name::<T>(`) keeps its spelling, with no list needed, unless
+tokens tie every such call to a program type that declares it: the receiver is
+`self` in that type's `impl` or `trait`, the bare type, or a local whose every
+binding is `let c = S;` or `let c = S { .. };`. That rule covers method calls only.
 
-1. A `let` binding or parameter reaches into a `mod` nested in its function body,
-   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
-2. A block-level `use` shadows an item of the same name
-   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
-3. A library method name missing from `_STD_MEMBERS` that the program also
-   declares (`fn count_ones` beside `3u32.count_ones()`).
-4. An `if let` binding's range starts at the first `{` after the pattern, which can
-   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+Known open: this shape still makes a program that compiles normalize equal to one
+that does not (found while closing PQ-66).
+
+1. A generic parameter reaches into a `mod` nested in its function, where the bare
+   name is the library's (`fn f<String>() { mod m { .. String::new() .. } }`).
 
 That is a bounded list of the shapes known so far, not proof that no other exists.
 
@@ -90,17 +95,22 @@ an item used inside a nested module through `use super::*`, and every spelling
 that a kept path tail shares (`T::default()` keeps a program's own `default`),
 every name declared in an `impl` of a library trait, and a tail the tokens cannot
 tie to its type (a trait's default method called through an implementing type,
-an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`).
-The scoping also misses two renames Rust would allow: a program trait's function
-called through a generic (`T::go()` in `fn f<T: Tr>`) and a path through a type
-alias (`type A = S; A::mk()`). Each of those is two token streams, so the check
+an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`), a method
+called on a receiver tokens cannot tie to the program's type
+(`let c = S::new(); c.go()`), a name a block-level `use` imports, every name in a
+block with a glob `use`, and a binding whose condition's head holds a block
+(`if let Some(x) = unsafe { f() } { x }`).
+A generic's path is renamed only when it is bound plainly by one program trait
+(`T::go()` in `fn f<T: Tr>`), and an alias's only for `type A = S;` of a program type
+(`A::mk()`). Other forms are missed: `T: Tr + Send`, a `where` clause, a trait with
+supertraits, a generic alias. Each of those is two token streams, so the check
 says "not a normalized duplicate" and the near-duplicate check - which sees them
 as very similar - sends the pair to an organizer. A miss costs a person a look; a
 false match would cost a question silently. The approximation is built to fail in
 the first direction, though the known-open list above shows it does not always.
-`scope_outside_modules` checks every item against every module, so time grows
-quadratically on very large programs (PQ-30's exact-head review timed the largest
-bank question at 0.5 ms). The missed renames and the time are recall and speed
+`scope_outside_modules` checks each top-level item against every module, so time
+grows quadratically on very large programs (PQ-30's exact-head review timed the
+largest bank question at 0.5 ms). The missed renames and the time are recall and speed
 costs, not safety gaps.
 
 The near-duplicate bigrams abstract every renamed name to the same placeholder,
@@ -1706,8 +1716,9 @@ _COMPOUND = frozenset(
 # declares a member by one of these names may also call the library's - its own
 # `fn len` beside `self.items.len()` - and renaming both would make it equal to a
 # program that calls a `size` the library never had. So a declared member with one
-# of these names is never renamed, anywhere. The list is not complete and cannot
-# be: a rarer name still carries the risk, and it is named in `bank/README.md`.
+# of these names is never renamed, anywhere, even where a call is tied to the
+# program's type. The list is not complete and cannot be: `_untied_method_calls`
+# is what keeps a rarer name when a method call may be the library's.
 _STD_MEMBERS = frozenset(
     [
         "abs",

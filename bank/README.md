@@ -314,17 +314,21 @@ found while closing them is closed too: a name declared in an `impl` of a librar
 trait (`type Item` in an `impl Iterator`) is kept, and `B::name` or `Self::name`
 is renamed only when `B`'s own `impl`, trait or enum declares `name`.
 
-Known open: these shapes still make a program that compiles normalize equal to
-one that does not (PQ-66).
+PQ-66 closes the four shapes PQ-30's exact-head review left open, for the forms in
+the test tables. A binding stops at a `mod` nested in its range. A name a block-level
+`use` may import keeps its spelling, and with a glob so does every name in that
+block. A binding reaches no block when that block may belong to its condition's
+head (`if let Some(drop) = { drop(1); Some(2) } { }`). A declared member called with
+a dot (`.name(` or `.name::<T>(`) keeps its spelling, with no list needed, unless
+tokens tie every such call to a program type that declares it: the receiver is
+`self` in that type's `impl` or `trait`, the bare type, or a local whose every
+binding is `let c = S;` or `let c = S { .. };`. That rule covers method calls only.
 
-1. A `let` binding or parameter reaches into a `mod` nested in its function body,
-   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
-2. A block-level `use` shadows an item of the same name
-   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
-3. A library method name missing from `_STD_MEMBERS` that the program also
-   declares (`fn count_ones` beside `3u32.count_ones()`).
-4. An `if let` binding's range starts at the first `{` after the pattern, which can
-   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+Known open: this shape still makes a program that compiles normalize equal to one
+that does not (found while closing PQ-66).
+
+1. A generic parameter reaches into a `mod` nested in its function, where the bare
+   name is the library's (`fn f<String>() { mod m { .. String::new() .. } }`).
 
 That is a bounded list of the shapes known so far, not proof that no other exists.
 
@@ -333,11 +337,16 @@ closure in an `if` or `while` head, a `#[macro_use]` module's macro, a struct
 pattern after an or-pattern's `|`, an item reached through `use super::*`, any
 spelling a kept path tail shares, the names in an `impl` of a library trait, and a
 path the tokens cannot tie to its type (a trait's default method through an
-implementing type, an `impl` for `[u8; 4]`). It also misses two renames Rust
-would allow: a program trait's function called through a generic (`T::go()` in
-`fn f<T: Tr>`) and a path through a type alias (`type A = S; A::mk()`). Each of
-those is a missed rename, which a person sees. The module-scoping step checks every
-item against every module, so time grows quadratically on very large programs
+implementing type, an `impl` for `[u8; 4]`), a method called on a receiver the
+tokens cannot tie to the program's type (`let c = S::new(); c.go()`), a name a
+block-level `use` imports, every name in a block with a glob `use`, and a binding
+whose condition's head holds a block (`if let Some(x) = unsafe { f() } { x }`). A
+generic's path is renamed only when one program trait plainly bounds it (`T::go()`
+in `fn f<T: Tr>`), and an alias's only for `type A = S;` of a program type
+(`A::mk()`). Other forms (`T: Tr + Send`, a `where` clause, a trait with
+supertraits, a generic alias) are missed. Each of those is a missed rename, which a
+person sees. The module-scoping step checks each top-level item against every
+module, so time grows quadratically on very large programs
 (PQ-30's exact-head review timed the largest bank question at 0.5 ms). The missed
 renames and the time are recall and speed costs, not safety gaps.
 
@@ -347,10 +356,10 @@ programs equal**, including a program that compiles and one that does not.
 with no person in the loop. That is why `a = = b` stays apart from `a == b`, and
 why `P { a: Q { n: 1 }, b: 2 }` stays apart from the same line missing its comma.
 A dangling `///` stays apart from no comment at all. A struct's own `fn len` is
-never renamed, because the program may also call the library's `len`. That last
-guard covers the library names a quiz program is likely to use. A rarer method
-name that a program both declares and calls on a library type can still be
-renamed in both places, and that is a known gap.
+never renamed, because the program may also call the library's `len`. That guard
+covers the library names a quiz program is likely to use. A rarer name follows the
+method-call rule above: it is kept wherever a call of it is not tied to the
+program's type.
 
 A miss only sends the pair to the near-duplicate check, which is where the
 approximation's gaps land: reordered statements, swapped operands, an expression
