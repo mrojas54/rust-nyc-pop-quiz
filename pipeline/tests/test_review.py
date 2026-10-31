@@ -13,6 +13,7 @@ TUI's own end-to-end test runs the CLI as a subprocess.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import hashlib
 import json
 import runpy
@@ -425,28 +426,227 @@ def test_a_re_verifying_edit_does_not_accept_an_unreviewed_question(bank_dir, tm
     refused(run("affirm", "q4", "--by", NAME, "--bank", bank_dir), capsys, "It has not been accepted")
 
 
-def test_ac73_a_checked_quote_lasts_exactly_as_long_as_its_text(bank_dir, tmp_path, capsys):
-    span = "not what it printed"
+SPAN = "not what it printed"
+
+
+def with_a_checked_quote(bank_dir: Path) -> None:
+    """Give q4 a quoted span that is not a printed line, and accept it with the check."""
     file = bank.question_path(bank_dir, "q4")
     data = json.loads(file.read_text())
-    data["explains"]["what"] += f' Someone might say "{span}".'
+    data["explains"]["what"] += f' Someone might say "{SPAN}".'
     file.write_text(json.dumps(data))
-    assert run("accept", "q4", "--checked-quote", span, "--bank", bank_dir) == 0
+    assert run("accept", "q4", "--checked-quote", SPAN, "--bank", bank_dir) == 0
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
 
-    # A prose edit and a re-verify both leave the span's text alone: still checked.
-    path = edit_file(bank_dir, tmp_path, "q4", lambda d: d.update(hint=d["hint"] + " More."))
-    assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
+
+def unchecked(q: bank.Question) -> None:
+    assert q.review.quotes_checked is None
+    assert any(f'"{SPAN}"' in b for b in review.accept_blockers(q))
+
+
+PROSE_EDITS = {
+    "hint": lambda d: d.update(hint=d["hint"] + " More."),
+    "explanation sentence": lambda d: d["explains"].update(what=d["explains"]["what"] + " More."),
+    "takeaway": lambda d: d["explains"].update(takeaway=d["explains"]["takeaway"] + " More."),
+    "why tempting": lambda d: d["options"][0].update(why_tempting="A new reason."),
+    "trace note": lambda d: d["trace_notes"].__setitem__(0, "A new first note."),
+}
+
+
+@pytest.mark.parametrize("change", PROSE_EDITS.values(), ids=PROSE_EDITS.keys())
+def test_ac73_an_edit_without_a_program_change_unchecks_its_quotes(bank_dir, tmp_path, capsys, change):
+    with_a_checked_quote(bank_dir)
+    path = edit_file(bank_dir, tmp_path, "q4", change)
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir, runner=NoRunner()) == 0
+    unchecked(load(bank_dir, "q4"))
+
+
+def test_ac73_an_option_edit_through_the_re_verifier_unchecks_its_quotes(bank_dir, tmp_path, capsys):
+    with_a_checked_quote(bank_dir)
     re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
-    q = load(bank_dir, "q4")
-    assert q.review.quotes_checked == (span,)
-    assert review.accept_blockers(q) == []
+    unchecked(load(bank_dir, "q4"))
 
-    # Reword the span and it is new text, which nobody has checked.
+
+def test_ac73_a_program_edit_through_the_re_verifier_unchecks_its_quotes(bank_dir, tmp_path, capsys):
+    with_a_checked_quote(bank_dir)
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: d.update(source=d["source"] + "// edited\n"))
+    re_verified(bank_dir, path, capsys)
+    unchecked(load(bank_dir, "q4"))
+
+
+def test_ac73_an_edit_that_changes_nothing_keeps_its_checks(bank_dir, tmp_path, capsys):
+    with_a_checked_quote(bank_dir)
+    before = raw(bank_dir, "q4")
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: None)
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir, runner=NoRunner()) == 0
+    assert raw(bank_dir, "q4") == before
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
+
+
+def test_ac73_a_refused_re_verifying_edit_keeps_its_checks(bank_dir, tmp_path, capsys):
+    with_a_checked_quote(bank_dir)
+    path = edit_file(bank_dir, tmp_path, "q4", lambda d: d.update(source=d["source"] + "// edited\n"))
+    code = run("edit", "q4", "--from", path, "--expect", "does_not_compile", "--bank", bank_dir, runner=stub())
+    refused(code, capsys, "nothing was written")
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
+
+
+def affirmable_q4_with_a_checked_quote(bank_dir: Path) -> None:
+    """q4 as `accepted_and_affirmed` affirms it, with a checked quote added first."""
+    with_a_checked_quote(bank_dir)
+    assert run("affirm", "q4", "--by", NAME, "--bank", bank_dir) == 0
+
+
+def test_ac73_after_a_prose_edit_affirm_waits_for_the_check_again(bank_dir, tmp_path, capsys):
+    affirmable_q4_with_a_checked_quote(bank_dir)
+    path = edit_file(bank_dir, tmp_path, "q4", PROSE_EDITS["hint"])
+    assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
+    capsys.readouterr()
+    refused(run("affirm", "q4", "--by", NAME, "--bank", bank_dir), capsys, f'"{SPAN}"')
+    assert run("accept", "q4", "--checked-quote", SPAN, "--bank", bank_dir) == 0
+    assert run("affirm", "q4", "--by", NAME, "--bank", bank_dir) == 0
+    assert bank.affirmation_state(load(bank_dir, "q4")) == "bound"
+
+
+def test_ac73_after_a_re_verifying_edit_affirm_waits_for_the_check_again(bank_dir, tmp_path, capsys):
+    affirmable_q4_with_a_checked_quote(bank_dir)
+    re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
+    refused(run("affirm", "q4", "--by", NAME, "--bank", bank_dir), capsys, f'"{SPAN}"')
+    assert run("accept", "q4", "--checked-quote", SPAN, "--bank", bank_dir) == 0
+    assert run("affirm", "q4", "--by", NAME, "--bank", bank_dir) == 0
+    assert bank.affirmation_state(load(bank_dir, "q4")) == "bound"
+
+
+def test_ac73_a_removed_quote_does_not_come_back_checked(bank_dir, tmp_path, capsys):
+    with_a_checked_quote(bank_dir)
+    sentence = f' Someone might say "{SPAN}".'
+    without = edit_file(
+        bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"].replace(sentence, ""))
+    )
+    assert run("edit", "q4", "--from", without, "--bank", bank_dir) == 0
+    assert review.accept_blockers(load(bank_dir, "q4")) == []
+    back = edit_file(bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"] + sentence))
+    assert run("edit", "q4", "--from", back, "--bank", bank_dir) == 0
+    unchecked(load(bank_dir, "q4"))
+
+
+def test_ac73_a_reword_needs_its_own_check(bank_dir, tmp_path, capsys):
+    with_a_checked_quote(bank_dir)
     path = edit_file(
-        bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"].replace(span, "reworded"))
+        bank_dir, tmp_path, "q4", lambda d: d["explains"].update(what=d["explains"]["what"].replace(SPAN, "reworded"))
     )
     assert run("edit", "q4", "--from", path, "--bank", bank_dir) == 0
     assert any('"reworded"' in b for b in review.accept_blockers(load(bank_dir, "q4")))
+
+
+class OutputMoved(StubRunner):
+    """Replays the recording with its output moved onto a wrong choice's text, as a new
+    toolchain might: the verifier refuses an output no choice derives from. This is a
+    wrong choice's own text, not something any program was seen to print (AC-7)."""
+
+    def __init__(self, directory: Path, text: str) -> None:
+        super().__init__(directory)
+        self._text = text
+
+    def run(self, kind, program_id):
+        step = super().run(kind, program_id)
+        moved = kind != "toolchain" and step.stdout
+        return dataclasses.replace(step, stdout=self._text + "\n") if moved else step
+
+
+def moved_runner(question: bank.Question) -> tuple[OutputMoved, int]:
+    correct = bank.correct_index(question)
+    wrong = next(i for i in range(5) if i != correct and question.options[i].kind == "output")
+    return OutputMoved(RECORDINGS, question.options[wrong].text), wrong
+
+
+def test_ac73_a_re_verify_that_changes_the_output_unchecks_its_quotes(bank_dir, capsys):
+    with_a_checked_quote(bank_dir)
+    runner, wrong = moved_runner(load(bank_dir, "q4"))
+    assert run("reverify", "q4", "--bank", bank_dir, runner=runner) == 0
+    q = load(bank_dir, "q4")
+    assert bank.correct_index(q) == wrong
+    unchecked(q)
+
+
+def test_ac73_a_re_verify_that_only_rewrites_the_stdout_row_unchecks_its_quotes(bank_dir, capsys):
+    """The record's output stays the same; the row the organizer read changes with it."""
+    with_a_checked_quote(bank_dir)
+    file = bank.question_path(bank_dir, "q4")
+    data = json.loads(file.read_text())
+    row = next(v for v in data["trace"]["steps"][-1]["values"] if v["name"] == "stdout")
+    row["now"] = "out of step with the record"
+    file.write_text(json.dumps(data))
+    before = load(bank_dir, "q4")
+    assert run("reverify", "q4", "--bank", bank_dir, runner=stub()) == 0
+    q = load(bank_dir, "q4")
+    assert q.verified.stdout == before.verified.stdout
+    unchecked(q)
+
+
+def test_ac73_a_re_verify_that_moves_the_output_of_a_question_with_no_trace_unchecks_its_quotes(bank_dir, capsys):
+    """With no steps there is no `stdout` row, so the text read stays the same."""
+    with_a_checked_quote(bank_dir)
+    file = bank.question_path(bank_dir, "q4")
+    data = json.loads(file.read_text())
+    data["trace"]["steps"] = []
+    file.write_text(json.dumps(data))
+    before = load(bank_dir, "q4")
+    runner, _ = moved_runner(before)
+    assert run("reverify", "q4", "--bank", bank_dir, runner=runner) == 0
+    q = load(bank_dir, "q4")
+    assert bank.affirmation_digest(q) == bank.affirmation_digest(before)
+    unchecked(q)
+
+
+class CodeMoved(StubRunner):
+    """Replays a does-not-compile recording naming another compiler code. The codes are
+    labels from the record, and neither is written down as a program's output (AC-7)."""
+
+    def __init__(self, directory: Path, was: str, now: str) -> None:
+        super().__init__(directory)
+        self._was, self._now = was, now
+
+    def run(self, kind, program_id):
+        step = super().run(kind, program_id)
+        return dataclasses.replace(step, stderr=step.stderr.replace(self._was, self._now))
+
+
+def test_ac73_a_re_verify_that_changes_the_compile_code_unchecks_its_quotes(bank_dir, capsys):
+    file = bank.question_path(bank_dir, "q8")
+    data = json.loads(file.read_text())
+    spans = [q["span"] for q in review.quotes(load(bank_dir, "q8")) if not q["matches"]]
+    assert spans, "q8's fixture holds no quote to check"
+    data["review"]["quotes_checked"] = spans
+    file.write_text(json.dumps(data))
+    before = load(bank_dir, "q8")
+    was = before.verified.compile_error_code[0]
+    assert run("reverify", "q8", "--bank", bank_dir, runner=CodeMoved(RECORDINGS, was, "E0999")) == 0
+    q = load(bank_dir, "q8")
+    assert q.verified.compile_error_code != before.verified.compile_error_code
+    assert bank.affirmation_digest(q) == bank.affirmation_digest(before)
+    assert q.review.quotes_checked is None
+
+
+def test_ac73_a_re_verify_with_the_same_output_keeps_its_checks(bank_dir, capsys):
+    with_a_checked_quote(bank_dir)
+    before = load(bank_dir, "q4")
+    assert run("reverify", "q4", "--bank", bank_dir, runner=stub()) == 0
+    q = load(bank_dir, "q4")
+    assert q.verified.verified_at != before.verified.verified_at
+    assert q.review.quotes_checked == (SPAN,)
+
+
+def test_ac73_a_decision_is_not_an_edit_and_keeps_the_checks(bank_dir, capsys):
+    with_a_checked_quote(bank_dir)
+    assert run("difficulty", "q4", "3", "--bank", bank_dir) == 0
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
+    assert run("affirm", "q4", "--by", NAME, "--bank", bank_dir) == 0
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
+    assert run("reject", "q4", "--reason", "Too close to q3", "--bank", bank_dir) == 0
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
+    assert run("accept", "q4", "--bank", bank_dir) == 0
+    assert load(bank_dir, "q4").review.quotes_checked == (SPAN,)
 
 
 def test_an_option_edit_re_verifies_through_the_verifier(bank_dir, tmp_path, capsys):
