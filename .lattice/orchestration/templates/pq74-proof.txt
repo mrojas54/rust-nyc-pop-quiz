@@ -1,0 +1,62 @@
+files: base 39, head 45
+
+--- lines only at base (19)
+  1x // — the shape `rooms/room.rs` writes into `join_url` and the wall prints —
+  1x //!   - `rooms/create` — the one path that makes a room: *Create a room* and
+  1x //!   and §4.6's bounds (T-11); lives in `rooms/`, the reaper is `server/`.
+  1x //! Participant operations on [`AppState`]: join, answer, leave, the buzzer
+  1x //! The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
+  1x //! commands, release and the sweep are `state.rs`'s.
+  1x //! the same sink the Discord backend (`host/discord/`) writes to. Not
+  1x //! | Create a room | host route → [`HostAuth::authorize_create`](crate::auth::HostAuth::authorize_create) (the organizer session, Discord) → [`AppSta
+  1x //! | Expire a room | the reaper (`server/reaper.rs`) → [`AppState::sweep`] → removal and a tombstone (`state.rs`) |
+  1x //! | Host command | host route → [`AppState::act`]: the room's host session, then [`Room::act`] and release's side effects (`state.rs`) |
+  1x //! | Join or answer | participant route → [`AppState::join`] / [`AppState::answer`] → sessions and live counts under the one `rooms` lock (`participa
+  1x //! | `create.rs` | *Create a room* and *Run it again* |
+  1x //! | `participants.rs` | Join, answer, leave, one session's buzzer payload, the session and live counts, the socket's token map |
+  1x //! | `room.rs` | One room's record and the transitions the phase machine drives |
+  1x //! | `state.rs` | [`AppState`]'s fields and setup, scheduling, host commands and release, the read paths, expiry |
+  1x /// `pub(super)`; the six none of them reads are private to this file.
+  1x /// answer on `/last` ([`super::AppState::act`] refuses an ended room).
+  1x /// release transition in `rooms/state.rs` (G-10), which `tests/used.rs` checks by
+  1x super::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
+
+--- lines only at head (39)
+  1x // — the shape `quiz_session/models/rooms.rs` writes into `join_url` and the wall prints —
+  1x //!   ([`Room`](crate::rooms::Room)).
+  1x //!   - `quiz_session/host/create` — the one path that makes a room: *Create a room* and
+  1x //!   and §4.6's bounds (T-11); lives in `quiz_session/`, the reaper is `server/`.
+  1x //! - `rooms` — one room's record and the writes the phase machine drives
+  1x //! Join by code. The session and its live counts share one `rooms` lock (`mod.rs`).
+  1x //! Leaving for good. The session and its live counts share one `rooms` lock (`mod.rs`).
+  1x //! One session's buzzer payload.
+  1x //! Participant operations on [`AppState`](crate::rooms::AppState): join, answer, leave, the buzzer
+  1x //! The answer upsert. The vote and its live counts share one `rooms` lock (`mod.rs`).
+  1x //! The live counts' writer and the session count.
+  1x //! The session map, as the transport sees it.
+  1x //! The tree is ADR-0005's: `quiz_session/` holds the session and its models,
+  1x //! commands, release and the sweep are `state_manager.rs`'s.
+  1x //! host and participant operations. The modules are the ones `BUILDPLAN.md` §2 names, grouped by who uses
+  1x //! the same sink the Discord backend (`quiz_session/host/discord/`) writes to. Not
+  1x //! | Create a room | host route → [`HostAuth::authorize_create`](crate::auth::HostAuth::authorize_create) (the organizer session, Discord) → [`AppSta
+  1x //! | Expire a room | the reaper (`server/reaper.rs`) → [`AppState::sweep`] → removal and a tombstone (`state_manager.rs`) |
+  1x //! | Host command | host route → [`AppState::act`]: the room's host session, then [`Room::act`] and release's side effects (`state_manager.rs`) |
+  1x //! | Join or answer | participant route → [`AppState::join`] / [`AppState::answer`] → sessions and live counts under the one `rooms` lock (`participa
+  1x //! | `host/create.rs` | *Create a room* and *Run it again* |
+  1x //! | `models/rooms.rs` | One room's record and the transitions the phase machine drives |
+  1x //! | `participant/` | `join`, `vote` (the answer), `leave`, `buzzer` (one session's payload), `counts` (the session and live counts), `tokens` (the s
+  1x //! | `state_manager.rs` | [`AppState`]'s fields and setup, scheduling, host commands and release, the read paths, expiry |
+  1x /// The room's public path. The source lives in `quiz_session/` (ADR-0005);
+  1x /// `pub(in crate::quiz_session)`; the six none of them reads are private to this file.
+  1x /// `room::rooms::AppState`, `room::rooms::Room` and the rest stay as they were.
+  1x /// answer on `/last` ([`crate::rooms::AppState::act`] refuses an ended room).
+  1x /// release transition in `quiz_session/state_manager.rs` (G-10), which `tests/used.rs` checks by
+  4x impl AppState {
+  1x lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
+  5x }
+
+--- lock sequences: 25 at base, 25 at head
+  equal
+
+--- fn set equal: 397 functions
+--- inline tests equal: 23
