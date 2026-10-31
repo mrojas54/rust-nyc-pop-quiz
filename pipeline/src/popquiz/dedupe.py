@@ -127,6 +127,7 @@ import hashlib
 import json
 import re
 import sys
+from bisect import bisect_right
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from itertools import pairwise
@@ -1026,6 +1027,10 @@ class _Collector:
                 and (k + 2) in s.partner
             ):
                 self.module_bodies.setdefault(name.text, set()).add(k + 2)
+        self.module_spans = sorted(
+            (b, s.partner[b]) for bodies in self.module_bodies.values() for b in bodies
+        )
+        self.module_starts = [b for b, _ in self.module_spans]
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1071,30 +1076,36 @@ class _Collector:
             return True
         self.item_braces.setdefault(name, set()).add(brace)
         if brace is None:
-            self.scope_outside_modules(name, d, 0, s.n - 1)
+            self.scope_outside_modules([name], d, 0, s.n - 1)
         else:
-            self.scope_outside_modules(name, d, brace, s.partner[brace])
+            self.scope_outside_modules([name], d, brace, s.partner[brace])
         return False
 
-    def scope_outside_modules(self, name: str, d: int, lo: int, hi: int) -> None:
-        """`name`, declared at `d`, reaches `[lo, hi]` except the bodies of the
-        modules nested in it: inside one, the bare name means that module's own
-        item or the library's, never this one."""
-        holes = sorted(
-            (b, self.s.partner[b])
-            for bodies in self.module_bodies.values()
-            for b in bodies
-            if lo < b and self.s.partner[b] <= hi and not b <= d <= self.s.partner[b]
-        )
+    def scope_outside_modules(
+        self, names: Iterable[str], d: int, lo: int, hi: int
+    ) -> None:
+        """`names`, declared at `d`, reach `[lo, hi]` except the bodies of the
+        modules nested in it: inside one, a bare name means that module's own item
+        or the library's, never this declaration."""
+        ranges: list[tuple[int, int]] = []
         a = lo
-        for b, e in holes:
-            if b < a:
-                continue  # inside a hole already cut
+        for i in range(bisect_right(self.module_starts, lo), len(self.module_spans)):
+            b, e = self.module_spans[i]
+            if b > hi:
+                break
+            if b < a or e > hi or b <= d <= e:
+                continue  # inside a hole already cut, past the range, or around `d`
             if a <= b - 1:
-                self.scope([name], a, b - 1)
+                ranges.append((a, b - 1))
             a = e + 1
         if a <= hi:
-            self.scope([name], a, hi)
+            ranges.append((a, hi))
+        for first, last in ranges:
+            self.scope(names, first, last)
+
+    def local(self, names: Iterable[str], lo: int, hi: int) -> None:
+        """A binding reaches `[lo, hi]`, and like an item stops at nested modules."""
+        self.scope_outside_modules(names, lo, lo, hi)
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
@@ -1157,7 +1168,7 @@ class _Collector:
         for a, b in s.split(j + 1, close):
             params |= self.bind(a, _cut_at_colon(s, a, b))
         end = self.item_end(close + 1)
-        self.scope(params, j, end)
+        self.local(params, j, end)
         self.scope(found, k + 2, end)
 
     def let(self, k: int) -> None:
@@ -1186,7 +1197,7 @@ class _Collector:
             # initializer and not an `else`.
             brace = s.find(pattern_end, s.n, lambda j: _is(tokens[j], "{"))
             if _is(s.at(brace), "{") and brace in s.partner:
-                self.scope(bound, brace, s.partner[brace])
+                self.local(bound, brace, s.partner[brace])
             return
         # A `let` statement: the rest of its block, after its own `;`, so never
         # its own initializer or `else`.
@@ -1194,7 +1205,7 @@ class _Collector:
         block_end = s.partner[block] if block is not None else s.n
         statement_end = s.find(k + 1, block_end, lambda j: _is(tokens[j], ";"))
         if statement_end + 1 <= block_end - 1:
-            self.scope(bound, statement_end + 1, block_end - 1)
+            self.local(bound, statement_end + 1, block_end - 1)
 
     def for_loop(self, k: int) -> None:
         s = self.s
@@ -1210,7 +1221,7 @@ class _Collector:
         self.scope(bound, k + 1, end - 1)
         brace = s.find(end + 1, s.n, lambda j: _is(tokens[j], "{"))
         if _is(s.at(brace), "{") and brace in s.partner:
-            self.scope(bound, brace, s.partner[brace])
+            self.local(bound, brace, s.partner[brace])
 
     def match_arm(self, arrow: int) -> None:
         """The arm whose `=>` is at `arrow`: its pattern reaches its guard and body,
@@ -1229,7 +1240,7 @@ class _Collector:
         following = s.find(body, s.n, s.fat_arrow)
         if following < s.n and s.fat_arrow(following):
             end = min(end, _arm_start(s, following) - 1)
-        self.scope(bound, start, end)
+        self.local(bound, start, end)
 
     def closure(self, k: int) -> None:
         """The closure whose parameter list opens at the `|` at `k`: its parameters
@@ -1261,7 +1272,7 @@ class _Collector:
                 else:
                     brace = s.find(after, s.n, lambda j: _is(tokens[j], "{"))
                     end = min(end, brace - 1)
-        self.scope(bound, k, end)
+        self.local(bound, k, end)
 
     def field_positions(self, skip: set[int]) -> dict[int, bool]:
         """The tokens that name a field: an entry's leading name followed by a lone

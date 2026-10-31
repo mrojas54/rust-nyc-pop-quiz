@@ -694,6 +694,38 @@ SCOPE_NEVER_THE_SAME = [
         "struct A; impl A { fn try_from(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { let _ = Self::try_from(1u8); B } } fn main() { A::try_from(1); let _ = B::from(1); }",
         "struct A; impl A { fn zz(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { let _ = Self::zz(1u8); B } } fn main() { A::zz(1); let _ = B::from(1); }",
     ),
+    # PQ-66. Probed with rustc 1.96.1 (`--edition 2021 --crate-type bin`): the first
+    # program exits 0 and the second 1, except where a row's comment says otherwise.
+    (
+        "a let binding does not reach into a module nested in its block",
+        "fn main() { let drop = 1; mod m { pub fn f() { drop(1); } } m::f(); let _ = drop; }",
+        "fn main() { let zzq = 1; mod m { pub fn f() { zzq(1); } } m::f(); let _ = zzq; }",
+    ),
+    (
+        "a parameter does not reach into a module nested in its body",
+        "fn f(drop: i32) -> i32 { mod m { pub fn g() { drop(1); } } m::g(); drop } fn main() { f(1); }",
+        "fn f(zzq: i32) -> i32 { mod m { pub fn g() { zzq(1); } } m::g(); zzq } fn main() { f(1); }",
+    ),
+    (
+        "a closure parameter does not reach into a module nested in its body",
+        "fn main() { let c = |drop: i32| { mod m { pub fn g() { drop(1); } } m::g(); drop }; c(1); }",
+        "fn main() { let c = |zzq: i32| { mod m { pub fn g() { zzq(1); } } m::g(); zzq }; c(1); }",
+    ),
+    (
+        "a for binding does not reach into a module nested in its body",
+        "fn main() { for drop in [1] { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } }",
+        "fn main() { for zzq in [1] { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } }",
+    ),
+    (
+        "an if-let binding does not reach into a module nested in its block",
+        "fn main() { if let Some(drop) = Some(1) { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } }",
+        "fn main() { if let Some(zzq) = Some(1) { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } }",
+    ),
+    (
+        "a match-arm binding does not reach into a module nested in its body",
+        "fn main() { match 1 { drop => { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } } }",
+        "fn main() { match 1 { zzq => { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } } }",
+    ),
 ]
 
 
@@ -801,6 +833,11 @@ SCOPED_THE_SAME = [
         "each type's own associated functions through its path and Self",
         "struct A; struct B; impl A { fn f() -> u8 { 1 } } impl B { fn g() -> u8 { Self::h() } fn h() -> u8 { 2 } } fn main() { A::f(); B::g(); }",
         "struct A; struct B; impl A { fn p() -> u8 { 1 } } impl B { fn q() -> u8 { Self::r() } fn r() -> u8 { 2 } } fn main() { A::p(); B::q(); }",
+    ),
+    (
+        "a local and a same-spelled local in a nested module",
+        "fn main() { let a = 1; mod m { pub fn f() -> i32 { let a = 2; a } } m::f(); let _ = a; }",
+        "fn main() { let b = 1; mod m { pub fn f() -> i32 { let b = 2; b } } m::f(); let _ = b; }",
     ),
 ]
 
