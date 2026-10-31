@@ -866,6 +866,41 @@ SCOPE_NEVER_THE_SAME = [
         "use std::u32::*; struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.count_ones(); }",
         "use std::u32::*; struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.zzq(); }",
     ),
+    (
+        "an alias in a module does not reach a type outside it",
+        "struct u32; impl u32 { fn count_ones(_: i32) {} } mod m { type A = u32; pub fn f() { let _ = A::count_ones(3); } } fn main() { m::f(); }",
+        "struct u32; impl u32 { fn zzq(_: i32) {} } mod m { type A = u32; pub fn f() { let _ = A::zzq(3); } } fn main() { m::f(); }",
+    ),
+    (
+        "an alias's target imported in its block is not the program's type",
+        "struct u32; impl u32 { fn count_ones(_: i32) {} } fn main() { use std::primitive::u32; type A = u32; let _ = A::count_ones(3); }",
+        "struct u32; impl u32 { fn zzq(_: i32) {} } fn main() { use std::primitive::u32; type A = u32; let _ = A::zzq(3); }",
+    ),
+    (
+        "an alias out of scope at its use is the library's name",
+        "mod m { pub struct S; impl S { pub fn from_iter(_: i32) {} } type Vec = S; } fn main() { let _: Vec<i32> = Vec::from_iter(vec![1]); }",
+        "mod m { pub struct S; impl S { pub fn zzq(_: i32) {} } type Vec = S; } fn main() { let _: Vec<i32> = Vec::zzq(vec![1]); }",
+    ),
+    (
+        "a bound in a module does not reach a trait outside it",
+        "trait Default { fn default() -> i32; } mod m { pub fn f<T: Default>() -> T { T::default() } } fn main() { let _: u8 = m::f(); }",
+        "trait Default { fn zzq() -> i32; } mod m { pub fn f<T: Default>() -> T { T::zzq() } } fn main() { let _: u8 = m::f(); }",
+    ),
+    (
+        "a bound's trait imported in its block is not the program's trait",
+        "trait Default { fn default() -> i32; } fn main() { use std::default::Default; fn f<T: Default>() -> T { T::default() } let _: u8 = f(); }",
+        "trait Default { fn zzq() -> i32; } fn main() { use std::default::Default; fn f<T: Default>() -> T { T::zzq() } let _: u8 = f(); }",
+    ),
+    (
+        "self in a module's impl does not reach a type outside it",
+        "struct u32; impl u32 { fn count_ones(&self) -> u32 { u32 } } mod m { pub trait Tr { fn g(&self) -> u32; } impl Tr for u32 { fn g(&self) -> u32 { self.count_ones() } } } fn main() {}",
+        "struct u32; impl u32 { fn zzq(&self) -> u32 { u32 } } mod m { pub trait Tr { fn g(&self) -> u32; } impl Tr for u32 { fn g(&self) -> u32 { self.zzq() } } } fn main() {}",
+    ),
+    (
+        "a local holding a prelude value is not a type outside the module",
+        "struct None { a: u8 } impl None { fn is_some_and(&self, _: fn(u8) -> bool) -> bool { true } } mod m { pub fn f() { let mut c = None; c = Some(1u8); let _ = c.is_some_and(|_| true); } } fn main() { m::f(); }",
+        "struct None { a: u8 } impl None { fn zzq(&self, _: fn(u8) -> bool) -> bool { true } } mod m { pub fn f() { let mut c = None; c = Some(1u8); let _ = c.zzq(|_| true); } } fn main() { m::f(); }",
+    ),
     # Both exit 0, and they differ: the first calls `u32`'s own method, the second itself.
     (
         "self in an impl for a library type means the library's method",
@@ -1036,6 +1071,26 @@ SCOPED_THE_SAME = [
         "a block-level glob use beside a function outside its block",
         "fn go() {} fn main() { { use std::mem::*; drop(1); } go(); }",
         "fn run() {} fn main() { { use std::mem::*; drop(1); } run(); }",
+    ),
+    (
+        "an alias and its type in one module",
+        "mod m { pub struct S; impl S { pub fn mk() {} } type A = S; pub fn f() { A::mk(); } } fn main() { m::f(); }",
+        "mod m { pub struct S; impl S { pub fn build() {} } type A = S; pub fn f() { A::build(); } } fn main() { m::f(); }",
+    ),
+    (
+        "an alias in a function beside a top-level type",
+        "struct S; impl S { fn mk() {} } fn main() { type A = S; A::mk(); }",
+        "struct S; impl S { fn build() {} } fn main() { type A = S; A::build(); }",
+    ),
+    (
+        "a bound and its trait in one module",
+        "mod m { pub trait Tr { fn go() -> i32; } pub struct S; impl Tr for S { fn go() -> i32 { 1 } } pub fn f<T: Tr>() -> i32 { T::go() } } fn main() { m::f::<m::S>(); }",
+        "mod m { pub trait Tr { fn run() -> i32; } pub struct S; impl Tr for S { fn run() -> i32 { 1 } } pub fn f<T: Tr>() -> i32 { T::run() } } fn main() { m::f::<m::S>(); }",
+    ),
+    (
+        "self in an impl inside the type's own module",
+        "mod m { pub struct S; impl S { fn go(&self) {} pub fn h(&self) { self.go() } } } fn main() { m::S.h(); }",
+        "mod m { pub struct S; impl S { fn run(&self) {} pub fn h(&self) { self.run() } } } fn main() { m::S.h(); }",
     ),
     (
         "a block-level use through a group's self beside an unrelated function",

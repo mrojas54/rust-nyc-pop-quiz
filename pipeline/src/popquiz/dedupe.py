@@ -848,13 +848,15 @@ class _Declared:
     `block_use_names` are the spellings a `use` inside a block may bring in, which
     can shadow a program's item there, so they are kept. `sole_types` are the
     types and traits whose spelling no other item, binding or `use` shares, and none
-    at all in a program with a glob `use`, so the spelling can only mean the type.
+    at all in a program with a glob `use`, so the spelling can only mean the type
+    wherever `_in_scope` holds; `module_braces` are the `{` of every module.
     `local_types` maps a local
     to the types it holds, where every binding of its spelling is `let c = S;` or
     `let c = S { .. };`.
     `generic_traits` maps a generic to the program traits that are all it is bound
-    by, when tokens show every declaration of its spelling plainly. `aliases` maps a
-    `type A = S;` declared once to `S`, a program type no other item shares.
+    by, when tokens show every declaration of its spelling plainly and each trait is
+    in scope there. `aliases` maps a `type A = S;` declared once to `S`, a sole
+    program type in scope at the alias.
     """
 
     names: frozenset[str]
@@ -873,6 +875,7 @@ class _Declared:
     impl_owner: dict[int, str]
     enclosing: list[int | None]
     block_use_names: frozenset[str]
+    module_braces: frozenset[int]
     sole_types: frozenset[str]
     local_types: dict[str, frozenset[str]]
     generic_traits: dict[str, frozenset[str]]
@@ -953,6 +956,25 @@ def _header_keyword(s: _Stream, brace: int, word: str) -> int | None:
             found = j
         j -= 1
     return found
+
+
+def _in_scope(
+    item_braces: dict[str, set[int | None]],
+    module_braces: frozenset[int],
+    enclosing: list[int | None],
+    name: str,
+    k: int,
+) -> bool:
+    """Whether the item `name` is declared around the token at `k`: in a brace that
+    holds `k`, no farther out than the nearest module, which an item's bare name does
+    not enter. Outside that, the spelling may be the library's (`u32`, `Default`)."""
+    where = item_braces.get(name, ())
+    brace = enclosing[k]
+    while brace not in where:
+        if brace is None or brace in module_braces:
+            return False
+        brace = enclosing[brace]
+    return True
 
 
 def _impl_owner(s: _Stream, brace: int) -> str | None:
@@ -1128,9 +1150,9 @@ class _Collector:
         self.let_types: dict[str, list[str]] = {}
         # Per generic spelling, each declaration's plain bound, `None` when it has
         # another shape; and the traits declared with no supertrait or generics.
-        self.generic_bounds: dict[str, set[str | None]] = {}
+        self.generic_bounds: dict[str, set[tuple[str, int] | None]] = {}
         self.plain_traits: set[str] = set()
-        self.alias_targets: dict[str, str | None] = {}
+        self.alias_targets: dict[str, tuple[str, int] | None] = {}
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1276,7 +1298,7 @@ class _Collector:
         where = _kw(s.at(header_end), "where")
         for name in found:
             self.generic_bounds.setdefault(name, set()).add(
-                None if where else bounds.get(name)
+                (bounds[name], lt) if name in bounds and not where else None
             )
         return gt, found
 
@@ -1535,7 +1557,7 @@ def _declared(s: _Stream) -> _Declared:
                     if word == "type" and not associated:
                         target = s.at(j + 2)
                         c.alias_targets[name.text] = (
-                            target.text
+                            (target.text, j)
                             if _is(s.at(j + 1), "=")
                             and target is not None
                             and target.kind == "ident"
@@ -1589,6 +1611,25 @@ def _declared(s: _Stream) -> _Declared:
             elif t.text == "|" and _closure_opens(s, k):
                 c.closure(k)
 
+    module_braces = frozenset(c.module_starts)
+    sole_types = (
+        frozenset()
+        if c.glob_use
+        else frozenset(
+            t
+            for t in c.type_items - c.pattern_spellings() - c.imported_names
+            if c.item_counts[t] == 1
+        )
+    )
+
+    def sole_here(target: tuple[str, int] | None) -> bool:
+        """Whether a spelling read at a position is a sole type or trait in scope."""
+        return (
+            target is not None
+            and target[0] in sole_types
+            and _in_scope(c.item_braces, module_braces, c.enclosing, *target)
+        )
+
     return _Declared(
         frozenset(c.names),
         frozenset(c.members),
@@ -1606,13 +1647,8 @@ def _declared(s: _Stream) -> _Declared:
         c.impl_owner,
         c.enclosing,
         frozenset(c.block_use_names),
-        frozenset()
-        if c.glob_use
-        else frozenset(
-            t
-            for t in c.type_items - c.pattern_spellings() - c.imported_names
-            if c.item_counts[t] == 1
-        ),
+        module_braces,
+        sole_types,
         {
             local: frozenset(types)
             for local, types in c.let_types.items()
@@ -1620,19 +1656,17 @@ def _declared(s: _Stream) -> _Declared:
             and local not in c.item_counts
         },
         {
-            generic: frozenset(t for t in bounds if t is not None)
+            generic: frozenset(t[0] for t in bounds if t is not None)
             for generic, bounds in c.generic_bounds.items()
             if generic not in c.item_counts
             and all(
-                t in c.plain_traits and c.item_counts[t] == 1 for t in bounds
+                sole_here(t) and t[0] in c.plain_traits for t in bounds
             )
         },
         {
-            alias: target
+            alias: target[0]
             for alias, target in c.alias_targets.items()
-            if c.item_counts[alias] == 1
-            and target in c.type_items
-            and c.item_counts[target] == 1
+            if c.item_counts[alias] == 1 and sole_here(target)
         },
     )
 
@@ -2145,6 +2179,12 @@ def _unscoped_names(
     return protected
 
 
+def _declared_in_scope(declared: _Declared, name: str, k: int) -> bool:
+    return _in_scope(
+        declared.item_braces, declared.module_braces, declared.enclosing, name, k
+    )
+
+
 def _call_is_tied(s: _Stream, declared: _Declared, k: int) -> bool:
     """Whether the method call named at `k` can only be a program type's own method:
     its receiver is `self` in the `impl` or `trait` of a type declaring the name, a
@@ -2163,13 +2203,12 @@ def _call_is_tied(s: _Stream, declared: _Declared, k: int) -> bool:
         brace = declared.enclosing[k]
         while brace is not None and brace not in declared.impl_owner:
             brace = declared.enclosing[brace]
-        return brace is not None and declared.impl_owner[brace] in owners
+        owner = None if brace is None else declared.impl_owner[brace]
+        return owner in owners and _declared_in_scope(declared, owner, brace)
     if receiver.kind != "ident":
         return False
-    types = declared.local_types.get(receiver.text)
-    if types is not None:
-        return types <= owners
-    return receiver.text in owners
+    types = declared.local_types.get(receiver.text, frozenset([receiver.text]))
+    return types <= owners and all(_declared_in_scope(declared, t, k) for t in types)
 
 
 def _untied_method_calls(s: _Stream, declared: _Declared) -> set[str]:

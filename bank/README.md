@@ -323,8 +323,8 @@ a dot (`.name(` or `.name::<T>(`) keeps its spelling, with no list needed, unles
 tokens tie every such call to a program type that declares it: the receiver is
 `self` in that type's `impl` or `trait`, the bare type, or a local whose every
 binding is `let c = S;` or `let c = S { .. };`. No binding or `use` may share the
-type's spelling, and a program with a glob `use` ties nothing. That rule covers
-method calls only.
+type's spelling, the type must be declared in the module or block around the call,
+and a program with a glob `use` ties nothing. That rule covers method calls only.
 
 Known open: this shape still makes a program that compiles normalize equal to one
 that does not (found while closing PQ-66).
@@ -345,7 +345,8 @@ block-level `use` imports, every name in a block with a glob `use`, and a bindin
 whose condition's head holds a block (`if let Some(x) = unsafe { f() } { x }`). A
 generic's path is renamed only when one program trait plainly bounds it (`T::go()`
 in `fn f<T: Tr>`), and an alias's only for `type A = S;` of a program type
-(`A::mk()`). Other forms (`T: Tr + Send`, a `where` clause, a trait with
+(`A::mk()`), with the trait or type declared in the module or block around the
+bound or alias and the alias around its use. Other forms (`T: Tr + Send`, a `where` clause, a trait with
 supertraits, a generic alias) are missed. Each of those is a missed rename, which a
 person sees. The module-scoping step checks each top-level item against every
 module, so time grows quadratically on very large programs
