@@ -605,6 +605,49 @@ async fn the_walls_verdict_becomes_the_hosts_fit_line() {
     );
 }
 
+/// G-10: `PUT /rooms/{id}/fit` needs no credential and any attendee has the
+/// room id, so the guard in `record_fit` is all that keeps a released room's
+/// state frozen. Through the route: the wall's write is accepted and ignored.
+#[tokio::test]
+async fn g10_a_released_room_ignores_a_put_fit_and_its_revision_does_not_move() {
+    let h = harness();
+    let room = create(&h, "q3").await;
+    for action in TO_REVEAL {
+        command(&h, &room, Command::Host(action)).await;
+    }
+    assert_eq!(
+        put_fit(&h.app, &room.id, r#"{"fit":"clipped_y"}"#).await,
+        StatusCode::NO_CONTENT
+    );
+    command(&h, &room, Command::Host(HostAction::ReleaseRoom)).await;
+    assert_eq!(
+        h.state.with_room(&room.id, |r| r.phase()).unwrap(),
+        Phase::Released
+    );
+
+    let revision = h.state.with_room(&room.id, |r| r.revision()).unwrap();
+    let host = host_fit(&h, &room).await;
+    // Every verdict other than the one the room holds would move the revision.
+    for verdict in ["fits", "clipped_x", "clipped_xy"] {
+        assert_eq!(
+            put_fit(&h.app, &room.id, &json!({ "fit": verdict }).to_string()).await,
+            StatusCode::NO_CONTENT,
+            "{verdict}"
+        );
+        assert_eq!(
+            h.state.with_room(&room.id, |r| r.revision()).unwrap(),
+            revision,
+            "{verdict} moved a released room's revision"
+        );
+        assert_eq!(host_fit(&h, &room).await, host, "{verdict}");
+    }
+    assert_eq!(
+        serde_json::to_value(h.state.used().all()[0].used.fit).unwrap(),
+        "clipped_y",
+        "the used record keeps the verdict from reveal"
+    );
+}
+
 #[tokio::test]
 async fn compressed_fonts_serve_as_woff2() {
     let h = harness();
