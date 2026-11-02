@@ -399,6 +399,10 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
 sync *ARGS:
     cd pipeline && {{ op_run }} uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
 
+# The reserve on its own: count, trend and warning. Read-only; needs no token.
+reserve *ARGS:
+    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule reserve {{ ARGS }}
+
 # The club rename (ADR-0005 item 8): bank used records under nyc become rustnyc. A dry
 # run unless --write, which backs up each file first. docs/RUNBOOK.md has the release order.
 migrate-club *ARGS:

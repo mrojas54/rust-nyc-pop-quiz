@@ -25,7 +25,7 @@ advances on its own.
 
 The reserve is every question that is accepted, affirmed and unused (`SPEC.md`
 §3.3). `just schedule` and `just sync` print it before they do anything else;
-`python -m popquiz.schedule reserve` prints it on its own and writes nothing.
+`just reserve` prints it on its own and writes nothing.
 A snapshot, taken 2026-10-24 after q8 was accepted; the numbers move with every
 review and every night:
 
