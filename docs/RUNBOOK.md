@@ -269,8 +269,10 @@ Put the wall on the projector when the last talk ends.
 The Pop Quiz is one question, and it is scheduled last: after the last talk, with nothing after it, and the wrap-up releases the room.
 
 Each block is a phase in the room's order. The action is the button on the
-host phone, exactly as it reads. Five minutes end to end, *Start* to *End Pop
-Quiz* (AC-89); only the walk-through is worth spending extra time on.
+host phone, exactly as it reads. Five minutes end to end, from the join strip to
+*End Pop Quiz* (AC-89); only the walk-through is worth spending extra time on.
+Safari on macOS skips buttons on plain Tab by default, so a keyboard-only host
+uses Option+Tab.
 
 ### idle — before the question
 
@@ -427,7 +429,7 @@ File the sheets:
 | *Create a room* fails with `503` | Discord did not answer. Try again in a minute. A room already open does not need Discord. |
 | The host phone dies or is lost | Open the saved host-screen address on another phone. It controls the same room. |
 | Phones show *That room went quiet and closed.* | Nobody acted on the room for 30 minutes (20 after *Start*). Create a new room from `/host?question=<id>`; the question is still unused. |
-| The room cannot be reached | Open `<id>.html` on the laptop and step it with `Space`, `←` `→` and `Esc`. Read from the host sheet. Votes are hands. At the reveal the sheet lists every incorrect option by letter with why it tempts; read the one for the option most hands chose. |
+| The room cannot be reached | Open `<id>.html` on the laptop and step it with `Space`, `←` `→` and `Esc`. Read from the host sheet. Votes are hands. At the reveal the sheet lists every other option by letter with why it tempts; read the one for the option most hands chose. |
 | Code is clipped on the wall | The wall shows a visible edge on the side that lost content. Keep going and write it on the sheet; `just sync` reports the fit afterwards. |
 | The answer, a ✓ or *How we know* shows before *Reveal* | A defect. Write down the phase it appeared in. |
 | The host apologises, improvises or asks for a contribution | The observer writes down the exact words (AC-51, AC-98). |
