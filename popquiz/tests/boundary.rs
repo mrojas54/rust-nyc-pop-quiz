@@ -80,6 +80,38 @@ fn fns(text: &str) -> Vec<(String, String)> {
     out
 }
 
+/// Every `impl` header in `code` that names `RevealWitness`, on one line each.
+///
+/// A header runs from an `impl` that starts a line to the first `{`, so one
+/// rustfmt wrapped over several lines still counts. An `impl Trait` in a
+/// signature does not start a line, so it is not a header.
+fn witness_impls(code: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut offset = 0;
+    for line in code.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        let is_header = trimmed
+            .strip_prefix("impl")
+            .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == '<'));
+        if is_header {
+            let start = offset + (line.len() - trimmed.len());
+            let end = code[start..].find('{').map_or(code.len(), |i| start + i);
+            let header = code[start..end]
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            let names_it = header
+                .split(|c: char| !c.is_alphanumeric() && c != '_')
+                .any(|word| word == "RevealWitness");
+            if names_it {
+                out.push(header);
+            }
+        }
+        offset += line.len();
+    }
+    out
+}
+
 #[test]
 fn unsafe_is_forbidden_crate_wide() {
     assert!(src("lib.rs").contains("#![forbid(unsafe_code)]"));
@@ -88,14 +120,19 @@ fn unsafe_is_forbidden_crate_wide() {
 #[test]
 fn the_witness_is_built_in_one_place() {
     for (name, text) in common::room_sources(&[]) {
-        let hits = code(&text).matches("RevealWitness {").count();
+        let code = code(&text);
+        // Both spellings of the literal. `Self { .. }` would need an impl of the
+        // witness, which `the_witness_has_no_impl_of_any_kind` refuses.
+        let hits =
+            code.matches("RevealWitness {").count() + code.matches("RevealWitness::<").count();
         if name == "quiz_session/models/phase.rs" {
-            // The struct definition, and the one construction in `revealed()`.
+            // The one construction in `revealed()`. The struct definition is
+            // `RevealWitness<'m> {`, which neither spelling matches.
             assert_eq!(
                 hits, 1,
                 "quiz_session/models/phase.rs builds RevealWitness {hits} times"
             );
-            assert_eq!(code(&text).matches("RevealWitness<'m> {").count(), 1);
+            assert_eq!(code.matches("RevealWitness<'m> {").count(), 1);
         } else {
             assert_eq!(hits, 0, "{name} builds a RevealWitness");
         }
@@ -104,6 +141,45 @@ fn the_witness_is_built_in_one_place() {
     let phase = code(&src("quiz_session/models/phase.rs"));
     let revealed = block(&phase, "pub fn revealed(&self)");
     assert!(revealed.contains("Phase::Reveal => Some(RevealWitness {"));
+}
+
+#[test]
+fn the_witness_has_no_impl_of_any_kind() {
+    // The scan must see every way of writing the header, or it proves nothing.
+    for form in [
+        "impl RevealWitness {",
+        "impl RevealWitness<'_> {",
+        "impl<'m> RevealWitness<'m> {",
+        "    impl<'m> RevealWitness<'m> {",
+        "impl Default for RevealWitness<'_> {",
+        "impl<'m> Clone for RevealWitness<'m> {",
+        "impl<'m> From<&'m Machine> for phase::RevealWitness<'m> {",
+        "impl<'m> Default\n    for RevealWitness<'m>\n{",
+    ] {
+        assert_eq!(witness_impls(form).len(), 1, "the scan misses {form:?}");
+    }
+    for other in [
+        "impl Machine {",
+        "impl RevealWitnessed {",
+        "fn f(w: impl Into<RevealWitness<'_>>) {",
+        "implement RevealWitness {",
+    ] {
+        assert!(
+            witness_impls(other).is_empty(),
+            "the scan trips on {other:?}"
+        );
+    }
+
+    let mut saw_phase = false;
+    for (name, text) in common::room_sources(&[]) {
+        saw_phase |= name == "quiz_session/models/phase.rs";
+        let impls = witness_impls(&code(&text));
+        assert!(impls.is_empty(), "{name} implements the witness: {impls:?}");
+    }
+    assert!(
+        saw_phase,
+        "phase.rs was not scanned: the rule has lost its subject"
+    );
 }
 
 #[test]
@@ -182,6 +258,9 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         ("quiz_session/models/rooms.rs", "pub struct Room "),
         ("quiz_session/models/rooms.rs", "struct Frozen"),
         ("quiz_session/open.rs", "pub struct Opened"),
+        // No lifetime here: the last word is the name the impl check looks for,
+        // and `RevealWitness<'m>` would miss `Clone for RevealWitness<'_>`.
+        ("quiz_session/models/phase.rs", "pub struct RevealWitness"),
     ];
     let everything = common::room_sources(&[]);
     for (file, decl) in sealed_types {
