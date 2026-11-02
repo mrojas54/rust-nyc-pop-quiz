@@ -408,7 +408,7 @@ fn the_copy_module_mirrors_copy_js_in_both_directions() {
         .collect();
     assert_eq!(
         rust, js,
-        "room/src/copy.rs has drifted from web/shared/copy.js"
+        "popquiz/src/copy.rs has drifted from web/shared/copy.js"
     );
 }
 
@@ -454,7 +454,7 @@ fn the_proposed_block_is_copy_js_s_and_the_room_sends_none_of_it() {
         "no PROPOSED-§11 keys parsed from copy.js"
     );
     assert_eq!(rust_row, js_row);
-    // Every file under room/src, the clients in `cli/` (once `bin/`) included.
+    // Every file under popquiz/src, the clients in `cli/` (once `bin/`) included.
     for (file, text) in common::room_sources(&[]) {
         if file == "copy.rs" {
             continue;

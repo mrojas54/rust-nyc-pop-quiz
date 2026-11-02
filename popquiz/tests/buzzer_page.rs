@@ -474,7 +474,7 @@ async fn a_phone_through_the_wired_room_shows_what_the_server_holds() {
 // --------------------------------------------------------------------------
 // For validation in a browser, never in `test`:
 //
-//     cd room && BUZZER_PORT=3106 cargo test --test buzzer_page -- --ignored --nocapture
+//     cd popquiz && BUZZER_PORT=3106 cargo test --test buzzer_page -- --ignored --nocapture
 //
 
 #[tokio::test]

@@ -1,7 +1,7 @@
 // T-08's page driver: the served pages' own scripts, under node.
 //
 // Not a test suite (no *.test.js), and not read by `node --test`. The Rust
-// canary (room/tests/canary.rs, canary_full.rs) spawns it in one of two modes:
+// canary (popquiz/tests/canary.rs, canary_full.rs) spawns it in one of two modes:
 //
 //   render   stdin: {scripts:[{name,text}], frames:[…]} — the wall page's
 //            scripts as the room served them, and every wall frame the canary

@@ -146,7 +146,7 @@ fn g10_the_release_transition_is_the_only_writer() {
     let file = |name: &str| -> &str {
         &all.iter()
             .find(|(n, _)| n == name)
-            .unwrap_or_else(|| panic!("{name} in room/src"))
+            .unwrap_or_else(|| panic!("{name} in popquiz/src"))
             .1
     };
     let mut writers = Vec::new();
@@ -423,7 +423,7 @@ fn take_home_matches_the_fixture_shape() {
     c.walk(&room, &[HostAction::ReleaseRoom]);
     let snapshot = serde_json::to_value(c.state.take_home().unwrap()).unwrap();
     let text =
-        std::fs::read_to_string(common::repo().join("room/tests/fixtures/take_home.shape.json"))
+        std::fs::read_to_string(common::repo().join("popquiz/tests/fixtures/take_home.shape.json"))
             .unwrap();
     let mut fixture: Value = serde_json::from_str(&text).unwrap();
     fixture.as_object_mut().unwrap().remove("_note");

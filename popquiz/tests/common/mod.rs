@@ -98,12 +98,12 @@ pub fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
-/// Every `.rs` file under `room/src`, as (path relative to `src/` with `/`
+/// Every `.rs` file under `popquiz/src`, as (path relative to `src/` with `/`
 /// separators, text), sorted by path. Directories named in `skip` are left out
 /// at the top of `src/` only (`cli/` holds clients, not the room). Guardrail
 /// scans read the tree through this, so a moved file cannot slip out of one.
 pub fn room_sources(skip: &[&str]) -> Vec<(String, String)> {
-    let src = repo().join("room/src");
+    let src = repo().join("popquiz/src");
     let mut out = Vec::new();
     let mut stack = vec![src.clone()];
     while let Some(dir) = stack.pop() {

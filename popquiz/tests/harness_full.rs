@@ -13,7 +13,7 @@
 //! at 200 participants. What it does not: its latencies are this machine's
 //! loopback, labelled so in the report, and **AC-53's "deployed substrate"
 //! clause is met only by a run against the deployed room** — the client's
-//! `deployed-burst` workflow or the laptop form (room/README.md, *Burst*).
+//! `deployed-burst` workflow or the laptop form (popquiz/README.md, *Burst*).
 //!
 //! `#[ignore]`d and behind the `burst` feature, so `just test` never compiles
 //! it; `just harness-full` (inside `test-full`) runs it with `--ignored`, after

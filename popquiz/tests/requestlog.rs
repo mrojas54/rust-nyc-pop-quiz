@@ -397,7 +397,7 @@ async fn a_buzzer_attaching_after_release_reopens_no_counter() {
     drop(socket);
 }
 
-/// What an aborted harness run leaves behind (room/README.md, *After a
+/// What an aborted harness run leaves behind (popquiz/README.md, *After a
 /// meetup*): its room open, and one `socket_dropped` line per buzzer whose
 /// socket it abandoned — every one carrying the harness room's id, none of
 /// them on the night's room's lines or counters.

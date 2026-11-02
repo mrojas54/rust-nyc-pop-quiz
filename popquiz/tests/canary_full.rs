@@ -30,7 +30,7 @@ fn refuse_a_deployed_url() {
         panic!(
             "canary --url {url}: the deployed-room scan needs T-09's stand-in token to create a room and \
              T-25's admin push to plant the canary question on it; neither exists yet. \
-             T-09 wires this hook into `smoke` (room/README.md, Canary)."
+             T-09 wires this hook into `smoke` (popquiz/README.md, Canary)."
         );
     }
 }

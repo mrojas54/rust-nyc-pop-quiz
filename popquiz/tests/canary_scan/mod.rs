@@ -1238,7 +1238,7 @@ pub fn page_refs(html: &str) -> Vec<String> {
 
 fn node() -> Command {
     let mut c = Command::new("node");
-    c.arg(repo().join("room/tests/canary_scan/page.js"))
+    c.arg(repo().join("popquiz/tests/canary_scan/page.js"))
         .env("POPQUIZ_ADMIN_TOKEN", &plants().admin)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

@@ -106,7 +106,7 @@ async fn ac64_a_member_without_the_role_is_denied() {
 /// Every file the scan reads: the room's source, its manifest, the image and CI.
 fn shipped_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
-    let mut stack = vec![repo().join("room/src"), repo().join(".github/workflows")];
+    let mut stack = vec![repo().join("popquiz/src"), repo().join(".github/workflows")];
     while let Some(dir) = stack.pop() {
         for entry in std::fs::read_dir(&dir).unwrap() {
             let path = entry.unwrap().path();
@@ -117,7 +117,7 @@ fn shipped_files() -> Vec<(String, String)> {
             }
         }
     }
-    out.push(repo().join("room/Cargo.toml"));
+    out.push(repo().join("popquiz/Cargo.toml"));
     out.push(repo().join("Dockerfile"));
     out.into_iter()
         .map(|p| {
@@ -168,7 +168,7 @@ fn ac64_no_stand_in_survives_in_src_cargo_dockerfile_or_ci() {
         "the stand-in survives:\n{}",
         found.join("\n")
     );
-    assert!(!repo().join("room/src/standin.rs").exists());
+    assert!(!repo().join("popquiz/src/standin.rs").exists());
 }
 
 #[tokio::test]
@@ -429,7 +429,7 @@ fn ac67_no_participant_route_touches_the_auth_module() {
     // the host's. Of it, everything but the host's attach arm is the participant
     // surface (the arm that calls `with_hosted_room` is the only code allowed to
     // authenticate), and its comments are left out: they describe the host half.
-    let ws = std::fs::read_to_string(repo().join("room/src/connections/ws.rs")).unwrap();
+    let ws = std::fs::read_to_string(repo().join("popquiz/src/connections/ws.rs")).unwrap();
     let host_arm = ws.rfind("Viewer::Host =>").expect("the host's attach arm");
     let buzzer_arm = ws
         .find("_ => match inner.tokens.resolve")
@@ -472,7 +472,7 @@ fn ac67_no_participant_route_touches_the_auth_module() {
     );
     participant.push(("server/routes/mod.rs T-04c block", sockets));
     for f in [
-        "room/src/connections/sessions.rs",
+        "popquiz/src/connections/sessions.rs",
         "web/buzzer/buzzer.js",
         "web/buzzer/index.html",
     ] {
