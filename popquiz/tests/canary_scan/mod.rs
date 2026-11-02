@@ -561,9 +561,42 @@ pub fn route_table() -> BTreeSet<Route> {
 /// `&path` anywhere else is an unread path, not that family.
 const HOST_ACTION_FILE: &str = "server/routes/mod.rs";
 
+/// The HTTP methods a handler can chain, each also as `<method>_service`.
+const CHAINED_METHODS: &[&str] = &[
+    "get", "post", "put", "delete", "patch", "head", "options", "trace", "connect", "any", "on",
+];
+
+/// Does this `.route(` call chain a second method on its handler
+/// (`get(a).post(b)`)? `call` starts just inside the `(`, so the handler's own
+/// chain sits at depth 0, a closure's body deeper, and the first unmatched `)`
+/// ends the call. Counts parentheses as text; a `)` in a string can end it early.
+fn chains_a_method(call: &str) -> bool {
+    let call = crate::common::squeezed(call);
+    let mut depth = 0;
+    for (at, c) in call.char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' if depth == 0 => return false,
+            ')' => depth -= 1,
+            '.' if depth == 0
+                && CHAINED_METHODS.iter().any(|m| {
+                    call[at + 1..].strip_prefix(m).is_some_and(|after| {
+                        after.starts_with('(') || after.starts_with("_service(")
+                    })
+                }) =>
+            {
+                return true
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
 /// [`route_table`] over the given (path, text) files, each parsed on its own.
 /// Textual: a router method this cannot turn into a path panics rather than
 /// passing with the path unread, so `.nest(` and `.fallback(` must teach it first.
+/// A route has one method here, so a second one chained on its handler panics too.
 pub fn route_table_of(files: &[(String, String)]) -> BTreeSet<Route> {
     let mut out = BTreeSet::new();
     for (name, text) in files {
@@ -593,6 +626,11 @@ pub fn route_table_of(files: &[(String, String)]) -> BTreeSet<Route> {
         .flat_map(|(name, text)| route_calls(text).into_iter().map(move |c| (name, c)))
     {
         let trimmed = call.trim_start();
+        assert!(
+            !chains_a_method(call),
+            "{file_name} chains a second method on a route and the canary's route table cannot read it: {}",
+            &trimmed[..trimmed.len().min(80)]
+        );
         // T-25: `any(` is the admin prefix's one entry point.
         let method = [
             "get(",

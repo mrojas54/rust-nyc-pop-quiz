@@ -450,16 +450,37 @@ fn g9_the_route_table_reads_every_file_that_calls_the_router() {
         );
     }
     assert!(
-        !manifest
-            .lines()
-            .any(|l| l.starts_with("default") && l.contains("spike")),
-        "the spike feature is on by default"
+        !turns_on_default_features(&manifest),
+        "a default feature could turn the spike on"
     );
+    for (toml, on) in [
+        ("[features]\ndefault = [\"spike\"]\n", true),
+        ("[features]\ndefault = [\n    \"spike\",\n]\n", true),
+        ("default = [\"dev-tools\"]\ndev-tools = [\"spike\"]\n", true),
+        ("default = []\n", false),
+        (
+            "axum = { version = \"1\", default-features = false }\n",
+            false,
+        ),
+        ("default-features = false\n", false),
+    ] {
+        assert_eq!(turns_on_default_features(toml), on, "{toml}");
+    }
 }
 
 /// The one other file allowed to name the exempt router: the spike's client
 /// shares its protocol through `#[path]`.
 const SPIKE_CLIENT: &str = "cli/spike-burst.rs";
+
+/// Does this manifest declare a default feature set with anything in it? The
+/// manifest has none, so any at all stops the test: following one down to
+/// `spike`, however it is written or composed, would take a TOML parser.
+fn turns_on_default_features(manifest: &str) -> bool {
+    manifest
+        .lines()
+        .map(common::squeezed)
+        .any(|line| line.starts_with("default=") && line != "default=[]")
+}
 
 #[test]
 fn g9_a_route_outside_the_routes_folder_joins_the_table_and_fails_the_scan() {
@@ -507,6 +528,51 @@ fn g9_a_route_outside_the_routes_folder_joins_the_table_and_fails_the_scan() {
     ] {
         let unread = std::panic::catch_unwind(|| route_table_of(&plant(family, text)));
         assert!(unread.is_err(), "the route table read past {text}");
+    }
+
+    // A route has one method in the table, so a second one chained on it stops
+    // the table. In the family's file too, where it would pose as POST.
+    for (file, text) in [
+        ("server/ops.rs", r#"router.route("/ops", get(a).post(b))"#),
+        (
+            "server/ops.rs",
+            "router.route(\n    \"/ops\",\n    get(a)\n        .post(b),\n)",
+        ),
+        (
+            "server/ops.rs",
+            r#"router.route("/ops", axum::routing::put(a).delete(b))"#,
+        ),
+        (
+            "server/ops.rs",
+            r#"router.route("/ops", get(a).post_service(b))"#,
+        ),
+        (
+            "server/ops.rs",
+            r#"router.route("/ops", get(a).on(MethodFilter::POST, b))"#,
+        ),
+        (
+            family,
+            "router.route(&path, post(a).get(a)); router.route(&path, post(b))",
+        ),
+    ] {
+        let unread = std::panic::catch_unwind(|| route_table_of(&plant(file, text)));
+        assert!(
+            unread.is_err(),
+            "the route table read past {text} in {file}"
+        );
+    }
+    // What is not a chain on the handler still reads: a closure's own calls, a
+    // layer, and what follows the route.
+    for text in [
+        r#"router.route("/ops", get(|| async { headers().get("x") }))"#,
+        r#"router.route("/ops", get(a).layer(b))"#,
+        r#"router.route("/ops", get(a)).with_state(s); let v = map().get(k);"#,
+    ] {
+        let table = route_table_of(&plant("server/ops.rs", text));
+        assert!(
+            table.iter().any(|r| r.path == "/ops" && r.method == "GET"),
+            "{text}: {table:?}"
+        );
     }
 }
 
