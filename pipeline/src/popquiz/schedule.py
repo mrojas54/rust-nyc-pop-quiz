@@ -287,7 +287,7 @@ def room_url(room: str, path: str) -> str:
 
 
 def _call(method: str, url: str, token: str, body: bytes | None = None) -> tuple[int, bytes]:
-    """One admin request, retried on connection failures and 5xx only.
+    """One admin request, retried on connection failures, 5xx, 408 and 429.
 
     Returns the room's status and body for anything that is the room's answer
     (2xx, 4xx). A 3xx is not followed (`_NoRedirects`) and is refused here.
@@ -580,7 +580,7 @@ def ledger_report(result: SyncResult) -> list[str]:
         elif r["fit"] != "fits":
             lines.append(f"fit: room {r['room_id']} ({r['question_id']}) - {r['fit']}")
     for qid in result.skipped:
-        lines.append(f"skipped: {qid} is not a bank question (not in the bank)")
+        lines.append(f"skipped: {qid} is not in the bank")
     return lines
 
 
@@ -637,7 +637,7 @@ def _schedule(args: argparse.Namespace) -> int:
     except OSError as e:
         held = "the room holds the record, but " if token is not None else ""
         raise ScheduleError(
-            f"{held}the fallback and host sheet were not written to {args.out} "
+            f"{held}the fallback and host sheet may not both be in {args.out} "
             f"({type(e).__name__}: {e.strerror or 'write failed'})"
         ) from None
     print(f"{arranged.id} for {args.date.isoformat()}")
