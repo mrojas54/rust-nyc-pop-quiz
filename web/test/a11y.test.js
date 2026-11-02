@@ -1085,3 +1085,30 @@ test('ac86_home: each step says its number in words; nothing moves', () => {
     mark('home', sc.name, 'AC-86', `${m ? m[0] : 'no trace'}, ${still('home', sc)}`);
   }
 });
+
+// --------------------------------------------------------------------------
+// AC-80: light is the only presentation. No dark mode ships, by media query or
+// by attribute. Comments are stripped: wall.css names `data-room` to say it was
+// not ported.
+// --------------------------------------------------------------------------
+
+test('ac80: no dark mode ships in any stylesheet, page or script', () => {
+  const files = [];
+  (function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== 'test' && e.name !== 'node_modules') walk(p);
+      } else if (/\.(css|html|js)$/.test(e.name)) {
+        files.push(p);
+      }
+    }
+  })(WEB);
+  const css = files.filter((f) => f.endsWith('.css'));
+  assert.ok(css.some((f) => f.endsWith('components.css')) && css.some((f) => f.endsWith('wall.css')), 'the walk reached the stylesheets');
+  const DARK = /prefers-color-scheme|color-scheme\s*:\s*[^;]*dark|data-room|data-theme/;
+  for (const f of files) {
+    const code = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.ok(!DARK.test(code), `${path.relative(WEB, f)} carries a dark mode`);
+  }
+});
