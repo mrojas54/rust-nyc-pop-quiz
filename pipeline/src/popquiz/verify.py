@@ -659,7 +659,17 @@ def check_provenance(data: Mapping[str, Any]) -> Question:
         question = bank.question_from_dict(dict(data))
     except BankError as exc:
         raise ProvenanceError(str(exc)) from exc
+    return check_question(question)
 
+
+def check_question(question: Question) -> Question:
+    """The part of `check_provenance` a loaded question can still fail. Returns it
+    or raises. `schedule.refusal` and `fallback.bake` call this: loading already
+    refused a `correct` field and any unknown field (`bank.question_from_dict`).
+
+    It has the same limit as `check_provenance`: a self-consistent edit inside the
+    record passes.
+    """
     v = question.verified
     if v is None:
         raise ProvenanceError(f"{question.id}: has no verified record; nothing derives")

@@ -636,6 +636,57 @@ def test_a_candidate_with_no_record_is_refused() -> None:
         verify.check_provenance(data)
 
 
+def _without_stamp(data: dict) -> dict:
+    del data["verified"]["verified_at"]
+    return data
+
+
+def _edited_answer(data: dict) -> dict:
+    index = bank.correct_index(bank.question_from_dict(data))
+    data["options"][index]["text"] += " (edited)"
+    return data
+
+
+def _ran_after_all(data: dict) -> dict:
+    data["verified"]["runs"] = {"count": 5, "byte_identical": True}
+    return data
+
+
+@pytest.mark.parametrize(
+    ("program", "expect", "edit", "needle"),
+    [
+        ("q3", "ran", _without_stamp, "not written by the verifier"),
+        ("q3", "ran", _edited_answer, "drifted apart"),
+        ("q8", "does_not_compile", _ran_after_all, "nothing ran"),
+    ],
+    ids=["unstamped", "edited-answer", "contradicts-itself"],
+)
+def test_a_loaded_question_is_refused_in_the_same_words_as_its_file(program, expect, edit, needle) -> None:
+    """One check, not two: what `schedule` and `fallback` call on a loaded question
+    refuses what `check_provenance` refuses on the file, in the same words."""
+    data = edit(_file(program, expect))
+    with pytest.raises(verify.ProvenanceError, match=needle) as from_file:
+        verify.check_provenance(data)
+    with pytest.raises(verify.ProvenanceError, match=needle) as from_question:
+        verify.check_question(bank.question_from_dict(data))
+    assert str(from_question.value) == str(from_file.value)
+
+
+def test_a_loaded_question_verify_wrote_passes_and_comes_back() -> None:
+    q = bank.question_from_dict(_file("q3", "ran"))
+    assert verify.check_question(q) is q
+
+
+def test_a_self_consistent_edit_inside_the_record_still_passes() -> None:
+    """The stated limit: nothing binds a record to its run. If this starts failing,
+    the docstrings that state the limit are out of date."""
+    data = _file("q3", "ran")
+    index = bank.correct_index(bank.question_from_dict(data))
+    data["options"][index]["text"] = "edited"
+    data["verified"]["stdout"] = "edited\n"
+    verify.check_question(bank.question_from_dict(data))
+
+
 # --------------------------------------------------------------------------- #
 # `verify <program>`
 # --------------------------------------------------------------------------- #
