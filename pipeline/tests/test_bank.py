@@ -590,7 +590,7 @@ def test_a_null_fit_from_the_room_is_an_absent_key_and_reads_back_as_none() -> N
     written = question_to_dict(q)
     # Written as a list, one record per club; the bare object read above is the
     # form the bank wrote before clubs, and reads as the default club's.
-    assert written["used"] == [{"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "club": "nyc"}]
+    assert written["used"] == [{"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "club": "rustnyc"}]
     assert question_from_dict(json.loads(json.dumps(written))) == q
     # The published contract agrees: what was written has every required key and
     # nothing the schema does not name.
@@ -821,3 +821,27 @@ def test_the_schema_covers_every_dataclass_the_record_can_hold() -> None:
     }
     # History is the other store, with its own file and no place in a question.
     assert in_module - {"History"} == {c.__name__ for c in SCHEMA_TYPES}
+
+
+def test_a_used_record_under_nyc_is_the_default_clubs() -> None:
+    """ADR-0005 item 8: `nyc` is the default club's old name. A record written
+    under it reads, and is written back, as `rustnyc`: a question used under
+    `nyc` is never unused under `rustnyc`."""
+    data = question_to_dict(_question())
+    data["used"] = [{"meetup_date": "2026-10-14", "room_id": "r", "released_at": "t", "club": "nyc"}]
+    q = question_from_dict(data)
+    assert q.used_by("rustnyc").room_id == "r"
+    assert q.used_by().room_id == "r" and q.used_by("nyc").room_id == "r"
+    assert q.used_by("la") is None
+    assert question_to_dict(q)["used"][0]["club"] == "rustnyc"
+    assert Used(meetup_date="d", room_id="r", released_at="t", club="nyc").club == "rustnyc"
+
+
+def test_nyc_and_rustnyc_on_one_record_are_one_club_twice() -> None:
+    data = question_to_dict(_question())
+    data["used"] = [
+        {"meetup_date": "2026-10-14", "room_id": "a", "released_at": "t", "club": "nyc"},
+        {"meetup_date": "2026-11-11", "room_id": "b", "released_at": "t", "club": "rustnyc"},
+    ]
+    with pytest.raises(BankError, match="one club appears twice"):
+        question_from_dict(data)

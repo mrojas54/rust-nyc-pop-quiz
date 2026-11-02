@@ -116,7 +116,7 @@ pub(super) fn session_routes(router: Router<Arc<AppState>>) -> Router<Arc<AppSta
 // T-06 pages -----------------------------------------------------------
 // The buzzer: `GET /join` (typed code, or `?code=` from the link), its
 // two assets under the page's own path, and the short link `GET /{code}`
-// — the shape `rooms/room.rs` writes into `join_url` and the wall prints —
+// — the shape `quiz_session/models/rooms.rs` writes into `join_url` and the wall prints —
 // redirected to `/join?code=`. Embedded at compile time; nothing on disk
 // is read at runtime. The page loads `/shared/*`, which T-05 serves.
 pub(super) fn buzzer_pages(mut router: Router<Arc<AppState>>) -> Router<Arc<AppState>> {

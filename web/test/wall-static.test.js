@@ -5,8 +5,8 @@
 //   web/wall/fixtures/q3-phases.json  the room's view::wall frames for q3
 //                                      (room/tests/wall_page.rs)
 //   web/wall/fixtures/q3-static.json  the pipeline's bake of q3
-//                                      (popquiz.fallback --bake; test_fallback.py
-//                                      holds it equal)
+//                                      (fallback.bake; test_fallback.py holds it
+//                                      equal and says how to regenerate it)
 // Parity is the claim that matters: fed the same counts, the static frame builder
 // produces the room's frames, and the one renderer draws both the same, minus the
 // strip at the bottom (the join strip, which a room-less file cannot have).

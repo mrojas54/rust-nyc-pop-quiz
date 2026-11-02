@@ -46,8 +46,8 @@ The binary's environment (`src/server/config.rs`):
 | `DISCORD_CLIENT_ID` | a startup error | the Discord application's id (digits) |
 | `DISCORD_CLIENT_SECRET` | a startup error | the application's OAuth2 secret; never printed, logged or sent anywhere but Discord's token endpoint |
 | `DISCORD_GUILD_ID` | a startup error | the Rust NYC server's id (digits) |
-| `DISCORD_ROLE_ID` | a startup error | the id of the role that may host the default club, `nyc` (digits) — an id, never a name (AC-65) |
-| `POPQUIZ_CLUBS` | none (only `nyc`) | more clubs on this server (D-26): comma-separated `slug=roleid:Zone`, e.g. `la=123456789012345678:America/Los_Angeles`. Zones: `America/New_York`, `America/Chicago`, `America/Denver`, `America/Los_Angeles`. A bad entry, a repeated slug or a repeated role is a startup error |
+| `DISCORD_ROLE_ID` | a startup error | the id of the role that may host the default club, `rustnyc` (digits) — an id, never a name (AC-65) |
+| `POPQUIZ_CLUBS` | none (only `rustnyc`) | more clubs on this server (D-26): comma-separated `slug=roleid:Zone`, e.g. `la=123456789012345678:America/Los_Angeles`. Zones: `America/New_York`, `America/Chicago`, `America/Denver`, `America/Los_Angeles`. A bad entry, a repeated slug or a repeated role is a startup error, and so is an entry named `rustnyc` or `nyc` (the default club's, under its name or its old one) |
 
 The OAuth redirect URI is not a variable: it is `POPQUIZ_PUBLIC_URL` +
 `/auth/discord/callback`, and the Discord application must register exactly it.
@@ -64,28 +64,30 @@ the next section still work as written.
 ```
 src/
   lib.rs  copy.rs                  the crate root; SPEC §11's strings
-  rooms/                           the room itself
-    mod.rs      the sealed-record doctests, the re-exports, the small shared types
-    room.rs     the room record and the writes the phase machine drives
+  quiz_session/                    the room itself (`room::rooms` is its public path)
+    mod.rs      the sealed-record doctests, the re-exports, the small shared helpers
     open.rs     the one way to the answers: Room::open, Room::public, Opened, PublicView
-    state.rs    AppState: every room on this machine, the clock, the ledger; scheduling, host commands, release, the sweep
-    participants.rs  join, answer, leave, a session's buzzer payload, the counts, the sockets' token map
+    state_manager.rs  AppState: every room on this machine, the clock, the ledger; scheduling, host commands, release, the sweep
     seams.rs    what sessions plug in (`Sessions`, the close snapshot, live counts)
     errors.rs   RoomError, AnswerError, Joined, Scheduling
-    create.rs   create a room, run it again
     lifecycle.rs  the clock seam, §4.6's bounds, `Ended` and `verdict` (reachable as `room::lifecycle`)
-  host/                            the organizer
-    auth.rs                          the create check (G-9) and the host check
-    discord/                         Discord sign-in and the role check
-      mod.rs      OAuth, organizer records and sessions, refresh, the check and its retries
-      config.rs   settings and secrets, endpoints, the retry budget, the log sink (re-exported)
-      http.rs     encoding and the HTTP/1.1 client over TCP or TLS
+    models/                          the data
+      phase.rs  answers.rs  affirmation.rs  question.rs  club.rs  view.rs  used.rs
+                                       the machine; the sealed answers; the affirmation rule; the public question; clubs;
+                                       the wall/buzzer/host payloads; the ledger and take-it-home
+      rooms.rs    the room record and the writes the phase machine drives
+    host/                            the organizer
+      auth.rs                          the create check (G-9) and the host check
+      create.rs                        create a room, run it again
+      discord/                         Discord sign-in and the role check
+        mod.rs      OAuth, organizer records and sessions, refresh, the check and its retries
+        config.rs   settings and secrets, endpoints, the retry budget, the log sink (re-exported)
+        http.rs     encoding and the HTTP/1.1 client over TCP or TLS
+    participant/                     what an attendee's phone does
+      join.rs  vote.rs  leave.rs       join, answer, leave
+      buzzer.rs  counts.rs  tokens.rs  a session's payload; the counts; the sockets' token map
   connections/                     the audience
     ws.rs  sessions.rs  requestlog.rs   sockets and one broadcast per room; participant sessions; AC-55's log
-  models/                          the data
-    phase.rs  answers.rs  question.rs  club.rs  view.rs  used.rs
-                                     the machine; the sealed answers; the public question; clubs;
-                                     the wall/buzzer/host payloads; the ledger and take-it-home
   server/                          what the `room` binary serves
     main.rs  config.rs  reaper.rs  admin.rs   the binary; its environment; the sweep task; the pipeline channel
     routes/                          the HTTP surface, one file per user
@@ -98,7 +100,7 @@ src/
   cli/                             the clients: smoke, burst, room_client, the spike
 ```
 
-`models/view.rs` stays one file: the pre-reveal builders (`mod sealed`) are read
+`quiz_session/models/view.rs` stays one file: the pre-reveal builders (`mod sealed`) are read
 as a single block by `tests/boundary.rs`, so the proof that they never see the
 opened room is one thing to review. Its header says where each part is.
 
@@ -149,7 +151,7 @@ else (§3.5) — and hands the browser an opaque **organizer session** in the ho
 page's URL fragment. Discord's tokens never leave the `discord` module. On *Create a
 room* (and *Run it again*) the room refreshes the access token if it is due,
 then asks `GET /users/@me/guilds/{guild}/member` with the organizer's bearer.
-The organizer hosts a club iff `roles` contains *that club's* role ID (`DISCORD_ROLE_ID` for `nyc`, `POPQUIZ_CLUBS` for the rest; D-26, AC-103), compared as a
+The organizer hosts a club iff `roles` contains *that club's* role ID (`DISCORD_ROLE_ID` for `rustnyc`, `POPQUIZ_CLUBS` for the rest; D-26, AC-103), compared as a
 string. The member record is deserialized into `roles` alone, so `permissions`,
 role names and ownership cannot grant anything (AC-65). A `404` is *wrong
 server* — a non-member and a member of another guild hear the same thing — and
@@ -193,22 +195,29 @@ T-10 deleted it whole.
 ### Clubs (D-26)
 
 One server, one Discord guild, one question bank, a host role per club
-(`DISCORD_ROLE_ID` is `nyc`; `POPQUIZ_CLUBS` adds the rest). The organizer names
+(`DISCORD_ROLE_ID` is `rustnyc`; `POPQUIZ_CLUBS` adds the rest). The organizer names
 the club when they create a room: `/host?question=q3&club=la`, through sign-in
 and back. The create check tests *that* club's role ID; a role from another
 club, an unknown club and a malformed one are all `403 wrong_role` (AC-103).
 
+The default club was `nyc` until ADR-0005 item 8. `nyc` is still its alias, for
+at least one release: `ClubSlug::parse` reads it as `rustnyc` wherever a club
+comes in (`?club=`, `/last/{club}`, sign-in, the admin push), so a bookmarked
+`?club=nyc` link still hosts, and nothing is stored or sent as `nyc`. The table
+is `CLUB_ALIASES` in `src/quiz_session/models/club.rs`, held equal to the pipeline's by
+`bank/fixtures/clubs/aliases.json`. Removing the alias is a later step.
+
 - **Never twice is per club.** `used` is keyed `(club, question)`; NYC having run
   `q3` does not retire it for LA (AC-105). Two clubs may hold a room on one
   question at once (AC-104); one live room per `(club, question)` still holds.
-- **Take it home is per club:** `/last/{club}`, and `/last` is `nyc`'s. A club
+- **Take it home is per club:** `/last/{club}`, and `/last` is `rustnyc`'s (so is `/last/nyc`). A club
   that has released nothing, or one that does not exist, gets the empty page.
   A released LA wall links to `/last/la`.
 - **Run it again** stays in the old room's club, whatever the request names.
 - **Scheduling is per club.** What the laptop pushes is the question *arranged
   for one meetup date* (the answer slot moves with the date), so the room keeps
   it per club: `PUT /admin/clubs/{club}/questions/{id}`, and the old
-  `PUT /admin/questions/{id}` is the `nyc` spelling. A club's room is built from
+  `PUT /admin/questions/{id}` is the `rustnyc` spelling. A club's room is built from
   that club's record only; a club with nothing scheduled is refused, never
   handed another club's arrangement (AC-23). Whether a club has run a question
   is checked when its room is made.
@@ -218,7 +227,7 @@ club, an unknown club and a malformed one are all `403 wrong_role` (AC-103).
 
 | Route | What | Credential |
 |---|---|---|
-| `POST /rooms` `{question_id, club?}` | *Create a room* for a club (default `nyc`, D-26) | the organizer session → `HostAuth::authorize_create` (Discord) |
+| `POST /rooms` `{question_id, club?}` | *Create a room* for a club (default `rustnyc`; `nyc` reads as it; D-26) | the organizer session → `HostAuth::authorize_create` (Discord) |
 | `POST /rooms/{id}/put-on-screen`, `close-answers`, `show-split`, `walk-it`, `reveal`, `release`, `step-back`, `step-forward` | one per host action, plus `←`/`→` | the room's host session |
 | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; this one stays released | `authorize_create`, same organizer |
 | `GET /rooms/{id}/wall`, `/buzzer` | the public state query | none |
@@ -240,8 +249,20 @@ routes, one credential. T-20 builds the laptop side (`popquiz schedule` and
 
 | Route | What | Answers |
 |---|---|---|
-| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes. It goes through `answers::load` into the sealed module and nowhere else (AC-61). | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load or its `id` is not `{id}`. `409 {reason}` if the question has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
-| `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). | `200` |
+| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes, plus `bank_order` from `popquiz schedule` (where each wall option sits in the bank; absent means the bank's own order). It goes through `answers::load_arranged` into the sealed module and nowhere else (AC-61); `bank_order` is never stored. | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load, its affirmation is malformed, `bank_order` is not an arrangement, or its `id` is not `{id}`. `409 {reason}` if the question is not affirmed for its text (unaffirmed, stale or unbound) or not accepted at review, has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
+| `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit, affirmed_by}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). `affirmed_by` is the organizer whose affirmation the room ran it on. | `200` |
+
+**Only affirmed questions run (G-12, GAP-24, ADR-0005 item 9).** The room checks
+a pushed record's affirmation with `quiz_session/models/affirmation.rs`, the twin of
+`bank.affirmation_digest` and `affirmation_state`, held to them by
+`bank/fixtures/affirmation/` in both languages. It refuses anything but
+`bound`, and a bound record not accepted at review (`audit.is_accepted`), at
+the push and again when a room is made, and a refused push leaves the record
+already scheduled in place. The room types the record more strictly than
+Python (a trace line `1.0`, `pivot: 1`), so on such a record it refuses what
+`just schedule` would pass: on those types it fails closed. `review` does not
+generate such values, though it keeps one already in a file. The affirmation is an organizer's
+sign-off bound to the text; it is not a signature and authenticates no one.
 
 **The credential.** `Authorization: Bearer <token>`. The token is the value of
 `POPQUIZ_ADMIN_TOKEN`: a Fly secret that the pipeline's local configuration
@@ -329,8 +350,8 @@ is not the Fly secret.
 
 ## Lifecycle and what outlives a room (T-11)
 
-SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/rooms/lifecycle.rs`, `src/server/reaper.rs`, `src/models/used.rs`,
-and the release and sweep paths in `src/rooms/`.
+SPEC §4.6, AC-56, AC-69, AC-92, G-4, G-10. `src/quiz_session/lifecycle.rs`, `src/server/reaper.rs`, `src/quiz_session/models/used.rs`,
+and the release and sweep paths in `src/quiz_session/`.
 
 **How long a room lives.** At most `ROOM_LIFETIME` (4 h) from `created_at`.
 Before that, a room closes for inactivity after `IDLE_QUIET` (30 min, `idle`) or
@@ -548,7 +569,7 @@ phone skips superseded ones instead of lagging behind them, and no receiver can
 drop a reveal the way the spike's `broadcast` could (it had to count `Lagged`).
 The channel exists only while someone is subscribed.
 
-**What triggers a push.** The `rooms/` module has no change hook, and polling is out.
+**What triggers a push.** The `quiz_session/` module has no change hook, and polling is out.
 `Transport::changed(room_id)` publishes only if `Room::revision()` moved, so a
 poke that changed nothing sends nothing. It is called:
 
@@ -691,8 +712,12 @@ still not scrolling. The sources q4, q7 and q8 are run under q3's payloads — t
 model reads only the source — because only q3 has a trace today.
 
 **The static fallback (AC-102, T-26)**, same reason for being outside
-`test-full`: `python -m popquiz.fallback q3 --out <dir>/q3.html` writes the file
-and `q3.host-sheet.txt` beside it; open the file in a browser and step it with
+`test-full`: from `pipeline/`,
+`uv run python -m popquiz.schedule schedule q3 --date <night> --no-push --out <dir>`
+(a `<dir>` outside the repository; `--no-push` needs no secret) writes `q3.html`
+arranged for that night and `q3.host-sheet.txt` beside it. There is no standalone
+fallback command (PQ-52): one would show the bank's stored order. Open the file
+in a browser and step it with
 `Space`, `←` `→` and `Esc`. The file carries a Content-Security-Policy of
 `default-src 'none'` and `connect-src 'none'`, so the browser itself refuses any
 request, fetch and WebSocket included. Last run, 2026-09-26, c11 browser
@@ -742,8 +767,8 @@ builders receive a `PublicView`, which has no path to the vault.
 
 The proof is in two halves, and neither is "we reviewed it":
 
-1. **`compile_fail` doctests**, in `src/models/phase.rs`, `src/models/answers.rs` and
-   `src/rooms/mod.rs`, cover six attempts to cross the boundary:
+1. **`compile_fail` doctests**, in `src/quiz_session/models/phase.rs`, `src/quiz_session/models/answers.rs` and
+   `src/quiz_session/mod.rs`, cover six attempts to cross the boundary:
    - forge a witness;
    - forge a machine in `reveal`;
    - read a room's question;
@@ -1150,10 +1175,12 @@ and handed to curl on stdin, never on its command line:
 restart or deploy in between loses the scheduled ids — *A restart loses every
 room*, above):
 
-    export POPQUIZ_ORGANIZER_SESSION=…   # what follows the # after signing in at /host
+    # POPQUIZ_ORGANIZER_SESSION is what follows the # after signing in at /host. Put the
+    # fresh value in the 1Password item .env.op names; each recipe runs under `op run`,
+    # which sets it for that process only (justfile; docs/RUNBOOK.md, Secrets). Nothing
+    # to export, nothing to unset.
     just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 --out burst.json   # 500: fly.toml's hard_limit
     just smoke https://rustnyc-popquiz.fly.dev --participants 200
-    unset POPQUIZ_ORGANIZER_SESSION
 
 **From CI** (`.github/workflows/deployed-burst.yml`, `workflow_dispatch` only):
 

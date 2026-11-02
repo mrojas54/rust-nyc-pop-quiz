@@ -13,9 +13,12 @@ use crate::copy;
 use crate::phase::{apply, Applied, Command, HostAction, Machine, Phase, Refused, State};
 use crate::used::TakeHome;
 
-use super::create::{hex, random_bytes};
-use super::lifecycle::Ended;
-use super::{CloseSnapshot, LiveCounts, Totals, ROOM_LIFETIME};
+use crate::quiz_session::lifecycle::{self, Ended};
+use crate::quiz_session::{hex, random_bytes, CloseSnapshot, LiveCounts, ROOM_LIFETIME};
+
+/// Per-option counts, A–E in arrival order. The only answer data a room holds
+/// (AC-56, D-12).
+pub type Totals = [u32; 5];
 
 /// The wall's measured verdict after refit (§5.2, AC-100). Written by the wall
 /// (T-05 adds its route); read by the host's fit line.
@@ -40,10 +43,10 @@ impl Fit {
 }
 
 /// Frozen at `closed`: never written again.
-pub(super) struct Frozen {
-    pub(super) answered: u32,
-    pub(super) totals: Totals,
-    pub(super) verdict: Verdict,
+pub(in crate::quiz_session) struct Frozen {
+    pub(in crate::quiz_session) answered: u32,
+    pub(in crate::quiz_session) totals: Totals,
+    pub(in crate::quiz_session) verdict: Verdict,
 }
 
 /// Where links point. Configuration, owned by T-09 on deploy.
@@ -65,30 +68,30 @@ impl Default for Urls {
 }
 
 /// One room. No field is public (§3.4). Fields a sibling file reads are
-/// `pub(super)`; the six none of them reads are private to this file.
+/// `pub(in crate::quiz_session)`; the six none of them reads are private to this file.
 pub struct Room {
-    pub(super) id: String,
-    pub(super) code: String,
-    pub(super) join_url: String,
+    pub(in crate::quiz_session) id: String,
+    pub(in crate::quiz_session) code: String,
+    pub(in crate::quiz_session) join_url: String,
     // D-26: which club's room this is, and the zone its meetup date is read in.
-    pub(super) club: ClubSlug,
+    pub(in crate::quiz_session) club: ClubSlug,
     zone: Zone,
-    pub(super) question_id: String,
-    pub(super) question: Arc<Scheduled>,
-    pub(super) machine: Machine,
-    pub(super) host_session: String,
-    pub(super) host_resume_url: String,
-    pub(super) organizer: OrganizerId,
+    pub(in crate::quiz_session) question_id: String,
+    pub(in crate::quiz_session) question: Arc<Scheduled>,
+    pub(in crate::quiz_session) machine: Machine,
+    pub(in crate::quiz_session) host_session: String,
+    pub(in crate::quiz_session) host_resume_url: String,
+    pub(in crate::quiz_session) organizer: OrganizerId,
     created_at: SystemTime,
     expires_at: SystemTime,
-    pub(super) present: u32,
-    pub(super) answered_live: u32,
-    pub(super) frozen: Option<Frozen>,
-    pub(super) released_at: Option<SystemTime>,
+    pub(in crate::quiz_session) present: u32,
+    pub(in crate::quiz_session) answered_live: u32,
+    pub(in crate::quiz_session) frozen: Option<Frozen>,
+    pub(in crate::quiz_session) released_at: Option<SystemTime>,
     // GAP-8: how it ended, once a new room on its question was let in on the
     // strength of that ending. From then on it stays ended at any `now`.
-    pub(super) latched_end: Option<Ended>,
-    pub(super) fit: Option<Fit>,
+    pub(in crate::quiz_session) latched_end: Option<Ended>,
+    pub(in crate::quiz_session) fit: Option<Fit>,
     revision: u64,
     // T-11: §4.6's quiet clock, written by `create` and every host action.
     last_host_action: SystemTime,
@@ -99,10 +102,10 @@ pub struct Room {
 
 /// T-11: what a room leaves behind at release — the take-it-home snapshot and
 /// the wall's last verdict, for the used record.
-pub(super) struct Parting {
-    pub(super) take_home: TakeHome,
-    pub(super) meetup_date: String,
-    pub(super) fit: Option<Fit>,
+pub(in crate::quiz_session) struct Parting {
+    pub(in crate::quiz_session) take_home: TakeHome,
+    pub(in crate::quiz_session) meetup_date: String,
+    pub(in crate::quiz_session) fit: Option<Fit>,
 }
 
 /// What the machine did with a command.
@@ -304,14 +307,14 @@ impl Room {
     /// T-11: whether this room has ended at `now` — four hours up, or quiet for
     /// §4.6's bound (`lifecycle::verdict`).
     ///
-    /// Once [`super::AppState::create_for`] has let a new room in on this room's
+    /// Once `AppState::create_for` has let a new room in on this room's
     /// question because it had ended, the ending is latched: a later call with
     /// an earlier `now` — a wall-clock step back, or a host action whose clock
     /// reading was taken just before the lock — cannot revive it, so there are
     /// never two live rooms on one question (GAP-8).
     pub fn ended(&self, now: SystemTime) -> Option<Ended> {
         self.latched_end.or_else(|| {
-            super::lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
+            lifecycle::verdict(self.phase(), self.expires_at, self.last_host_action, now)
         })
     }
 
@@ -319,7 +322,7 @@ impl Room {
     /// room — it was created on it, is not released, and has not ended. A
     /// released room's question is refused by the used ledger instead; a room
     /// that ended without release can never release, so it can never put its
-    /// answer on `/last` ([`super::AppState::act`] refuses an ended room).
+    /// answer on `/last` ([`crate::rooms::AppState::act`] refuses an ended room).
     pub fn holds(&self, club: &ClubSlug, question_id: &str, now: SystemTime) -> bool {
         &self.club == club
             && self.question_id == question_id
@@ -332,7 +335,7 @@ impl Room {
         self.last_host_action
     }
 
-    pub(super) fn take_parting(&mut self) -> Option<Parting> {
+    pub(in crate::quiz_session) fn take_parting(&mut self) -> Option<Parting> {
         self.parting.take()
     }
 }

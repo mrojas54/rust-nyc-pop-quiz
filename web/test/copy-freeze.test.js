@@ -10,7 +10,8 @@
 // static fallback at every {phase, step} it can reach, the buzzer through its
 // reducer, the host phone, and take-it-home. From each, the text of every
 // element and every participant-facing attribute (aria-label, title, alt,
-// placeholder, aria-description) is read, every marker is removed, and what
+// placeholder, aria-description) is read, every marker's key is removed (what
+// its placeholders were filled with stays), and what
 // is left may hold no word with a letter in it that did not come from the
 // screen's own data (the question, the room's code, the fixture's notes). A
 // word that is left came from a string literal in a surface — the thing G-5
@@ -18,7 +19,7 @@
 // same treatment.
 //
 // The wall's words come from the room, not from PQ.t: the room fills §11's
-// templates in room/src/models/view.rs from room/src/copy.rs, which twins.rs pins to
+// templates in room/src/quiz_session/models/view.rs from room/src/copy.rs, which twins.rs pins to
 // copy.js. So each text field of a wall frame fixture must fully match one of
 // copy.js's real templates — which is checked — and is then swapped for the
 // same key's marker.
@@ -81,7 +82,9 @@ const M = WALL.COPY;   // the marker values, the same in every env
 // --- The room's filled strings, back to their keys --------------------------------
 
 // Fields of a wall frame or a take-it-home snapshot that carry §11 strings the
-// room filled. Everything else in a frame is data.
+// room filled. Everything else in a frame is data — so the list is pinned both
+// ways below: a field that carries a §11 template and is not here fails, and
+// so does a name here that no fixture fills.
 const COPY_FIELDS = new Set(['title', 'strip', 'join', 'joined', 'answered', 'well_header', 'line', 'heading', 'label', 'pause', 'lines']);
 
 const TEMPLATES = Object.entries(REAL.COPY)
@@ -115,7 +118,11 @@ function marked(obj, where = '') {
 // --- Words ------------------------------------------------------------------------
 
 const WORD = /\p{L}[\p{L}\p{M}]*/gu;
-const words = (s) => String(s).replace(MARKER, ' ').match(WORD) || [];
+// A marker's key, its brackets and any unfilled `‹p›` go; what a placeholder
+// was filled with stays, so a literal filled into a template (the date
+// heading's month) is a word like any other.
+const unmark = (s) => String(s).replace(/⟦[a-z0-9_]+/g, ' ').replace(/[⟦⟧]/g, ' ').replace(/‹[^›]*›/g, ' ');
+const words = (s) => unmark(s).match(WORD) || [];
 // Keys whose values drive rendering but are never shown as words.
 const NOT_DATA = new Set(['phase', 't', 'type', 'do', 'refusal', 'search', 'primary', 'action', 'colour', 'mark', 'status']);
 
@@ -308,19 +315,31 @@ const SCREENS = [...wallScreens(), ...buzzerScreens(), ...hostScreens(), ...home
 
 // Where a string that is not a copy key may reach a page, entry by entry, each
 // with its reason. Empty but for one finding, which is not T-22's to fix.
+const MONTH_WORDS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+  'October', 'November', 'December'];
+
 const ALLOWLIST = [
   {
-    surface: 'host', where: 'p.host-status.meta',
+    surface: 'host', where: 'p.host-status.meta', words: words(REASON),
     why: 'QUESTION Q2 (PQ-27): host.js statusLine shows the room\'s `reason` verbatim, or the HTTP status text, '
       + 'an exception message or a close code. Two reasons are §11 keys (the denials); others are room diagnostics '
-      + 'not in §11. Organizer-facing; changing it is a behaviour change and a string to author.',
+      + 'not in §11. Organizer-facing; changing it is a behaviour change and a string to author. Only the fixture '
+      + 'reason\'s words pass here, so a literal the page adds to the line still fails.',
   },
   {
     surface: 'home', where: 'span.v', words: ['opt', 'level', 'overflow', 'checks', 'debug', 'assertions', 'on', 'off'],
     why: 'home.js flagsText: the machine row spells the record\'s three flags as rustc takes them '
       + '(`-C opt-level=0 -C overflow-checks=on …`, §13, AC-87). Compiler syntax, not prose; these words only.',
   },
+  {
+    surface: 'home', where: 'h1', words: MONTH_WORDS,
+    why: 'home.js spokenDate: the date heading fills home_heading_question with `October 14`, the month from home.js\'s '
+      + 'MONTHS literal (PQ-42). Routing it through copy.js would touch the frozen copy and room/src/copy.rs; '
+      + 'the twelve month names only.',
+  },
 ];
+// An entry with no words filter would let any word through its element.
+assert(ALLOWLIST.every((a) => a.words), 'every allowlist entry carries a words filter');
 const allowed = (screen, t, w) => ALLOWLIST.some((a) => a.surface === screen.surface && a.where === t.where
   && (!a.words || a.words.includes(w)));
 
@@ -382,6 +401,63 @@ test('the allowlisted host status line is the one place a room reason shows, and
     if (s.surface === 'host' && /refused/.test(s.name)) assert.deepEqual(where, ['p.host-status.meta'], s.name);
     else assert.deepEqual(where, [], `${s.surface} / ${s.name}`);
   }
+});
+
+test('the date heading\'s month is seen, allowlisted, and every month spokenDate can say is in the filter', () => {
+  // Pinning the MONTHS entry: the words filter is exactly what spokenDate emits,
+  // and the freeze does see the month (a filled placeholder is not hidden).
+  const said = MONTH_WORDS.map((_, i) => HOME.Home.spokenDate(`2026-${String(i + 1).padStart(2, '0')}-14`));
+  assert.deepEqual(said.map((d) => d.match(WORD)), MONTH_WORDS.map((m) => [m]));
+  const home = SCREENS.filter((x) => x.surface === 'home' && x.snap);
+  assert.ok(home.length > 0);
+  for (const s of home) {
+    const h1 = texts(s.html).filter((t) => t.where === 'h1');
+    assert.ok(h1.some((t) => words(t.text).some((w) => MONTH_WORDS.includes(w) && !s.vocab.has(w))), s.name);
+  }
+});
+
+test('the host status line passes the room\'s reason only, and host.js assigns it no wording of its own', () => {
+  // The words filter is the guard: any other word on the line fails the freeze.
+  const status = SCREENS.find((x) => x.surface === 'host' && x.name === 'live, refused');
+  const line = texts(status.html).find((t) => t.where === 'p.host-status.meta');
+  assert.ok(words(line.text).every((w) => allowed(status, line, w)));
+  assert.ok(!allowed(status, line, 'Retry'));
+  // A regex net over the source as well (concatenation or indirection can
+  // slip past it; the filter above cannot be): no string literal with a letter
+  // in it is assigned to ui.status.
+  const code = read('host/host.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const literal = [...code.matchAll(/ui\.status\s*=\s*(?:[^;]*?[?:]\s*)?(["'])((?:(?!\1)[^\\\n]|\\.)*)\1/g)]
+    .map((m) => m[2]).filter((x) => /\p{L}/u.test(x));
+  assert.deepEqual(literal, []);
+});
+
+// Every field whose string fully matches a §11 template, bar the keys that
+// drive rendering and are never shown (NOT_DATA: `phase: "released"` is a
+// state name that happens to equal a one-word label).
+function copyFieldsIn(obj, templates = TEMPLATES, found = new Map(), where = '') {
+  const note = (k, v, at) => {
+    if (!NOT_DATA.has(k) && templates.some((t) => t.re.test(v))) found.set(k, [...(found.get(k) || []), at]);
+  };
+  if (Array.isArray(obj)) obj.forEach((x, i) => copyFieldsIn(x, templates, found, `${where}[${i}]`));
+  else if (obj && typeof obj === 'object') {
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === 'string') note(k, v, `${where}.${k}`);
+      else if (Array.isArray(v) && v.length && v.every((x) => typeof x === 'string')) v.forEach((x, i) => note(k, x, `${where}.${k}[${i}]`));
+      else copyFieldsIn(v, templates, found, `${where}.${k}`);
+    }
+  }
+  return found;
+}
+
+test('COPY_FIELDS is exactly the fields that carry the room\'s §11 strings', () => {
+  const found = copyFieldsIn([WALL_FIX, BAKE, HOME_FIX]);
+  const undeclared = [...found].filter(([k]) => !COPY_FIELDS.has(k)).map(([k, at]) => `${k} at ${at[0]}`);
+  assert.deepEqual(undeclared, [], 'a field carries a §11 template but is not in COPY_FIELDS');
+  const unused = [...COPY_FIELDS].filter((k) => !found.has(k));
+  assert.deepEqual(unused, [], 'a COPY_FIELDS name that no fixture fills');
+  // And the check bites: a new field carrying a filled template is caught.
+  const frame = { ...WALL_FIX.frames.live, new_line: REAL.fill(REAL.COPY.wall_released_title, {}) };
+  assert.ok(copyFieldsIn(frame).has('new_line'));
 });
 
 test('the page shells\' own text is §11\'s title row, composed from the keys', () => {

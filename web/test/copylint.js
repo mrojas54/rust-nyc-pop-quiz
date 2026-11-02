@@ -23,13 +23,16 @@
    The two consequences live with the callers, not here:
      - over the copy module (web/shared/copy.js), any match of either lint
        fails `just test`;
-     - over question prose (`explains`, `why_tempting`, `hint`), a match is a
-       warning beside the text on the review screen (§7.4) — the Python twin's
-       check_prose() is the hook T-18 calls.
+     - over question prose (`explains`, `why_tempting`, `hint` and every
+       `trace.steps[].note` — the last is F-47's: AC-98 outranks SPEC's
+       four-field list), a match is a warning beside the text on the review
+       screen (§7.4) — the Python twin's check_prose() is the hook T-18 calls;
+       checkProse() here is its twin, held to the same fixtures.
 
-   Text is read with U+2018/U+2019 taken as `'` before matching: SPEC's
-   patterns spell the apostrophe straight (`that'?s`), and a curly one in
-   generated prose would otherwise walk past every contraction pattern.
+   Text is normalized before matching (normalize(), below): SPEC's patterns
+   spell one space, a straight apostrophe (`that'?s`) and an em dash, and a
+   newline, a curly or modifier apostrophe, a zero-width character, fullwidth
+   letters or `--` in generated prose would otherwise walk past them.
    =========================================================================== */
 (function (root) {
   "use strict";
@@ -90,26 +93,41 @@
     });
   });
 
-  /* Curly single quotes read as the straight one. Same length, so a match's
-     index in the normalized text is its index in the original. */
+  /* The text as SPEC's patterns spell it, so a variant cannot walk past them.
+     In order, the same as the Python twin: NFKC (fullwidth letters,
+     look-alikes and NBSP to their plain forms); zero-width characters
+     (U+200B..U+200D, U+FEFF) removed; every run of `\s`, newlines included, to
+     one space, and the ends trimmed; U+2018, U+2019, U+02BC and the backtick to
+     `'`; `--` (and longer), U+2013, U+2014 and a spaced hyphen ` - ` to U+2014,
+     the dash the contrast pattern spells. Lengths change: a match is quoted
+     from this text. */
   function normalize(text) {
-    return String(text).replace(/[‘’]/g, "'");
+    return String(text)
+      .normalize("NFKC")
+      .replace(/[\u200b-\u200d\ufeff]/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/^ | $/g, "")
+      .replace(/[\u2018\u2019\u02bc`]/g, "'")
+      .replace(/ - /g, " \u2014 ")
+      .replace(/-{2,}|[\u2013\u2014]/g, "\u2014");
   }
 
   /* Every rule that matches `text`: [{lint, group, id, pattern, match}], in
-     SPEC's order, `match` quoted from the original text. */
+     SPEC's order, `match` quoted from the normalized text. */
   function check(text) {
-    var original = String(text);
-    var norm = normalize(original);
+    var norm = normalize(text);
     var out = [];
     RULES.forEach(function (r) {
       var m = r.re.exec(norm);
-      if (m) {
-        out.push({ lint: r.lint, group: r.group, id: r.id, pattern: r.source,
-          match: original.slice(m.index, m.index + m[0].length) });
-      }
+      if (m) out.push({ lint: r.lint, group: r.group, id: r.id, pattern: r.source, match: m[0] });
     });
     return out;
+  }
+
+  /* The ids of every rule whose compiled pattern matches `text` as given, with
+     no normalizing: the engine alone, for the dialect fixtures. */
+  function checkRaw(text) {
+    return RULES.filter(function (r) { return r.re.test(String(text)); }).map(function (r) { return r.id; });
   }
 
   function forbidden(text) {
@@ -120,13 +138,82 @@
     return check(text).filter(function (h) { return h.lint === "trope"; });
   }
 
+  function get(obj, name) {
+    return obj !== null && typeof obj === "object" ? obj[name] : undefined;
+  }
+
+  /* The lint's homes in one question, in the Python twin's order (prose_fields):
+     explains.what, explains.takeaway, each option's why_tempting, hint, and
+     every trace step's note — the fifth home is F-47's (AC-98 outranks SPEC
+     §11's four-field list). Never explains.legacy, source or option text.
+     Skips what is missing or not a string. */
+  function proseFields(record) {
+    var fields = [];
+    var explains = get(record, "explains");
+    ["what", "takeaway"].forEach(function (name) {
+      var value = get(explains, name);
+      if (typeof value === "string") fields.push(["explains." + name, value]);
+    });
+    var options = get(record, "options");
+    if (Array.isArray(options)) {
+      options.forEach(function (option, i) {
+        var value = get(option, "why_tempting");
+        if (typeof value === "string") fields.push(["options[" + i + "].why_tempting", value]);
+      });
+    }
+    var hint = get(record, "hint");
+    if (typeof hint === "string") fields.push(["hint", hint]);
+    var steps = get(get(record, "trace"), "steps");
+    if (Array.isArray(steps)) {
+      steps.forEach(function (step, i) {
+        var value = get(step, "note");
+        if (typeof value === "string") fields.push(["trace.steps[" + i + "].note", value]);
+      });
+    }
+    return fields;
+  }
+
+  var LINT_ERROR = "lint-error";
+
+  /* The one warning a crashed lint returns: the field it was on and the
+     exception's class, never its message or the text. */
+  function lintError(field, e) {
+    var cls = e && e.constructor && e.constructor.name ? e.constructor.name : typeof e;
+    return { field: field, id: LINT_ERROR, group: LINT_ERROR, pattern: "", matched: cls };
+  }
+
+  /* Every match in a question's prose, as warnings:
+     [{field, id, group, pattern, matched}] — check_prose's shape. Never
+     throws; a crash returns exactly one lint-error warning naming the field
+     it was on ("record" before any was read), never [], which reads as clean. */
+  function checkProse(record) {
+    var field = "record";
+    try {
+      var out = [];
+      proseFields(record).forEach(function (f) {
+        field = f[0];
+        // Through the namespace, so a test can plant a crash in one field.
+        PQ.COPYLINT.check(f[1]).forEach(function (h) {
+          out.push({ field: f[0], id: h.id, group: h.group, pattern: h.pattern, matched: h.match });
+        });
+      });
+      return out;
+    } catch (e) {
+      return [lintError(field, e)];
+    }
+  }
+
   PQ.COPYLINT = {
     FORBIDDEN: FORBIDDEN,
     TROPES: TROPES,
     RULES: RULES,
     normalize: normalize,
     check: check,
+    checkRaw: checkRaw,
     forbidden: forbidden,
-    tropes: tropes
+    tropes: tropes,
+    proseFields: proseFields,
+    checkProse: checkProse,
+    LINT_ERROR: LINT_ERROR
   };
 })(typeof window !== "undefined" ? window : globalThis);

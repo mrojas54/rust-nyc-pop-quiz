@@ -6,14 +6,20 @@
 //!   output, readable only with a witness that exists only in `reveal` (G-3,
 //!   AC-61). The proof is a set of `compile_fail` doctests with compiling twins,
 //!   plus `tests/boundary.rs`.
+//! - [`affirmation`] — whether a question is affirmed for its text: the twin
+//!   of the pipeline's rule, which the room checks before it runs one (G-12).
 //! - [`question`] — the public half of a question.
 //! - [`club`] — which club a room belongs to, and its time zone.
+//! - `rooms` — one room's record and the writes the phase machine drives
+//!   ([`Room`](crate::rooms::Room)).
 //! - [`view`] — the public state query: wall, buzzer and host payloads.
 //! - [`used`] — the used-question ledger and the take-it-home snapshot.
 
+pub mod affirmation;
 pub mod answers;
 pub mod club;
 pub mod phase;
 pub mod question;
+pub(in crate::quiz_session) mod rooms;
 pub mod used;
 pub mod view;

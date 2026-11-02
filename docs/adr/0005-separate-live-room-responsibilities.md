@@ -329,10 +329,10 @@ routine changes keep crossing them, not when a file passes a line count.
 3. [x] Split out `rooms/participants.rs`
 4. [x] Module docs, the operation guide, the six invariant comments
 5. [x] Michelle accepts this ADR (Status → Accepted) before merge
-6. [ ] Later ticket: move the files to the *Target layout*
+6. [x] Later ticket: move the files to the *Target layout*
 7. [ ] Later ticket: rename the crate folder `room/` to `popquiz/`
-8. [ ] Later ticket: rename the default club `nyc` to `rustnyc`
-9. [ ] Later ticket: the room uses only affirmed questions and records who
+8. [x] Later ticket: rename the default club `nyc` to `rustnyc`
+9. [x] Later ticket: the room uses only affirmed questions and records who
    affirmed them
 
 Items 6 to 9 are recorded here so the layout has one source. None of them is

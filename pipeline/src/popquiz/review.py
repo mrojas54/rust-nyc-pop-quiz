@@ -51,8 +51,8 @@ from popquiz.runner import Runner
 #: Where the organizer's name comes from when `--by` is not given. No default.
 ORGANIZER_ENV = "POPQUIZ_ORGANIZER"
 
-#: The ruling a does-not-compile question waits on before it can be affirmed.
-F15 = "F-15"
+#: The name a does-not-compile question's resolving step gives its row (F-15).
+ERROR = "error"
 
 #: What `export` writes and `edit` reads. The trace is editable only as its notes:
 #: its lines, focus, pivot and values - the `stdout` row among them - are not.
@@ -130,9 +130,42 @@ def accept_blockers(question: Question, also_checked: Sequence[str] = ()) -> lis
     return blockers
 
 
-def blocked_on(question: Question) -> str | None:
-    """The ruling this question waits on before it can be affirmed, if any."""
-    return F15 if bank.receipt_class(question.verified) == "does_not_compile" else None
+def _is_error(name: str) -> bool:
+    return name.strip().lower() == ERROR
+
+
+def error_row_blockers(question: Question) -> list[str]:
+    """What stops a does-not-compile question's trace from resolving (F-15).
+
+    RULING F-15 (client, 2026-10-25): such a question has no `stdout` for a step to
+    name (SPEC 3.2), so its resolving step is the last one, and that step's values
+    name `error` with the compiler's code from `verified.compile_error_code`,
+    spelled as the receipt spells it. Only the last step may name it: `work` shows
+    every step but the last, and an earlier `error` row would give the answer away
+    (G-3). A question that ran, or has no trace yet, is not checked here.
+    """
+    verified = question.verified
+    if verified is None or bank.receipt_class(verified) != "does_not_compile" or not question.trace.steps:
+        return []
+    blockers = []
+    *before, last = question.trace.steps
+    for i, step in enumerate(before, 1):
+        if any(_is_error(v.name) for v in step.values):
+            blockers.append(
+                f"Trace step {i} names error, but only the last step may; the "
+                "walk-through would show the answer before reveal (F-15, G-3)."
+            )
+    codes = ", ".join(verified.compile_error_code or ())
+    rows = [v for v in last.values if _is_error(v.name)]
+    if not rows:
+        blockers.append(
+            f"It does not compile, and the trace's last step names no error; it needs "
+            f"an error row saying {codes} (F-15)."
+        )
+    for row in rows:
+        if row.now.strip() != codes:
+            blockers.append(f"The trace's error row says {row.now}, but the compiler gave {codes} (F-15).")
+    return blockers
 
 
 def affirm_blockers(question: Question) -> list[str]:
@@ -140,11 +173,7 @@ def affirm_blockers(question: Question) -> list[str]:
     blockers = []
     if _review(question).status not in ACCEPTED:
         blockers.append("It has not been accepted.")
-    if blocked_on(question) == F15:
-        blockers.append(
-            "It does not compile, and how such a question is walked through waits on a "
-            "ruling (F-15)."
-        )
+    blockers.extend(error_row_blockers(question))
     blockers.extend(accept_blockers(question))
     steps = len(question.trace.steps)
     if steps < 2:
@@ -194,7 +223,8 @@ def report(question: Question) -> dict[str, Any]:
         "warnings": [dataclasses.asdict(w) for w in copylint.check_prose(question)],
         "accept_blockers": accept_blockers(question),
         "affirm_blockers": affirm_blockers(question),
-        "blocked_on": blocked_on(question),
+        # No ruling is pending since F-15 (2026-10-25); the TUI still reads the key.
+        "blocked_on": None,
     }
 
 
@@ -418,9 +448,17 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
     # Any edit clears the affirmation (GAP-24). An accepted record becomes `edited`,
     # which still counts as accepted; a rejected or unreviewed one keeps its status,
     # because editing a question is not accepting it.
+    #
+    # Any edit also clears `quotes_checked` (AC-73; client, 2026-10-31). A check says a
+    # span is not a claim about the output, and that depends on the sentence around it
+    # and on the program, so a span that survives an edit is checked again before the
+    # question can be affirmed. A span removed and later restored comes back unchecked.
+    # Both edit paths below write this record.
     prior = _review(question)
     status = "edited" if prior.status in ACCEPTED else prior.status
-    edited = dataclasses.replace(edited, review=dataclasses.replace(prior, status=status, **_cleared()))
+    edited = dataclasses.replace(
+        edited, review=dataclasses.replace(prior, status=status, quotes_checked=None, **_cleared())
+    )
     if status == "rejected":
         after = "it stays rejected until you accept it"
     elif status is None:
@@ -454,11 +492,27 @@ def edit(bank_dir: Path, qid: str, source_file: Path, expect: str | None = None,
     )
 
 
+def _what_it_says(question: Question) -> tuple[Any, ...]:
+    """What re-verifying can change in a question, leaving out when it ran: the text
+    the organizer read, the trace's `stdout` row with it, and the recorded result."""
+    verified = question.verified
+    return (
+        bank.affirmation_digest(question),
+        verified.stdout if verified else None,
+        verified.compile_error_code if verified else None,
+    )
+
+
 def reverify(bank_dir: Path, qid: str, expect: str | None = None, runner: Runner | None = None) -> str:
     question = bank.load_question(bank_dir, qid)
     ok, said = _verify_into_bank(bank_dir, question, _expect(question, expect), runner)
     if not ok:
         raise ReviewRefused(f"The verifier did not accept {qid}, so its record is unchanged. {said}")
+    # A re-verify that changed what the question says counts as an edit for its checked
+    # quotes (AC-73): each one was checked against an output that is no longer recorded.
+    after = bank.load_question(bank_dir, qid)
+    if _what_it_says(after) != _what_it_says(question):
+        _save(bank_dir, after, quotes_checked=None)
     return f"{qid} re-verified.\n{said}"
 
 

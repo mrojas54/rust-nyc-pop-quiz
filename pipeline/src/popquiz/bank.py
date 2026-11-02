@@ -155,8 +155,8 @@ class Trace:
 
         SPEC 3.1 and D-10 require this of a question that ran. It is *not* required
         of a does-not-compile question, which has no `stdout` for a step to name
-        (SPEC 3.2) - see `validate_question`, and the defect reported with this
-        ticket about what that means for the affirm gate.
+        (SPEC 3.2); its last step names `error` instead (F-15, ruled 2026-10-25),
+        which the affirm gate checks (`review.error_row_blockers`).
         """
         last = self.resolving_step()
         return last is not None and any(v.name == "stdout" for v in last.values)
@@ -191,7 +191,8 @@ class Review:
 
     `affirmed_digest` binds an affirmation to the text it affirmed (GAP-24); see
     `affirmation_digest`. `quotes_checked` holds the quoted spans the organizer
-    checked and attested are not a claim about the output (AC-73). Only
+    checked and attested are not a claim about the output (AC-73); any edit clears
+    them, as does a re-verify that changes what the question says. Only
     `popquiz.review` writes any of these.
     """
 
@@ -216,11 +217,31 @@ class Review:
 
 
 #: The club a record or request that names none belongs to (D-26); the room's
-#: `DEFAULT_CLUB` (room/src/models/club.rs).
-DEFAULT_CLUB = "nyc"
+#: `DEFAULT_CLUB` (room/src/quiz_session/models/club.rs).
+DEFAULT_CLUB = "rustnyc"
 
-#: A club's short name, as the room validates it (room/src/models/club.rs).
+#: Old slugs and the club each became (ADR-0005 item 8): the room's
+#: `CLUB_ALIASES`, and `bank/fixtures/clubs/aliases.json` holds both to it. A
+#: used record or a `--club` naming `nyc` is the default club's, so a question
+#: used under `nyc` is never unused under `rustnyc`. Kept for at least one
+#: release after the rename; removing an entry is a later, deliberate step.
+CLUB_ALIASES: dict[str, str] = {"nyc": DEFAULT_CLUB}
+
+#: A club's short name, as the room validates it (room/src/quiz_session/models/club.rs).
 CLUB_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,23}")
+
+
+def canonical_club(slug: str) -> str:
+    """The club a slug names: an old slug in `CLUB_ALIASES` is the club it became."""
+    return CLUB_ALIASES.get(slug, slug)
+
+
+def club_slug(raw: object) -> str | None:
+    """`raw` as a club, or `None` if it is not a club slug: the room's
+    `ClubSlug::parse`, alias and all."""
+    if not isinstance(raw, str) or not CLUB_SLUG.fullmatch(raw):
+        return None
+    return canonical_club(raw)
 
 
 @dataclass(frozen=True)
@@ -236,8 +257,12 @@ class Used:
     brownfield table retires (BUILDPLAN 2, G-10).
 
     `fit` is `None` when the wall never reported a verdict before release: the
-    room sends `null` (room/src/models/used.rs), nothing observed it, and so - absent is
+    room sends `null` (room/src/quiz_session/models/used.rs), nothing observed it, and so - absent is
     absent - the key is not written (F-30). `None` is not *fits*.
+
+    `affirmed_by` is the organizer whose affirmation the room ran the question on
+    (G-12, ADR-0005 item 9), from the room's own record. It names an organizer,
+    never a participant. `None` on a record from before the room carried it.
     """
 
     meetup_date: str
@@ -245,6 +270,11 @@ class Used:
     released_at: str
     fit: Fit | None = None
     club: str = DEFAULT_CLUB
+    affirmed_by: str | None = None
+
+    def __post_init__(self) -> None:
+        # However a `Used` is built, it never holds an old slug (ADR-0005 item 8).
+        object.__setattr__(self, "club", canonical_club(self.club))
 
 
 # --------------------------------------------------------------------------- #
@@ -347,6 +377,7 @@ class Question:
 
     def used_by(self, club: str = DEFAULT_CLUB) -> Used | None:
         """This club's use of the question, or `None`: a question is used per club (D-26)."""
+        club = canonical_club(club)
         return next((u for u in self.used if u.club == club), None)
 
 
@@ -651,9 +682,9 @@ def validate_question(question: Question) -> None:
     is the one whose `values` names `stdout`, but SPEC 3.2 says a does-not-compile
     record has no `stdout`, so requiring it of that class would make a class of
     question unstorable. Requiring it only of a record that ran is the narrowest
-    reading that keeps both sentences true. It does not resolve the affirm gate,
-    which asks for two trace steps from a question that can never have a resolving
-    one - a contract defect reported with this ticket, not fixed in it.
+    reading that keeps both sentences true. F-15 (ruled 2026-10-25) gave that class
+    its resolving step, the last one naming `error`; the affirm gate checks it
+    (`review.error_row_blockers`), and storing does not.
     """
     if len(question.options) != OPTION_COUNT:
         raise BankError(
@@ -872,14 +903,16 @@ def question_from_dict(data: dict[str, Any]) -> Question:
         used_raw = [used_raw]
     elif not isinstance(used_raw, list):
         raise BankError(f"{where}.used: expected a list of records, one per club")
+    clubs: list[str] = []
     for n, raw in enumerate(used_raw):
         if not isinstance(raw, dict):
             raise BankError(f"{where}.used[{n}]: expected a record")
         _require_keys(raw, _field_names(Used), f"{where}.used[{n}]")
-        club = raw.get("club", DEFAULT_CLUB)
-        if not isinstance(club, str) or not CLUB_SLUG.fullmatch(club):
+        club = club_slug(raw.get("club", DEFAULT_CLUB))
+        if club is None:
             raise BankError(f"{where}.used[{n}].club: not a club slug (a-z, 0-9, -, 1 to 24)")
-    clubs = [raw.get("club", DEFAULT_CLUB) for raw in used_raw]
+        clubs.append(club)
+    # Counted by club, not by spelling: `nyc` and `rustnyc` are one club.
     if len(set(clubs)) != len(clubs):
         raise BankError(f"{where}.used: one club appears twice; a question is never run twice for a club (G-10)")
     verified_raw = data.get("verified")
@@ -923,9 +956,10 @@ def question_from_dict(data: dict[str, Any]) -> Question:
                 room_id=raw["room_id"],
                 released_at=raw["released_at"],
                 fit=raw.get("fit"),
-                club=raw.get("club", DEFAULT_CLUB),
+                club=club,
+                affirmed_by=raw.get("affirmed_by"),
             )
-            for raw in used_raw
+            for raw, club in zip(used_raw, clubs, strict=True)
         ),
     )
     validate_question(question)

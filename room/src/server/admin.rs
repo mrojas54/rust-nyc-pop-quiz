@@ -25,8 +25,14 @@
 //! - **Nothing here logs**, and [`AdminToken`] has no `Debug`, `Display` or
 //!   `Clone`, so the token cannot be formatted by accident.
 //! - **The answer enters the sealed module and nowhere else** (AC-61): the
-//!   body goes to [`answers::load`] whole, and what comes back is a
-//!   `Scheduled`, which this module hands to [`AppState::schedule`] unopened.
+//!   body goes to [`answers::load_arranged`] whole, less the one key the
+//!   pipeline adds (`bank_order`, which is not a record field), and what comes
+//!   back is a `Scheduled`, which this module hands to [`AppState::schedule`]
+//!   unopened.
+//! - **Only an affirmed question is scheduled** (G-12, GAP-24). The room
+//!   checks the affirmation's digest itself, against the bank's option order
+//!   that `bank_order` gives; an unaffirmed, stale or unbound record is `409`
+//!   with the reason. Affirmation is a sign-off, not a signature.
 
 use std::sync::Arc;
 
@@ -153,7 +159,24 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
     let Ok(json) = std::str::from_utf8(&bytes) else {
         return refused(StatusCode::BAD_REQUEST, "The record is not UTF-8 JSON.");
     };
-    let question = match answers::load(json) {
+    let Ok(serde_json::Value::Object(mut record)) = serde_json::from_str(json) else {
+        return refused(StatusCode::BAD_REQUEST, "The record is not a JSON object.");
+    };
+    // `bank_order` rides beside the record and is never stored or returned.
+    let bank_order: Option<Vec<usize>> = match record.remove("bank_order") {
+        None => None,
+        Some(v) => match serde_json::from_value(v) {
+            Ok(order) => Some(order),
+            Err(_) => {
+                return refused(
+                    StatusCode::BAD_REQUEST,
+                    format!("{id}: bank_order is not a list of option indexes."),
+                )
+            }
+        },
+    };
+    let json = serde_json::Value::Object(record).to_string();
+    let question = match answers::load_arranged(&json, bank_order.as_deref()) {
         Ok(q) => q,
         Err(e) => return refused(StatusCode::BAD_REQUEST, e.to_string()),
     };

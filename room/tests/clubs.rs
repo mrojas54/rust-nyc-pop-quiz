@@ -7,7 +7,8 @@
 //! |---|---|
 //! | AC-103 | `ac103_*`: a club's role hosts that club only; an unknown or malformed club is refused as a missing role is |
 //! | AC-104 | `ac104_*`: two clubs, one question, two rooms at once; each club's `/last` is its own |
-//! | AC-105 | `ac105_*`: never twice is per club; the ledger names the club |
+//! | AC-105 | `ac105_*`: never twice is per club; the ledger names the club; `nyc` and `rustnyc` are one club |
+//! | alias | `alias_*`: `nyc` is the default club's old name (ADR-0005 item 8), read as `rustnyc` everywhere a club comes in |
 //! | config | `config_*`: `POPQUIZ_CLUBS` |
 
 mod common;
@@ -299,8 +300,109 @@ async fn ac105_never_twice_is_per_club_and_the_ledger_names_the_club() {
         .collect();
     assert_eq!(
         ledger,
-        [("nyc".into(), "q3".into()), ("la".into(), "q3".into())]
+        [("rustnyc".into(), "q3".into()), ("la".into(), "q3".into())],
+        "a room made for ?club=nyc is recorded under rustnyc"
     );
+}
+
+/// Release `q3` for `released_as`, then try it again for `again_as`: both
+/// spell the default club, so the second is refused as already run.
+async fn run_twice_as(released_as: &str, again_as: &str) {
+    let rig = Rig::start().await;
+    let (session, _) = rig.sign_in(both(&rig)).await;
+    let (status, body) = rig.create_for(Some(&session), released_as, "q3").await;
+    assert_eq!(status, StatusCode::CREATED, "{released_as}: {body}");
+    let (id, host) = created(&body);
+    walk(&rig, &id, &host).await;
+    let (status, body) = rig.create_for(Some(&session), again_as, "q3").await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "{released_as} then {again_as}: {body}"
+    );
+    assert!(
+        body["reason"]
+            .as_str()
+            .unwrap()
+            .contains("already been run"),
+        "{released_as} then {again_as}: refused as used, not as an unknown club: {body}"
+    );
+    let (status, body) = rig.create(Some(&session), "q3").await;
+    assert_eq!(status, StatusCode::CONFLICT, "no club named: {body}");
+}
+
+#[tokio::test]
+async fn ac105_a_question_run_under_nyc_is_used_under_rustnyc() {
+    run_twice_as("nyc", "rustnyc").await;
+}
+
+#[tokio::test]
+async fn ac105_a_question_run_under_rustnyc_is_used_under_nyc() {
+    run_twice_as("rustnyc", "nyc").await;
+}
+
+#[tokio::test]
+async fn alias_an_old_nyc_link_signs_in_and_hosts_the_default_club() {
+    let rig = Rig::start().await;
+    let (code, _) = rig.mock.account(rig.host());
+    let r = rig
+        .raw(Method::GET, "/auth/discord?question=q3&club=nyc", &[], None)
+        .await;
+    assert_eq!(
+        r.status,
+        StatusCode::SEE_OTHER,
+        "a bookmarked ?club=nyc still signs in"
+    );
+    let state = query(r.header("location").unwrap(), "state").unwrap();
+    let cookie = r
+        .header("set-cookie")
+        .and_then(|c| c.split(';').next())
+        .unwrap()
+        .to_string();
+    let cb = rig
+        .callback(&format!("code={code}&state={state}"), Some(&cookie))
+        .await;
+    let location = cb.header("location").unwrap();
+    let (path, session) = location.split_once('#').expect("a session in the fragment");
+    assert_eq!(
+        path, "/host?question=q3",
+        "the round trip comes back as the default club, never as nyc"
+    );
+    // The default club's role hosts it under either name, as one club: q3's
+    // live room made for nyc is the one rustnyc would open (GAP-8).
+    let (status, body) = rig.create_for(Some(session), "nyc", "q3").await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let (status, body) = rig.create_for(Some(session), "rustnyc", "q3-again").await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let (status, body) = rig.create_for(Some(session), "rustnyc", "q3").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert!(
+        body["reason"]
+            .as_str()
+            .unwrap()
+            .contains("open in another room"),
+        "{body}"
+    );
+    // LA's role hosts it under neither name.
+    let (la, _) = rig.sign_in(rig.la_host()).await;
+    let (status, body) = rig.create_for(Some(&la), "nyc", "q3").await;
+    assert_eq!(
+        (status, &body["refusal"]),
+        (StatusCode::FORBIDDEN, &Value::from("wrong_role")),
+        "{body}"
+    );
+}
+
+#[tokio::test]
+async fn alias_last_nyc_is_the_default_clubs_page() {
+    let rig = Rig::start().await;
+    let (session, _) = rig.sign_in(both(&rig)).await;
+    let (id, host) = created(&rig.create_for(Some(&session), "rustnyc", "q3").await.1);
+    walk(&rig, &id, &host).await;
+    let page = rig_last(&rig).await;
+    assert!(page.contains("\"question_id\":\"q3\""), "{page}");
+    assert_eq!(last(&rig, "nyc").await, page);
+    assert_eq!(last(&rig, "rustnyc").await, page);
 }
 
 #[tokio::test]
@@ -375,10 +477,12 @@ fn config_a_bad_club_stops_the_room_and_never_echoes_a_role() {
     assert!(matches!(err, ConfigError::Clubs(_)), "{err}");
     assert!(err.to_string().contains("POPQUIZ_CLUBS"), "{err}");
     assert!(!err.to_string().contains("2x2"), "{err}");
-    assert!(
-        config_with(Some("nyc=222:America/New_York")).is_err(),
-        "nyc is taken by DISCORD_ROLE_ID"
-    );
+    for taken in ["rustnyc", "nyc"] {
+        let err = config_with(Some(&format!("{taken}=222:America/New_York")))
+            .err()
+            .unwrap_or_else(|| panic!("{taken} is the default club, DISCORD_ROLE_ID's"));
+        assert!(err.to_string().contains("repeats a slug"), "{taken}: {err}");
+    }
     assert!(config_with(Some("la=222:Mars/Olympus")).is_err());
 }
 

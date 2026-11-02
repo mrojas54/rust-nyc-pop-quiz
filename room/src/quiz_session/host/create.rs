@@ -12,8 +12,8 @@ use crate::auth::OrganizerId;
 use crate::club::ClubSlug;
 use crate::phase::{Command, HostAction, Phase};
 
-use super::state::{lock, Entry};
-use super::{Acted, AppState, Room, RoomError, CODE_ALPHABET};
+use crate::quiz_session::state_manager::{lock, Entry};
+use crate::quiz_session::{random_bytes, Acted, AppState, Room, RoomError, CODE_ALPHABET};
 
 /// What a new room's creator is handed, once.
 #[derive(Clone, Debug, Serialize)]
@@ -23,16 +23,6 @@ pub struct Created {
     pub join_url: String,
     pub host_session: String,
     pub host_resume_url: String,
-}
-
-pub(super) fn random_bytes<const N: usize>() -> [u8; N] {
-    let mut buf = [0u8; N];
-    getrandom::fill(&mut buf).expect("the OS random source is available");
-    buf
-}
-
-pub(super) fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Six characters from [`CODE_ALPHABET`].
@@ -89,8 +79,10 @@ impl AppState {
     /// another room holds the question — not released, and not ended at `now`
     /// ([`Room::holds`]) — because releasing either of two rooms on one
     /// question would put its answer on `/last` while the other is still
-    /// before reveal (G-3). Refused, too, if the question has been run (G-10)
-    /// or is not scheduled.
+    /// before reveal (G-3). Refused, too, if the question has been run (G-10),
+    /// is not scheduled, or is not affirmed for its text (G-12): `schedule`
+    /// refuses that already, and this holds it for every other way a record
+    /// gets in ([`AppState::new`]'s list).
     ///
     /// Every check and the insert are one critical section: `questions`, then
     /// `rooms` (the order [`AppState::schedule`] takes), held until the room
@@ -132,6 +124,9 @@ impl AppState {
             .get(&(club.clone(), question_id.to_string()))
             .cloned()
             .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
+        if let Some(why) = question.refusal(question_id) {
+            return Err(RoomError::Refused(why));
+        }
         let ended = lock(&self.ended);
         let code = loop {
             let code = new_code();
@@ -173,7 +168,7 @@ impl AppState {
     /// *Run it again*: a **new** room, for the organizer who created this one,
     /// on a question that has not been run and no other room holds. This room
     /// stays `released`, and a released room holds nothing ([`Room::holds`]);
-    /// the refusals are [`AppState::create_for`]'s. The routes' door, like
+    /// the refusals are `AppState::create_for`'s. The routes' door, like
     /// [`AppState::create_room_checked`].
     pub async fn run_again_checked(
         &self,

@@ -8,7 +8,9 @@
                                         /auth/discord?question=<id> (T-10).
                                         &club=<slug> names the club the room
                                         is for (D-26); absent, the default
-                                        club (nyc), so older links work.
+                                        club (rustnyc), so older links work;
+                                        the server reads club=nyc, its old
+                                        name, as rustnyc (ADR-0005 item 8).
      /host?question=<id>#<organizer     the first screen, signed in: Discord's
       session>                          callback lands here. *Create a room*
                                         presents the organizer session as a
@@ -283,7 +285,8 @@
        that line alone keeps the focused control the same node: giving the
        focus to a fresh copy of it would have a screen reader say the button
        again on every answer in the room. This reads the count as render()'s
-       last element (countHtml is appended last): keep it last. */
+       last element (countHtml is appended last): keep it last. The ac82_host
+       count-tick test in web/test/a11y.test.js fails if it is not. */
     var COUNT_OPEN = '<div class="host-count">';
     var painted = null;
 

@@ -41,12 +41,13 @@ fn ac92_used_is_written_at_release() {
     assert_eq!(
         serde_json::to_value(&all[0]).unwrap(),
         json!({
-            "club": "nyc",
+            "club": "rustnyc",
             "question_id": "q3",
             "used": {
                 "meetup_date": MEETUP_DATE,
                 "room_id": room.id,
                 "released_at": used::rfc3339(released),
+                "affirmed_by": "queenrose54",
                 "fit": "clipped_y",
             }
         })
@@ -161,10 +162,12 @@ fn g10_the_release_transition_is_the_only_writer() {
             }
         }
     }
-    // One `append` and the one `UsedRecord` it appends, both in rooms/state.rs.
+    // One `append` and the one `UsedRecord` it appends, both in quiz_session/state_manager.rs.
     assert_eq!(writers.len(), 2, "{writers:#?}");
     assert!(
-        writers.iter().all(|(f, _, _)| f == "rooms/state.rs"),
+        writers
+            .iter()
+            .all(|(f, _, _)| f == "quiz_session/state_manager.rs"),
         "{writers:#?}"
     );
     assert!(
@@ -174,9 +177,9 @@ fn g10_the_release_transition_is_the_only_writer() {
         "{writers:#?}"
     );
     // And that call sits in `AppState::act`, behind the release transition's
-    // parting, which only `Room::act`'s `Released` arm (rooms/room.rs) builds.
-    let state = file("rooms/state.rs");
-    let room = file("rooms/room.rs");
+    // parting, which only `Room::act`'s `Released` arm (quiz_session/models/rooms.rs) builds.
+    let state = file("quiz_session/state_manager.rs");
+    let room = file("quiz_session/models/rooms.rs");
     let act = state.rfind("    pub fn act(").expect("AppState::act");
     let append = state.find("self.used.append(").unwrap();
     let parting = state[act..]
@@ -186,10 +189,10 @@ fn g10_the_release_transition_is_the_only_writer() {
         parting.is_some_and(|p| p < append),
         "the append is not behind take_parting"
     );
-    // The parting is set once in the whole `rooms` module, and only in room.rs.
+    // The parting is set once in the whole `quiz_session` module, and only in models/rooms.rs.
     let sets: usize = all
         .iter()
-        .filter(|(name, _)| name.starts_with("rooms/"))
+        .filter(|(name, _)| name.starts_with("quiz_session/"))
         .map(|(_, text)| text.matches("self.parting = Some(").count())
         .sum();
     assert_eq!(sets, 1);
@@ -200,7 +203,7 @@ fn g10_the_release_transition_is_the_only_writer() {
         "the parting is built outside the Released arm"
     );
     // The ledger's `append` is crate-private.
-    assert!(file("models/used.rs").contains("pub(crate) fn append("));
+    assert!(file("quiz_session/models/used.rs").contains("pub(crate) fn append("));
 }
 
 #[test]
@@ -255,7 +258,14 @@ fn ac92_the_record_has_the_pipelines_shape() {
     // `club` is the ledger line's (`UsedEntry.club`), beside the record (D-26).
     assert_eq!(
         fields,
-        ["club", "fit", "meetup_date", "released_at", "room_id"],
+        [
+            "affirmed_by",
+            "club",
+            "fit",
+            "meetup_date",
+            "released_at",
+            "room_id"
+        ],
         "bank.py's Used changed"
     );
     fields.retain(|f| f != "club");

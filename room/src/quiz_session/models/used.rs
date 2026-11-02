@@ -2,8 +2,9 @@
 //!
 //! Two things, both written by the `released` transition and nothing else:
 //!
-//! - the **used record** — `{meetup_date, room_id, released_at, fit}`, the
-//!   pipeline's `Used` (`pipeline/src/popquiz/bank.py`) field for field — in
+//! - the **used record** — `{meetup_date, room_id, released_at, fit,
+//!   affirmed_by}`, the pipeline's `Used` (`pipeline/src/popquiz/bank.py`)
+//!   field for field — in
 //!   the append-only [`UsedLedger`]. A question is *used* when its room is
 //!   **released**, not when a deck is built and not at `reveal` (G-10). A room
 //!   that never reaches release records nothing.
@@ -12,7 +13,9 @@
 //!   replaced whole at every release. **No room state**: no count, no split, no
 //!   most-chosen option (AC-56, AC-95, D-12).
 //!
-//! Neither carries anything about a person (AC-56, AC-57).
+//! Neither carries anything about a participant (AC-56, AC-57). The one person
+//! named is the organizer who affirmed the question (`affirmed_by`), as the
+//! bank's `review.affirmed_by` already names them (ADR-0005 item 9).
 //!
 //! **Seams.** T-25's `GET /admin/used` and T-20's `popquiz sync` read
 //! [`UsedLedger::all`]; T-12's `/last` reads `AppState::take_home`.
@@ -30,7 +33,7 @@ use crate::rooms::{Fit, Opened, PublicView};
 /// York. Another club's is its own ([`crate::club::Club::zone`], D-26).
 pub const MEETUP_ZONE: &str = "America/New_York";
 
-/// The pipeline's `Used`, exactly: these four fields, these names.
+/// The pipeline's `Used`, exactly: these fields, these names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct UsedRecord {
     /// `YYYY-MM-DD`: the room's creation date in [`MEETUP_ZONE`].
@@ -42,6 +45,10 @@ pub struct UsedRecord {
     /// `reveal`, the last refit of the night (§3.4). `null` if the wall never
     /// reported one: nothing observed it, so nothing is written.
     pub fit: Option<Fit>,
+    /// The organizer whose affirmation let the question run (G-12, ADR-0005
+    /// item 9). A room is made only from a bound record, so this is always
+    /// there; `null` would mean nothing recorded one, and is not written.
+    pub affirmed_by: Option<String>,
 }
 
 /// One ledger line: which club, which question, and its `used` record. The
@@ -61,6 +68,7 @@ const _: fn(UsedRecord) = |UsedRecord {
                                room_id: _,
                                released_at: _,
                                fit: _,
+                               affirmed_by: _,
                            }| {};
 const _: fn(UsedEntry) = |UsedEntry {
                               club: _,
@@ -69,7 +77,7 @@ const _: fn(UsedEntry) = |UsedEntry {
                           }| {};
 
 /// The used-question ledger. In memory, append-only; its only writer is the
-/// release transition in `rooms/state.rs` (G-10), which `tests/used.rs` checks by
+/// release transition in `quiz_session/state_manager.rs` (G-10), which `tests/used.rs` checks by
 /// scanning the source.
 #[derive(Default)]
 pub struct UsedLedger {

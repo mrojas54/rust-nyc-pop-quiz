@@ -28,6 +28,15 @@
 # stays for the next reserved name that lands before its suite.
 PENDING := ""
 
+# Secrets for the recipes that need one (`generate`, `schedule`, `sync`, `smoke`,
+# `burst`) come from 1Password: `.env.op` holds op:// references, never values,
+# and `op run` resolves them into the environment of that one subprocess. Sign
+# in first (`op signin`, or the app's CLI integration). A value already exported
+# in the shell is overridden by the reference, so 1Password is the only source
+# here; `demo` keeps its own `op read` fallback. Every reference in `.env.op`
+# must resolve, whichever recipe runs: a missing item fails all five.
+op_run := "op run --env-file='" + justfile_directory() + "/.env.op' --"
+
 _default:
     @just --list --unsorted
 
@@ -54,6 +63,7 @@ test-organizer:
     cd prototypes/organizer-tui && cargo fmt --check
     cd prototypes/organizer-tui && cargo build --offline --locked
     python3 prototypes/organizer-tui/tests/terminal_repeat.py
+    python3 -m unittest discover -s prototypes/organizer-tui/tests -p 'test_terminal_repeat.py'
 
 # The pipeline's decision logic, against StubRunner's recorded outputs.
 #
@@ -258,8 +268,8 @@ secret-scan:
 # The deployed room end to end (T-09): all seven phases over real sockets with
 # mock participants, the join link and the stand-in's refusals checked, q3's
 # secrets scanned for in every pre-reveal frame (room/README.md, Deploying).
-# The organizer's credential is read from POPQUIZ_ORGANIZER_SESSION in the
-# environment, never from the command line. `test-full` runs it against an
+# The organizer's credential is read from POPQUIZ_ORGANIZER_SESSION, which
+# `op run` sets from `.env.op`, never from the command line. `test-full` runs it against an
 # in-process room (harness-full); against the deployed room it is by hand or
 # the deployed-burst workflow.
 #
@@ -271,13 +281,13 @@ secret-scan:
 # `--spend-bank-question` is given, and plain http is refused. Never run it
 # during a meetup.
 #
-# The deployed room, all seven phases (POPQUIZ_ORGANIZER_SESSION in the environment).
+# The deployed room, all seven phases (POPQUIZ_ORGANIZER_SESSION from 1Password via .env.op).
 smoke URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
     cd room
-    cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
+    {{ op_run }} cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
 
 # AC-54, AC-53, AC-41 and AC-52 on the room's own protocol (T-21): 200
 # participants, isolated deadline bursts, then a full segment to release. JSON
@@ -292,13 +302,13 @@ smoke URL *ARGS:
 #
 #   just burst https://rustnyc-popquiz.fly.dev --connection-cap 500 [--out PATH]   (--help for the rest)
 #
-# AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION in the environment).
+# AC-54/53/41/52 under 200 participants (POPQUIZ_ORGANIZER_SESSION from 1Password via .env.op).
 burst URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
     cd room
-    cargo run --release --offline --locked --features burst --bin burst -- --url "{{ URL }}" {{ ARGS }}
+    {{ op_run }} cargo run --release --offline --locked --features burst --bin burst -- --url "{{ URL }}" {{ ARGS }}
 
 # --- Reserved names whose suites do not exist yet ------------------------------
 # Each fails loudly rather than passing quietly. `test` and `test-full` do not
@@ -312,11 +322,13 @@ verify *ARGS:
 
 # Candidate questions from the Message Batches API (T-16). --replay FIXTURE runs on a
 # recorded batch with no key and no network; without it a run needs ANTHROPIC_API_KEY
-# and --cap-usd, and has never been run (HC-2). pipeline/README.md, Generating.
+# (from 1Password via .env.op) and --cap-usd, and has never been run (HC-2).
+# `op run` wraps the replay too, so 1Password has to be signed in either way.
+# pipeline/README.md, Generating.
 # Positional, so a talk's title and abstract arrive whole rather than split on spaces.
 [positional-arguments]
 generate *ARGS:
-    uv run --offline --no-sync --project pipeline python -m popquiz.generate "$@"
+    {{ op_run }} uv run --offline --no-sync --project pipeline python -m popquiz.generate "$@"
 
 # The whole bank against SPEC 7.6; writes bank/audit/<date>.json (T-19). Every
 # check also runs inside `test`. Room flags: --screen-width-ft --screen-height-ft
@@ -324,16 +336,26 @@ generate *ARGS:
 bank-audit *ARGS:
     cd pipeline && uv run --offline --no-sync python -m popquiz.audit --repo .. {{ ARGS }}
 
+# The organizer's review decisions on one question, as the TUI's review screen runs them
+# (pipeline/README.md, Reviewing). --bank has no default and is relative to the repo root.
+#   just review affirm q8 --bank bank --by "First Last"
+# Positional, so a name with a space arrives whole.
+[positional-arguments]
+review *ARGS:
+    uv run --offline --no-sync --project pipeline python -m popquiz.review "$@"
+
 # One question for a meetup: the affirm gate, the push, the fallback and host sheet (T-20).
+# POPQUIZ_ADMIN_TOKEN comes from 1Password via .env.op.
 schedule *ARGS:
-    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
+    cd pipeline && {{ op_run }} uv run --offline --no-sync python -m popquiz.schedule schedule {{ ARGS }}
 
 # A demo in one command: check the room's used ledger, push one bank question, print the
 # host link. For rehearsals and demos, not a meetup: `schedule` arranges the options for
 # the meetup's date and this pushes the record in its stored order. The room holds the
 # schedule and the ledger in memory, so run it again after any restart or deploy. If the
 # question is already in the ledger it stops and says so; only a restart clears that, and
-# this never restarts anything. The token is $POPQUIZ_ADMIN_TOKEN, else read from 1Password
+# this never restarts anything. The room runs only a question affirmed for its text (G-12),
+# so a question that is not refuses here with the room's reason. The token is $POPQUIZ_ADMIN_TOKEN, else read from 1Password
 # at $POPQUIZ_OP_REF (a reference, not a secret). It goes to curl on stdin, never argv.
 demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     #!/usr/bin/env bash
@@ -349,25 +371,36 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     used="$(auth -w '\n%{http_code}' "{{ room }}/admin/used")"
     code="${used##*$'\n'}"
     [ "$code" = 200 ] || { echo "GET /admin/used answered $code. 401 means this token is not the room's POPQUIZ_ADMIN_TOKEN." >&2; exit 1; }
-    # The ledger is per club (G-10, AC-105) and this recipe schedules the default club, nyc,
-    # so only an nyc entry for this question counts; another club's use of it does not.
-    if printf '%s' "${used%$'\n'*}" | jq -e --arg q "{{ question }}" 'any(.[]; .club == "nyc" and .question_id == $q)' >/dev/null; then
-        echo "{{ question }} is in the room's used ledger for nyc, so the room will refuse it." >&2
+    # The ledger is per club (G-10, AC-105) and this recipe schedules the default club, rustnyc,
+    # so only its entry for this question counts; another club's use of it does not. A room
+    # on the build before ADR-0005 item 8 names it nyc, its old name, which counts the same.
+    if printf '%s' "${used%$'\n'*}" | jq -e --arg q "{{ question }}" 'any(.[]; (.club == "rustnyc" or .club == "nyc") and .question_id == $q)' >/dev/null; then
+        echo "{{ question }} is in the room's used ledger for rustnyc, so the room will refuse it." >&2
         echo "Only a restart clears that, and it drops live rooms: fly apps restart rustnyc-popquiz" >&2
         echo "Then run just demo {{ question }} again." >&2
         exit 1
     fi
-    code="$(auth -o /dev/null -w '%{http_code}' -X PUT --data-binary "@$record" "{{ room }}/admin/questions/{{ question }}")"
+    put="$(auth -w '\n%{http_code}' -X PUT --data-binary "@$record" "{{ room }}/admin/questions/{{ question }}")"
+    code="${put##*$'\n'}"
     case "$code" in
         201) echo "{{ question }} scheduled." ;;
         200) echo "{{ question }} was already scheduled; replaced." ;;
-        *) echo "PUT answered $code; {{ question }} is not scheduled." >&2; exit 1 ;;
+        *)
+            reason="$(printf '%s' "${put%$'\n'*}" | jq -r '.reason // empty' 2>/dev/null || true)"
+            echo "PUT answered $code; {{ question }} is not scheduled.${reason:+ $reason}" >&2
+            exit 1 ;;
     esac
     echo "Host: {{ room }}/host?question={{ question }}  (sign in with Discord, then Create a room)"
 
 # After a meetup, before anything restarts the room: the used ledger into the bank (T-20).
+# POPQUIZ_ADMIN_TOKEN comes from 1Password via .env.op.
 sync *ARGS:
-    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
+    cd pipeline && {{ op_run }} uv run --offline --no-sync python -m popquiz.schedule sync {{ ARGS }}
+
+# The club rename (ADR-0005 item 8): bank used records under nyc become rustnyc. A dry
+# run unless --write, which backs up each file first. docs/RUNBOOK.md has the release order.
+migrate-club *ARGS:
+    cd pipeline && uv run --offline --no-sync python -m popquiz.schedule migrate-club {{ ARGS }}
 
 
 # AC-82…AC-86 over every surface and phase (T-13): keyboard, the live region's

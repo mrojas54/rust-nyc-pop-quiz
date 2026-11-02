@@ -19,6 +19,8 @@ import dataclasses
 import json
 import pathlib
 import re
+import runpy
+import sys
 
 import pytest
 
@@ -138,7 +140,9 @@ def test_the_baked_record_is_the_bake_and_cannot_close_its_script(q3, page):
 
 def test_the_committed_bake_fixture_is_the_bake_of_q3(q3):
     """web/wall/fixtures/q3-static.json feeds the JS parity test; it is generated,
-    never edited. Regenerate: `python -m popquiz.fallback q3 --bake > …`."""
+    never edited. It is the stored order, which the parity test needs and no night
+    projects. Regenerate from `pipeline/`:
+    `uv run python -c 'import json, sys; from popquiz import fallback; from popquiz.bank import load_question; sys.stdout.write(json.dumps(fallback.bake(load_question("../bank", "q3")), ensure_ascii=False, indent=2) + "\\n")' > ../web/wall/fixtures/q3-static.json`."""
     assert json.loads(BAKE_FIXTURE.read_text(encoding="utf-8")) == fallback.bake(q3)
 
 
@@ -285,9 +289,30 @@ def test_a_refused_record_writes_neither_file(q3, tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_the_cli_builds_from_the_bank(tmp_path, capsys):
+@pytest.mark.filterwarnings("ignore:'popquiz.fallback' found in sys.modules:RuntimeWarning")
+def test_no_standalone_command_builds_a_fallback(tmp_path, monkeypatch, capsys):
+    """GAP-2 (PQ-52): a file built straight from the bank shows the stored order,
+    the answer at E on every such night. `popquiz schedule` is the only way in: it
+    refuses an unaffirmed or used question and arranges into the date's slot first.
+    The module runs in this process, as `python -m` would run it; nothing is spawned.
+    It fails loudly rather than exiting 0: a script that still calls it must not
+    carry on as though it rebuilt a file, and an older file at `--out` stays as it was."""
+    assert not hasattr(fallback, "main")
     out = tmp_path / "q3.html"
-    assert fallback.main(["q3", "--out", str(out), "--bank", str(BANK)]) == 0
-    assert out.is_file() and (tmp_path / "q3.host-sheet.txt").is_file()
-    assert fallback.main(["nope", "--out", str(out), "--bank", str(BANK)]) == 1
-    assert "no question 'nope'" in capsys.readouterr().err
+    out.write_text("an older fallback", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["popquiz.fallback", "q3", "--out", str(out), "--bank", str(BANK)])
+    with pytest.raises(SystemExit) as stopped:
+        runpy.run_module("popquiz.fallback", run_name="__main__")
+    assert stopped.value.code not in (0, None)
+    example = (
+        "`python -m popquiz.schedule schedule <id> "
+        "--date YYYY-MM-DD --out <dir> --no-push`"
+    )
+    message = str(stopped.value.code)
+    assert example in message
+    # The old `--out` was the HTML file; schedule's is the directory both files go in.
+    assert "`--out` is now a directory, not the HTML file" in message
+    assert "`<id>.html` and `<id>.host-sheet.txt`" in message
+    assert capsys.readouterr().out == ""
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["q3.html"]
+    assert out.read_text(encoding="utf-8") == "an older fallback"

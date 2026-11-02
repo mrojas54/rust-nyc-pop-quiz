@@ -293,12 +293,12 @@ fn scan_page(phase: Phase, html: &str) {
         PLANT_WHAT,
         PLANT_TAKEAWAY,
         PLANT_HINT,
-        PLANT_MIDDLE_STDOUT,
         PLANT_ERROR_CODE,
         "CANARY",
     ] {
         assert!(!html.contains(plant), "{at}: carries {plant}");
     }
+    assert_middle_stdout_refused();
     // AC-79: nothing on the wall takes input.
     for control in [
         "<button",

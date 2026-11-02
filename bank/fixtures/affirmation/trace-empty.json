@@ -1,0 +1,66 @@
+{
+  "record": {
+    "id": "q3",
+    "source": "fn main() {\n    let mut v = vec![1, 2, 2, 3, 2, 1, 1];\n    v.dedup();\n    println!(\"{:?}\", v);\n}\n",
+    "topic": "Collections",
+    "difficulty_requested": 2,
+    "options": [
+      {
+        "text": "[1, 2, 3]",
+        "kind": "output",
+        "why_tempting": "In almost every other language, a method called dedup means unique: give me each value once. Rust's doesn't. It removes only consecutive duplicates. That word appears once in the docs and is easy to read past."
+      },
+      {
+        "text": "[1, 2, 2, 3, 2, 1, 1]",
+        "kind": "output",
+        "why_tempting": "A reasonable reading is that dedup wants a sorted vector and does nothing useful without one, so it leaves this vector alone. It does not check and it does not refuse - it makes its one pass regardless."
+      },
+      {
+        "text": "[1, 2, 3, 2, 1, 1]",
+        "kind": "output",
+        "why_tempting": "This is what you get if you catch the pair in the middle and stop looking. The other pair is the last two elements, which is the easiest place in a list to skim past."
+      },
+      {
+        "text": "does not compile",
+        "kind": "does_not_compile",
+        "why_tempting": "dedup needs the vector mutably and this one is declared mut, so nothing here is a borrow problem. Reaching for this option is usually a guess that dedup has a precondition - sorted, or comparable - that the compiler would enforce. It has neither."
+      },
+      {
+        "text": "[1, 2, 3, 2, 1]",
+        "kind": "output"
+      }
+    ],
+    "hint": "Read dedup's documentation in your head, then read it again. The key word is one you might skip over.",
+    "explains": {
+      "what": "dedup only removes duplicates that are sitting next to each other. The 2,2 in the middle and the 1,1 at the end were adjacent, so they collapsed into one. The other 2 and the other 1 weren't next to their twins, so they stayed where they were.",
+      "takeaway": "To get each value once, either sort first, which puts the duplicates next to each other, or use a HashSet. Which you pick depends on whether you care about order.",
+      "legacy": "dedup removes *consecutive* duplicates only -- the word is easy to skip in the docs. The adjacent 2,2 and the trailing 1,1 collapse; the later 2 and 1 are not adjacent to their earlier occurrences, so they survive. If you want genuinely unique elements you have to sort first (making duplicates adjacent) or reach for a HashSet."
+    },
+    "trace": {
+      "steps": []
+    },
+    "verified": {
+      "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+      "edition": "2021",
+      "legacy": true,
+      "runs": {
+        "count": 5,
+        "byte_identical": true
+      },
+      "stdout": "[1, 2, 3, 2, 1]\n",
+      "miri": {
+        "clean": true,
+        "output_matched": true
+      }
+    },
+    "review": {
+      "status": "accepted",
+      "reason": "Migrated from the August batch by T-14. Every option is one line of at most 29 characters, so this question runs on the wall as authored (D-15). The three beats and the trace were drafted from the August explanation and the loved prototype. An organizer read them and affirmed by a documented edit of this block (F-52, 2026-10-10), before the review surface (T-18) existed.",
+      "affirmed_by": "queenrose54",
+      "affirmed_at": "2026-10-13T03:25:56+00:00",
+      "affirmed_digest": "sha256:bde89a28bd0b33cb0e10c04e5078ab33de82e9399f8d9707b30ea7a629f0369c"
+    }
+  },
+  "state": "bound",
+  "digest": "sha256:bde89a28bd0b33cb0e10c04e5078ab33de82e9399f8d9707b30ea7a629f0369c"
+}

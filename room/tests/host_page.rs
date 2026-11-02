@@ -25,10 +25,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::Body;
-use axum::extract::Path;
 use axum::http::{header, Method, Request, StatusCode};
-use axum::response::IntoResponse;
-use axum::routing::get;
 use axum::Router;
 use common::*;
 use room::phase::{Command, HostAction, Phase};
@@ -150,15 +147,10 @@ async fn the_page_that_reads_a_credential_is_never_cached_or_referred() {
 
 /// The host's pre-reveal rules for one page or payload (G-3, AC-47).
 fn scan_pre_reveal(at: &str, text: &str) {
-    for plant in [
-        PLANT_RESOLVING_NOTE,
-        PLANT_WHAT,
-        PLANT_TAKEAWAY,
-        PLANT_MIDDLE_STDOUT,
-        PLANT_HINT,
-    ] {
+    for plant in [PLANT_RESOLVING_NOTE, PLANT_WHAT, PLANT_TAKEAWAY, PLANT_HINT] {
         assert!(!text.contains(plant), "{at}: carries {plant}");
     }
+    assert_middle_stdout_refused();
     for letter in ["A", "B", "C", "D", "E"] {
         assert!(
             !text.contains(&plant_why(letter)),

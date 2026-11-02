@@ -11,7 +11,7 @@ organizer's first screen in this build is the first lines these print:
 
 **The arrangement happens here and nowhere else.** The bank stores options in the
 generator's order, which means nothing (`bank.py`); the room renders the order it
-is pushed (`room/src/models/question.rs`); the fallback renders the order it is given
+is pushed (`room/src/quiz_session/models/question.rs`); the fallback renders the order it is given
 (`fallback.py`). So this module is the one place the wall's order is made: the
 correct option goes to `slot_for_day(meetup_date)`, a uniform draw from the date
 and nothing else (AC-23, G-1), and the record the room receives and the record the
@@ -55,11 +55,16 @@ from zoneinfo import ZoneInfo
 from popquiz import fallback
 from popquiz.audit import in_reserve, is_accepted
 from popquiz.bank import (
+    CLUB_ALIASES,
     CLUB_SLUG,
     DEFAULT_CLUB,
+    QUESTIONS_DIR,
     BankError,
     Question,
+    _write_json,
     affirmation_state,
+    canonical_club,
+    club_slug,
     correct_index,
     load_bank,
     load_question,
@@ -75,7 +80,7 @@ TOKEN_ENV = "POPQUIZ_ADMIN_TOKEN"
 REPO = Path(__file__).resolve().parents[3]
 DEFAULT_BANK = REPO / "bank"
 
-#: Rust NYC meets in New York; the room dates a meetup the same way (room/src/models/used.rs).
+#: Rust NYC meets in New York; the room dates a meetup the same way (room/src/quiz_session/models/used.rs).
 MEETUP_ZONE = ZoneInfo("America/New_York")
 
 #: SPEC 3.3, AC-76: warn when the reserve is below two meetups. One question a
@@ -223,6 +228,22 @@ def arrange(question: Question, day: date) -> Question:
     return arranged
 
 
+def bank_order(question: Question, arranged: Question) -> list[int]:
+    """Where each of the wall's options sits in the bank: slot k holds the bank's
+    option `bank_order(...)[k]`.
+
+    The push carries it because the affirmation digest covers the options in the
+    bank's order, and the room checks the digest itself (ADR-0005 item 9): it puts
+    the options back with this, then hashes. Matched by text, which
+    `validate_question` keeps unique.
+    """
+    texts = [o.text for o in question.options]
+    order = [texts.index(o.text) for o in arranged.options]
+    if sorted(order) != list(range(len(texts))):
+        raise BankError(f"{question.id}: the arranged options are not the bank's options")
+    return order
+
+
 # --------------------------------------------------------------------------- #
 # The channel (SPEC 8.3, AC-101)
 # --------------------------------------------------------------------------- #
@@ -315,15 +336,29 @@ def _refused_token(status: int) -> ScheduleError:
     )
 
 
-def push(arranged: Question, room: str, token: str, club: str = DEFAULT_CLUB) -> str:
+def push(
+    arranged: Question,
+    room: str,
+    token: str,
+    club: str = DEFAULT_CLUB,
+    order: Sequence[int] | None = None,
+) -> str:
     """`PUT` the arranged record to the room, for `club`: `/admin/questions/{id}`
     for the default club, `/admin/clubs/{club}/questions/{id}` for another (D-26).
     The record is the question arranged for that club's meetup date, so it is kept
-    per club and one club's push never replaces another's. Returns `new` or
-    `replaced`; raises `ScheduleError` with the room's reason on a refusal."""
+    per club and one club's push never replaces another's. `order` is
+    `bank_order(question, arranged)`, sent as `bank_order` so the room can check
+    the affirmation against the bank's order; without it the room reads the
+    options as already in that order. Returns `new` or `replaced`; raises
+    `ScheduleError` with the room's reason on a refusal (an unaffirmed or stale
+    question among them)."""
+    club = canonical_club(club)
     path = f"/admin/questions/{arranged.id}" if club == DEFAULT_CLUB else f"/admin/clubs/{club}/questions/{arranged.id}"
     url = room_url(room, path)
-    body = json.dumps(question_to_dict(arranged), ensure_ascii=False).encode("utf-8")
+    record = question_to_dict(arranged)
+    if order is not None:
+        record["bank_order"] = list(order)
+    body = json.dumps(record, ensure_ascii=False).encode("utf-8")
     status, payload = _call("PUT", url, token, body)
     if status in (200, 201):
         try:
@@ -444,11 +479,21 @@ def merge_used(bank_dir: Path, entries: Sequence[dict[str, Any]]) -> SyncResult:
     The record is merged at the dict level and read back through
     `bank.question_from_dict`, so the room's JSON is parsed by the bank's one
     reader and this module builds no `used` record of its own.
+
+    A club is read as the room reads it: a room still running the build from
+    before ADR-0005 item 8 names the default club `nyc`, and that is written as
+    `rustnyc`. An entry whose club is not a slug at all is refused.
     """
     result = SyncResult()
     by_key: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for entry in entries:
-        club = entry.get("club", DEFAULT_CLUB)
+        club = club_slug(entry.get("club", DEFAULT_CLUB))
+        if club is None:
+            result.refused.append(
+                f"{entry['question_id']}: the room's ledger names club {entry.get('club')!r}, "
+                "which is not a club slug, so nothing was written"
+            )
+            continue
         by_key.setdefault((club, entry["question_id"]), []).append(entry["used"])
 
     known = {q.id: q for q in load_bank(bank_dir)}
@@ -508,6 +553,7 @@ def _report_row(question: Question, club: str) -> dict[str, Any]:
         "meetup_date": used.meetup_date,
         "room_id": used.room_id,
         "fit": used.fit,
+        "affirmed_by": used.affirmed_by,
     }
 
 
@@ -517,7 +563,8 @@ def ledger_report(result: SyncResult) -> list[str]:
     if not result.report:
         lines.append("ledger: the room has released no bank question since it last started")
     for r in result.report:
-        lines.append(f"used: {r['question_id']} by {r['club']} on {r['meetup_date']}, room {r['room_id']}")
+        who = f", affirmed by {r['affirmed_by']}" if r.get("affirmed_by") else ""
+        lines.append(f"used: {r['question_id']} by {r['club']} on {r['meetup_date']}, room {r['room_id']}{who}")
     for r in result.report:
         if r["fit"] is None:
             lines.append(
@@ -545,6 +592,7 @@ def home_link_for(club: str, explicit: str | None = None) -> str:
     the default club's is `/last`. An explicit `--home-link` wins (D-26)."""
     if explicit:
         return explicit
+    club = canonical_club(club)
     return fallback.DEFAULT_HOME_LINK if club == DEFAULT_CLUB else f"{fallback.DEFAULT_HOME_LINK}/{club}"
 
 
@@ -574,7 +622,7 @@ def _schedule(args: argparse.Namespace) -> int:
 
     answer = "not pushed (--no-push)"
     if token is not None:
-        answer = f"scheduled: {push(arranged, args.room, token, args.club)}"
+        answer = f"scheduled: {push(arranged, args.room, token, args.club, bank_order(question, arranged))}"
     try:
         page, sheet = fallback.write_fallback(
             arranged, Path(args.out) / f"{arranged.id}.html", home_link=home_link
@@ -589,6 +637,129 @@ def _schedule(args: argparse.Namespace) -> int:
     print(answer)
     print(page)
     print(sheet)
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# The club rename (ADR-0005 item 8)
+# --------------------------------------------------------------------------- #
+
+
+@dataclasses.dataclass
+class ClubMigration:
+    """What `migrate_clubs` found, and on `--write` what it did."""
+
+    rewrites: list[str] = dataclasses.field(default_factory=list)
+    backups: list[Path] = dataclasses.field(default_factory=list)
+    written: list[Path] = dataclasses.field(default_factory=list)
+    refused: list[str] = dataclasses.field(default_factory=list)
+
+
+def migrate_clubs(bank_dir: Path, *, write: bool = False, backup_dir: Path | None = None) -> ClubMigration:
+    """Rewrite each bank used record that names an old club slug (`CLUB_ALIASES`)
+    to the club it became: `nyc` to `rustnyc` (ADR-0005 item 8).
+
+    A dry run unless `write`. Every record must first read through the bank's
+    own reader; one that does not is refused by name and nothing is written to
+    any file. The rewrite changes club values and nothing else, in the file's own
+    key order. A record with no club is left as it is: it already reads as the
+    default club. With `write`, every file to be changed is first copied byte
+    for byte into `backup_dir` (by default `bank/backups/club-rename-<UTC time>/`,
+    which `load_bank` never reads), and a backup that already exists is never
+    overwritten. Each rewrite is staged beside its file and checked before any
+    file is replaced, and each replacement is whole (`os.replace`), so a failed
+    write leaves every record as it was. Run twice, the second run finds
+    nothing and writes nothing.
+    """
+    result = ClubMigration()
+    directory = Path(bank_dir) / QUESTIONS_DIR
+    planned: list[tuple[Path, bytes, dict[str, Any]]] = []
+    for path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
+        original = path.read_bytes()
+        try:
+            data = json.loads(original.decode("utf-8"))
+            question_from_dict(data)
+        except (BankError, KeyError, TypeError, ValueError) as e:
+            result.refused.append(f"{path.name}: does not read as a bank record ({e}), so nothing was written")
+            continue
+        used = data.get("used")
+        records = [used] if isinstance(used, dict) else used or []
+        changed = False
+        for n, raw in enumerate(records):
+            old = raw.get("club")
+            if isinstance(old, str) and old in CLUB_ALIASES:
+                raw["club"] = CLUB_ALIASES[old]
+                result.rewrites.append(f"{data['id']}: used[{n}].club {old} -> {raw['club']}")
+                changed = True
+        if changed:
+            planned.append((path, original, data))
+    if result.refused or not write or not planned:
+        return result
+
+    stamp = datetime.now(ZoneInfo("UTC")).strftime("%Y%m%dT%H%M%SZ")
+    backup_dir = Path(backup_dir) if backup_dir else Path(bank_dir) / "backups" / f"club-rename-{stamp}"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    for path, original, _ in planned:
+        target = backup_dir / path.name
+        try:
+            with open(target, "xb") as f:
+                f.write(original)
+        except FileExistsError:
+            raise ScheduleError(
+                f"{target} already exists and a backup is never overwritten; nothing was rewritten"
+            ) from None
+        result.backups.append(target)
+    # Stage every rewrite (not `*.json`, so `load_bank` never reads one) and
+    # check it reads as the record did, before any original is touched.
+    staged: list[tuple[Path, Path]] = []
+    try:
+        for path, original, data in planned:
+            tmp = path.with_name(f"{path.name}.club-rename")
+            staged.append((tmp, path))
+            _write_json(tmp, data)
+            before = question_from_dict(json.loads(original.decode("utf-8")))
+            if question_from_dict(json.loads(tmp.read_text(encoding="utf-8"))).used != before.used:
+                raise ScheduleError(f"{path.name}: the rewritten record reads differently, so nothing was rewritten")
+    except (OSError, ScheduleError) as e:
+        for tmp, _ in staged:
+            tmp.unlink(missing_ok=True)
+        if isinstance(e, ScheduleError):
+            raise
+        raise ScheduleError(f"a rewrite could not be written ({e}); nothing was rewritten") from None
+    for tmp, path in staged:
+        try:
+            os.replace(tmp, path)
+        except OSError as e:
+            for rest, _ in staged:
+                rest.unlink(missing_ok=True)
+            done = ", ".join(p.name for p in result.written) or "none"
+            raise ScheduleError(
+                f"{path.name} could not be replaced ({e}); already rewritten: {done}. Each file is whole "
+                "and reads the same either way; run migrate-club --write again to finish"
+            ) from None
+        result.written.append(path)
+    return result
+
+
+def _migrate_club(args: argparse.Namespace) -> int:
+    result = migrate_clubs(args.bank, write=args.write, backup_dir=args.backup_dir)
+    for line in result.refused:
+        print(f"popquiz.schedule: refused {line}", file=sys.stderr)
+    if result.refused:
+        return 1
+    old = ", ".join(sorted(CLUB_ALIASES))
+    if not result.rewrites:
+        print(f"nothing to migrate: no used record names an old club slug ({old})")
+        return 0
+    if not args.write:
+        for line in result.rewrites:
+            print(f"would rewrite {line}")
+        print(f"dry run: nothing written; --write rewrites {len(result.rewrites)} record(s), backing up each file first")
+        return 0
+    for line in result.rewrites:
+        print(f"rewrote {line}")
+    for path in result.backups:
+        print(f"backup: {path}")
     return 0
 
 
@@ -621,7 +792,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     def common(p: argparse.ArgumentParser) -> None:
         p.add_argument("--bank", type=Path, default=DEFAULT_BANK, help="the bank directory")
         p.add_argument("--club", default=DEFAULT_CLUB,
-                       help="the club the question is for (default nyc): never twice is per club (D-26)")
+                       help="the club the question is for (default rustnyc; nyc reads as rustnyc): "
+                       "never twice is per club (D-26)")
         p.add_argument("--lead-time", type=int, default=DEFAULT_LEAD_TIME,
                        help="meetups of warning before the reserve runs out (default 2)")
         p.add_argument("--threshold", type=int, default=None,
@@ -636,7 +808,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                        help="write the fallback and host sheet only, for a night the room cannot be reached")
     s.add_argument("--out", type=Path, required=True, help="the directory the fallback and sheet go in")
     s.add_argument("--home-link", default=None,
-                   help="the take-it-home link (default: the club's own page, /last for nyc, /last/<club> otherwise)")
+                   help="the take-it-home link (default: the club's own page, /last for rustnyc, /last/<club> otherwise)")
     common(s)
 
     y = sub.add_parser("sync", help="pull the room's used ledger into the bank")
@@ -646,8 +818,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     r = sub.add_parser("reserve", help="print the reserve count, trend and warning")
     common(r)
 
+    m = sub.add_parser("migrate-club",
+                       help="rewrite bank used records under an old club slug (nyc) to rustnyc; a dry run unless --write")
+    m.add_argument("--bank", type=Path, default=DEFAULT_BANK, help="the bank directory")
+    m.add_argument("--write", action="store_true", help="rewrite the records, backing up each file first")
+    m.add_argument("--backup-dir", type=Path, default=None,
+                   help="where the backups go (default: <bank>/backups/club-rename-<UTC time>)")
+
     args = parser.parse_args(argv)
     try:
+        if args.command == "migrate-club":
+            return _migrate_club(args)
+        club = club_slug(args.club)
+        if club is None:
+            raise ScheduleError(f"{args.club!r} is not a club name (a-z, 0-9 and -, 1 to 24)")
+        args.club = club
         _print_reserve(args.bank, args)
         if args.command == "schedule":
             return _schedule(args)

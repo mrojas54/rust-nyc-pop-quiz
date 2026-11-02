@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# op:// references only, never values (justfile, `op run`)
+!.env.op
 *.pem
 *.key
 
@@ -31,6 +33,9 @@ target/
 *.swp
 .vscode/*
 !.vscode/extensions.json
+
+# `just migrate-club --write` backups (local copies, never committed)
+/bank/backups/
 
 # Local agent state
 .claude/settings.local.json

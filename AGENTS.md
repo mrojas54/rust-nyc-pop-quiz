@@ -64,6 +64,23 @@ user reminders. Waiting for an independently running test or CI job can use its
 completion signal or a bounded process wait; it must not keep reasoning turns
 running once Michelle's response is the only way forward.
 
+## Orchestration
+
+Runs are driven by the `lattice-orchestrator` skill on the Lattice board
+(`.lattice/`), with delegators in c11 panels working in linked worktrees
+(`~/rust-nyc-pop-quiz-worktrees/<slug>`; see `git worktree list`).
+
+- **Read `--help` before composing a c11 or `lattice` command.** Both have many
+  flags, and a required one left out has already cost a round trip (closing
+  panel 43). c11 closes a panel with
+  `c11 close-panel --panel panel:<n> [--workspace <ref>]`; it reaps the panel's
+  children, `/quit` does not. State the exact command you ran.
+- **Panels can share a worktree.** Before editing an ADR under `docs/adr/` or any
+  other doc, run `git status --short` in that worktree and check
+  `c11 list-panels` for another delegator on the same files (panel 44 was once
+  editing the same ADR at the same time). If one is, coordinate through the
+  board rather than editing over it.
+
 ## Read these first
 
 | Artifact | What it is |
@@ -131,7 +148,7 @@ the `answer-history.json` record.
   `mvp/answer-history.json` is a **record**, never an input.
 - **A question is used when its room is released** (AC-92, G-10). The room
   writes the used record at release and `just sync` brings it into the bank
-  (`room/src/used.rs`). Building a schedule, a fallback or a deck uses nothing,
+  (`room/src/quiz_session/models/used.rs`). Building a schedule, a fallback or a deck uses nothing,
   and neither does reaching reveal. The ledger lives in memory until synced, so
   sync before the room restarts. The retired deck's `build_deck.py` still writes
   `answer-history.json` at **build** time, which falsely retired q3 on 2026-08-12
@@ -145,6 +162,47 @@ the `answer-history.json` record.
   paths* only (AC-43).
 - Colour is never the only signal (AC-40).
 - Code never causes horizontal page scroll (AC-33).
+
+## Testing
+
+- **`just test`** is the inner loop: room, pipeline, web and organizer suites,
+  offline and parallel, budgeted at 60 s. **`just test-full`** adds the sandbox
+  image, the AC-12 containment suite, the verifier's recorded cases, the
+  200-buzzer transport test and the in-process burst/smoke harness. CI runs
+  both as separate jobs (`.github/workflows/ci.yml`).
+- **Confirm the tree before any run:**
+  `pwd && git rev-parse --show-toplevel && git branch --show-current`. This
+  repo has several worktrees, and a run in another copy proves nothing about
+  this one. pytest runs from `pipeline/` as `uv run --offline --no-sync pytest`
+  (what `just test-pipeline` does), never from the repo root.
+- **`EPERM` binding a loopback port is the tool sandbox, not the code.** Room
+  tests and the canary bind real sockets. Rerun that recipe with the sandbox
+  off (or `sandbox.network.allowLocalBinding: true`) instead of asking Michelle
+  to paste output.
+- **Known flakes.** `just test-full` has failed in the 200-participant load
+  suites (`test-transport-full`: `room/tests/transport_full.rs`;
+  `harness-full`: `room/tests/harness_full.rs`) while `just test` stayed green,
+  and the AC-12 containment suite (`just test-sandbox`) has flaked in CI. When
+  one of those is the only failure: name it, rerun that recipe once, and rely
+  on CI's `just test-full` job rather than chasing it locally. Anything else is
+  a real failure until shown otherwise.
+- **`AGENTS.md` is a byte copy of `CLAUDE.md`**, held equal by
+  `web/test/agents-sync.test.js` (a regular file, never a symlink). After
+  editing `CLAUDE.md`, run `cp CLAUDE.md AGENTS.md`, or `just test` fails on
+  that one test.
+
+## Conventions
+
+- **`lib.rs`, `main.rs` and `mod.rs` are required, not banned** (ADR-0005,
+  "File names"). The crate root is `lib.rs`, the server binary is
+  `server/main.rs`, and every directory module is `<folder>/mod.rs`, never a
+  `<folder>.rs` beside its folder. Every other file is a noun named for what
+  it holds.
+- **Room commands take `--room <url>`.** `just schedule` and `just sync` need
+  it (`--no-push` replaces it on `schedule` when the room is down). `just
+  --list` shows these recipes only as `*ARGS`, so read the required arguments
+  in `docs/RUNBOOK.md` before running one, rather than learning them from a
+  failed run.
 
 ## Tone arc
 

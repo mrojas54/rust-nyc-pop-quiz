@@ -42,7 +42,8 @@ so the interpreter and every dependency are the same everywhere.
 `python -m popquiz.review <command> <id> --bank DIR` records the organizer's
 decisions on one question. It is the only writer of a review decision; the
 organizer TUI's review screen (`v`, `prototypes/organizer-tui`) runs it as a
-subprocess. `--bank` has no default.
+subprocess. `--bank` has no default. From the repo root, `just review <command>
+<id> --bank bank` runs the same thing.
 
 | Command | What it records |
 |---|---|
@@ -50,8 +51,8 @@ subprocess. `--bank` has no default.
 | `accept [--checked-quote SPAN]…` | `status: accepted`. Refused while the answer does not derive, or while quoted text that is not a printed line is unchecked (AC-73) |
 | `reject --reason TEXT` | `status: rejected` and the reason; clears any affirmation. `reasons` lists them (AC-19) |
 | `difficulty LEVEL` | `difficulty_judged`, 1 to 5 (AC-88) |
-| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit clears the affirmation; an accepted record becomes `status: edited` (still accepted), and a rejected or unreviewed one keeps its status; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
-| `reverify` | Nothing itself; runs `verify` on the record as it stands |
+| `export --out FILE` / `edit --from FILE` | An edit of the source, choices, hint, explanation or trace notes. Any edit clears the affirmation and the checked quotes, so each quote is checked again with `accept --checked-quote` before affirming (AC-73); an accepted record becomes `status: edited` (still accepted), and a rejected or unreviewed one keeps its status; a source or choice change re-verifies through `verify`, and the bank file is replaced only if the verifier accepts |
+| `reverify` | Runs `verify` on the record as it stands; clears the checked quotes only if that changed the recorded result or the trace's `stdout` row |
 | `affirm [--by NAME]` | `affirmed_by`, `affirmed_at` and `affirmed_digest`. The name comes from `--by` or `POPQUIZ_ORGANIZER`; there is no default (AC-72, G-12) |
 
 Review never writes `verified` or the trace's `stdout` row; only the verifier
@@ -178,7 +179,10 @@ What it does, in order:
 4. **Pushes** the arranged record to `PUT /admin/questions/<id>` (or
    `/admin/clubs/<club>/questions/<id>` with `--club`, D-26: the record is per
    club, because it is arranged for that club's date) and prints
-   `scheduled: new` or `scheduled: replaced`. A refusal prints the room's reason.
+   `scheduled: new` or `scheduled: replaced`. The push carries `bank_order`, so
+   the room can check the affirmation's digest itself in the bank's option order
+   and refuse a question that is not affirmed for its text (G-12, ADR-0005 item
+   9). A refusal prints the room's reason.
    Connection failures, 5xx, 408 and 429 are retried three times with growing
    waits; a 4xx other than 408 or 429 is never retried; a redirect is never followed. The room must be `https`, or
    plain `http` to this machine.
@@ -205,9 +209,13 @@ skipped. A question the ledger names under a second room is refused for that
 record, and the run exits non-zero; so is a record already synced from the same
 room whose details differ from the ledger's. Running it twice changes nothing.
 
-**Today no committed question can be scheduled.** Every record in `bank/questions/`
-is unreviewed and unaffirmed, so `schedule` refuses all four until an organizer
-affirms one (T-18 builds that step).
+**Today three committed questions can be scheduled.** q3, q4 and q7 are
+accepted and affirmed through `popquiz.review`, each affirmation bound to its
+text (PQ-23), and the reserve reads 3 ready (`docs/RUNBOOK.md`, *The reserve*,
+has the snapshot). q8 is accepted, with its walk-through trace, but not yet
+affirmed. It does not compile, so its last step names `error` with the
+compiler's code (ruling F-15, 2026-10-25). `schedule` refuses it until an
+organizer affirms it through `popquiz.review` (*Reviewing*, above).
 
 ## The bank record, in one paragraph
 

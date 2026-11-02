@@ -515,6 +515,22 @@ pub fn canary_question_named(id: &str) -> Value {
 
 // end T-25 admin plant -----------------------------------------------------
 
+/// G-3 withholds *any* values entry named `stdout`. The canary plants none in a
+/// middle step, because the room refuses such a record at load, as
+/// `bank.validate_question` does; this proves that refusal for the canary
+/// record itself, affirmed for its own text.
+pub fn canary_middle_stdout_is_refused() {
+    let mut v = canary_question();
+    v["trace"]["steps"][2]["values"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"name": "stdout", "was": "—", "now": PLANT_MIDDLE_STDOUT}));
+    match room::answers::load(&affirmed(&v).to_string()) {
+        Ok(_) => panic!("the canary loaded with a stdout row before the last step"),
+        Err(e) => assert!(e.0.starts_with("canary: trace step 3 names stdout"), "{e}"),
+    }
+}
+
 fn routes_rs() -> String {
     crate::common::routes_source()
 }
@@ -868,7 +884,6 @@ pub fn check(
         for (name, plant) in [
             ("resolving note", &p.resolving),
             ("trace value", &p.trace_value),
-            ("middle stdout", &p.middle_stdout),
             ("correct option text", &p.correct),
             // The explanation is the host's to read aloud; the receipt is the wall's.
             ("explains.what", &p.what),
@@ -928,7 +943,6 @@ pub fn check(
             ("explains.takeaway", &p.takeaway),
             ("receipt", &p.receipt),
             ("error code", &p.error_code),
-            ("middle stdout", &p.middle_stdout),
         ] {
             assert!(
                 !text.contains(plant.as_str()),
@@ -1754,10 +1768,18 @@ impl<'s> Walk<'s> {
         let last = self.server.get("/last").await;
         assert_eq!(last.status, 200, "{}", at("/last"));
         let body = last.text();
-        // D-26: `/last/nyc` is `/last`, and a club that has released nothing
-        // (here `la`) carries nothing of this room, at any stop.
-        let by_club = self.server.get("/last/nyc").await;
-        assert_eq!(by_club.text(), body, "{}", at("/last/nyc is not /last"));
+        // D-26: `/last/rustnyc` is `/last`, and so is `/last/nyc`, its old
+        // name (ADR-0005 item 8); a club that has released nothing (here `la`)
+        // carries nothing of this room, at any stop.
+        for default in ["/last/rustnyc", "/last/nyc"] {
+            let by_club = self.server.get(default).await;
+            assert_eq!(
+                by_club.text(),
+                body,
+                "{}",
+                at(&format!("{default} is not /last"))
+            );
+        }
         let other = self.server.get("/last/la").await;
         assert_eq!(
             last_question(&other.text()),
@@ -2373,16 +2395,13 @@ pub fn assert_the_plants_arrived(e: &Evidence) {
         s.has(Surface::RenderedWall, Phase::Work, &p.trace_value),
         "the rendered work wall shows a trace value"
     );
-    // reveal: the resolving step, the stdout rows, the explanation (host only).
+    // reveal: the resolving step, its stdout row, the explanation (host only).
     assert!(
         s.has(Surface::Wall, Phase::Reveal, &p.resolving),
         "reveal enters at the resolving step"
     );
     assert!(s.has(Surface::RenderedWall, Phase::Reveal, &p.resolving));
-    assert!(
-        s.has(Surface::Wall, Phase::Reveal, &p.middle_stdout),
-        "reveal may step back through every stdout row"
-    );
+    canary_middle_stdout_is_refused();
     for note in &p.notes {
         assert!(
             s.has(Surface::Wall, Phase::Reveal, note),

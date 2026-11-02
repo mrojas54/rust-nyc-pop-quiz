@@ -5,8 +5,9 @@
 //! This module writes those logs: one line per failed participant request, and
 //! one summary per room when it ends. Each line is one JSON object on standard
 //! error, which Fly collects (`fly logs`; room/README.md, *After a meetup*) —
-//! the same sink `discord.rs` writes to. Not `tracing`: the crate is in the
-//! lock but no subscriber is, and a `tracing` event without one prints nothing.
+//! the same sink the Discord backend (`quiz_session/host/discord/`) writes to. Not
+//! `tracing`: the crate is in the lock but no subscriber is, and a `tracing`
+//! event without one prints nothing.
 //!
 //! **What a participant request is** (the denominator): `POST /join` that
 //! found a room, `PUT /rooms/{id}/answer`, `GET /rooms/{id}/buzzer`, and each

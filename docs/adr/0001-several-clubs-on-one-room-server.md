@@ -21,7 +21,7 @@ What stood in the way:
 |---|---|---|
 | One room per question | `Room::holds` / `create_for` | NYC and LA could not both hold `q3` |
 | Never twice, by question id | `UsedLedger::contains` | Once NYC released `q3`, LA was refused it |
-| One host role | `discord.rs` role check | An LA organizer got `wrong_role` |
+| One host role | `discord.rs` role check (now `host/discord/mod.rs`) | An LA organizer got `wrong_role` |
 | One take-it-home snapshot | `AppState::take_home` | One club's release replaced the other's page |
 
 ## Decision
@@ -194,7 +194,7 @@ trusting one organizer.
 
 ## Where it lives
 
-`room/src/club.rs` · `room/src/discord.rs` · `room/src/rooms.rs` ·
-`room/src/used.rs` · `room/src/routes.rs` · `room/src/view.rs` ·
+`room/src/models/club.rs` · `room/src/host/discord/mod.rs` · `room/src/rooms/` ·
+`room/src/models/used.rs` · `room/src/server/routes/` · `room/src/models/view.rs` ·
 `web/host/host.js` · `pipeline/src/popquiz/bank.py` ·
 `pipeline/src/popquiz/schedule.py` · tests: `room/tests/clubs.rs`

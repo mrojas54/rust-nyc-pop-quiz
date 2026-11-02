@@ -1,7 +1,7 @@
 # Running the Pop Quiz
 
 How an organizer schedules one question, hosts it on the built room and spends
-it afterwards. This describes the room on `main` at `de1da5f`. The hand-run
+it afterwards. This describes the room on `main` at `ebaaa77`. The hand-run
 projector deck has its own run-of-show in `mvp/README.md`; this is the
 successor to it for the built room.
 
@@ -24,19 +24,19 @@ advances on its own.
 ### The reserve
 
 The reserve is every question that is accepted, affirmed and unused (`SPEC.md`
-§3.3). `just schedule` and `just sync` print it before they do anything else.
-A snapshot, taken on `de1da5f`; the numbers move with every review and every
-night:
+§3.3). `just schedule` and `just sync` print it before they do anything else;
+`python -m popquiz.schedule reserve` prints it on its own and writes nothing.
+A snapshot, taken 2026-10-24 after q8 was accepted; the numbers move with every
+review and every night:
 
 ```
-reserve: 0 ready (accepted, affirmed, unused) - 0 meetups of runway at one question a meetup
-trend: +0 accepted awaiting affirmation, +4 not yet reviewed, -0 used in the last 90 days
-warning: 0 ready is below the threshold of 2 - generate and review now; the lead time is 2 meetups
+reserve (rustnyc): 3 ready (accepted, affirmed, unused) - 3 meetups of runway at one question a meetup
+trend: +1 accepted awaiting affirmation, +0 not yet reviewed, -0 used in the last 90 days
 ```
 
-The warning fires below two meetups of supply. Generating (T-16) and reviewing
-(T-18) have no commands yet; `pipeline/README.md` lists each module and the
-ticket that builds it.
+A `warning:` line follows when fewer than two meetups of supply are ready. Generating (T-16, `just
+generate`) and reviewing (T-18, `popquiz.review`) are in `pipeline/README.md`,
+*Generating* and *Reviewing*.
 
 ### Choosing a question
 
@@ -46,37 +46,77 @@ answer's position is drawn from the meetup's date and nothing else, and
 `just schedule` does the drawing. Uneven letters and repeats are correct. Never
 pick a question to even them out (`PHILOSOPHY.md` §2).
 
-### Affirming a question — pending the owner's ruling (F-52)
+### Affirming a question
 
-This section is a placeholder for the owner's ruling on F-52, which is still
-open. The ruling replaces it.
+`just schedule` schedules only an accepted question whose affirmation is bound
+to its text (AC-72, G-12, GAP-24). An organizer affirms through
+`python -m popquiz.review affirm <id> --bank bank --by NAME`, usually from the
+organizer TUI's review screen (`v`); `pipeline/README.md`, *Reviewing*, has
+every command. Never by hand. The affirmation records `affirmed_by`,
+`affirmed_at` and `affirmed_digest`, and any later edit to the text clears it.
 
-`just schedule` refuses any question whose review block lacks `affirmed_by`
-or `affirmed_at` (AC-72, G-12). The contract names the review surface as the
-writer of those two fields (`SPEC.md` §3.1, §7.4). That surface is T-18, and it
-is not built. Every committed question is unaffirmed, so no committed question
-can be scheduled today. Run against `q3`, the refusal is:
+q3 is affirmed and bound: the organizer affirmed it again through
+`popquiz.review` on 2026-10-13 (RULING PQ-23), replacing the hand edit of
+F-52, which carried no digest. q4 was accepted and affirmed through
+`popquiz.review` on 2026-10-18. q7 got its walk-through trace and was affirmed
+through the organizer TUI's review screen on 2026-10-19, so the reserve holds
+q3, q4 and q7. q8 has its walk-through trace and was accepted through
+`popquiz.review` on 2026-10-24, but it is not affirmed yet. It does not
+compile, so its last step names `error` with the compiler's code instead of
+`stdout` (ruling F-15, 2026-10-25), and the affirm gate accepts that. Affirming
+it is the organizer's next step. Until then `just schedule` refuses it; it names
+what is missing, exits 1 and writes nothing:
 
 ```
-popquiz.schedule: q3 is not affirmed - it has no affirmed_by and no affirmed_at, and it has not been accepted at review - and an unaffirmed question cannot be scheduled (AC-72)
+popquiz.schedule: q8 is not affirmed - it has no affirmed_by and no affirmed_at - and an unaffirmed question cannot be scheduled (AC-72)
 ```
 
-It exits 1 and writes nothing. How the first question gets affirmed is the
-owner's open decision. Until it is made, there is no step here.
+The room checks the same rule itself and refuses a push that is not affirmed
+for its text, with `PUT answered 409` and its reason (`just demo` prints it
+too): *is not affirmed*, *its text changed after it was affirmed*, *records
+who and when but not what*, or *was not accepted at review*. The fix is the
+same each time: accept and affirm it again at review, then schedule it again. The record already in the room stays until a
+push is accepted. After release, `just sync` prints who affirmed each question
+that ran (`affirmed by …`).
+
+### Secrets
+
+`just schedule`, `just sync`, `just smoke`, `just burst` and `just generate`
+run under `op run`: `.env.op` at the repository root names, as `op://`
+references, the 1Password items that hold `POPQUIZ_ADMIN_TOKEN`,
+`POPQUIZ_ORGANIZER_SESSION` and `ANTHROPIC_API_KEY`, and `op run` puts the
+values into the environment of that one command and nowhere else. Sign in
+first: `op signin`, or unlock the 1Password app with its CLI integration on.
+Nothing to export and nothing to paste; a value exported in the shell is
+overridden by the reference. The organizer session is what follows the `#`
+after signing in at `/host` (`room/README.md`, *Smoke*): put the fresh value
+in its 1Password item after each sign-in. Every reference must resolve,
+whichever recipe runs.
 
 ### Deploy before the rehearsal
 
-The deployed room is behind `main`. Fly app `rustnyc-popquiz` runs `1263add`
-(2026-09-29), seventeen merges before `de1da5f`. Deploying is the client's
-step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
+The room follows `main`. `.github/workflows/deploy.yml` deploys Fly app
+`rustnyc-popquiz` on every push to `main`, and by hand from the Actions tab, so
+a merge is a deploy: it restarts the one machine and drops every room it holds.
+Before the rehearsal, confirm the last deploy run is green:
 
-1. **If a night ran since the last sync, `just sync` first.** A deploy restarts
-   the machine, and the used ledger lives in memory.
-2. Deploy from an up-to-date `main`, from the repository root:
+```
+gh run list --workflow deploy.yml --limit 1
+```
+
+A failed or missing run means the deployed room is behind `main`; deploy by
+hand, `room/README.md`, *Deploying*, has the whole of it. The order matters:
+
+1. **If a night ran since the last sync, `just sync` first, before anything
+   merges to `main`.** A merge redeploys, a deploy restarts the machine, and
+   the used ledger lives in memory.
+2. Merge, and wait for the deploy run to go green. If the workflow fails,
+   deploy from an up-to-date `main`, from the repository root:
    `fly deploy --ha=false --remote-only`. One machine, never two.
-3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`,
-   with `POPQUIZ_ORGANIZER_SESSION` in the environment (`room/README.md`,
-   *Smoke*, says where it comes from). It runs all seven
+3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`.
+   `POPQUIZ_ORGANIZER_SESSION` comes from 1Password through `.env.op`
+   (*Secrets*, above; `room/README.md`, *Smoke*, says where the value comes
+   from). It runs all seven
    phases on `smoke-q3`, a harness id, so no bank question is spent.
    `smoke-q3` is not a bank record, so `just schedule` cannot push it: push it
    with the loop in `room/README.md`, *Burst*, under *Scheduling*, first.
@@ -84,6 +124,52 @@ step; `room/README.md`, *Deploying*, has the whole of it. The order matters:
    night.**
 5. Then `just schedule`. A restart or deploy forgets every scheduled question,
    so scheduling comes last.
+
+### Releasing the club rename (`nyc` → `rustnyc`)
+
+The default club's name changed from `nyc` to `rustnyc` (ADR-0005 item 8). The
+merge that ships it is a release step, and it restarts the room, so it goes in
+this order. Nothing here is run during a meetup.
+
+1. **Sync from the rename's branch, against the room still on the old build.**
+   With the branch checked out (`gh pr checkout <PR>`), `just sync --room
+   https://rustnyc-popquiz.fly.dev`. The old room names its ledger entries
+   `nyc`; this sync writes them as `rustnyc`. Then take the baseline step 5
+   compares against: `(cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve)`, from the repository root (the line sync prints first is from before it
+   imported the ledger). No room is created or released from here to the
+   merge; if one is, sync again right before merging and take the baseline
+   again.
+2. **Back up the bank**, outside the repository:
+   `cp -R bank ~/popquiz-bank-backup-<YYYY-MM-DD>`.
+3. **Migrate.** `just migrate-club` is a dry run: it lists each used record
+   still under `nyc` and writes nothing. Then `just migrate-club --write`,
+   which first copies each file it changes into a new dated backup folder in
+   the bank directory, and prints where. A second run says *nothing to migrate*. If any
+   record changed (the sync's or the migration's), commit it under
+   `bank/questions/` onto the branch, so the merge carries the code and the
+   records together. Git ignores that backup folder, so it stays out of the
+   commit.
+4. **Merge.** That is a deploy: it restarts the room and empties its ledger,
+   which step 1 already saved.
+5. **Check the reserve:** `(cd pipeline && uv run --offline --no-sync python -m
+   popquiz.schedule reserve)` shows the same ready count as step 1's baseline,
+   now as `reserve (rustnyc):`.
+6. **Check an old link:** `https://rustnyc-popquiz.fly.dev/last/nyc` is the same
+   page as `/last`, and a bookmarked `/host?question=<id>&club=nyc` signs in
+   and creates the default club's room.
+7. Then `just schedule` as usual: the deploy forgot every scheduled question.
+
+`nyc` stays an alias for at least one release; removing it is a later change.
+
+**Fix forward.** The old build reads a used record under `rustnyc` as another
+club's, so after a rollback a question this club already ran would look
+unused. Restoring the step-2 backup is not enough: step 1 already wrote its
+records as `rustnyc`. Before a rolled-back build schedules anything, every used
+record under `rustnyc` in `bank/questions/` must say `"club": "nyc"` again
+(`rg -l '"club": "rustnyc"' bank/questions` lists them; change that value and
+nothing else), and that change committed. Leave every other club's records as
+they are.
 
 **Never run the deployed burst during a meetup.** The `deployed-burst`
 workflow, or `just burst` / `just smoke` against the deployed room, shares the
@@ -106,12 +192,13 @@ From the repository root, the day of the meetup, after any deploy (*Deploy
 before the rehearsal*, above):
 
 ```
-POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
-  just schedule <id> --date <YYYY-MM-DD> --room https://rustnyc-popquiz.fly.dev --out ~/popquiz-<YYYY-MM-DD>
+just schedule <id> --date <YYYY-MM-DD> --room https://rustnyc-popquiz.fly.dev --out ~/popquiz-<YYYY-MM-DD>
 ```
 
 - **The token** comes out of 1Password into the environment of that one
-  command. It goes in no file, no URL, no page and no note (`SPEC.md` §8.3).
+  command: the recipe runs under `op run`, and `.env.op` names the item
+  (*Secrets*, above). It goes in no file, no URL, no page and no note
+  (`SPEC.md` §8.3).
 - **`--date`** is the meetup's date. It decides where the answer sits.
 - **`--out`** is a directory outside the repository, written as an absolute
   path. The two files it gets hold the answer, and `just schedule` refuses a
@@ -296,11 +383,11 @@ below).
 at the latest:
 
 ```
-POPQUIZ_ADMIN_TOKEN="$(op read 'op://<vault>/<item>/<field>')" \
-  just sync --room https://rustnyc-popquiz.fly.dev
+just sync --room https://rustnyc-popquiz.fly.dev
 ```
 
-It prints the reserve, then one line per synced record, `used: <id> on <date>,
+The token comes from 1Password as for `just schedule` (*Secrets*, under
+*Before the night*). It prints the reserve, then one line per synced record, `used: <id> on <date>,
 room <room_id>`, and a `fit:` line for any room whose wall reported something
 other than *fits*, or nothing at all. Ids from test runs (`smoke-q3`,
 `burst-q3`) are listed as skipped. Running it twice changes nothing.
@@ -322,8 +409,9 @@ File the sheets:
 
 | What you see | What to do |
 |---|---|
-| `just schedule` prints `… is not affirmed …` | No question is affirmed yet. See *Affirming a question — pending the owner's ruling (F-52)*. Do not edit the record. |
-| `POPQUIZ_ADMIN_TOKEN is not set in the environment` | Run the command with the `op read` prefix shown above. |
+| `just schedule` prints `… is not affirmed …` | That question is not in the reserve: it is unaffirmed, or its affirmation is unbound. Pick one that is (*The reserve*, above), or have an organizer affirm it through `popquiz.review` (*Affirming a question*, above). Do not edit the record. |
+| `POPQUIZ_ADMIN_TOKEN is not set in the environment` | The command ran outside `just`, or `.env.op` lost its `POPQUIZ_ADMIN_TOKEN` line. Run the `just` recipe from the repository root (*Secrets*, under *Before the night*). |
+| `op run` answers `account is not signed in`, or that an item could not be found | Sign in to 1Password (`op signin`, or unlock the app with its CLI integration on) and check that every item `.env.op` names still exists. Every reference must resolve, whichever recipe runs. |
 | `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret. `room/README.md`, *Pipeline channel*, has the rotation. |
 | `… is inside the repository …` | Give `--out` a directory outside it, such as `~/popquiz-<YYYY-MM-DD>`. |
 | `… has already been run; a question is never run twice.` | That machine released this question. Pick another. |
@@ -347,6 +435,8 @@ File the sheets:
 
 ## The instruments
 
+- `REHEARSAL-GUIDE.md` — the rehearsal checklist, from the bank to the filled
+  sheet.
 - `mvp/PRACTICE-RUN.md` — the rehearsal with two regulars (HC-1). Copy it, fill
   it in place.
 - `mvp/FIELD-NOTES-TEMPLATE.md` — the meetup (HC-4). Someone other than the host

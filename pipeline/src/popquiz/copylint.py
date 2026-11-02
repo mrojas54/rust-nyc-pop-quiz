@@ -27,6 +27,7 @@ different lint over a different string.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
@@ -121,23 +122,48 @@ class Warning:  # noqa: A001 - the review screen's word for it
     group: str
     pattern: str
     matched: str
+    id: str  # the rule's id, `<group>/N`: what a log may print, where `matched` may not
+
+
+_ZERO_WIDTH = re.compile("[\u200b-\u200d\ufeff]")
+# JavaScript's class, not `str.isspace`: U+001C..U+001F are Python whitespace and
+# not JavaScript's, and the two twins must collapse the same characters.
+_WHITESPACE_RUN = re.compile(JS_WHITESPACE + "+")
+_APOSTROPHE = re.compile("[\u2018\u2019\u02bc`]")
+_SPACED_HYPHEN = re.compile(" - ")
+_DASH = re.compile("-{2,}|[\u2013\u2014]")
 
 
 def normalize(text: str) -> str:
-    """Curly single quotes read as the straight one SPEC's patterns spell. Same
-    length, so an index into the result is an index into the original."""
-    return text.replace("‘", "'").replace("’", "'")
+    """The text as SPEC's patterns spell it, so a variant cannot walk past them.
+    In order, the same as `copylint.js`: NFKC (fullwidth letters, look-alikes and
+    NBSP to their plain forms); zero-width characters (U+200B..U+200D, U+FEFF)
+    removed; every run of JavaScript whitespace, newlines included, to one space,
+    and the ends trimmed; U+2018, U+2019, U+02BC and the backtick to `'`; `--`
+    (and longer), U+2013, U+2014 and a spaced hyphen ` - ` to U+2014, the dash the
+    contrast pattern spells. Lengths change: a match is quoted from this text."""
+    text = unicodedata.normalize("NFKC", text)
+    text = _ZERO_WIDTH.sub("", text)
+    text = _WHITESPACE_RUN.sub(" ", text).strip(" ")
+    text = _APOSTROPHE.sub("'", text)
+    text = _SPACED_HYPHEN.sub(" \u2014 ", text)
+    return _DASH.sub("\u2014", text)
 
 
 def check(text: str) -> list[Hit]:
-    """Every rule that matches `text`, in SPEC's order, quoting the original text."""
+    """Every rule that matches `text`, in SPEC's order, quoting the normalized text."""
     norm = normalize(text)
-    hits = []
-    for rule in RULES:
-        m = rule.regex.search(norm)
-        if m:
-            hits.append(Hit(rule.lint, rule.group, rule.id, rule.source, text[m.start() : m.end()]))
-    return hits
+    return [
+        Hit(rule.lint, rule.group, rule.id, rule.source, m.group(0))
+        for rule in RULES
+        if (m := rule.regex.search(norm))
+    ]
+
+
+def check_raw(text: str) -> list[str]:
+    """The ids of every rule whose compiled pattern matches `text` as given, with no
+    normalizing: the engine alone, for the dialect fixtures."""
+    return [rule.id for rule in RULES if rule.regex.search(text)]
 
 
 def forbidden_matches(text: str) -> list[Hit]:
@@ -155,9 +181,12 @@ def _get(obj: Any, name: str) -> Any:
 
 
 def prose_fields(record: Any) -> list[tuple[str, str]]:
-    """The lint's homes in one question (SPEC 11): `explains.what`,
-    `explains.takeaway`, each option's `why_tempting`, and `hint`. Never
-    `explains.legacy` (never rendered), `source` or `options[].text` (program text).
+    """The lint's homes in one question: SPEC 11's four, `explains.what`,
+    `explains.takeaway`, each option's `why_tempting` and `hint`, and every trace
+    step's `note`, which the wall, the host and take-it-home all show. AC-98 covers
+    every participant-facing string and outranks SPEC's list (F-47, ruled
+    2026-10-16; the list's amendment goes upstream). Never `explains.legacy` (never
+    rendered), `source` or `options[].text` (program text).
     Accepts a record as JSON (dict) or a `bank.Question`; skips what is missing."""
     fields: list[tuple[str, str]] = []
     if record is None:
@@ -177,18 +206,39 @@ def prose_fields(record: Any) -> list[tuple[str, str]]:
     hint = _get(record, "hint")
     if isinstance(hint, str):
         fields.append(("hint", hint))
+    trace = _get(record, "trace")
+    steps = _get(trace, "steps") if trace is not None else None
+    if isinstance(steps, (list, tuple)):
+        for i, step in enumerate(steps):
+            value = _get(step, "note")
+            if isinstance(value, str):
+                fields.append((f"trace.steps[{i}].note", value))
     return fields
+
+
+LINT_ERROR = "lint-error"
+
+
+def lint_error(field: str, exc: BaseException) -> Warning:
+    """The one warning a crashed lint returns: the field it was on and the
+    exception's class, never its message or the text (either may quote prose)."""
+    return Warning(field=field, group=LINT_ERROR, pattern="", matched=type(exc).__name__, id=LINT_ERROR)
 
 
 def check_prose(record: Any) -> list[Warning]:
     """Every Forbidden and trope match in a question's prose, as warnings. Never
-    raises: a malformed record yields what could be read, and a record that cannot
-    be read at all yields nothing. A warning blocks neither accept nor affirm."""
+    raises: a malformed record yields what could be read (a record with no prose
+    yields `[]`), and a lint that crashes yields exactly one `lint-error` warning
+    naming the field it was on (`record` before any field was read), so a crash
+    never reads as clean. A warning blocks neither accept nor affirm."""
+    field = "record"
     try:
-        return [
-            Warning(field=name, group=hit.group, pattern=hit.pattern, matched=hit.match)
-            for name, text in prose_fields(record)
-            for hit in check(text)
-        ]
-    except Exception:  # noqa: BLE001 - the review screen must always render
-        return []
+        warnings = []
+        for field, text in prose_fields(record):
+            warnings.extend(
+                Warning(field=field, group=hit.group, pattern=hit.pattern, matched=hit.match, id=hit.id)
+                for hit in check(text)
+            )
+        return warnings
+    except Exception as exc:  # noqa: BLE001 - the review screen must always render
+        return [lint_error(field, exc)]
