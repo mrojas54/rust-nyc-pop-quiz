@@ -152,8 +152,9 @@
         (text ? "<p>" + esc(text) + "</p>" : "") + "</div>";
     };
     return '<section class="panel by-human host-read-aloud" data-provenance="human">' +
-      '<span class="provenance human">✎</span>' +
+      '<span class="provenance human" aria-hidden="true">✎</span>' +
       '<h2 class="host-read-h">' + esc(PQ.t("host_reveal_read_aloud")) + "</h2>" +
+      '<p class="sr-only">' + esc(PQ.t("host_reveal_provenance")) + "</p>" +
       beat("", PQ.t("host_reveal_beat_what"), r.what && r.what.text) +
       beat(" beat-company", r.middle.heading, r.middle.text) +
       beat("", PQ.t("host_reveal_beat_remember"), r.takeaway && r.takeaway.text) +
