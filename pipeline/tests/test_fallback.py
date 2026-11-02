@@ -24,8 +24,8 @@ import sys
 
 import pytest
 
-from popquiz import fallback
-from popquiz.bank import BankError, Trace, load_question, verified_from_dict
+from popquiz import fallback, verify
+from popquiz.bank import BankError, Trace, load_question, question_from_dict, verified_from_dict
 from popquiz.receipt import receipt_lines
 
 HERE = pathlib.Path(__file__).parent
@@ -206,6 +206,46 @@ def test_a_record_the_room_would_refuse_has_no_fallback(q3):
             fallback.bake(dataclasses.replace(q3, options=(q3.options[0], bare, *q3.options[2:])))
         with pytest.raises(BankError, match="option B has no why_tempting"):
             fallback.host_sheet(dataclasses.replace(q3, options=(q3.options[0], bare, *q3.options[2:])))
+
+
+def _load_edited(qid, edit):
+    data = json.loads((BANK / "questions" / f"{qid}.json").read_text(encoding="utf-8"))
+    edit(data)
+    return question_from_dict(data)
+
+
+def _unstamped(data):
+    del data["verified"]["verified_at"]
+    del data["verified"]["verifier_version"]
+
+
+def _ran_after_all(data):
+    data["verified"]["runs"] = {"count": 5, "byte_identical": True}
+
+
+@pytest.mark.parametrize(
+    ("qid", "edit", "needle"),
+    [("q4", _unstamped, "not written by the verifier"), ("q8", _ran_after_all, "nothing ran")],
+    ids=["M2a-unstamped", "contradicts-itself"],
+)
+def test_ac7_a_record_the_verifier_did_not_write_has_no_fallback(tmp_path, qid, edit, needle):
+    """GAP-4: refused on `bake`'s own account, in the check's words, once, with the
+    id once; every function that builds from the bake refuses it and writes nothing."""
+    question = _load_edited(qid, edit)
+    with pytest.raises(verify.ProvenanceError) as caught:
+        verify.check_question(question)
+    reason = str(caught.value).removeprefix(f"{qid}: ")
+    assert needle in reason
+    with pytest.raises(BankError) as refused:
+        fallback.bake(question)
+    assert str(refused.value) == f"{qid}: {reason}, so it has no static fallback"
+    for build in (fallback.build_html, fallback.host_sheet):
+        with pytest.raises(BankError, match=needle):
+            build(question)
+    out = tmp_path / "x.html"
+    with pytest.raises(BankError, match=needle):
+        fallback.write_fallback(question, out)
+    assert not out.exists() and not fallback.sheet_path(out).exists()
 
 
 # --------------------------------------------------------------------------- #
