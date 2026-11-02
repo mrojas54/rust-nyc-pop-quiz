@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from popquiz import audit, fallback, schedule
+from popquiz import audit, fallback, schedule, verify
 from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, question_from_dict, question_to_dict
 from popquiz.slot import slot_for_day
 
@@ -315,6 +315,66 @@ def test_g12_a_question_with_no_verified_record_is_refused(affirmed, room, tmp_p
     fake = room((201, {"scheduled": "new"}))
     out = tmp_path / "out"
     assert_refused(schedule_q3(affirmed, out), capsys, fake, out, "no verified record")
+
+
+def _edit_record(bank_dir, qid, edit):
+    """A hand edit of a bank file. Affirm afterwards, so only the record is wrong."""
+    path = bank_dir / "questions" / f"{qid}.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    edit(data)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _unstamped(data):
+    del data["verified"]["verified_at"]
+    del data["verified"]["verifier_version"]
+
+
+def _ran_after_all(data):
+    data["verified"]["runs"] = {"count": 5, "byte_identical": True}
+
+
+@pytest.mark.parametrize(
+    ("qid", "edit", "needle"),
+    [("q4", _unstamped, "not written by the verifier"), ("q8", _ran_after_all, "nothing ran")],
+    ids=["M2a-unstamped", "contradicts-itself"],
+)
+@pytest.mark.parametrize("push", [True, False], ids=["room", "no-push"])
+def test_ac7_a_record_the_verifier_did_not_write_is_refused(bank, room, tmp_path, capsys, qid, edit, needle, push):
+    """GAP-4, the audit's M2a: an affirmed question in a copied bank, which CI never
+    sees, whose record fails the build's provenance check. Nothing is sent or written,
+    and the reason is the check's own."""
+    _edit_record(bank, qid, edit)
+    affirm(bank, qid)
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    where = ("--room", "https://room.test") if push else ("--no-push",)
+    code = run("schedule", qid, "--date", NIGHT.isoformat(), *where, "--out", out, "--bank", bank)
+    assert_refused(code, capsys, fake, out, needle)
+
+
+def test_ac7_the_reason_is_the_checks_own_words(bank):
+    _edit_record(bank, "q4", _unstamped)
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    with pytest.raises(verify.ProvenanceError) as caught:
+        verify.check_question(q4)
+    assert schedule.refusal(q4) == str(caught.value)
+
+
+def test_ac7_the_check_comes_after_the_refusals_that_were_already_there(bank):
+    """A question already refused for being unaffirmed or used reads as it did, even
+    with a record the check would refuse."""
+    _edit_record(bank, "q4", _unstamped)
+    q4 = load_question(bank, "q4")
+    assert "unaffirmed question cannot be scheduled" in schedule.refusal(q4)
+
+    def used(data):
+        data["used"] = {"meetup_date": "2026-09-09", "room_id": "r-1", "released_at": "2026-09-10T01:40:00Z", "fit": "fits"}
+
+    _edit_record(bank, "q4", used)
+    affirm(bank, "q4")
+    assert "never run twice" in schedule.refusal(load_question(bank, "q4"))
 
 
 def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_path, capsys):
