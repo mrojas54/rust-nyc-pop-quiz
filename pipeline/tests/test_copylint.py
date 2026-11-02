@@ -6,10 +6,10 @@ the same patterns against the same files:
 1. the patterns are SPEC.md's, read out of SPEC.md rather than retyped here;
 2. they behave as the hand-written fixtures in `bank/fixtures/copy-lint/` say,
    including the one documented divergence between the two regex engines;
-3. `check_prose` finds matches in a question's prose homes and never raises, and
-   over every committed question it reports and never fails. A match in question
-   prose is a warning for the organizer on the review screen (SPEC 7.4), not a
-   build failure; this suite prints them through pytest's warnings summary.
+3. `check_prose` finds matches in a question's prose homes and never raises. On the
+   review screen (SPEC 7.4) every match is a warning for the organizer. Over the
+   committed bank this suite fails on a Forbidden match or a lint crash (G-5, AC-98)
+   and only reports a trope (SPEC 11.1), through pytest's warnings summary.
 """
 
 from __future__ import annotations
@@ -43,7 +43,8 @@ FIXTURE_FILES = [*TEXT_FIXTURES, "notes.json"]
 
 
 class ProseWarning(UserWarning):
-    """A lint match in committed question prose: information for review, never a failure."""
+    """A lint match in committed question prose, printed for review. Printing fails
+    nothing; `_blocking_lines` picks out the matches that fail this suite."""
 
 
 # --- 1. SPEC's patterns, verbatim ------------------------------------------------
@@ -282,13 +283,18 @@ def test_check_prose_reads_what_it_can_of_a_partial_record():
     assert [(w.field, w.group) for w in got] == [("options[1].why_tempting", "reassurance")]
 
 
-def _bank_report() -> list[tuple[str, copylint.Warning]]:
-    """Every committed question's warnings, as (the line this suite prints, the warning)."""
+def _question_paths() -> list[pathlib.Path]:
+    # The same walk as `bank.py`'s loader.
     paths = sorted(QUESTIONS.glob("*.json"))
     assert paths, f"no questions under {QUESTIONS}"
+    return paths
+
+
+def _bank_report() -> list[tuple[str, copylint.Warning]]:
+    """Every committed question's warnings, as (the line this suite prints, the warning)."""
     return [
         (_report_line(path.stem, w), w)
-        for path in paths
+        for path in _question_paths()
         for w in copylint.check_prose(json.loads(path.read_text(encoding="utf-8")))
     ]
 
@@ -303,10 +309,80 @@ REPORT_LINE = re.compile(r"[\w-]+ [A-Za-z0-9_.\[\]]+: ([a-z]+/\d+|lint-error)")
 
 
 def test_every_committed_question_is_checked_and_its_warnings_reported():
-    # Information, not a failure (SPEC 11.1): the review screen shows these beside the
-    # text and the organizer decides. pytest prints each in its warnings summary.
+    # Printing only: the review screen shows these beside the text and the organizer
+    # decides on a trope (SPEC 11.1). pytest prints each in its warnings summary. The
+    # tests below fail on the ones that are not tropes.
     for line, _ in _bank_report():
         warnings.warn(ProseWarning(line), stacklevel=1)
+
+
+def _blocking_lines(report: list[tuple[str, copylint.Warning]]) -> list[str]:
+    """The report lines that fail `just test`: everything but a trope, so a Forbidden
+    match, a `lint-error` and any lint added later. Lines hold no prose (below)."""
+    return [line for line, w in report if w.group not in copylint.TROPES]
+
+
+def test_no_committed_question_has_a_forbidden_match_or_a_lint_crash():
+    # G-5, AC-98: the Forbidden row has no carve-out for question prose. To fix a
+    # failure, change the question; the review screen still only warns on it.
+    assert _blocking_lines(_bank_report()) == []
+
+
+# `prose_fields`' homes, each as the smallest record that holds one.
+PROSE_HOMES = {
+    "explains.what": lambda text: {"explains": {"what": text}},
+    "explains.takeaway": lambda text: {"explains": {"takeaway": text}},
+    "options[0].why_tempting": lambda text: {"options": [{"why_tempting": text}]},
+    "hint": lambda text: {"hint": text},
+    "trace.steps[0].note": lambda text: {"trace": {"steps": [{"note": text}]}},
+}
+
+
+def _home_kind(field: str) -> str:
+    return re.sub(r"\[\d+\]", "[]", field)
+
+
+def test_the_walk_found_the_bank_and_read_every_home_in_it():
+    # An empty walk, or a renamed field, must not read as a clean bank. No fixed
+    # count: the bank grows.
+    paths = _question_paths()
+    skipped = [p.name for p in QUESTIONS.iterdir() if p.suffix != ".json" and not p.name.startswith(".")]
+    assert skipped == [], "the walk reads *.json only"
+    fields = {p.stem: copylint.prose_fields(json.loads(p.read_text(encoding="utf-8"))) for p in paths}
+    assert [stem for stem, found in fields.items() if not found] == [], "a question with no prose read"
+    kinds = {_home_kind(field) for found in fields.values() for field, _ in found}
+    assert kinds == {_home_kind(field) for field in PROSE_HOMES}
+
+
+def _probe(record) -> list[str]:
+    return _blocking_lines([(_report_line("probe", w), w) for w in copylint.check_prose(record)])
+
+
+@pytest.mark.parametrize("field", PROSE_HOMES)
+def test_a_forbidden_match_in_any_home_blocks(field):
+    record = PROSE_HOMES[field]("Turn to your neighbour and argue it out.")  # the audit's M5d2
+    assert _probe(record) == [f"probe {field}: forbidden/1", f"probe {field}: forbidden/9"]
+
+
+@pytest.mark.parametrize("field", PROSE_HOMES)
+def test_a_trope_in_any_home_is_reported_and_does_not_block(field):
+    record = PROSE_HOMES[field]("Don't worry.")
+    assert [w.group for w in copylint.check_prose(record)] == ["reassurance"]
+    assert _probe(record) == []
+
+
+def test_a_lint_crash_blocks():
+    assert _probe(_Unreadable()) == ["probe record: lint-error"]
+
+
+def test_a_lint_crash_over_the_bank_fails_it(monkeypatch):
+    def crashing(text):
+        raise ValueError(SECRET)
+
+    monkeypatch.setattr(copylint, "check", crashing)
+    blocking = _blocking_lines(_bank_report())
+    assert len(blocking) == len(_question_paths())
+    assert all(line.endswith(": lint-error") for line in blocking)
 
 
 def test_the_bank_report_prints_rule_ids_and_fields_only():

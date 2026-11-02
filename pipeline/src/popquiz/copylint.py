@@ -17,8 +17,10 @@ characters (emoji) near the bound can match here and not there.
 
 **Consequence.** Over question prose a match is a warning beside the text on the
 review screen (SPEC 7.4): `check_prose` is the hook the review screen (T-18) calls,
-and it never raises. Over the copy module the same patterns fail the build; that
-check runs in `web/test/copylint.test.js`.
+and it never raises. Over the committed bank a Forbidden match or a `lint-error` also
+fails `just test` (`tests/test_copylint.py`); a trope does not (SPEC 11.1). Over the
+copy module the same patterns fail the build; that check runs in
+`web/test/copylint.test.js`.
 
 This is not the receipt's rule (`receipt.FORBIDDEN_IN_A_LINE`, D-25), which is a
 different lint over a different string.
@@ -230,7 +232,8 @@ def check_prose(record: Any) -> list[Warning]:
     raises: a malformed record yields what could be read (a record with no prose
     yields `[]`), and a lint that crashes yields exactly one `lint-error` warning
     naming the field it was on (`record` before any field was read), so a crash
-    never reads as clean. A warning blocks neither accept nor affirm."""
+    never reads as clean. A warning blocks neither accept nor affirm; the test that
+    fails on a committed question lives in `tests/test_copylint.py`."""
     field = "record"
     try:
         warnings = []
