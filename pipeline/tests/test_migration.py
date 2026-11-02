@@ -410,8 +410,33 @@ def test_a_non_compiling_question_with_no_error_codes_is_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("qid", MIGRATED)
-def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) -> None:
+def _recorded_bank_questions(bank_dir: pathlib.Path, recordings: pathlib.Path) -> list[str]:
+    """Every question in the bank that has a recording, read from the two directories
+    so a new question with a recording is replayed without anyone listing it."""
+    held = {p.stem for p in (bank_dir / "questions").glob("*.json")}
+    return sorted(held & {p.stem for p in recordings.glob("*.json")})
+
+
+def test_the_replay_covers_every_bank_question_with_a_recording(tmp_path: pathlib.Path) -> None:
+    """GAP-4. A question with a recording joins the replay, one without it stays out,
+    and a recording with no bank question (a verifier case) is not a bank question."""
+    (tmp_path / "bank" / "questions").mkdir(parents=True)
+    (tmp_path / "recordings").mkdir()
+    for name in ("q3", "q99", "no-recording"):
+        (tmp_path / "bank" / "questions" / f"{name}.json").write_text("{}", encoding="utf-8")
+    for name in ("q3", "q99", "panics"):
+        (tmp_path / "recordings" / f"{name}.json").write_text("{}", encoding="utf-8")
+    assert _recorded_bank_questions(tmp_path / "bank", tmp_path / "recordings") == ["q3", "q99"]
+
+
+def test_no_migrated_question_has_lost_its_recording() -> None:
+    """The replay is read from the directories, so a deleted recording would shrink
+    it without a failure. Each of the four was recorded, and stays recorded."""
+    assert set(MIGRATED) <= set(_recorded_bank_questions(BANK, RECORDINGS))
+
+
+@pytest.mark.parametrize("qid", _recorded_bank_questions(BANK, RECORDINGS))
+def test_the_correct_option_is_the_machines_output(qid: str) -> None:
     """PHILOSOPHY 3: the machine decides the answer, and here the machine is asked
     again rather than the bank restated. `verify` is replayed over the question's
     recording (`tests/fixtures/verify/recordings/`, which `record.py` made on the
@@ -422,7 +447,7 @@ def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) ->
     the matching option's text changed together - passes `check_provenance` (it
     says so); it does not pass this. q3's bank record is still August's, so it is
     also held to the batch's output."""
-    question = committed[qid]
+    question = load_question(BANK, qid)
     index = correct_index(question)
     assert index is not None, f"{qid}: no option matches the verified answer"
 
@@ -431,7 +456,7 @@ def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) ->
     assert replayed.accepted, replayed.reason
     assert correct_index(verify.with_record(question, replayed)) == index
 
-    if qid == "q8":
+    if question.verified.compile_error_code:
         assert question.options[index].kind == "does_not_compile"
         assert replayed.verified.compile_error_code == question.verified.compile_error_code
     else:
