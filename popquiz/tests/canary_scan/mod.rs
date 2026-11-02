@@ -548,17 +548,28 @@ fn route_calls(file: &str) -> Vec<&str> {
     out
 }
 
-/// Every route `server/routes/` registers, read from its source: each
-/// `.route(` literal (or `format!` over the three viewers, or the host-action
-/// family `room::host_routes()` returns) with the method handler it names.
-/// A route added there joins this list whether or not the canary knows it, and
-/// [`assert_every_route_is_scanned`] then fails. Textual, and scoped to that
-/// directory (read file by file by `common::route_files`): a router `merge`d or
-/// `nest`ed from elsewhere would escape it, so a split router must extend this
-/// walk. Each file is parsed on its own.
+/// Every route the room's source registers, in any file under `popquiz/src`
+/// (`common::router_files`): each `.route(` literal (or `format!` over the three
+/// viewers, or the host-action family `room::host_routes()` returns) with the
+/// method handler it names. A route added anywhere joins this list whether or
+/// not the canary knows it, and [`assert_every_route_is_scanned`] then fails.
 pub fn route_table() -> BTreeSet<Route> {
-    let files = crate::common::route_files();
+    route_table_of(&crate::common::router_files())
+}
+
+/// [`route_table`] over the given (path, text) files, each parsed on its own.
+/// Textual: a router method this cannot turn into a path panics rather than
+/// passing with the path unread, so `.nest(` and `.fallback(` must teach it first.
+pub fn route_table_of(files: &[(String, String)]) -> BTreeSet<Route> {
     let mut out = BTreeSet::new();
+    for (name, text) in files {
+        for call in crate::common::ROUTER_CALLS {
+            assert!(
+                *call == ".route(" || !text.contains(call),
+                "{name} calls {call} and the canary's route table cannot read it"
+            );
+        }
+    }
     for (file_name, call) in files
         .iter()
         .flat_map(|(name, text)| route_calls(text).into_iter().map(move |c| (name, c)))
@@ -602,7 +613,7 @@ pub fn route_table() -> BTreeSet<Route> {
             room::host_routes().into_iter().map(|(_, p)| p).collect()
         } else {
             panic!(
-                "server/routes/{file_name} registers a route the canary cannot read: {}",
+                "{file_name} registers a route the canary cannot read: {}",
                 &trimmed[..trimmed.len().min(80)]
             );
         };
@@ -692,20 +703,24 @@ pub const UNSCANNED: &[(&str, &str, &str)] = &[
 ];
 
 pub fn assert_every_route_is_scanned() {
-    let table = route_table();
+    assert_routes_are_scanned(&route_table());
+}
+
+/// [`assert_every_route_is_scanned`] over a given table.
+pub fn assert_routes_are_scanned(table: &BTreeSet<Route>) {
     let actions: BTreeSet<String> = room::host_routes().into_iter().map(|(_, p)| p).collect();
     let known: BTreeSet<(&str, &str)> = DRIVEN
         .iter()
         .copied()
         .chain(UNSCANNED.iter().map(|(m, p, _)| (*m, *p)))
         .collect();
-    for r in &table {
+    for r in table {
         if r.method == "POST" && actions.contains(&r.path) {
             continue;
         }
         assert!(
             known.contains(&(r.method, r.path.as_str())),
-            "routes.rs serves {} {} and the canary neither scans it nor lists it as unscanned",
+            "the room serves {} {} and the canary neither scans it nor lists it as unscanned",
             r.method,
             r.path
         );
@@ -713,7 +728,7 @@ pub fn assert_every_route_is_scanned() {
     for (m, p) in DRIVEN {
         assert!(
             table.iter().any(|r| r.method == *m && r.path == *p),
-            "the canary drives {m} {p}, which routes.rs no longer serves"
+            "the canary drives {m} {p}, which the room no longer serves"
         );
     }
     assert!(actions.len() >= 9, "the host actions: {actions:?}");

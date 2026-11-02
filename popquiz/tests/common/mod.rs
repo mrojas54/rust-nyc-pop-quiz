@@ -94,6 +94,36 @@ pub fn routes_source() -> String {
         .join("\n")
 }
 
+/// The router methods that can serve a path. The `_service` forms are spelled
+/// out because `.route(` does not match `.route_service(`.
+pub const ROUTER_CALLS: &[&str] = &[
+    ".route(",
+    ".nest(",
+    ".fallback(",
+    ".route_service(",
+    ".nest_service(",
+    ".fallback_service(",
+];
+
+/// The T-03 spike's server: its own feature-gated binary with its own router,
+/// which the room never serves. The one file [`router_files`] leaves out.
+pub const SEPARATE_ROUTER: &str = "cli/spike-server.rs";
+
+/// Does this source call a router method?
+pub fn calls_router(text: &str) -> bool {
+    ROUTER_CALLS.iter().any(|call| text.contains(call))
+}
+
+/// Every file under `popquiz/src` that calls a router method, wherever it lives,
+/// as (path under `src/`, text). axum's `Router` cannot be listed, so this walk
+/// is how a route scan sees a route outside `server/routes/` (GAP-17, ADR-0004).
+pub fn router_files() -> Vec<(String, String)> {
+    room_sources(&[])
+        .into_iter()
+        .filter(|(name, text)| name != SEPARATE_ROUTER && calls_router(text))
+        .collect()
+}
+
 pub fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
 }

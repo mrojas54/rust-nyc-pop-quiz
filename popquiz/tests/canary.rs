@@ -389,6 +389,66 @@ fn every_route_in_routes_rs_is_scanned_or_listed() {
 }
 
 #[test]
+fn g9_the_route_table_reads_every_file_that_calls_the_router() {
+    let names: Vec<String> = common::router_files().into_iter().map(|(n, _)| n).collect();
+    assert!(
+        names.iter().any(|n| n == "server/routes/mod.rs"),
+        "{names:?}"
+    );
+    // Every file calling the router, read from the whole tree, is in the scan.
+    for (name, text) in common::room_sources(&[]) {
+        assert_eq!(
+            names.contains(&name),
+            common::calls_router(&text) && name != common::SEPARATE_ROUTER,
+            "{name}"
+        );
+    }
+    // The one exemption is still a router, in a binary the room does not build
+    // by default. If either stops being true, the exemption goes.
+    let spike = common::room_sources(&[])
+        .into_iter()
+        .find(|(n, _)| n == common::SEPARATE_ROUTER)
+        .expect("the exempt file exists");
+    assert!(common::calls_router(&spike.1));
+    let manifest = std::fs::read_to_string(common::repo().join("popquiz/Cargo.toml")).unwrap();
+    let bin = &manifest[manifest
+        .find(&format!("path = \"src/{}\"", common::SEPARATE_ROUTER))
+        .expect("the exempt file is a [[bin]]")..];
+    assert!(
+        bin.lines().nth(1) == Some("required-features = [\"spike\"]"),
+        "the exempt binary is gated by the spike feature"
+    );
+}
+
+#[test]
+fn g9_a_route_outside_the_routes_folder_joins_the_table_and_fails_the_scan() {
+    // The scanner itself, checked with a planted file: GAP-17's M9a2 passed
+    // because the table read `server/routes/` alone.
+    let plant = |name: &str, text: &str| vec![(name.to_string(), text.to_string())];
+    let table = route_table_of(&plant("lib.rs", r#"router.route("/ops/used", get(used))"#));
+    assert!(table
+        .iter()
+        .any(|r| r.path == "/ops/used" && r.method == "GET"));
+    let mut all = route_table();
+    all.extend(table);
+    let unknown = std::panic::catch_unwind(|| assert_routes_are_scanned(&all));
+    assert!(unknown.is_err(), "the planted route passed the scan");
+    assert_routes_are_scanned(&route_table());
+
+    // What the table cannot read stops it, rather than passing unread.
+    for call in [
+        r#"router.nest("/ops", other)"#,
+        "router.fallback(handler)",
+        r#"router.route_service("/ops", svc)"#,
+        r#"router.nest_service("/ops", svc)"#,
+        "router.fallback_service(svc)",
+    ] {
+        let unread = std::panic::catch_unwind(|| route_table_of(&plant("lib.rs", call)));
+        assert!(unread.is_err(), "the route table read past {call}");
+    }
+}
+
+#[test]
 fn the_rules_catch_a_planted_leak() {
     // The scanner itself, checked: a rule that never fires would let every
     // scan below pass. Each case is a payload the room must never send.
