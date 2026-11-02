@@ -264,6 +264,101 @@ def test_the_call_site_lint(source: str, clean: bool) -> None:
     assert (audit.slot_call_violations({"x.py": source}) == []) is clean
 
 
+SCHEDULE_SOURCE = audit.pipeline_sources()["schedule.py"]
+PLACE = "    options.insert(slot, question.options[correct])\n"
+DRAW_SLOT = "    slot = slot_for_day(day)\n"
+SHUFFLE = '    options = _shuffled(others, "distractors", day.isoformat(), question.id)\n'
+RNG_CALL = "    nxt = _rng(*seed_parts)\n"
+RNG_SEED = 'seed = int(hashlib.blake2b("|".join(map(str, parts)).encode(), digest_size=8).hexdigest(), 16)'
+RETURN = "    return arranged\n"
+#: M1c as the audit wrote it: read the bank's latest used date, recompute that
+#: night's slot, bump tonight's by one if they match.
+M1C = (
+    DRAW_SLOT
+    + "    latest = max(q.used_by(DEFAULT_CLUB).meetup_date for q in load_bank(DEFAULT_BANK) if q.used_by(DEFAULT_CLUB))\n"
+    + "    if slot_for_day(date.fromisoformat(latest)) == slot:\n"
+    + "        slot = (slot + 1) % 5\n"
+)
+
+
+def on_schedule(old: str, new: str) -> str:
+    assert old in SCHEDULE_SOURCE, f"the test's anchor is gone from schedule.py: {old!r}"
+    return SCHEDULE_SOURCE.replace(old, new)
+
+
+def test_the_real_arrangement_is_clean() -> None:
+    """The legitimate shuffle on `_rng` keeps passing, and `_lint_check` agrees."""
+    assert "_shuffled(others" in SCHEDULE_SOURCE
+    assert audit.arrange_violations(SCHEDULE_SOURCE) == []
+    assert audit._lint_check().verdict == "pass"
+
+
+ARRANGE_PLANTS = [
+    ("M1c, as the audit wrote it", on_schedule(DRAW_SLOT, M1C), "attribute 'used_by'"),
+    ("M1c, the bump alone", on_schedule(DRAW_SLOT, M1C), "rebinds 'slot'"),
+    ("M1c, the recomputed night", on_schedule(DRAW_SLOT, M1C), "call it nowhere else"),
+    ("M1c, the bank read", on_schedule(DRAW_SLOT, M1C), "'load_bank'"),
+    ("insert at a slot drawn from _rng", on_schedule(PLACE, '    drawn = _rng("letter", day.isoformat())(5)\n    options.insert(drawn, question.options[correct])\n'), "the name bound from slot_for_day(day)"),
+    ("_rng read in arrange", on_schedule(PLACE, '    drawn = _rng("letter", day.isoformat())(5)\n    options.insert(drawn, question.options[correct])\n'), "reads '_rng'"),
+    ("slot bound from _rng", on_schedule(DRAW_SLOT, '    slot = _rng("letter", day.isoformat())(5)\n'), "must bind slot_for_day(day)"),
+    ("_rng seeded with the bank's used count", on_schedule(RNG_SEED, 'seed = int(hashlib.blake2b("|".join(map(str, (*parts, len(load_bank(QUESTIONS_DIR))))).encode(), digest_size=8).hexdigest(), 16)'), "'load_bank'"),
+    ("_shuffled seeded with the used count", on_schedule(RNG_CALL, "    nxt = _rng(*seed_parts, USED_COUNT)\n"), "_rng(*seed_parts) alone"),
+    ("the shuffle seeded with the used count", on_schedule(SHUFFLE, '    options = _shuffled(others, "distractors", day.isoformat(), question.id, used)\n'), "must shuffle the four other options"),
+    ("the shuffle on the date alone", on_schedule(SHUFFLE, '    options = _shuffled(others, "distractors", day.isoformat())\n'), "must shuffle the four other options"),
+    ("a second shuffle picks the letter", on_schedule(PLACE, "    picked = _shuffled(range(5), day.isoformat())[0]\n    options.insert(picked, question.options[correct])\n"), "the name bound from slot_for_day(day)"),
+    ("arrange renamed", on_schedule("def arrange(", "def arrange_options("), "one top-level function arrange"),
+    ("_shuffled renamed", SCHEDULE_SOURCE.replace("_shuffled", "_mix"), "one top-level function _shuffled"),
+    ("_rng renamed", SCHEDULE_SOURCE.replace("_rng", "_stream"), "one top-level function _rng"),
+    ("arrange moved into a class", on_schedule("def arrange(", "class Wall:\n    pass\n\n\nclass Arranger:\n  def arrange("), "one top-level function arrange"),
+    ("a previous-slot parameter", on_schedule("def arrange(question: Question, day: date)", "def arrange(question: Question, day: date, previous=None)"), "must take exactly"),
+    ("the record's used block", on_schedule(DRAW_SLOT, DRAW_SLOT + "    seen = question.used\n"), "attribute 'used'"),
+    ("a module-level value", on_schedule(DRAW_SLOT, DRAW_SLOT + "    extra = DEFAULT_LEAD_TIME\n"), "reads 'DEFAULT_LEAD_TIME'"),
+    ("history in a string", on_schedule(DRAW_SLOT, DRAW_SLOT + '    note = "never the last letter"\n'), "names history"),
+    ("the slot bumped in place", on_schedule(PLACE, "    slot += 1\n" + PLACE), "rebinds 'slot'"),
+    ("the date moved", on_schedule(DRAW_SLOT, "    day = day.replace(day=1)\n" + DRAW_SLOT), "rebinds 'day'"),
+    ("a conditional insert", on_schedule(PLACE, "    if correct:\n    " + PLACE), "more than raise"),
+    ("an early return", on_schedule(DRAW_SLOT, DRAW_SLOT + "    if correct_index(question) == slot:\n        return question\n"), "more than raise"),
+    ("the answer swapped after", on_schedule(PLACE, PLACE + "    options[0], options[1] = options[1], options[0]\n"), "indexes only the answer"),
+    ("the list reversed", on_schedule(PLACE, PLACE + "    options.reverse()\n"), "attribute 'reverse'"),
+    ("a second insert", on_schedule(PLACE, PLACE + "    options.insert(0, options.pop())\n"), "exactly once"),
+    ("the wall returned reversed", on_schedule("options=tuple(options)", "options=tuple(options[::-1])"), "must return"),
+    ("the stored order returned", on_schedule(RETURN + "\n\ndef bank_order", "    return question\n\n\ndef bank_order"), "must return"),
+    ("the answer shuffled in", on_schedule("if i != correct]", "]"), "must shuffle the four other options"),
+    ("_rng used elsewhere", on_schedule("def bank_order(", 'WALL = _rng("wall")\n\n\ndef bank_order('), "used outside the arrangement"),
+    ("_shuffled redefined", on_schedule("def bank_order(", "def _shuffled(items):\n    return items\n\n\ndef bank_order("), "one top-level function _shuffled"),
+    ("arrange wrapped below", on_schedule("def bank_order(", "arrange = keep_away_from_last(arrange)\n\n\ndef bank_order("), "rebinds 'arrange'"),
+    ("a local slot_for_day", on_schedule("def bank_order(", "def slot_for_day(day):\n    return 0\n\n\ndef bank_order("), "second time"),
+    ("slot_for_day from elsewhere", on_schedule("from popquiz.slot import slot_for_day", "from popquiz.bank import slot_for_day"), "from popquiz.slot"),
+    ("a decorator", on_schedule("def arrange(", "@functools.cache\ndef arrange("), "decorated"),
+]
+
+
+@pytest.mark.parametrize(
+    ("planted", "caught_because"),
+    [pytest.param(source, reason, id=name) for name, source, reason in ARRANGE_PLANTS],
+)
+def test_the_arrange_lint_catches_what_it_claims_to(planted: str, caught_because: str) -> None:
+    """Each plant is an ordinary edit that would let something but the date place the
+    answer, or use the shuffle's stream for another job. Handed to `ast.parse`, never run."""
+    problems = audit.arrange_violations(planted)
+    assert any(caught_because in p for p in problems), problems
+
+
+@pytest.mark.parametrize("source", ["", "def broken(:\n", "def _rng(*parts):\n    pass\n"])
+def test_the_arrange_lint_fails_closed_on_nothing_to_scan(source: str) -> None:
+    assert audit.arrange_violations(source) != []
+
+
+def test_the_bank_audit_goes_red_on_an_arrange_plant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The lint is wired into `_lint_check`, not only importable; so is a missing file."""
+    real = audit.pipeline_sources()
+    monkeypatch.setattr(audit, "pipeline_sources", lambda: {**real, "schedule.py": on_schedule(DRAW_SLOT, M1C)})
+    check = audit._lint_check()
+    assert check.verdict == "fail" and "used_by" in check.summary
+    monkeypatch.setattr(audit, "pipeline_sources", lambda: {k: v for k, v in real.items() if k != "schedule.py"})
+    assert audit._lint_check().verdict == "fail"
+
+
 def test_the_ledger_lint_catches_the_mvp_wrapper_under_any_name() -> None:
     """`build_deck.py:220` drew a slot and wrote the ledger in one function. Renamed,
     it is the same defect."""

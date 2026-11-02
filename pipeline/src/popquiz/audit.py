@@ -62,6 +62,7 @@ __all__ = [
     "slot_path_violations",
     "slot_call_violations",
     "ledger_violations",
+    "arrange_violations",
     "check_five_options",
     "distribution_lint",
     "measure_tells",
@@ -581,6 +582,216 @@ def ledger_violations(sources: Mapping[str, str]) -> list[str]:
                         f"{line}: {node.name}() draws a slot and writes a file - the shape of "
                         "slot_for_meetup, which is not ported under any name (G-10)"
                     )
+    return problems
+
+
+# The arrangement (AC-23, G-1, GAP-1): `schedule.arrange` is where tonight's letter
+# is placed, and it has its own stream (`_rng`) for the shuffle beside the answer.
+# M1c - "never the same letter as last meetup", read from the bank's `used` - could
+# sit there and pass every slot lint. This reads the three functions as text; it
+# never imports `schedule`, and nothing here reaches the slot. Like the lints above
+# it stops an ordinary edit drifting, not an author working around it: an alias, a
+# caller of `arrange` handing it another date, or an edit to `bank.correct_index`
+# all pass.
+
+#: What each function may read beyond its own parameters and locals: (globals, attributes).
+ARRANGE_READS = {
+    "arrange": (
+        frozenset({"slot_for_day", "correct_index", "BankError", "enumerate", "_shuffled", "dataclasses", "tuple"}),
+        frozenset({"options", "id", "isoformat", "replace", "insert"}),
+    ),
+    "_shuffled": (frozenset({"list", "_rng", "range", "len"}), frozenset()),
+    "_rng": (frozenset({"int", "hashlib", "str", "map"}), frozenset({"blake2b", "encode", "hexdigest", "join"})),
+}
+ARRANGE_SIGNATURES = {"arrange": "question, day", "_shuffled": "items, *seed_parts", "_rng": "*parts"}
+
+
+def _signature(fn: ast.FunctionDef) -> str:
+    a = fn.args
+    names = [arg.arg for arg in (*a.posonlyargs, *a.args)]
+    if a.vararg:
+        names.append(f"*{a.vararg.arg}")
+    names += [arg.arg for arg in a.kwonlyargs]
+    if a.kwarg:
+        names.append(f"**{a.kwarg.arg}")
+    return ", ".join(names)
+
+
+def _same_code(node: ast.AST | None, text: str) -> bool:
+    return node is not None and ast.unparse(node) == ast.unparse(ast.parse(text, mode="eval").body)
+
+
+def _named_calls(fn: ast.FunctionDef, name: str) -> list[ast.Call]:
+    return [
+        n for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == name
+    ]
+
+
+def _arrangement_reads(fn: ast.FunctionDef, docstrings: set[int]) -> list[str]:
+    """Nothing in this function reads what its allow-list does not name."""
+    problems: list[str] = []
+    names, attributes = ARRANGE_READS[fn.name]
+    bound = _bound_in_functions(fn)
+    if fn.decorator_list:
+        problems.append(f"line {fn.lineno}: {fn.name} is decorated; a decorator can cache or wrap the arrangement")
+    a = fn.args
+    if a.defaults or any(d is not None for d in a.kw_defaults):
+        problems.append(f"line {fn.lineno}: {fn.name} has a default argument; its inputs are its callers' to give")
+    if _signature(fn) != ARRANGE_SIGNATURES[fn.name]:
+        problems.append(
+            f"line {fn.lineno}: {fn.name} takes ({_signature(fn)}); it must take exactly "
+            f"({ARRANGE_SIGNATURES[fn.name]})"
+        )
+    for stmt in fn.body:
+        for node in ast.walk(stmt):
+            line = f"line {getattr(node, 'lineno', fn.lineno)}"
+            if isinstance(node, ast.Name):
+                if node.id in names:
+                    if not isinstance(node.ctx, ast.Load):
+                        problems.append(f"{line}: {fn.name} rebinds {node.id!r}")
+                elif FORBIDDEN_WORDS.search(node.id):
+                    problems.append(f"{line}: name {node.id!r} in {fn.name} reaches for history")
+                elif isinstance(node.ctx, ast.Load) and node.id not in bound:
+                    problems.append(f"{line}: {fn.name} reads {node.id!r}, which it has no use for")
+            elif isinstance(node, ast.Attribute):
+                if node.attr not in attributes:
+                    problems.append(f"{line}: {fn.name} reads attribute {node.attr!r}, which it has no use for")
+            elif isinstance(node, ast.keyword):
+                if node.arg and FORBIDDEN_WORDS.search(node.arg):
+                    problems.append(f"{line}: keyword {node.arg!r} in {fn.name} reaches for history")
+            elif isinstance(node, ast.Constant):
+                if isinstance(node.value, str) and id(node) not in docstrings and FORBIDDEN_WORDS.search(node.value):
+                    problems.append(f"{line}: string {node.value!r} in {fn.name} names history")
+            elif isinstance(node, ast.Global):
+                problems.append(f"{line}: `global {', '.join(node.names)}` in {fn.name}")
+            elif isinstance(node, (ast.With, ast.AsyncWith, ast.Import, ast.ImportFrom, ast.Lambda, ast.ClassDef)):
+                problems.append(f"{line}: {type(node).__name__} in {fn.name}; the arrangement has no use for one")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if fn.name != "_rng" or node.decorator_list:
+                    problems.append(f"{line}: nested function {node.name} in {fn.name}")
+    return problems
+
+
+def _placement_violations(fn: ast.FunctionDef) -> list[str]:
+    """In `arrange`, the answer goes to `slot_for_day(day)`, and nothing moves it after."""
+    problems: list[str] = []
+    stores = Counter(n.id for n in ast.walk(fn) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store))
+    for name, times in stores.items():
+        if times > 1 or name in {"question", "day"}:
+            problems.append(f"arrange rebinds {name!r}; each name there is bound once, so a slot cannot be bumped")
+
+    # One statement after another: a condition can raise, and nothing else branches.
+    top: dict[str, ast.expr] = {}
+    for n, stmt in enumerate(fn.body):
+        if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+            top[stmt.targets[0].id] = stmt.value
+        elif isinstance(stmt, ast.If):
+            if stmt.orelse or not all(isinstance(s, ast.Raise) for s in stmt.body):
+                problems.append(f"line {stmt.lineno}: an `if` in arrange that does more than raise")
+        elif isinstance(stmt, ast.Return):
+            if n != len(fn.body) - 1:
+                problems.append(f"line {stmt.lineno}: arrange returns early")
+        elif not isinstance(stmt, ast.Expr):
+            problems.append(f"line {stmt.lineno}: {type(stmt).__name__} in arrange, which runs straight through")
+
+    def bound_to(text: str) -> str | None:
+        found = [name for name, value in top.items() if _same_code(value, text)]
+        return found[0] if len(found) == 1 else None
+
+    # The answer's position: the name bound from the one call of slot_for_day(day).
+    slot = bound_to("slot_for_day(day)")
+    if slot is None or len(_named_calls(fn, "slot_for_day")) != 1:
+        problems.append("arrange must bind slot_for_day(day) once and call it nowhere else; that draw is the letter")
+    inserts = [
+        n for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "insert"
+    ]
+    insert = inserts[0] if len(inserts) == 1 else None
+    if insert is None or not any(isinstance(s, ast.Expr) and s.value is insert for s in fn.body):
+        problems.append("arrange must call options.insert exactly once, unconditionally, to place the answer")
+    elif not (insert.args and isinstance(insert.args[0], ast.Name) and insert.args[0].id == slot):
+        problems.append(
+            f"line {insert.lineno}: {ast.unparse(insert)} - the answer's position must be the name "
+            "bound from slot_for_day(day), and nothing else"
+        )
+
+    # The shuffle: the four others, on (date, question id), and only that.
+    correct = bound_to("correct_index(question)")
+    others = bound_to(f"[o for i, o in enumerate(question.options) if i != {correct}]")
+    options = bound_to(f'_shuffled({others}, "distractors", day.isoformat(), question.id)')
+    if correct is None or others is None or options is None or len(_named_calls(fn, "_shuffled")) != 1:
+        problems.append(
+            "arrange must shuffle the four other options, and only them, once, as "
+            '_shuffled(others, "distractors", day.isoformat(), question.id)'
+        )
+    elif insert is not None and not _same_code(insert, f"{options}.insert({slot}, question.options[{correct}])"):
+        problems.append(f"line {insert.lineno}: {ast.unparse(insert)} - the insert must put the answer in the shuffled list")
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Subscript) and not _same_code(node, f"question.options[{correct}]"):
+            problems.append(f"line {node.lineno}: {ast.unparse(node)} - arrange indexes only the answer in the record")
+
+    # What it hands back is that list, in that order.
+    arranged = bound_to(f"dataclasses.replace(question, options=tuple({options}))")
+    last = fn.body[-1] if fn.body else None
+    if arranged is None or not (isinstance(last, ast.Return) and _same_code(last.value, arranged)):
+        problems.append("arrange must return dataclasses.replace(question, options=tuple(<that list>)), in that order")
+    return problems
+
+
+def arrange_violations(source: str) -> list[str]:
+    """What is wrong with this `schedule.py` as the place the letter lands (G-1). Empty is clean.
+
+    Covers `arrange`, `_shuffled` and `_rng`, and fails closed: if any of them is
+    missing or renamed that is a problem, never a clean pass over nothing. They may
+    read only what `ARRANGE_READS` names, so no bank, used, ledger, history or
+    previous-slot state; the answer's position is the name bound from
+    `slot_for_day(day)`; `_rng` and `_shuffled` do one job, shuffling the four other
+    options on (date, question id), and nothing else in the module may call them.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        return [f"schedule.py does not parse: {exc}"]
+
+    problems: list[str] = []
+    docstrings = _docstring_nodes(tree)
+    functions: dict[str, ast.FunctionDef] = {}
+    for name in ARRANGE_READS:
+        found = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name]
+        if len(found) != 1 or not isinstance(found[0], ast.FunctionDef):
+            problems.append(f"schedule.py must define one top-level function {name}, found {len(found)}; nothing was linted in its place")
+        else:
+            functions[name] = found[0]
+
+    covered = {id(n) for fn in functions.values() for stmt in fn.body for n in ast.walk(stmt)}
+    pinned = {*ARRANGE_READS, "slot_for_day"}
+    for node in ast.walk(tree):
+        if id(node) in covered:
+            continue
+        line = f"line {getattr(node, 'lineno', '?')}"
+        if isinstance(node, ast.Name) and node.id in pinned:
+            if not isinstance(node.ctx, ast.Load):
+                problems.append(f"{line}: rebinds {node.id!r}, which the arrangement relies on")
+            elif node.id in {"_rng", "_shuffled"}:
+                problems.append(f"{line}: {node.id} is used outside the arrangement; it shuffles the four other options and nothing else")
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name in pinned and functions.get(node.name) is not node:
+                problems.append(f"{line}: defines {node.name} a second time")
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if alias.name in ARRANGE_READS or alias.asname in pinned or (
+                    alias.name == "slot_for_day"
+                    and not (isinstance(node, ast.ImportFrom) and node.module == "popquiz.slot" and node in tree.body)
+                ):
+                    problems.append(f"{line}: imports {alias.name!r}; slot_for_day comes from popquiz.slot, the rest are defined here")
+
+    for fn in functions.values():
+        problems.extend(_arrangement_reads(fn, docstrings))
+    if "arrange" in functions:
+        problems.extend(_placement_violations(functions["arrange"]))
+    if "_shuffled" in functions:
+        calls = _named_calls(functions["_shuffled"], "_rng")
+        if len(calls) != 1 or not _same_code(calls[0], "_rng(*seed_parts)"):
+            problems.append("_shuffled must draw from _rng(*seed_parts) alone; the seed is the date and the question id")
     return problems
 
 
@@ -1445,13 +1656,15 @@ def _lint_check() -> Check:
         slot_path_violations(slot_source())
         + slot_call_violations(sources)
         + ledger_violations(sources)
+        + arrange_violations(sources.get("schedule.py", ""))
     )
     return Check(
         "slot path and ledger",
         ("AC-23", "AC-23a", "G-1", "G-10"),
         "fail" if problems else "pass",
         "; ".join(problems)
-        or "slot.py takes the date and nothing else; nothing in the pipeline reads, "
+        or "slot.py takes the date and nothing else; schedule.arrange places the answer "
+        "at that draw and reads no history; nothing in the pipeline reads, "
         "writes or imports the MVP ledger",
         {"problems": problems},
     )
