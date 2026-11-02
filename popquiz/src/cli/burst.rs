@@ -27,7 +27,7 @@
 //! **Credentials.** Exactly smoke's: the organizer session a signed-in host
 //! page holds, from `POPQUIZ_ORGANIZER_SESSION` and never from the command line.
 //! `burst` holds no secret that creates rooms and never touches the admin
-//! token; the question is scheduled before it runs (room/README.md, *Burst*).
+//! token; the question is scheduled before it runs (popquiz/README.md, *Burst*).
 //!
 //! **Where it runs.** Against `https://…` it is the deployed substrate, and
 //! that is the only run that can meet AC-53's *run against the deployed

@@ -1,7 +1,7 @@
 // The wall (T-05): phase -> rendered structure, on the real q3 payloads.
 //
 // Every frame here comes from web/wall/fixtures/q3-phases.json, which
-// room/tests/wall_page.rs generates from view::wall and holds equal to what the
+// popquiz/tests/wall_page.rs generates from view::wall and holds equal to what the
 // room serves — so nothing below renders a payload somebody typed, and nothing
 // writes down what a program prints (CLAUDE.md). Wall.html() is pure, so this
 // suite needs no browser; the measured half of AC-100 and AC-33 is the

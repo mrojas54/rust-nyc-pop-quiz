@@ -185,7 +185,7 @@ An offered contribution can be taken. Nobody is obliged to speak.
 |---|---|
 | `400` from a link ending in `question=` | Open the host URL with a nonempty question ID. |
 | “No question is scheduled with that id.” | The push did not land, or the machine restarted since: scheduled questions live in memory. Run `just schedule` again with the same id and date, and check it prints `scheduled: new`. |
-| `just schedule` says `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret (`room/README.md`, *Pipeline channel*). Discord credentials do not authorize this channel. |
+| `just schedule` says `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret (`popquiz/README.md`, *Pipeline channel*). Discord credentials do not authorize this channel. |
 | Discord denies room creation | Check membership and the configured organizer role. |
 | “That question has already been run. Pick another.” | Choose a different approved, unused question. Do not rename a used question to bypass the refusal. |
 | “That question is open in another room. Pick another.” | A room on this machine still holds it. Open that room's saved host-screen address, or wait for it to go quiet (`docs/RUNBOOK.md`, *If something fails*). |

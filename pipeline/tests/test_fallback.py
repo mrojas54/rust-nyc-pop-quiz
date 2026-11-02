@@ -5,7 +5,7 @@ reference of any kind and carries the vendored fonts as data URIs; the host shee
 holds every beat and every step's words verbatim, in phase order, and nothing else;
 both come out of one call. The keyboard driver and the live/static parity are
 `web/test/wall-static.test.js`; the file opened in a real browser with the network
-blocked is the `test-full` run recorded in room/README.md.
+blocked is the `test-full` run recorded in popquiz/README.md.
 
 Everything is built from `bank/questions/q3.json` and the receipt fixtures. Nothing
 here writes down what a program prints (CLAUDE.md): the correct letter and the

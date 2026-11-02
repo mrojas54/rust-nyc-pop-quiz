@@ -3,7 +3,7 @@
 //
 // Two generated fixtures, neither typed by hand:
 //   web/wall/fixtures/q3-phases.json  the room's view::wall frames for q3
-//                                      (room/tests/wall_page.rs)
+//                                      (popquiz/tests/wall_page.rs)
 //   web/wall/fixtures/q3-static.json  the pipeline's bake of q3
 //                                      (fallback.bake; test_fallback.py holds it
 //                                      equal and says how to regenerate it)

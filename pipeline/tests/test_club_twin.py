@@ -3,7 +3,7 @@
 `bank/fixtures/clubs/aliases.json` is the one statement of the default club and
 its aliases. This file holds the pipeline's `bank.DEFAULT_CLUB`, `CLUB_ALIASES`
 and `club_slug` to it, and the `justfile`'s `demo` ledger filter too;
-`room/tests/twins.rs` holds the room's `DEFAULT_CLUB`, `CLUB_ALIASES` and
+`popquiz/tests/twins.rs` holds the room's `DEFAULT_CLUB`, `CLUB_ALIASES` and
 `ClubSlug::parse` to the same file. A table changed on one side only fails here
 or there.
 """

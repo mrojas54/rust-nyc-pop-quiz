@@ -14,14 +14,14 @@ From the repository root:
 
 Or directly:
 
-    cd room && cargo test
+    cd popquiz && cargo test
 
 **A room you can drive, at a desk (T-10).** Hosting is by Discord role (SPEC
 §8), so the room needs the Discord application's four values. They are the
 client's (H-3) and live only in your shell or in Fly's secrets — never in the
 repository, a file, or a command anyone keeps:
 
-    cd room && DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=… \
+    cd popquiz && DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=… \
         POPQUIZ_PUBLIC_URL=http://localhost:3000 cargo run --bin room
 
 (`--bin room`: the crate has four binaries, and `cargo run` will not pick one.)
@@ -57,7 +57,7 @@ in every configuration, the same one the static fallback uses.
 
 ## Source layout
 
-`room/src` is grouped by who uses the code. Every module is also re-exported at
+`popquiz/src` is grouped by who uses the code. Every module is also re-exported at
 the crate root (`room::phase` is `room::models::phase`), so the module names in
 the next section still work as written.
 
@@ -980,7 +980,7 @@ Known cloud-session limits for the Rust crates and containers (found 2026-10-10)
 - **GitHub's `latest` release lookup and API are blocked** for repos outside the
   session's scope, which is why the `just` version is pinned.
 - Harmless noise: a `UV_NATIVE_TLS` deprecation warning from `uv`, and unused
-  import warnings in `room/tests/host_page.rs`.
+  import warnings in `popquiz/tests/host_page.rs`.
 
 **One machine, never two.** The room is one state in memory (SPEC §9). A second
 machine would be a second room that phones could land in. `fly deploy` adds a
@@ -1294,7 +1294,7 @@ Two throwaway binaries, both behind the default-off `spike` feature:
 
 ```sh
 # Both bins are feature-gated, so the inner loop never builds them (see below).
-cd room
+cd popquiz
 cargo test  --features spike          # the hermetic tests: estimator, verdict, reconciliation
 cargo build --release --features spike --bin spike-server --bin spike-burst
 
@@ -1400,7 +1400,7 @@ strain, and the spike would report a p95 miss belonging to the config rather
 than to Rust on Fly — a false no-go on the substrate decision.
 
 ```sh
-cd room
+cd popquiz
 fly launch --no-deploy --copy-config --config fly.spike.toml \
   --name rustnyc-popquiz-spike --region ewr --dockerfile spike/Dockerfile
 fly deploy --remote-only --config fly.spike.toml --app rustnyc-popquiz-spike \
@@ -1408,7 +1408,7 @@ fly deploy --remote-only --config fly.spike.toml --app rustnyc-popquiz-spike \
 fly machine stop <ID> -a rustnyc-popquiz-spike   # leave it scaled to zero
 ```
 
-`fly launch` may drop a `fly.toml`, `Dockerfile` or `.dockerignore` into `room/`.
+`fly launch` may drop a `fly.toml`, `Dockerfile` or `.dockerignore` into `popquiz/`.
 None of those belong to this ticket; check `git status` afterwards and delete
 them.
 

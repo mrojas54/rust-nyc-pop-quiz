@@ -23,7 +23,7 @@
 //!
 //! **Frozen with the spike (T-21).** This client speaks the spike server's
 //! protocol, not the room's, so T-21 renamed it `spike-burst` and kept it only
-//! so the committed reports in `room/spike/reports/` stay reproducible. The
+//! so the committed reports in `popquiz/spike/reports/` stay reproducible. The
 //! room's own harness is `burst.rs` (`just burst`), which carries this file's
 //! measurement over to the room's routes and sockets.
 

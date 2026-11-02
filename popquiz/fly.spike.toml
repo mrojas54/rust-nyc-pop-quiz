@@ -1,6 +1,6 @@
 # THROWAWAY. BUILDPLAN T-03's burst spike only.
 #
-# This is not the room's deploy. T-09 owns that, along with `room/fly.toml`, the
+# This is not the room's deploy. T-09 owns that, along with `popquiz/fly.toml`, the
 # real app name, `popquiz.rustnyc.org` and the `smoke` recipe. The app described
 # here exists to be measured against for a few minutes and then destroyed; the
 # destroy command is in the ticket's completion comment for the client to run.

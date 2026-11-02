@@ -11,7 +11,7 @@ organizer's first screen in this build is the first lines these print:
 
 **The arrangement happens here and nowhere else.** The bank stores options in the
 generator's order, which means nothing (`bank.py`); the room renders the order it
-is pushed (`room/src/quiz_session/models/question.rs`); the fallback renders the order it is given
+is pushed (`popquiz/src/quiz_session/models/question.rs`); the fallback renders the order it is given
 (`fallback.py`). So this module is the one place the wall's order is made: the
 correct option goes to `slot_for_day(meetup_date)`, a uniform draw from the date
 and nothing else (AC-23, G-1), and the record the room receives and the record the
@@ -22,7 +22,7 @@ where the answer sits. The stored bank order is never rewritten.
 AC-92): a question is used when its room is released, not when it is scheduled or
 when a file is built. `sync` hands the room's JSON to `bank.py`'s reader rather
 than constructing the record here, so the one place a `used` record is made on
-the laptop is the reader that parses what the room wrote (`room/tests/used.rs`).
+the laptop is the reader that parses what the room wrote (`popquiz/tests/used.rs`).
 
 **The admin token** (SPEC 8.3, AC-101) is read from `POPQUIZ_ADMIN_TOKEN` in the
 environment and nowhere else - no flag, no file - and appears in no line this
@@ -80,7 +80,7 @@ TOKEN_ENV = "POPQUIZ_ADMIN_TOKEN"
 REPO = Path(__file__).resolve().parents[3]
 DEFAULT_BANK = REPO / "bank"
 
-#: Rust NYC meets in New York; the room dates a meetup the same way (room/src/quiz_session/models/used.rs).
+#: Rust NYC meets in New York; the room dates a meetup the same way (popquiz/src/quiz_session/models/used.rs).
 MEETUP_ZONE = ZoneInfo("America/New_York")
 
 #: SPEC 3.3, AC-76: warn when the reserve is below two meetups. One question a

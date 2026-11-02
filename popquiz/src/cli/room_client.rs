@@ -53,7 +53,7 @@ pub fn question_allowed(target: &Target, id: &str, spend_bank: bool) -> Result<(
         return Ok(());
     }
     Err(format!(
-        "{id:?} is not a harness id, and {} is not this machine: the run would release it and retire a bank question on the deployed room. Schedule q3's record under a harness id (burst-…, smoke-…; room/README.md, Burst) and pass that with --question, or pass {SPEND_BANK_FLAG} if spending {id} is what you mean.",
+        "{id:?} is not a harness id, and {} is not this machine: the run would release it and retire a bank question on the deployed room. Schedule q3's record under a harness id (burst-…, smoke-…; popquiz/README.md, Burst) and pass that with --question, or pass {SPEND_BANK_FLAG} if spending {id} is what you mean.",
         target.base
     ))
 }
@@ -68,9 +68,9 @@ pub fn create_refused(reason: &str, id: &str) -> String {
             "another room on this machine holds {id} and has not been released. Wait for it to go quiet (30 minutes with no host action before it starts, 20 once started, 4 hours at most; docs/RUNBOOK.md, the failure table), or schedule q3's record under another harness id and pass that with --question"
         )
     } else if reason.contains("already been run") {
-        format!("{id} has been run on this machine. Schedule q3's record under another harness id (room/README.md, Burst, Scheduling) and pass that with --question")
+        format!("{id} has been run on this machine. Schedule q3's record under another harness id (popquiz/README.md, Burst, Scheduling) and pass that with --question")
     } else if reason.contains("No question is scheduled") {
-        format!("schedule q3's record as {id} over the pipeline channel first (room/README.md, Burst, Scheduling)")
+        format!("schedule q3's record as {id} over the pipeline channel first (popquiz/README.md, Burst, Scheduling)")
     } else {
         "the room gave a reason this harness does not know; read it above".to_string()
     };
@@ -556,7 +556,7 @@ pub async fn all_reach(
 
 /// An error, with what it most likely means on Fly when the room vanished
 /// mid-run: the machine runs until something stops or redeploys it, and a
-/// restarted machine has no rooms (room/README.md, *Deploying*). Never read as
+/// restarted machine has no rooms (popquiz/README.md, *Deploying*). Never read as
 /// "a second machine" — `fly.toml` runs one.
 pub fn explain(e: &str) -> String {
     // Connection-level failures, a socket that stopped hearing the room, or a

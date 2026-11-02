@@ -43,7 +43,7 @@ Try it:
 5. The host shows the room its split, walks the trace, and reveals. Then everyone goes to the bar.
 
 The live room already runs the copy in these screenshots. It changes when
-`main` is next deployed ([Deploying](room/README.md#deploying-t-09)).
+`main` is next deployed ([Deploying](popquiz/README.md#deploying-t-09)).
 
 ## Run it on your laptop
 
@@ -63,7 +63,7 @@ reveal.
 
 A room you can drive at your desk:
 
-    cd room && DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=… \
+    cd popquiz && DISCORD_CLIENT_ID=… DISCORD_CLIENT_SECRET=… DISCORD_GUILD_ID=… DISCORD_ROLE_ID=… \
         POPQUIZ_PUBLIC_URL=http://localhost:3000 cargo run --bin room
 
 Hosting is by Discord role, so the room needs the Discord application's four
@@ -71,7 +71,7 @@ values, from your shell and never from a file. The application must list
 `http://localhost:3000/auth/discord/callback` as a redirect. Open
 `http://localhost:3000/host?question=<id>`, sign in with Discord, create the
 room, then open the wall and a couple of buzzer tabs and walk it through. The
-rest is in [`room/README.md`](room/README.md#running-it).
+rest is in [`popquiz/README.md`](popquiz/README.md#running-it).
 
 A recipe whose suite isn't built yet fails and names the ticket that builds it.
 `just burst` says T-21. Nothing looks green by not being there.
@@ -107,7 +107,7 @@ Hosts sign in with Discord; the organizer role decides who can create a room.
 
 | | |
 |---|---|
-| [`room/`](room/README.md) | The live room: phases, sessions, sockets, the pages, deploying |
+| [`popquiz/`](popquiz/README.md) | The live room: phases, sessions, sockets, the pages, deploying |
 | [`web/`](web/README.md) | The wall, the buzzer and the host phone. Plain HTML, CSS and JS, no build step |
 | [`pipeline/`](pipeline/README.md) | Generate, verify, dedupe, review, the bank |
 | [`bank/`](bank/README.md) | The question records |

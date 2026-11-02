@@ -1,7 +1,7 @@
 # The T-03 burst spike's image. THROWAWAY.
 #
-# Not the room's deploy: that is T-09, which owns `room/Dockerfile` and
-# `room/fly.toml`. This one builds a single feature-gated binary and nothing
+# Not the room's deploy: that is T-09, which owns `popquiz/Dockerfile` and
+# `popquiz/fly.toml`. This one builds a single feature-gated binary and nothing
 # else, and the app it runs is meant to be destroyed once the spike's numbers
 # are recorded.
 #

@@ -13,7 +13,7 @@
 //! holds no shared secret that creates rooms. q3's record must be scheduled
 //! first, over the pipeline channel (SPEC §8.3), under the id the run uses:
 //! `smoke-q3` by default, a harness id no bank question has, so the run's
-//! release never retires a bank question (room/README.md, *Burst*). Off
+//! release never retires a bank question (popquiz/README.md, *Burst*). Off
 //! loopback a bank id (anything not `smoke-…`/`burst-…`) is refused unless
 //! `--spend-bank-question` is given; on loopback (`test-full`) it is allowed.
 //! Whatever the id, the record must be q3's: the secrecy scan reads its

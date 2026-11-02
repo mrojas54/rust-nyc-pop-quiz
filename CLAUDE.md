@@ -148,7 +148,7 @@ the `answer-history.json` record.
   `mvp/answer-history.json` is a **record**, never an input.
 - **A question is used when its room is released** (AC-92, G-10). The room
   writes the used record at release and `just sync` brings it into the bank
-  (`room/src/quiz_session/models/used.rs`). Building a schedule, a fallback or a deck uses nothing,
+  (`popquiz/src/quiz_session/models/used.rs`). Building a schedule, a fallback or a deck uses nothing,
   and neither does reaching reveal. The ledger lives in memory until synced, so
   sync before the room restarts. The retired deck's `build_deck.py` still writes
   `answer-history.json` at **build** time, which falsely retired q3 on 2026-08-12
@@ -180,8 +180,8 @@ the `answer-history.json` record.
   off (or `sandbox.network.allowLocalBinding: true`) instead of asking Michelle
   to paste output.
 - **Known flakes.** `just test-full` has failed in the 200-participant load
-  suites (`test-transport-full`: `room/tests/transport_full.rs`;
-  `harness-full`: `room/tests/harness_full.rs`) while `just test` stayed green,
+  suites (`test-transport-full`: `popquiz/tests/transport_full.rs`;
+  `harness-full`: `popquiz/tests/harness_full.rs`) while `just test` stayed green,
   and the AC-12 containment suite (`just test-sandbox`) has flaked in CI. When
   one of those is the only failure: name it, rerun that recipe once, and rely
   on CI's `just test-full` job rather than chasing it locally. Anything else is

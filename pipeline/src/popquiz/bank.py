@@ -217,7 +217,7 @@ class Review:
 
 
 #: The club a record or request that names none belongs to (D-26); the room's
-#: `DEFAULT_CLUB` (room/src/quiz_session/models/club.rs).
+#: `DEFAULT_CLUB` (popquiz/src/quiz_session/models/club.rs).
 DEFAULT_CLUB = "rustnyc"
 
 #: Old slugs and the club each became (ADR-0005 item 8): the room's
@@ -227,7 +227,7 @@ DEFAULT_CLUB = "rustnyc"
 #: release after the rename; removing an entry is a later, deliberate step.
 CLUB_ALIASES: dict[str, str] = {"nyc": DEFAULT_CLUB}
 
-#: A club's short name, as the room validates it (room/src/quiz_session/models/club.rs).
+#: A club's short name, as the room validates it (popquiz/src/quiz_session/models/club.rs).
 CLUB_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,23}")
 
 
@@ -257,7 +257,7 @@ class Used:
     brownfield table retires (BUILDPLAN 2, G-10).
 
     `fit` is `None` when the wall never reported a verdict before release: the
-    room sends `null` (room/src/quiz_session/models/used.rs), nothing observed it, and so - absent is
+    room sends `null` (popquiz/src/quiz_session/models/used.rs), nothing observed it, and so - absent is
     absent - the key is not written (F-30). `None` is not *fits*.
 
     `affirmed_by` is the organizer whose affirmation the room ran the question on

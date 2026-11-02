@@ -3,7 +3,7 @@
    trope check (D-23, AC-42) — as one source.
 
    Test-only, so it lives here and not in web/shared/, which holds what the
-   pages load and the room serves (room/tests/wall_page.rs). Not named
+   pages load and the room serves (popquiz/tests/wall_page.rs). Not named
    *.test.js, so the `test-web` glob does not run it as a suite; the suites
    load it through _load.js.
 

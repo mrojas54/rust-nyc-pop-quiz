@@ -89,7 +89,7 @@ values into the environment of that one command and nowhere else. Sign in
 first: `op signin`, or unlock the 1Password app with its CLI integration on.
 Nothing to export and nothing to paste; a value exported in the shell is
 overridden by the reference. The organizer session is what follows the `#`
-after signing in at `/host` (`room/README.md`, *Smoke*): put the fresh value
+after signing in at `/host` (`popquiz/README.md`, *Smoke*): put the fresh value
 in its 1Password item after each sign-in. Every reference must resolve,
 whichever recipe runs.
 
@@ -105,7 +105,7 @@ gh run list --workflow deploy.yml --limit 1
 ```
 
 A failed or missing run means the deployed room is behind `main`; deploy by
-hand, `room/README.md`, *Deploying*, has the whole of it. The order matters:
+hand, `popquiz/README.md`, *Deploying*, has the whole of it. The order matters:
 
 1. **If a night ran since the last sync, `just sync` first, before anything
    merges to `main`.** A merge redeploys, a deploy restarts the machine, and
@@ -115,11 +115,11 @@ hand, `room/README.md`, *Deploying*, has the whole of it. The order matters:
    `fly deploy --ha=false --remote-only`. One machine, never two.
 3. Pre-flight: `just smoke https://rustnyc-popquiz.fly.dev --question smoke-q3`.
    `POPQUIZ_ORGANIZER_SESSION` comes from 1Password through `.env.op`
-   (*Secrets*, above; `room/README.md`, *Smoke*, says where the value comes
+   (*Secrets*, above; `popquiz/README.md`, *Smoke*, says where the value comes
    from). It runs all seven
    phases on `smoke-q3`, a harness id, so no bank question is spent.
    `smoke-q3` is not a bank record, so `just schedule` cannot push it: push it
-   with the loop in `room/README.md`, *Burst*, under *Scheduling*, first.
+   with the loop in `popquiz/README.md`, *Burst*, under *Scheduling*, first.
 4. `fly apps restart rustnyc-popquiz` after every smoke run. **Never during a
    night.**
 5. Then `just schedule`. A restart or deploy forgets every scheduled question,
@@ -178,7 +178,7 @@ one machine with every phone in the room. Fly's proxy lets at most
 the rest, and cannot tell the harness from a phone; a 200-participant burst
 holds 403 on its own, leaving under 100 for anyone else. The restart that follows every such run wipes every room
 in memory. The workflow asks you to type *no meetup is running and the restart
-wipes every room* before it starts; `room/README.md`, *Burst*, has the rest.
+wipes every room* before it starts; `popquiz/README.md`, *Burst*, has the rest.
 
 The room runs on a paid Fly org, a card with a spending cap. The machine runs
 until something stops or redeploys it. A restart or a deploy loses every room,
@@ -397,7 +397,7 @@ other than *fits*, or nothing at all. Ids from test runs (`smoke-q3`,
 memory and not a built file. Commit the changed record under `bank/questions/`.
 
 The night's failed-request rate (AC-55) is in Fly's logs. Read it before
-anything restarts the machine; the commands are in `room/README.md`, *After a
+anything restarts the machine; the commands are in `popquiz/README.md`, *After a
 meetup*.
 
 File the sheets:
@@ -412,7 +412,7 @@ File the sheets:
 | `just schedule` prints `… is not affirmed …` | That question is not in the reserve: it is unaffirmed, or its affirmation is unbound. Pick one that is (*The reserve*, above), or have an organizer affirm it through `popquiz.review` (*Affirming a question*, above). Do not edit the record. |
 | `POPQUIZ_ADMIN_TOKEN is not set in the environment` | The command ran outside `just`, or `.env.op` lost its `POPQUIZ_ADMIN_TOKEN` line. Run the `just` recipe from the repository root (*Secrets*, under *Before the night*). |
 | `op run` answers `account is not signed in`, or that an item could not be found | Sign in to 1Password (`op signin`, or unlock the app with its CLI integration on) and check that every item `.env.op` names still exists. Every reference must resolve, whichever recipe runs. |
-| `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret. `room/README.md`, *Pipeline channel*, has the rotation. |
+| `the room refused the admin token (401)` | The value in 1Password is not the room's Fly secret. `popquiz/README.md`, *Pipeline channel*, has the rotation. |
 | `… is inside the repository …` | Give `--out` a directory outside it, such as `~/popquiz-<YYYY-MM-DD>`. |
 | `… has already been run; a question is never run twice.` | That machine released this question. Pick another. |
 | `A room is running … it can be replaced once that room is gone.` | A room already holds the question. Do not re-push during a night. |
