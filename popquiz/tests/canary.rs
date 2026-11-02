@@ -389,6 +389,194 @@ fn every_route_in_routes_rs_is_scanned_or_listed() {
 }
 
 #[test]
+fn g9_the_route_table_reads_every_file_that_calls_the_router() {
+    let names: Vec<String> = common::router_files().into_iter().map(|(n, _)| n).collect();
+    assert!(
+        names.iter().any(|n| n == "server/routes/mod.rs"),
+        "{names:?}"
+    );
+    // Every file calling the router, read from the whole tree, is in the scan.
+    for (name, text) in common::room_sources(&[]) {
+        assert_eq!(
+            names.contains(&name),
+            common::calls_router(&text) && name != common::SEPARATE_ROUTER,
+            "{name}"
+        );
+    }
+    // The predicate those two sides share, held to the spellings a route could
+    // hide behind, since comparing it with itself cannot catch its own miss.
+    for call in [
+        r#"router.route("/ops", get(ops))"#,
+        r#"router.route ("/ops", get(ops))"#,
+        "router\n    .route\n    (\"/ops\", get(ops))",
+        r#"Router::route(router, "/ops", get(ops))"#,
+        r#"router.nest ("/ops", other)"#,
+        "router.fallback (handler)",
+        "router.fallback_service (svc)",
+    ] {
+        assert!(common::calls_router(call), "{call}");
+    }
+    assert!(!common::calls_router("let routes = routes(state);"));
+
+    // The one exemption stays what makes it safe to leave out. Its routes are
+    // the two it has: a new one is not exempt.
+    let spike = common::room_sources(&[])
+        .into_iter()
+        .find(|(n, _)| n == common::SEPARATE_ROUTER)
+        .expect("the exempt file exists");
+    let spike_routes = route_table_of(std::slice::from_ref(&spike));
+    assert_eq!(
+        spike_routes
+            .iter()
+            .map(|r| (r.method, r.path.as_str()))
+            .collect::<Vec<_>>(),
+        [("GET", "/health"), ("GET", "/ws")]
+    );
+    // Only the spike's own client compiles it, and neither is built by default.
+    for (name, text) in common::room_sources(&[]) {
+        assert!(
+            name == SPIKE_CLIENT || !text.contains("spike-server.rs"),
+            "{name} compiles the exempt file into something else"
+        );
+    }
+    let manifest = std::fs::read_to_string(common::repo().join("popquiz/Cargo.toml")).unwrap();
+    for file in [common::SEPARATE_ROUTER, SPIKE_CLIENT] {
+        let bin = &manifest[manifest
+            .find(&format!("path = \"src/{file}\""))
+            .unwrap_or_else(|| panic!("{file} is a [[bin]]"))..];
+        assert!(
+            bin.lines().nth(1) == Some("required-features = [\"spike\"]"),
+            "{file} is gated by the spike feature"
+        );
+    }
+    assert!(
+        !turns_on_default_features(&manifest),
+        "a default feature could turn the spike on"
+    );
+    for (toml, on) in [
+        ("[features]\ndefault = [\"spike\"]\n", true),
+        ("[features]\ndefault = [\n    \"spike\",\n]\n", true),
+        ("default = [\"dev-tools\"]\ndev-tools = [\"spike\"]\n", true),
+        ("default = []\n", false),
+        (
+            "axum = { version = \"1\", default-features = false }\n",
+            false,
+        ),
+        ("default-features = false\n", false),
+    ] {
+        assert_eq!(turns_on_default_features(toml), on, "{toml}");
+    }
+}
+
+/// The one other file allowed to name the exempt router: the spike's client
+/// shares its protocol through `#[path]`.
+const SPIKE_CLIENT: &str = "cli/spike-burst.rs";
+
+/// Does this manifest declare a default feature set with anything in it? The
+/// manifest has none, so any at all stops the test: following one down to
+/// `spike`, however it is written or composed, would take a TOML parser.
+fn turns_on_default_features(manifest: &str) -> bool {
+    manifest
+        .lines()
+        .map(common::squeezed)
+        .any(|line| line.starts_with("default=") && line != "default=[]")
+}
+
+#[test]
+fn g9_a_route_outside_the_routes_folder_joins_the_table_and_fails_the_scan() {
+    // The scanner itself, checked with a planted file: GAP-17's M9a2 passed
+    // because the table read `server/routes/` alone.
+    let plant = |name: &str, text: &str| vec![(name.to_string(), text.to_string())];
+    let table = route_table_of(&plant("lib.rs", r#"router.route("/ops/used", get(used))"#));
+    assert!(table
+        .iter()
+        .any(|r| r.path == "/ops/used" && r.method == "GET"));
+    let mut all = route_table();
+    all.extend(table);
+    let unknown = std::panic::catch_unwind(|| assert_routes_are_scanned(&all));
+    assert!(unknown.is_err(), "the planted route passed the scan");
+    assert_routes_are_scanned(&route_table());
+
+    // What the table cannot read stops it, rather than passing unread.
+    for call in [
+        r#"router.nest("/ops", other)"#,
+        "router.fallback(handler)",
+        r#"router.route_service("/ops", svc)"#,
+        r#"router.nest_service("/ops", svc)"#,
+        "router.fallback_service(svc)",
+        r#"router.route ("/ops", get(ops))"#,
+        r#"router.nest ("/ops", other)"#,
+        r#"Router::route(router, "/ops", get(ops))"#,
+        // A variable path is the host-action family in one file only.
+        r#"let path = "/ops/used"; router.route(&path, get(used))"#,
+        "router.route(&path_for_ops, post(ops))",
+    ] {
+        for file in ["lib.rs", "server/ops.rs"] {
+            let unread = std::panic::catch_unwind(|| route_table_of(&plant(file, call)));
+            assert!(
+                unread.is_err(),
+                "the route table read past {call} in {file}"
+            );
+        }
+    }
+
+    // In that one file, it still cannot pose as the family.
+    let family = "server/routes/mod.rs";
+    for text in [
+        "router.route(&path, get(ops)); router.route(&path, post(ops))",
+        "router.route(&path, post(a)); router.route(&path, post(b)); router.route(&path, post(c))",
+    ] {
+        let unread = std::panic::catch_unwind(|| route_table_of(&plant(family, text)));
+        assert!(unread.is_err(), "the route table read past {text}");
+    }
+
+    // A route has one method in the table, so a second one chained on it stops
+    // the table. In the family's file too, where it would pose as POST.
+    for (file, text) in [
+        ("server/ops.rs", r#"router.route("/ops", get(a).post(b))"#),
+        (
+            "server/ops.rs",
+            "router.route(\n    \"/ops\",\n    get(a)\n        .post(b),\n)",
+        ),
+        (
+            "server/ops.rs",
+            r#"router.route("/ops", axum::routing::put(a).delete(b))"#,
+        ),
+        (
+            "server/ops.rs",
+            r#"router.route("/ops", get(a).post_service(b))"#,
+        ),
+        (
+            "server/ops.rs",
+            r#"router.route("/ops", get(a).on(MethodFilter::POST, b))"#,
+        ),
+        (
+            family,
+            "router.route(&path, post(a).get(a)); router.route(&path, post(b))",
+        ),
+    ] {
+        let unread = std::panic::catch_unwind(|| route_table_of(&plant(file, text)));
+        assert!(
+            unread.is_err(),
+            "the route table read past {text} in {file}"
+        );
+    }
+    // What is not a chain on the handler still reads: a closure's own calls, a
+    // layer, and what follows the route.
+    for text in [
+        r#"router.route("/ops", get(|| async { headers().get("x") }))"#,
+        r#"router.route("/ops", get(a).layer(b))"#,
+        r#"router.route("/ops", get(a)).with_state(s); let v = map().get(k);"#,
+    ] {
+        let table = route_table_of(&plant("server/ops.rs", text));
+        assert!(
+            table.iter().any(|r| r.path == "/ops" && r.method == "GET"),
+            "{text}: {table:?}"
+        );
+    }
+}
+
+#[test]
 fn the_rules_catch_a_planted_leak() {
     // The scanner itself, checked: a rule that never fires would let every
     // scan below pass. Each case is a payload the room must never send.

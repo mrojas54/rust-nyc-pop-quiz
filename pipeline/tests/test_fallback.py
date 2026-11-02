@@ -268,6 +268,16 @@ def test_the_sheet_labels_are_copy_js_strings():
     assert copy["wall_trace_step"] == fallback.STEP_LABEL
 
 
+def test_the_sheets_phase_order_is_phase_js():
+    """fallback.PHASES orders the sheet and web/shared/phase.js is the web's order (G-6)."""
+    src = (WEB / "shared" / "phase.js").read_text(encoding="utf-8")
+    declared = re.search(r"\bvar PHASES = \[([^\]]*)\];", src)
+    assert declared, "no `var PHASES = [...];` in web/shared/phase.js: this test needs a new parse"
+    order = re.findall(r'"([a-z]+)"', declared.group(1))
+    assert order, f"no phase names parsed from {declared.group(0)!r}"
+    assert tuple(order) == fallback.PHASES
+
+
 def _structural(line: str, q) -> bool:
     letters_and_texts = {f"{l} · {o.text}" for l, o in zip("ABCDE", q.options)}
     return (

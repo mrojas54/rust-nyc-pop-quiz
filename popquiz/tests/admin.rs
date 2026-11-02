@@ -530,6 +530,17 @@ fn ac101_the_admin_prefix_is_served_to_the_check_alone() {
             "server/routes/{name} names the admin module outside pipeline.rs"
         );
     }
+    // Nor does any file outside the routes folder that calls the router.
+    let outside: Vec<(String, String)> = common::router_files()
+        .into_iter()
+        .filter(|(name, _)| !name.starts_with("server/routes/"))
+        .collect();
+    for (name, text) in &outside {
+        assert!(
+            !text.contains("\"/admin"),
+            "{name} serves /admin outside pipeline.rs"
+        );
+    }
     // `serve` checks before it reads anything.
     let admin = src("server/admin.rs");
     let serve = &admin[admin.find("pub async fn serve(").unwrap()..];
