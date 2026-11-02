@@ -141,7 +141,9 @@ re-verified legacy record is replaced whole. `verify.is_stale(record, pin)` is
 what scheduling asks: a record made under a different pin re-verifies first; a
 legacy record is exempt. `verify.check_provenance(file)` is the build's AC-7
 check: it refuses a stored `correct` field, a record the verifier did not write,
-and options that no longer derive an answer from the record. It cannot see an
+and options that no longer derive an answer from the record. `popquiz schedule`
+and the fallback apply it to the loaded question (`verify.check_question`), so a
+bank that was never committed gets it too. It cannot see an
 edit *inside* the record that leaves it self-consistent — nothing in §3.2 binds a
 record to the run that produced it — and says so.
 
