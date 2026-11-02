@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-02T22:19:30Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6F5H7PP2EHSEQWSX7E0C8YJ",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6F5H7PP2EHSEQWSX7E0C8YJ.md",
+    "size_bytes": 163
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged, PR #119, merge commit 2e8f6ef, on the client's word. Codex FAIL twice, fixed; d92728c has no Codex re-review by the two-pass cap, read by the Orchestrator.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

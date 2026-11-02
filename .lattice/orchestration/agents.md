@@ -4,15 +4,14 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-10-18 18:3xZ. **PQ-76 dispatched; nothing else in flight. `origin/main` = `c5c42f7` (PR #93), CI + deploy green. Open PRs: none from this run. PQ-73, PQ-77 done; PQ-63 cancelled into PQ-77.** c11: `panel:16` (this seat, `area:9`) and `panel:24` (PQ-76 delegator, `area:12`) in `workspace:5`. Refs change on every c11 restart: `c11 tree` first.
+Snapshot: 2026-11-02 13:3xZ. `origin/main` = `622e0fd`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Panel ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `panel:16` | ai-c11-cc/lattice-build | dispatching; waiting on PQ-76's READY / PLAN / DONE by mailbox (`pq-orchestrator`) |
-| agent:delegator-pq66 (Opus, inline-full, Codex review) | PQ-66 / known false normalized duplicates and the verifier-record check | `done`, PR #113 merged `e073ec7` 2026-11-02 on the client's word | Panel closed, worktree and branch removed; checkpoint `templates/checkpoint-PQ-66.md` |
-| agent:delegator-pq81 (Opus, fast-track, Codex review) | PQ-81 / any edit unchecks a question's checked quotes | `done`, PR #112 merged `2fe8d72` 2026-10-31 on the client's word | Panel closed, worktree and branch removed; checkpoint `templates/checkpoint-PQ-81.md` |
-| agent:delegator-pq76 (Opus, inline-full, `--delegated`) | PQ-76 / rename the default club `nyc` to `rustnyc` (ADR-0005 item 8) | `panel:24` | ai-c11-cc/rustnyc-rename off `c5c42f7` | launched 18:3xZ; boot `templates/boot-PQ-76.md`; no planned halt |
-| Waiting on the client | PQ-76's merge (a release step: `just sync` first) · PQ-72 / PQ-78 · the held tickets · cleanup of `…-worktrees/validate-2026-10-18` and `pty-state-waits` | — | — | held |
+| Orchestrator | — | `panel:4` | ai-c11-cc/lattice-build | waiting on READY / PLAN / DONE by mailbox (`pq-orchestrator`) |
+| agent:delegator-pq49 (Opus, fast-track, Codex review) | PQ-49 / run the bank audit in CI | `panel:20` | ai-c11-cc/pq-49-bank-audit-ci | launched |
+| agent:delegator-pq50 (Opus, fast-track, Codex review) | PQ-50 / validation report small items | `panel:21` | ai-c11-cc/pq-50-validation-small-items | launched |
+| agent:delegator-pq59 (Opus, fast-track, Codex review) | PQ-59 / room and phase test gaps | `panel:22` | ai-c11-cc/pq-59-room-test-gaps | launched |
 
 ### Archived (run history)
 

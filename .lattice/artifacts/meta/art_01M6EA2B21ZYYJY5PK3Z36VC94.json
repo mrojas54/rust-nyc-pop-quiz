@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-02T14:19:30Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6EA2B21ZYYJY5PK3Z36VC94",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6EA2B21ZYYJY5PK3Z36VC94.md",
+    "size_bytes": 83
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged, PR #117, merge commit eb1a334, on the client's word. Codex PASS at b0264ea.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

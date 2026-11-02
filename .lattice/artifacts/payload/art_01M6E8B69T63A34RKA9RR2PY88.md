@@ -1,0 +1,1 @@
+PASS, no findings, reviewed HEAD 54f58ba2319f4372f3e56d006712974acb952dbc (codex exec read-only, one pass; codex review --base refuses a custom prompt).

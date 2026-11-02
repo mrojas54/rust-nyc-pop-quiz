@@ -1,3 +1,22 @@
-# PQ-50: Validation report follow-ups: the small items
+# Plan (delegator, 2026-11-02)
 
-From the Result Validator report (2026-10-04), the small items that need no ruling, one commit each. Line numbers are from main @ 0a4b6fb; re-find each. (1) AC-71 wall clause (row 41): add the missing assertion that the wall receipt contains no sentence about the explanation (web/test, next to ok 241; the data already agrees). (2) Stale docs: web/home/measure.html:24 and room/README.md:240 name q7 as the widest question; q4 (5 x 78) is, since PR #36 (F-40). (3) The static fallback embeds the live wall's fetch of PUT /rooms/.../fit, dead in static mode and blocked by its CSP; strip or guard it in fallback.py so the file carries no request path. (4) The fallback's live region keeps The question is on the screen. after Esc returns to idle; clear it. (5) Three dormant [data-room=dim] rules ship (web/shared/components.css:116,141,142) though no dark mode exists (AC-80, DESIGN.md lights up); remove them or add the one-line comment that says why they stay, and add the absent-dark-mode assertion row 94 noted is missing. (6) The pencil provenance marker is aria-hidden on take-it-home but not on the host; align them. (7) Leftover HOST_DEV_TOKEN comments and empty values in .env.example:39-40, fly.toml and the justfile (all serialized shared files: ask the Orchestrator before touching any). (8) After PR #46 merges: migrate_mvp.py:561 lost the space after the equals sign (repo =Path); restore it. Ask, do not decide: JoinRefusal::NotYetOpen is never emitted because joins are accepted in idle; whether to emit it or delete the variant and its section 11 string is the client's. Acceptance: just test, just a11y, just canary green; nothing under bank/questions/ or the recordings. HELD: minted from the audit; released on the client's word.
+Base `622e0fd`. One commit per item. Re-found against this tree.
+
+| Item | State found | Action |
+|---|---|---|
+| 1 wall clause | closed 10-18 | confirm, DONE |
+| 2 stale docs | `measure.html:24` stale; bank computed: q4 5 × 78 widest, q7 6 × 67; `popquiz/README.md` no longer says it | fix measure.html; README already closed; table at :701 stays |
+| 3 fit fetch | closed 10-18 | confirm, DONE |
+| 4 fallback live region | open; `boot()` in `web/wall/fallback/static.js` never clears on Esc to idle | clear on entering idle plus a test. **`static.js` is not a cleared file: asked** |
+| 5 dim rules | three rules; only `prototypes/` sets `data-room`, `wall.css:10` says not ported | delete; add AC-80 absent-dark-mode test |
+| 6 pencil | host has no provenance in text (home has `home_machine_only`) | **halt with options, per the ticket** |
+| 7 token | no code reads it | remove `.env.example:39-40`, `fly.toml:27` comment; none in justfile; SPEC:553 is a contract note |
+| 8 spacing | `migrate_mvp.py:561` | fix |
+| schedule.py wording | three open; `fallback.py` message gone, its "Both or neither" docstring overstates the same way | reword; update `test_schedule.py:953` |
+| pipeline/README | `:54` is the over-long line (483) | rewrap if the table row allows; else record why |
+| popquiz/README trial | already paid-org at :1034; no trial references | already closed |
+| just reserve | absent | add recipe; name in runbook |
+| RUNBOOK | all three open (:430, :272, Option+Tab absent) | fix |
+| NotYetOpen | still never emitted? | confirm, ask in DONE, no edit |
+
+Checks: `just test`, `just a11y`, `just canary`; Codex review; PR; stop at `review`.

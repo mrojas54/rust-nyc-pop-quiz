@@ -1,0 +1,1 @@
+HEAD 54f58ba2319f4372f3e56d006712974acb952dbc: just test exit 0 (cargo 345, node 305, pytest 1149 + 1 skipped, 38.75 s); just a11y 36 pass; just canary 12 pass. Not run: just test-full (CI runs it); no real screen reader or browser pass.

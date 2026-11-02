@@ -1,31 +1,56 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 8,
   "complexity": "low",
   "created_at": "2026-10-04T08:50:24Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the Result Validator report (Drift, smaller items): CI runs just test but never just bank-audit, so the audit's checks over the real bank reach CI only through pytest's fixtures. Add a CI step that runs just bank-audit on the committed bank and fails the job on a FAIL (a WARN passes, as the recipe does). The report is organizer-only and gitignored; do not upload it as an artifact (AC-25). Touches .github/workflows/** (a serialized shared file: ask before editing). Acceptance: the step runs on a PR and on main, green on main @ the merge of this ticket; a planted fifth record written answer-last in a throwaway branch turns it red (name the mutation). HELD: minted from the audit; released on the client's word.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-11-02T14:19:30Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M6E84P7MMZ90P9VNTEQ6043T",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6E84PHJF8XMAV1QRJPY8NVM",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6E8FSR3YEN8FRS0F4CBSPGG",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M6EA2B21ZYYJY5PK3Z36VC95",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M6EA2B21ZYYJY5PK3Z36VC94",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M431PWKFBY5FJKHPTWMZK4KQ",
-  "last_event_id": "ev_01M461KGZPCYQYS3BFZFD7F5F3",
-  "last_status_changed_at": "2026-10-04T08:50:24Z",
+  "last_event_id": "ev_01M6EA2B21ZYYJY5PK3Z36VC97",
+  "last_status_changed_at": "2026-11-02T14:19:30Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-49",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "follow-up",
     "ci",
-    "validation",
-    "held"
+    "validation"
   ],
   "title": "Run just bank-audit in CI",
   "type": "chore",
-  "updated_at": "2026-10-05T12:46:17Z",
+  "updated_at": "2026-11-02T14:19:30Z",
   "urgency": null
 }

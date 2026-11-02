@@ -1,0 +1,1 @@
+HEAD d92728c6f0d7493df500eab4db51395f77969cb0 on origin/main 0489e10. just test rc 0, 41 s wall: cargo 348 passed 0 failed; pytest 1150 passed, 1 skipped; web 306 passed. just canary rc 0, 14 passed. just test-full not run locally; CI runs it.
