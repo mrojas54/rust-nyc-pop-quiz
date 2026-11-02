@@ -3,7 +3,7 @@
 // reconnect, the private hint, and what the phone must never show.
 //
 // The fixtures below are shaped like `view::buzzer` payloads and T-04c's state
-// frames (room/README.md, *Frames*). No program is run or described here; the
+// frames (popquiz/README.md, *Frames*). No program is run or described here; the
 // letters and counts are made up and name nothing a program prints.
 
 const test = require('node:test');
@@ -34,7 +34,7 @@ const C = PQ.COPY;
 // The wordmark and Guest head every buzzer screen, the join form included.
 const TITLE = `${C.title_wordmark} ${C.buzzer_title_role}`;
 
-// --- replay mode: room/tests/buzzer_page.rs ----------------------------------
+// --- replay mode: popquiz/tests/buzzer_page.rs ----------------------------------
 //
 // With BUZZER_REPLAY=1 this file is not a suite but a driver. The Rust test
 // drives the wired room, records what a phone received — the join response,

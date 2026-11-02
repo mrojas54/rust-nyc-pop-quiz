@@ -1,9 +1,9 @@
 # The room on Fly.io (T-09, BUILDPLAN D-A): the M1 skeleton behind SPEC §8.2's
 # stand-in. Written by hand. Create the app with `fly apps create` and deploy
 # with `fly deploy --ha=false`; never `fly launch`, which rewrites this file and
-# strips every comment (PQ-3). room/README.md, Deploying, has the commands.
+# strips every comment (PQ-3). popquiz/README.md, Deploying, has the commands.
 #
-# Not the spike: `room/fly.spike.toml` describes `rustnyc-popquiz-spike`, a
+# Not the spike: `popquiz/fly.spike.toml` describes `rustnyc-popquiz-spike`, a
 # throwaway app that stays as it is.
 
 app            = "rustnyc-popquiz"

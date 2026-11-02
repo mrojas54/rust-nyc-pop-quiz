@@ -93,7 +93,7 @@ Question generation is never required on meetup day.
 - Hints are requested privately; the host is not told who needed one. A person's
   choice receives a company count, never an incorrect marker.
 - Organizer hosting is authorized by the configured Discord role ID for the
-  selected club (D-26, `docs/adr/0001-several-clubs-on-one-room-server.md`, `room/src/club.rs`).
+  selected club (D-26, `docs/adr/0001-several-clubs-on-one-room-server.md`, `popquiz/src/club.rs`).
   Administrator status alone cannot bypass that club role check.
 - Scheduling requires organizer affirmation. A successful verifier run alone
   does not approve explanation quality or make a question ready for the room.
@@ -164,7 +164,7 @@ answer. Historical economics estimates are not current prices or budgets.
 - `SPEC.md`, `BUILDPLAN.md`, `EVALUATION.md`: behavior, build work, and acceptance.
 - `DESIGN.md`, `prototypes/C-projector-first.html`, and
   `prototypes/take-it-home.html`: confirmed visual direction and comparisons.
-- `room/src/`, `web/`, and `pipeline/src/popquiz/`: implementation evidence.
+- `popquiz/src/`, `web/`, and `pipeline/src/popquiz/`: implementation evidence.
 - `bank/questions/`, `bank/schema/`, and `bank/fixtures/`: question records and
   verification/receipt fixtures. Record presence does not establish affirmation.
 - `docs/demo/`: saved local-run screenshots referenced by README, not proof of

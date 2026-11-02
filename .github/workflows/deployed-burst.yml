@@ -4,7 +4,7 @@ name: deployed-burst
 # hand, never on a push: nothing unattended can create a room on the deployed
 # app (only a signed-in organizer can, SPEC §8), so this job runs on the
 # organizer's own session, set as a repository secret right before a run and
-# deleted right after (room/README.md, Burst):
+# deleted right after (popquiz/README.md, Burst):
 #
 #   POPQUIZ_ORGANIZER_SESSION  the organizer session a signed-in /host page holds
 #                              (12 hours, one person's)
@@ -27,7 +27,7 @@ name: deployed-burst
 #
 # The secrets are the `deployed-burst` environment's, not the repository's:
 # that environment's required reviewer and its main-only branch rule are what
-# keep a workflow edited on a branch from reading them (room/README.md, Burst,
+# keep a workflow edited on a branch from reading them (popquiz/README.md, Burst,
 # has the clicks). The confirm job is the operator's check, not that guard.
 
 on:
@@ -91,8 +91,8 @@ jobs:
           # the room's own: the Fly app, or its DNS name once H-2 lands.
           [[ "$ROOM_URL" =~ ^https://(rustnyc-popquiz\.fly\.dev|popquiz\.rustnyc\.org)$ ]] || { echo "url must be https://rustnyc-popquiz.fly.dev or https://popquiz.rustnyc.org, got: $ROOM_URL" >&2; exit 2; }
           [[ "$PARTICIPANTS" =~ ^[0-9]+$ ]] && [ "$PARTICIPANTS" -ge 1 ] && [ "$PARTICIPANTS" -le 200 ] || { echo "participants must be 1-200" >&2; exit 2; }
-          [ "$HAS_SESSION" = true ] || { echo "set the POPQUIZ_ORGANIZER_SESSION secret on the deployed-burst environment first (room/README.md, Burst)" >&2; exit 2; }
-          [ "$HAS_ADMIN" = true ] || { echo "set the POPQUIZ_ADMIN_TOKEN secret on the deployed-burst environment first (room/README.md, Burst)" >&2; exit 2; }
+          [ "$HAS_SESSION" = true ] || { echo "set the POPQUIZ_ORGANIZER_SESSION secret on the deployed-burst environment first (popquiz/README.md, Burst)" >&2; exit 2; }
+          [ "$HAS_ADMIN" = true ] || { echo "set the POPQUIZ_ADMIN_TOKEN secret on the deployed-burst environment first (popquiz/README.md, Burst)" >&2; exit 2; }
 
       # Read, never written: the proxy's cap on connections to the one machine.
       - name: The connection cap from fly.toml
@@ -105,7 +105,7 @@ jobs:
           echo "hard_limit $cap, from fly.toml at $(git rev-parse --short HEAD) on $GITHUB_REF_NAME; burst holds $peak at its peak"
           # Over the cap the run is invalid before it starts: stop here, before
           # anything reaches the room, rather than load the machine for nothing.
-          [ "$peak" -le "$cap" ] || { echo "expected peak connections $peak vs cap $cap: over the cap, the run cannot count. Run with participants $(( (cap - 3) / 2 )) or fewer, or raise hard_limit (room/README.md, The connection cap)." >&2; exit 2; }
+          [ "$peak" -le "$cap" ] || { echo "expected peak connections $peak vs cap $cap: over the cap, the run cannot count. Run with participants $(( (cap - 3) / 2 )) or fewer, or raise hard_limit (popquiz/README.md, The connection cap)." >&2; exit 2; }
           echo "cap=$cap" >> "$GITHUB_OUTPUT"
 
       - name: Cache cargo registry and target
@@ -114,8 +114,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            room/target
-          key: cargo-burst-${{ runner.os }}-${{ hashFiles('room/Cargo.lock') }}
+            popquiz/target
+          key: cargo-burst-${{ runner.os }}-${{ hashFiles('popquiz/Cargo.lock') }}
           restore-keys: cargo-burst-${{ runner.os }}-
 
       # Built before anything touches the room, so scheduling, burst and smoke
@@ -124,7 +124,7 @@ jobs:
       - name: Build both harnesses
         run: |
           set -euo pipefail
-          cd room
+          cd popquiz
           cargo fetch --locked
           cargo build --release --offline --locked --features burst --bin burst --bin smoke
 
@@ -161,7 +161,7 @@ jobs:
           mkdir -p reports
           ulimit -n 4096 2>/dev/null || true
           # Short: one isolated burst per shape, a 10 s churn. Stdout is the report; --out keeps it.
-          room/target/release/burst --url "$ROOM_URL" --participants "$PARTICIPANTS" \
+          popquiz/target/release/burst --url "$ROOM_URL" --participants "$PARTICIPANTS" \
             --question burst-q3 --connection-cap "$CAP" --cycles 1 --churn-secs 10 \
             --seed "$GITHUB_RUN_ID" --out reports/burst.json > /dev/null
 
@@ -174,7 +174,7 @@ jobs:
           set -euo pipefail
           mkdir -p reports
           ulimit -n 4096 2>/dev/null || true
-          room/target/release/smoke --url "$ROOM_URL" --participants "$PARTICIPANTS" \
+          popquiz/target/release/smoke --url "$ROOM_URL" --participants "$PARTICIPANTS" \
             --question smoke-q3 --out reports/smoke.json
 
       - name: Keep both reports

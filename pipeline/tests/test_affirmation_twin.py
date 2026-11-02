@@ -2,9 +2,9 @@
 
 `bank.affirmation_digest` and `bank.affirmation_state` are the rule. The room
 refuses a question the rule does not call `bound`, with a Rust twin of the rule
-(`room/src/quiz_session/models/affirmation.rs`). One rule, never two: both are held to the
+(`popquiz/src/quiz_session/models/affirmation.rs`). One rule, never two: both are held to the
 cases in `bank/fixtures/affirmation/`. This file checks that the rule gives each
-case's digest and state, and `room/tests/twins.rs` checks that the room gives the
+case's digest and state, and `popquiz/tests/twins.rs` checks that the room gives the
 same. A change on either side that moves a digest fails here or there.
 
 The fixtures are written by `test_write_the_fixtures`, which runs only with

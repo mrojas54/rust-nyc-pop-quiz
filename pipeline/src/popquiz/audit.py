@@ -741,10 +741,10 @@ def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], lis
 
 def bank_audit_references(repo: Path) -> list[str]:
     """G-11: nothing participant-facing includes the tell report. Any file under
-    `web/` or `room/` that mentions `bank/audit` is a leak path."""
+    `web/` or `popquiz/` that mentions `bank/audit` is a leak path."""
     repo = Path(repo)
     found = []
-    for top in ("web", "room"):
+    for top in ("web", "popquiz"):
         root = repo / top
         if not root.is_dir():
             continue

@@ -43,7 +43,7 @@ _default:
 # Fetch every dependency. The only recipe that touches the network.
 setup:
     cd pipeline && uv sync --frozen
-    cd room && cargo fetch --locked
+    cd popquiz && cargo fetch --locked
     cd prototypes/organizer-tui && cargo fetch --locked
 
 # The inner loop. No network, no Docker, no pinned toolchain, no Miri.
@@ -51,10 +51,10 @@ setup:
 [parallel]
 test: test-room test-pipeline test-web test-organizer
 
-# Checks formatting (room/rustfmt.toml), then builds and tests the room crate with whatever cargo this machine has.
+# Checks formatting (popquiz/rustfmt.toml), then builds and tests the room crate with whatever cargo this machine has.
 test-room:
-    cd room && cargo fmt --check
-    cd room && cargo test --offline --locked
+    cd popquiz && cargo fmt --check
+    cd popquiz && cargo test --offline --locked
 
 # Organizer UI stays checked against the room API it imports.
 test-organizer:
@@ -89,7 +89,7 @@ test-web:
 test-full: test sandbox-build test-sandbox test-verify-full test-generate-full test-transport-full (canary "--full-only") harness-full
     #!/usr/bin/env bash
     set -euo pipefail
-    (cd room && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
+    (cd popquiz && cargo test --offline --locked --test lifecycle -- --ignored test_full_)  # T-10: AC-69 on the Discord mock
     echo ""
     echo "=== test-full ==="
     echo "Ran: test (room, pipeline, web), the canary over real sockets, the AC-12"
@@ -107,14 +107,14 @@ test-full: test sandbox-build test-sandbox test-verify-full test-generate-full t
     echo ""
     echo "Run in a browser, not here — no headless browser on this machine or in CI:"
     echo "  wall-layout  the wall's measured layout, AC-100 / AC-33 (just wall-layout)"
-    echo "  fallback     the static fallback stepped offline, AC-102 (room/README.md, Pages)"
+    echo "  fallback     the static fallback stepped offline, AC-102 (popquiz/README.md, Pages)"
     echo ""
     echo "Run against the deployed room, not here — nothing unattended can create a room there:"
     echo "  burst, smoke  the deployed-burst workflow (client-triggered) or the laptop form;"
-    echo "                AC-53's deployed-substrate clause is met only there (room/README.md, Burst)"
+    echo "                AC-53's deployed-substrate clause is met only there (popquiz/README.md, Burst)"
 
 # burst and smoke against a room this job starts (T-21): the real router on
-# loopback, authorized by the tests' HostAuth (room/tests/harness_full.rs). The
+# loopback, authorized by the tests' HostAuth (popquiz/tests/harness_full.rs). The
 # first call type-checks and unit-tests every feature-gated bin (smoke, burst,
 # and the frozen spike's two); the second runs the in-process harness, which is
 # #[ignore]d so `test` never runs it. 200 participants are ~800 descriptors in
@@ -127,7 +127,7 @@ harness-full:
         echo "harness-full: ulimit -n is $(ulimit -n); 1024 or more is needed" >&2
         exit 1
     fi
-    cd room
+    cd popquiz
     cargo test --offline --locked --features burst,spike --bins
     cargo test --offline --locked --features burst --test harness_rules
     cargo test --offline --locked --features burst --test harness_full -- --ignored --nocapture
@@ -144,7 +144,7 @@ test-transport-full:
         echo "test-transport-full: ulimit -n is $(ulimit -n); 1024 or more is needed" >&2
         exit 1
     fi
-    cd room && cargo test --offline --locked --test transport_full -- --ignored
+    cd popquiz && cargo test --offline --locked --test transport_full -- --ignored
 
 # The AC-12 containment suite, on the image `sandbox-build` just produced.
 #
@@ -214,7 +214,7 @@ sandbox-build:
 # The wall's measured layout (AC-100, AC-33): every bank question, every phase
 # that renders source, measured by the real wall code in a real layout engine.
 # Serves the repo on loopback and names the page; open it in a browser (the c11
-# browser, or any other) and read the JSON report it writes. room/README.md,
+# browser, or any other) and read the JSON report it writes. popquiz/README.md,
 # Pages, records the last run.
 wall-layout PORT="8765":
     @echo "open http://127.0.0.1:{{ PORT }}/web/wall/measure.html?run=1"
@@ -222,7 +222,7 @@ wall-layout PORT="8765":
 
 # The secrecy suite (T-08). Plants a canary in every secret field, walks a room
 # through every phase and scans every payload, frame, page and served file, the
-# rendered wall and the real buzzer page (room/README.md, Canary). The scan runs
+# rendered wall and the real buzzer page (popquiz/README.md, Canary). The scan runs
 # inside `test` too (cargo runs every tests/*.rs); this recipe is the hook.
 #
 #   just canary            the scan: HTTP in-process, sockets over loopback
@@ -247,7 +247,7 @@ canary *ARGS:
         esac
         shift
     done
-    cd room
+    cd popquiz
     if [ -n "$url" ]; then
         CANARY_URL="$url" cargo test --offline --locked --test canary_full -- --ignored
         exit 0
@@ -261,13 +261,13 @@ canary *ARGS:
 # planted admin-token canary anywhere in the repository — tracked files and
 # untracked ones not ignored, so a file about to be added is caught too. The
 # *name* is fine; a value is not. The scan runs inside `test` as well (it is a
-# test in room/tests/admin.rs); this recipe is the hook.
+# test in popquiz/tests/admin.rs); this recipe is the hook.
 secret-scan:
-    cd room && cargo test --offline --locked --test admin repository
+    cd popquiz && cargo test --offline --locked --test admin repository
 
 # The deployed room end to end (T-09): all seven phases over real sockets with
 # mock participants, the join link and the stand-in's refusals checked, q3's
-# secrets scanned for in every pre-reveal frame (room/README.md, Deploying).
+# secrets scanned for in every pre-reveal frame (popquiz/README.md, Deploying).
 # The organizer's credential is read from POPQUIZ_ORGANIZER_SESSION, which
 # `op run` sets from `.env.op`, never from the command line. `test-full` runs it against an
 # in-process room (harness-full); against the deployed room it is by hand or
@@ -276,7 +276,7 @@ secret-scan:
 #   just smoke https://rustnyc-popquiz.fly.dev [--participants N] [--question ID] [--out PATH]
 #
 # The question defaults to `smoke-q3`, a harness id: q3's record scheduled
-# under it first (room/README.md, Burst, Scheduling), so the run's release
+# under it first (popquiz/README.md, Burst, Scheduling), so the run's release
 # never retires a bank question. Off loopback a bank id is refused unless
 # `--spend-bank-question` is given, and plain http is refused. Never run it
 # during a meetup.
@@ -286,7 +286,7 @@ smoke URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
-    cd room
+    cd popquiz
     {{ op_run }} cargo run --release --offline --locked --features smoke --bin smoke -- --url "{{ URL }}" {{ ARGS }}
 
 # AC-54, AC-53, AC-41 and AC-52 on the room's own protocol (T-21): 200
@@ -294,7 +294,7 @@ smoke URL *ARGS:
 # report on stdout (and --out); exit 0 pass, 1 a criterion missed, 2 invalid or
 # could not run, 3 below the criteria's conditions without a miss (not a pass).
 # Credentials as smoke; the question defaults to `burst-q3`, a harness id,
-# scheduled first over the pipeline channel (room/README.md, Burst); a bank id
+# scheduled first over the pipeline channel (popquiz/README.md, Burst); a bank id
 # is refused off loopback unless `--spend-bank-question`. Off loopback
 # `--connection-cap` is required: fly.toml's hard_limit (the run holds 2n+3
 # connections). Against https it is the deployed substrate; `test-full` runs
@@ -307,7 +307,7 @@ burst URL *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     ulimit -n 4096 2>/dev/null || true
-    cd room
+    cd popquiz
     {{ op_run }} cargo run --release --offline --locked --features burst --bin burst -- --url "{{ URL }}" {{ ARGS }}
 
 # --- Reserved names whose suites do not exist yet ------------------------------

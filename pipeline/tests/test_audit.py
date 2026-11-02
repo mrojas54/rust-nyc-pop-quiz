@@ -426,6 +426,16 @@ def test_nothing_participant_facing_reads_the_tell_report() -> None:
     assert audit.bank_audit_references(REPO) == []
 
 
+def test_the_tell_report_scan_walks_the_crate_folder(tmp_path: pathlib.Path) -> None:
+    """The scan skips a top folder that is absent, so the clean result above means
+    nothing unless both folders exist and the crate's is the one it walks."""
+    assert (REPO / "web").is_dir() and (REPO / "popquiz" / "Cargo.toml").is_file()
+    leak = tmp_path / "popquiz" / "src" / "leak.rs"
+    leak.parent.mkdir(parents=True)
+    leak.write_text('const REPORT: &str = "bank/audit/2026-10-14.json";\n', encoding="utf-8")
+    assert audit.bank_audit_references(tmp_path) == ["popquiz/src/leak.rs"]
+
+
 def test_a_page_that_reads_the_tell_report_is_caught(tmp_path: pathlib.Path) -> None:
     page = tmp_path / "web" / "home" / "index.js"
     page.parent.mkdir(parents=True)

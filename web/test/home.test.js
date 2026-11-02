@@ -1,7 +1,7 @@
 // Take it home — web/home/home.js, SPEC §13, T-12.
 //
 // Every snapshot here comes from web/home/fixtures/take-home.json, which
-// room/tests/take_home.rs GENERATES from AppState::take_home() and checks on
+// popquiz/tests/take_home.rs GENERATES from AppState::take_home() and checks on
 // every `just test` — so these are the pages the room serves, and nothing here
 // writes down what a program prints. `q3` is a legacy record that ran;
 // `complete` and `dnc` are SYNTHETIC records built from q3's prose (the
@@ -10,7 +10,7 @@
 // There is no layout engine here (no headless browser on this machine or in
 // CI; justfile). AC-33 is proven in two halves: this suite asserts the rules
 // that make it true, and web/home/measure.html measures the rendered page at
-// 360 px and 375 px in a real browser (room/README.md, Pages, records the run).
+// 360 px and 375 px in a real browser (popquiz/README.md, Pages, records the run).
 
 const test = require('node:test');
 const assert = require('node:assert');

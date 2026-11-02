@@ -7,8 +7,8 @@ while its second candidate is in flight, then run again with no cleanup.
 
 Asserted: no partial record is visible after the kill; the rerun completes, with
 the first candidate served from what the killed run kept and only the other two
-asked for; and the room is unaffected - every file under `bank/` and under `room/`
-(build output in `room/target/` aside) and `mvp/answer-history.json` have the
+asked for; and the room is unaffected - every file under `bank/` and under `popquiz/`
+(build output in `popquiz/target/` aside) and `mvp/answer-history.json` have the
 same bytes after as before.
 
 Bounded: every wait has a deadline, and the whole test is reported in seconds.
@@ -39,7 +39,9 @@ DEADLINE_S = 60.0
 def room_digest() -> dict[str, str]:
     """sha256 of every file the room or the bank could be touched through."""
     files = [p for p in (REPO / "bank").rglob("*") if p.is_file()]
-    files += [p for p in (REPO / "room").rglob("*") if p.is_file() and "target" not in p.relative_to(REPO / "room").parts]
+    crate = [p for p in (REPO / "popquiz").rglob("*") if p.is_file() and "target" not in p.relative_to(REPO / "popquiz").parts]
+    assert crate, "no files under popquiz/: this digest would stop covering the crate"
+    files += crate
     files.append(REPO / "mvp" / "answer-history.json")
     return {str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
 
@@ -117,6 +119,6 @@ def test_ac2_a_generator_killed_mid_candidate_reruns_to_completion(tmp_path, cap
     report = json.loads((run_dir / "_run" / "report.json").read_text(encoding="utf-8"))
     assert report["resumed"] is True and report["numbers"] == "api-equivalent"
 
-    assert room_digest() == before, "the generator changed a file under bank/, room/ or mvp/answer-history.json"
+    assert room_digest() == before, "the generator changed a file under bank/, popquiz/ or mvp/answer-history.json"
     with capsys.disabled():
         print(f"\nAC-2 kill-and-rerun wall-clock: {time.monotonic() - started:.2f} s")
