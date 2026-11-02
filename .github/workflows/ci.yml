@@ -59,6 +59,24 @@ jobs:
 
       - run: just test
 
+      # G-11, GAP-23. The audit over the real bank, beside `just test` and not in it
+      # (the recipe holds a 60 s budget). A FAIL fails the job; a WARN exits 0 and
+      # passes. What the audit prints is organizer-only (AC-25): which rules hit how
+      # often, and on a finding the questions by id. Anyone who can read the repository
+      # can read this log, so that goes to a file nothing uploads, and the line printed
+      # here comes from the exit status, never from the output. Run `just bank-audit`
+      # locally to read it.
+      - name: Audit the committed bank
+        run: |
+          set -euo pipefail
+          if just bank-audit > "$RUNNER_TEMP/bank-audit.log" 2>&1; then
+            echo "bank-audit: passed"
+          else
+            status=$?
+            echo "bank-audit: FAILED (exit $status). Run just bank-audit locally for the findings."
+            exit "$status"
+          fi
+
       # T-09, T-21. The two harness clients, which `just test` does not compile
       # (they are feature-gated to hold its 60 s budget), and their own unit
       # tests; kept on this fast job so a broken client fails early. The
