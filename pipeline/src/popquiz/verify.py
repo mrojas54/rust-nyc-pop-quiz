@@ -659,7 +659,17 @@ def check_provenance(data: Mapping[str, Any]) -> Question:
         question = bank.question_from_dict(dict(data))
     except BankError as exc:
         raise ProvenanceError(str(exc)) from exc
+    return check_question(question)
 
+
+def check_question(question: Question) -> Question:
+    """The part of `check_provenance` a loaded question can still fail. Returns it
+    or raises. `schedule.refusal` and `fallback.bake` call this: loading already
+    refused a `correct` field and any unknown field (`bank.question_from_dict`).
+
+    It has the same limit as `check_provenance`: a self-consistent edit inside the
+    record passes.
+    """
     v = question.verified
     if v is None:
         raise ProvenanceError(f"{question.id}: has no verified record; nothing derives")
@@ -688,11 +698,29 @@ def check_provenance(data: Mapping[str, Any]) -> Question:
 # --------------------------------------------------------------------------- #
 
 
+def _check_file(path: Path) -> int:
+    """`--check`: the provenance check on a file, for `just demo`, which pushes the
+    stored file rather than a question `popquiz schedule` loaded. Runs nothing and
+    writes nothing."""
+    try:
+        check_provenance(json.loads(path.read_text(encoding="utf-8")))
+    except ProvenanceError as exc:
+        print(f"verify: {exc}", file=sys.stderr)
+        return 1
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"verify: cannot read {path}: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> int:
     """`python -m popquiz.verify <candidate.json> [--expect ...]`.
 
     Exit 0: accepted, and the record was written into the candidate file.
     Exit 1: rejected; the file is untouched. Exit 2: refused, or unusable input.
+
+    `--check <file>` runs only the provenance check. Exit 0: it passes. Exit 1: it
+    refuses. Exit 2: unusable input. The file is never touched.
     """
     parser = argparse.ArgumentParser(
         prog="verify",
@@ -704,7 +732,14 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
         choices=EXPECTS,
         help="the declared answer; required unless the file already has a record",
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="only run the provenance check on the file; runs no program and writes nothing",
+    )
     args = parser.parse_args(argv)
+    if args.check:
+        return _check_file(args.candidate)
 
     try:
         data = json.loads(args.candidate.read_text(encoding="utf-8"))
