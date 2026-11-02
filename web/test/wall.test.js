@@ -176,6 +176,22 @@ test('reveal: ✓ on the correct option, the totals, the named option, the recei
   }
 });
 
+test('reveal: the receipt lists the steps and says nothing about the explanation (AC-71)', () => {
+  assert.ok(F.reveal.length > 0);
+  for (const f of F.reveal) {
+    const h = W.html(f);
+    // Above: the explanation's own words are absent. Here: no sentence about it.
+    // The sentence itself is take-it-home's (D-25), and it has no place here.
+    assert.ok(!h.includes(PQ.escapeHtml(PQ.COPY.home_machine_only)), 'the take-it-home sentence on the wall');
+    const text = h.replace(/<[^>]*>/g, ' ');
+    assert.ok(!/explanation|explains?\b/i.test(text), `the wall mentions the explanation: ${text.match(/.{0,60}expla.{0,60}/i)}`);
+  }
+  // The room's receipt data, whatever the wall does with it.
+  for (const part of [F.reveal[0].reveal.receipt.heading, ...F.reveal[0].reveal.receipt.lines]) {
+    assert.ok(!/explanation|explains?\b/i.test(part), part);
+  }
+});
+
 test('reveal steps back through the whole trace, without colour', () => {
   const m = F.reveal[0].trace.m;
   assert.deepStrictEqual(F.reveal.map((f) => f.trace.at), [...Array(m).keys()].reverse());
