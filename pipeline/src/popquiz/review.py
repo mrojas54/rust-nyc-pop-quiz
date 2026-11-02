@@ -20,8 +20,10 @@ Three things this module never does, each because a rule depends on it:
   marks the record `edited` (GAP-24).
 
 The trope and Forbidden warnings come from `copylint.check_prose` and block
-nothing (D-23). Answer position is not a review decision: options stay in bank
-order, and the meetup's order is drawn from the date at scheduling (AC-23).
+nothing here (D-23); separately, `just test` fails on a Forbidden match in a
+committed question (`tests/test_copylint.py`). Answer position is not a review
+decision: options stay in bank order, and the meetup's order is drawn from the
+date at scheduling (AC-23).
 
 Exit status: 0 done; 1 refused, with one plain sentence on stderr and the record
 unchanged; 2 the input could not be read.
