@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import io
 import json
+import re
 import shutil
 import urllib.error
 from datetime import date, timedelta
@@ -375,6 +376,19 @@ def test_ac7_the_check_comes_after_the_refusals_that_were_already_there(bank):
     _edit_record(bank, "q4", used)
     affirm(bank, "q4")
     assert "never run twice" in schedule.refusal(load_question(bank, "q4"))
+
+
+def test_ac7_just_demo_checks_the_file_before_any_network_call():
+    """`just demo` pushes the stored file, so neither `refusal` nor `bake` sees it, and
+    it runs the check itself, first, unguarded, so a refusal stops the recipe (its
+    `set -e`) with nothing sent. Read from the recipe, as `just test` starts no process."""
+    justfile = (BANK.parent / "justfile").read_text(encoding="utf-8")
+    lines = [line.strip() for line in justfile[justfile.index("\ndemo "):justfile.index("\nsync ")].splitlines()]
+    assert "set -euo pipefail" in lines
+    check = "uv run --offline --no-sync --project pipeline python -m popquiz.verify --check \"$record\""
+    assert lines.count(check) == 1
+    network = [i for i, line in enumerate(lines) if re.search(r"\b(op read|auth |curl)\b", line)]
+    assert network and lines.index(check) < min(network)
 
 
 def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_path, capsys):

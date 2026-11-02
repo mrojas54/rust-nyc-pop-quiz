@@ -677,6 +677,55 @@ def test_a_loaded_question_verify_wrote_passes_and_comes_back() -> None:
     assert verify.check_question(q) is q
 
 
+@pytest.mark.parametrize(
+    "path",
+    sorted((HERE.parent.parent / "bank" / "questions").glob("*.json")),
+    ids=lambda p: p.stem,
+)
+def test_the_cli_check_passes_every_bank_question(path, capsys) -> None:
+    """What `just demo` runs on the file it is about to push."""
+    assert verify.main(["--check", str(path)]) == 0
+    assert capsys.readouterr().err == ""
+
+
+def test_the_cli_check_passes_a_good_file_and_leaves_it(tmp_path, capsys) -> None:
+    path = tmp_path / "q3.json"
+    path.write_text(json.dumps(_file("q3", "ran")), encoding="utf-8")
+    before = path.read_bytes()
+    assert verify.main(["--check", str(path)]) == 0
+    assert path.read_bytes() == before
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    ("edit", "needle"),
+    [
+        (_without_stamp, "not written by the verifier"),
+        (_edited_answer, "drifted apart"),
+        (lambda data: {**data, "correct": 0}, "never stored"),
+    ],
+    ids=["unstamped", "edited-answer", "stored-correct"],
+)
+def test_the_cli_check_refuses_in_the_checks_own_words(tmp_path, capsys, edit, needle) -> None:
+    data = edit(_file("q3", "ran"))
+    with pytest.raises(verify.ProvenanceError, match=needle) as caught:
+        verify.check_provenance(data)
+    path = tmp_path / "q3.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = path.read_bytes()
+    assert verify.main(["--check", str(path)]) == 1
+    assert path.read_bytes() == before
+    assert capsys.readouterr().err == f"verify: {caught.value}\n"
+
+
+@pytest.mark.parametrize("text", ["{", "[1, 2]", "{}"], ids=["truncated", "not-an-object", "empty"])
+def test_the_cli_check_refuses_a_file_it_cannot_read(tmp_path, capsys, text) -> None:
+    path = tmp_path / "q3.json"
+    path.write_text(text, encoding="utf-8")
+    assert verify.main(["--check", str(path)]) == 2
+    assert "cannot read" in capsys.readouterr().err
+
+
 def test_a_self_consistent_edit_inside_the_record_still_passes() -> None:
     """The stated limit: nothing binds a record to its run. If this starts failing,
     the docstrings that state the limit are out of date."""
