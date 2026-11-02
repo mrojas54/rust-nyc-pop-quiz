@@ -557,16 +557,34 @@ pub fn route_table() -> BTreeSet<Route> {
     route_table_of(&crate::common::router_files())
 }
 
+/// The one file whose `.route(&path, ...)` means the host-action family. A
+/// `&path` anywhere else is an unread path, not that family.
+const HOST_ACTION_FILE: &str = "server/routes/mod.rs";
+
 /// [`route_table`] over the given (path, text) files, each parsed on its own.
 /// Textual: a router method this cannot turn into a path panics rather than
 /// passing with the path unread, so `.nest(` and `.fallback(` must teach it first.
 pub fn route_table_of(files: &[(String, String)]) -> BTreeSet<Route> {
     let mut out = BTreeSet::new();
     for (name, text) in files {
+        let squeezed = crate::common::squeezed(text);
         for call in crate::common::ROUTER_CALLS {
+            let by_path = call.replacen('.', "::", 1);
             assert!(
-                *call == ".route(" || !text.contains(call),
+                (*call == ".route(" || !squeezed.contains(call)) && !squeezed.contains(&by_path),
                 "{name} calls {call} and the canary's route table cannot read it"
+            );
+        }
+        assert_eq!(
+            squeezed.matches(".route(").count(),
+            text.matches(".route(").count(),
+            "{name} spaces a .route( call and the canary's route table cannot read it"
+        );
+        if name == HOST_ACTION_FILE {
+            assert_eq!(
+                squeezed.matches(".route(&path,").count(),
+                2,
+                "{name} registers a route through &path beyond the host-action family"
             );
         }
     }
@@ -609,20 +627,15 @@ pub fn route_table_of(files: &[(String, String)]) -> BTreeSet<Route> {
                 .iter()
                 .map(|v| pat.replace("{name}", v))
                 .collect()
-        } else if trimmed.starts_with("&path") {
+        } else if file_name == HOST_ACTION_FILE && trimmed.starts_with("&path,") {
+            // Registered twice (run-it-again, and every other action); both POST.
+            assert_eq!(method, "POST", "{file_name} serves a host action off POST");
             room::host_routes().into_iter().map(|(_, p)| p).collect()
         } else {
             panic!(
                 "{file_name} registers a route the canary cannot read: {}",
                 &trimmed[..trimmed.len().min(80)]
             );
-        };
-        // `&path` is registered twice (run-it-again, and every other action);
-        // both are POST.
-        let method = if trimmed.starts_with("&path") {
-            "POST"
-        } else {
-            method
         };
         for path in paths {
             out.insert(Route { method, path });

@@ -109,9 +109,19 @@ pub const ROUTER_CALLS: &[&str] = &[
 /// which the room never serves. The one file [`router_files`] leaves out.
 pub const SEPARATE_ROUTER: &str = "cli/spike-server.rs";
 
-/// Does this source call a router method?
+/// The source with all whitespace gone, so `.route (` reads as `.route(`.
+pub fn squeezed(text: &str) -> String {
+    text.split_whitespace().collect()
+}
+
+/// Does this source call a router method, as a method or by path
+/// (`Router::route(router, ...)`), however it is spaced? Comments between the
+/// tokens are beyond it: this is a text scan.
 pub fn calls_router(text: &str) -> bool {
-    ROUTER_CALLS.iter().any(|call| text.contains(call))
+    let text = squeezed(text);
+    ROUTER_CALLS
+        .iter()
+        .any(|call| text.contains(call) || text.contains(&call.replacen('.', "::", 1)))
 }
 
 /// Every file under `popquiz/src` that calls a router method, wherever it lives,
