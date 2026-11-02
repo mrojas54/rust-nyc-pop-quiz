@@ -230,3 +230,28 @@ test('the live wall still boots itself; a static wrap is left to static.js', () 
   const page = fs.readFileSync(path.join(WALL, 'index.html'), 'utf8');
   assert.ok(!page.includes('static.js'), 'the live page does not load the static driver');
 });
+
+// --------------------------------------------------------------------------
+// The live region after Esc (AC-83): idle says nothing, so a stale line must go
+// --------------------------------------------------------------------------
+
+test('Esc back to idle empties the live region; leaving idle fills it again', () => {
+  const l = loaded();
+  const wrap = l.document.createElement('div');
+  const data = { textContent: JSON.stringify(BAKE) };
+  let onKey = null;
+  l.document.getElementById = (id) => ({ wallWrap: wrap, 'pq-static': data })[id] || null;
+  l.document.addEventListener = (type, fn) => { if (type === 'keydown') onKey = fn; };
+  l.PQ.Wall.mount = () => ({ show: (f) => { const say = l.PQ.Wall.announcement(f); if (say) l.PQ.announce(say); } });
+  l.PQ.Static.boot();
+  const press = (key) => onKey({ key, preventDefault() {} });
+  const region = () => l.document.body.children[0];
+
+  press(' ');
+  assert.strictEqual(region().textContent, l.PQ.COPY.live_question_on_screen);
+  press('Escape');
+  assert.strictEqual(l.PQ.staticWall.state().phase, 'idle');
+  assert.strictEqual(region().textContent, '');
+  press(' ');
+  assert.strictEqual(region().textContent, l.PQ.COPY.live_question_on_screen);
+});
