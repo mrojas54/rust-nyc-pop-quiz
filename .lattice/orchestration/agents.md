@@ -9,6 +9,8 @@ Snapshot: 2026-10-18 18:3xZ. **PQ-76 dispatched; nothing else in flight. `origin
 | Role | Ticket | Panel ref | Branch | Phase |
 |---|---|---|---|---|
 | Orchestrator | — | `panel:16` | ai-c11-cc/lattice-build | dispatching; waiting on PQ-76's READY / PLAN / DONE by mailbox (`pq-orchestrator`) |
+| agent:delegator-pq66 (Opus, inline-full, Codex review) | PQ-66 / known false normalized duplicates and the verifier-record check | `done`, PR #113 merged `e073ec7` 2026-11-02 on the client's word | Panel closed, worktree and branch removed; checkpoint `templates/checkpoint-PQ-66.md` |
+| agent:delegator-pq81 (Opus, fast-track, Codex review) | PQ-81 / any edit unchecks a question's checked quotes | `done`, PR #112 merged `2fe8d72` 2026-10-31 on the client's word | Panel closed, worktree and branch removed; checkpoint `templates/checkpoint-PQ-81.md` |
 | agent:delegator-pq76 (Opus, inline-full, `--delegated`) | PQ-76 / rename the default club `nyc` to `rustnyc` (ADR-0005 item 8) | `panel:24` | ai-c11-cc/rustnyc-rename off `c5c42f7` | launched 18:3xZ; boot `templates/boot-PQ-76.md`; no planned halt |
 | Waiting on the client | PQ-76's merge (a release step: `just sync` first) · PQ-72 / PQ-78 · the held tickets · cleanup of `…-worktrees/validate-2026-10-18` and `pty-state-waits` | — | — | held |
 

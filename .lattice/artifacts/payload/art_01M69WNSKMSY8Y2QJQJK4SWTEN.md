@@ -1,0 +1,1 @@
+FAIL at the cap. Reviewed HEAD a96c55a11f8520014f731b0862d7cf7c1678453c. Pass 1 on 633eab8: FAIL, Majors in shapes 2 and 3, fixed. Pass 2 on a96c55a11f8520014f731b0862d7cf7c1678453c: one Major in shape 6, type alias target resolved outside its module scope. Unresolved, escalated.

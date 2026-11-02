@@ -1,26 +1,52 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 4,
   "complexity": "medium",
   "created_at": "2026-10-31T17:46:38Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Found by the PQ-72 delegator (PR #109, merged 0deed94); client ruled a ticket on 2026-10-31. Today a quotes_checked attestation lasts as long as the span's text does, and it ignores the surrounding sentence and the program. So an edit can change the context so a previously checked span becomes a real claim about what a program prints, while the span stays checked. Mitigation today: any edit clears the affirmation and the review screen labels the span for whoever re-affirms. Not a contradiction of AC-73 as written: a mismatch still blocks unless that exact span was attested. Pinned behaviour: test_ac73_a_checked_quote_lasts_exactly_as_long_as_its_text in pipeline/tests/test_review.py, and the comment in pipeline/src/popquiz/review.py; both need changing if behaviour does. Decide first: what should invalidate an attestation (sentence changed, program changed, or any edit), keeping House rule AC-7 (never write down what a program prints). Acceptance: the chosen trigger unchecks the span, shown failing under its mutation; just test green; if AC-73's wording needs amending, that goes to the client.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-10-31T21:51:20Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M69V41CKNCZXB9HDVMXKPWN6",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M69V424ET8FSF211FBMXJZPY",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M69VSS1WCX16WS48Y8EFN38R",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M69Z47ADPJ9HZW701WR37CGX",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M69Z47ADPJ9HZW701WR37CGW",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M69H45B9YE18GDCVFNB42416",
-  "last_event_id": "ev_01M69H45BBSZ6A825XCAR37NW0",
-  "last_status_changed_at": "2026-10-31T17:46:38Z",
+  "last_event_id": "ev_01M69Z47ADPJ9HZW701WR37CGZ",
+  "last_status_changed_at": "2026-10-31T21:51:20Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-81",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "An edit can turn a checked quote into a claim about output without unchecking it",
   "type": "bug",
-  "updated_at": "2026-10-31T17:46:38Z",
+  "updated_at": "2026-10-31T21:51:20Z",
   "urgency": null
 }

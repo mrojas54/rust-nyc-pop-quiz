@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-31T21:51:20Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M69Z47ADPJ9HZW701WR37CGW",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M69Z47ADPJ9HZW701WR37CGW.md",
+    "size_bytes": 146
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #112 merged as 2fe8d72 on the client's 'merge 112', pinned to head 1211dce; Codex PASS at that head; main CI and deploy 2/2 success at 2fe8d72.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,0 +1,1 @@
+FAIL. Reviewed HEAD c7cac93afa29e1676ad15a07c4f36bb94078e483. One Major in shape 3, on base too: local's type scope checked at the call, not at the let. Unresolved, escalated.

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-02T03:45:12Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6D5RWSGE3GEWJXTGDG4YP6A",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6D5RWSGE3GEWJXTGDG4YP6A.md",
+    "size_bytes": 398
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #113 merged as e073ec7 on the client's 'fix docs then merge', pinned to head 14fa1ff. Codex pass 5 PASS on the verifier check only, at e54d782; passes 1-4 FAIL; 14fa1ff adds docs only, code unchang",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
