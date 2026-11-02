@@ -84,11 +84,18 @@ tokens tie every such call to a program type that declares it: the receiver is
 `self` in that type's `impl` or `trait`, the bare type, or a local whose every
 binding is `let c = S;` or `let c = S { .. };`. That rule covers method calls only.
 
-Known open: this shape still makes a program that compiles normalize equal to one
-that does not (found while closing PQ-66).
+Known open: these shapes still make a program that compiles normalize equal to one
+that does not (found while closing PQ-66). Each stays token-equal. Each is separated
+only when both programs have a readable verifier record and those records differ,
+so with no records the candidate is still discarded.
 
 1. A generic parameter reaches into a `mod` nested in its function, where the bare
    name is the library's (`fn f<String>() { mod m { .. String::new() .. } }`).
+2. `self` in an `impl` for `std::primitive::u32` is tied to a program's `struct u32`,
+   where the method is the library's
+   (`impl Tr for std::primitive::u32 { .. self.count_ones() .. }`).
+
+False matches whose two programs have the same recorded result also stay merged.
 
 That is a bounded list of the shapes known so far, not proof that no other exists.
 
