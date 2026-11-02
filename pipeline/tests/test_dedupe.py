@@ -21,7 +21,9 @@ from popquiz.bank import (
     History,
     Question,
     Review,
+    Runs,
     Trace,
+    Verified,
     load_bank,
     load_history,
     load_question,
@@ -694,6 +696,268 @@ SCOPE_NEVER_THE_SAME = [
         "struct A; impl A { fn try_from(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { let _ = Self::try_from(1u8); B } } fn main() { A::try_from(1); let _ = B::from(1); }",
         "struct A; impl A { fn zz(x: u8) -> u8 { x } } struct B; impl From<u8> for B { fn from(_: u8) -> B { let _ = Self::zz(1u8); B } } fn main() { A::zz(1); let _ = B::from(1); }",
     ),
+    # PQ-66. Probed with rustc 1.96.1 (`--edition 2021 --crate-type bin`): the first
+    # program exits 0 and the second 1, except where a row's comment says otherwise.
+    (
+        "a let binding does not reach into a module nested in its block",
+        "fn main() { let drop = 1; mod m { pub fn f() { drop(1); } } m::f(); let _ = drop; }",
+        "fn main() { let zzq = 1; mod m { pub fn f() { zzq(1); } } m::f(); let _ = zzq; }",
+    ),
+    (
+        "a parameter does not reach into a module nested in its body",
+        "fn f(drop: i32) -> i32 { mod m { pub fn g() { drop(1); } } m::g(); drop } fn main() { f(1); }",
+        "fn f(zzq: i32) -> i32 { mod m { pub fn g() { zzq(1); } } m::g(); zzq } fn main() { f(1); }",
+    ),
+    (
+        "a closure parameter does not reach into a module nested in its body",
+        "fn main() { let c = |drop: i32| { mod m { pub fn g() { drop(1); } } m::g(); drop }; c(1); }",
+        "fn main() { let c = |zzq: i32| { mod m { pub fn g() { zzq(1); } } m::g(); zzq }; c(1); }",
+    ),
+    (
+        "a for binding does not reach into a module nested in its body",
+        "fn main() { for drop in [1] { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } }",
+        "fn main() { for zzq in [1] { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } }",
+    ),
+    (
+        "an if-let binding does not reach into a module nested in its block",
+        "fn main() { if let Some(drop) = Some(1) { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } }",
+        "fn main() { if let Some(zzq) = Some(1) { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } }",
+    ),
+    (
+        "a match-arm binding does not reach into a module nested in its body",
+        "fn main() { match 1 { drop => { mod m { pub fn g() { drop(1); } } m::g(); let _ = drop; } } }",
+        "fn main() { match 1 { zzq => { mod m { pub fn g() { zzq(1); } } m::g(); let _ = zzq; } } }",
+    ),
+    (
+        "an if-let initializer block is not the binding's block",
+        "fn main() { if let Some(drop) = { drop(1); Some(2) } { } }",
+        "fn main() { if let Some(zzq) = { zzq(1); Some(2) } { } }",
+    ),
+    (
+        "a while-let initializer block is not the binding's block",
+        "fn main() { let mut n = 0; while let Some(drop) = { drop(1); if n == 0 { n = 1; Some(2) } else { None } } { } }",
+        "fn main() { let mut n = 0; while let Some(zzq) = { zzq(1); if n == 0 { n = 1; Some(2) } else { None } } { } }",
+    ),
+    (
+        "a for loop's iterator block is not the binding's block",
+        "fn main() { for drop in { drop(1); [2] } { } }",
+        "fn main() { for zzq in { zzq(1); [2] } { } }",
+    ),
+    (
+        "an unsafe initializer is not the binding's block",
+        "fn main() { if let Some(drop) = unsafe { drop(1); Some(2) } { } }",
+        "fn main() { if let Some(zzq) = unsafe { zzq(1); Some(2) } { } }",
+    ),
+    (
+        "a match initializer is not the binding's block",
+        "fn main() { if let Some(drop) = match 1 { _ => { drop(1); Some(2) } } { } }",
+        "fn main() { if let Some(zzq) = match 1 { _ => { zzq(1); Some(2) } } { } }",
+    ),
+    (
+        "a labelled initializer block is not the binding's block",
+        "fn main() { if let Some(drop) = 'a: { drop(1); break 'a Some(2) } { } }",
+        "fn main() { if let Some(zzq) = 'a: { zzq(1); break 'a Some(2) } { } }",
+    ),
+    (
+        "a macro's braces in the initializer are not the binding's block",
+        "fn main() { if let Some(drop) = vec!{ drop(1) }.pop() { } }",
+        "fn main() { if let Some(zzq) = vec!{ zzq(1) }.pop() { } }",
+    ),
+    (
+        "a closure's block in the initializer is not the binding's block",
+        "fn main() { if let drop = |x: i32| { drop(x); } { } }",
+        "fn main() { if let zzq = |x: i32| { zzq(x); } { } }",
+    ),
+    (
+        "a closure's block after its return type is not the binding's block",
+        "fn main() { if let drop = |x: i32| -> () { drop(x) } { } }",
+        "fn main() { if let zzq = |x: i32| -> () { zzq(x) } { } }",
+    ),
+    (
+        "a block-level use shadows a function of the same name",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::drop; drop(1); } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::drop; zzq(1); } zzq(1, 2); }",
+    ),
+    (
+        "a nested path in a block-level use group shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::{mem::drop, mem::swap}; drop(1); let _ = swap::<i32>; } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::{mem::drop, mem::swap}; zzq(1); let _ = swap::<i32>; } zzq(1, 2); }",
+    ),
+    (
+        "a block-level use group's bare name shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::{drop, swap}; drop(1); let _ = swap::<i32>; } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::{drop, swap}; zzq(1); let _ = swap::<i32>; } zzq(1, 2); }",
+    ),
+    (
+        "a block-level glob use shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn main() { { use std::mem::*; drop(1); } drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn main() { { use std::mem::*; zzq(1); } zzq(1, 2); }",
+    ),
+    (
+        "a use in a function body shadows a function",
+        "fn drop(_: i32, _y: i32) {} fn f() { use std::mem::drop; drop(1); } fn main() { f(); drop(1, 2); }",
+        "fn zzq(_: i32, _y: i32) {} fn f() { use std::mem::drop; zzq(1); } fn main() { f(); zzq(1, 2); }",
+    ),
+    (
+        "a block-level use of a module through a group's self shadows a module",
+        "mod mem { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self}; mem::drop(1); }",
+        "mod zzq { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self}; zzq::drop(1); }",
+    ),
+    (
+        "a group's self beside another name shadows a module",
+        "mod mem { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self, swap}; mem::drop(1); let _ = swap::<i32>; }",
+        "mod zzq { pub fn drop(_: i32, _: i32) {} } fn main() { use std::mem::{self, swap}; zzq::drop(1); let _ = swap::<i32>; }",
+    ),
+    (
+        "a nested group's self shadows a module",
+        "mod mem { pub fn drop(_: i32, _: i32) {} } fn main() { use std::{mem::{self}}; mem::drop(1); }",
+        "mod zzq { pub fn drop(_: i32, _: i32) {} } fn main() { use std::{mem::{self}}; zzq::drop(1); }",
+    ),
+    (
+        "a declared method beside a free function and the library's method",
+        "fn count_ones(x: u32) -> u32 { x } struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); count_ones(1); let _ = 3u32.count_ones(); }",
+        "fn zzq(x: u32) -> u32 { x } struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); zzq(1); let _ = 3u32.zzq(); }",
+    ),
+    (
+        "a declared method beside the library's method",
+        "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); let _ = 3u32.count_ones(); }",
+        "struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); let _ = 3u32.zzq(); }",
+    ),
+    (
+        "a trait's method beside the library's, on a local",
+        "trait T { fn count_ones(&self) -> u32; } struct S; impl T for S { fn count_ones(&self) -> u32 { 0 } } fn main() { let _ = S.count_ones(); let n = 3u32; let _ = n.count_ones(); }",
+        "trait T { fn zzq(&self) -> u32; } struct S; impl T for S { fn zzq(&self) -> u32 { 0 } } fn main() { let _ = S.zzq(); let n = 3u32; let _ = n.zzq(); }",
+    ),
+    (
+        "a local shadowed by a library value is not tied to the type",
+        "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = S; let _ = c.count_ones(); { let c = 3u32; let _ = c.count_ones(); } }",
+        "struct S; impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let c = S; let _ = c.zzq(); { let c = 3u32; let _ = c.zzq(); } }",
+    ),
+    (
+        "a parameter named like the type is not the type a local holds",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } fn f(S: u32) { let c = S; let _ = c.count_ones(); } fn main() { f(3); }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } fn f(S: u32) { let c = S; let _ = c.zzq(); } fn main() { f(3); }",
+    ),
+    (
+        "a let named like the type is not the type a local holds",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let S = 3u32; let c = S; let _ = c.count_ones(); }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let S = 3u32; let c = S; let _ = c.zzq(); }",
+    ),
+    (
+        "a closure parameter named like the type is not the type a local holds",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } fn main() { let g = |S: u32| { let c = S; c.count_ones() }; g(3); }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } fn main() { let g = |S: u32| { let c = S; c.zzq() }; g(3); }",
+    ),
+    (
+        "a block-level use named like the type is not the type a local holds",
+        "struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let c = MAX; let _ = c.count_ones(); }",
+        "struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let c = MAX; let _ = c.zzq(); }",
+    ),
+    (
+        "a block-level use named like the type is not the bare type",
+        "struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let _ = MAX.count_ones(); }",
+        "struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { use std::u32::MAX; let _ = MAX.zzq(); }",
+    ),
+    (
+        "a top-level use named like the type is not the type a local holds",
+        "use std::u32::MAX; struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.count_ones(); }",
+        "use std::u32::MAX; struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.zzq(); }",
+    ),
+    (
+        "a top-level glob may bring in a value named like the type",
+        "use std::u32::*; struct MAX { a: u8 } impl MAX { fn count_ones(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.count_ones(); }",
+        "use std::u32::*; struct MAX { a: u8 } impl MAX { fn zzq(&self) -> u32 { 0 } } fn main() { let c = MAX; let _ = c.zzq(); }",
+    ),
+    (
+        "an alias in a module does not reach a type outside it",
+        "struct u32; impl u32 { fn count_ones(_: i32) {} } mod m { type A = u32; pub fn f() { let _ = A::count_ones(3); } } fn main() { m::f(); }",
+        "struct u32; impl u32 { fn zzq(_: i32) {} } mod m { type A = u32; pub fn f() { let _ = A::zzq(3); } } fn main() { m::f(); }",
+    ),
+    (
+        "an alias's target imported in its block is not the program's type",
+        "struct u32; impl u32 { fn count_ones(_: i32) {} } fn main() { use std::primitive::u32; type A = u32; let _ = A::count_ones(3); }",
+        "struct u32; impl u32 { fn zzq(_: i32) {} } fn main() { use std::primitive::u32; type A = u32; let _ = A::zzq(3); }",
+    ),
+    (
+        "an alias out of scope at its use is the library's name",
+        "mod m { pub struct S; impl S { pub fn from_iter(_: i32) {} } type Vec = S; } fn main() { let _: Vec<i32> = Vec::from_iter(vec![1]); }",
+        "mod m { pub struct S; impl S { pub fn zzq(_: i32) {} } type Vec = S; } fn main() { let _: Vec<i32> = Vec::zzq(vec![1]); }",
+    ),
+    (
+        "a bound in a module does not reach a trait outside it",
+        "trait Default { fn default() -> i32; } mod m { pub fn f<T: Default>() -> T { T::default() } } fn main() { let _: u8 = m::f(); }",
+        "trait Default { fn zzq() -> i32; } mod m { pub fn f<T: Default>() -> T { T::zzq() } } fn main() { let _: u8 = m::f(); }",
+    ),
+    (
+        "a bound's trait imported in its block is not the program's trait",
+        "trait Default { fn default() -> i32; } fn main() { use std::default::Default; fn f<T: Default>() -> T { T::default() } let _: u8 = f(); }",
+        "trait Default { fn zzq() -> i32; } fn main() { use std::default::Default; fn f<T: Default>() -> T { T::zzq() } let _: u8 = f(); }",
+    ),
+    (
+        "self in a module's impl does not reach a type outside it",
+        "struct u32; impl u32 { fn count_ones(&self) -> u32 { u32 } } mod m { pub trait Tr { fn g(&self) -> u32; } impl Tr for u32 { fn g(&self) -> u32 { self.count_ones() } } } fn main() {}",
+        "struct u32; impl u32 { fn zzq(&self) -> u32 { u32 } } mod m { pub trait Tr { fn g(&self) -> u32; } impl Tr for u32 { fn g(&self) -> u32 { self.zzq() } } } fn main() {}",
+    ),
+    (
+        "a local holding a prelude value is not a type outside the module",
+        "struct None { a: u8 } impl None { fn is_some_and(&self, _: fn(u8) -> bool) -> bool { true } } mod m { pub fn f() { let mut c = None; c = Some(1u8); let _ = c.is_some_and(|_| true); } } fn main() { m::f(); }",
+        "struct None { a: u8 } impl None { fn zzq(&self, _: fn(u8) -> bool) -> bool { true } } mod m { pub fn f() { let mut c = None; c = Some(1u8); let _ = c.zzq(|_| true); } } fn main() { m::f(); }",
+    ),
+    # Both exit 0, and they differ: the first calls `u32`'s own method, the second itself.
+    (
+        "self in an impl for a library type means the library's method",
+        "trait Tr { fn count_ones(&self) -> u32; } impl Tr for u32 { fn count_ones(&self) -> u32 { self.count_ones() } } fn main() {}",
+        "trait Tr { fn zzq(&self) -> u32; } impl Tr for u32 { fn zzq(&self) -> u32 { self.zzq() } } fn main() {}",
+    ),
+    (
+        "a const named like a type is not that type",
+        "struct S { a: u8 } impl S { fn count_ones(&self) -> u32 { 0 } } const S: u32 = 3; fn main() { let _ = S.count_ones(); let s = S { a: 1 }; let _ = s.a; }",
+        "struct S { a: u8 } impl S { fn zzq(&self) -> u32 { 0 } } const S: u32 = 3; fn main() { let _ = S.zzq(); let s = S { a: 1 }; let _ = s.a; }",
+    ),
+    (
+        "a field of a local is not the local",
+        "struct S; impl S { fn count_ones(&self) -> u32 { 0 } } struct W { c: u32 } fn main() { let c = S; let w = W { c: 3 }; let _ = w.c.count_ones(); let _ = c.count_ones(); }",
+        "struct S; impl S { fn zzq(&self) -> u32 { 0 } } struct W { c: u32 } fn main() { let c = S; let w = W { c: 3 }; let _ = w.c.zzq(); let _ = c.zzq(); }",
+    ),
+    (
+        "a declared field beside the library's method",
+        "struct P { count_ones: u32 } fn main() { let p = P { count_ones: 1 }; let _ = p.count_ones; let _ = 3u32.count_ones(); }",
+        "struct P { zzq: u32 } fn main() { let p = P { zzq: 1 }; let _ = p.zzq; let _ = 3u32.zzq(); }",
+    ),
+    (
+        "a generic bound by the library's trait is not the program trait's function",
+        "trait Tr { fn default() -> u8; } struct S; impl Tr for S { fn default() -> u8 { 1 } } fn f<T: Default>() -> T { T::default() } fn main() { S::default(); f::<i32>(); }",
+        "trait Tr { fn zz() -> u8; } struct S; impl Tr for S { fn zz() -> u8 { 1 } } fn f<T: Default>() -> T { T::zz() } fn main() { S::zz(); f::<i32>(); }",
+    ),
+    # The first exits 1 (E0034) and the second 0.
+    (
+        "a supertrait's name makes a program trait's path ambiguous",
+        "trait Tr: Default { fn default() -> u8; } fn f<T: Tr>() { T::default(); } fn main() {}",
+        "trait Tr: Default { fn zz() -> u8; } fn f<T: Tr>() { T::zz(); } fn main() {}",
+    ),
+    # The first exits 1 (E0034) and the second 0.
+    (
+        "a where clause's bound makes a program trait's path ambiguous",
+        "trait Tr { fn default() -> u8; } fn f<T: Tr>() where T: Default { T::default(); } fn main() {}",
+        "trait Tr { fn zz() -> u8; } fn f<T: Tr>() where T: Default { T::zz(); } fn main() {}",
+    ),
+    (
+        "an alias of a library type does not reach a program trait's function",
+        "type A = u32; trait Tr { fn count_ones() -> u8; } impl Tr for u32 { fn count_ones() -> u8 { 1 } } fn main() { let _ = A::count_ones(3); }",
+        "type A = u32; trait Tr { fn zzq() -> u8; } impl Tr for u32 { fn zzq() -> u8 { 1 } } fn main() { let _ = A::zzq(3); }",
+    ),
+    # The first exits 0 and the second 1 (E0599).
+    (
+        "a local's initializer outside the type's block is the library's name",
+        "fn main() { let mut c = None; { struct None { a: u8 } impl None { fn is_some_and(&self, _: fn(u8) -> bool) -> bool { true } } c = Some(1u8); let _ = c.is_some_and(|_| true); } }",
+        "fn main() { let mut c = None; { struct None { a: u8 } impl None { fn zzq(&self, _: fn(u8) -> bool) -> bool { true } } c = Some(1u8); let _ = c.zzq(|_| true); } }",
+    ),
+    # The first exits 0 and the second 1 (E0599).
+    (
+        "a bare receiver outside the type's block is the library's name",
+        "fn main() { { struct None; impl None { fn is_some_and(&self) {} } } let _ = None.is_some_and(|x: u8| x > 0); }",
+        "fn main() { { struct None; impl None { fn zzq(&self) {} } } let _ = None.zzq(|x: u8| x > 0); }",
+    ),
 ]
 
 
@@ -801,6 +1065,91 @@ SCOPED_THE_SAME = [
         "each type's own associated functions through its path and Self",
         "struct A; struct B; impl A { fn f() -> u8 { 1 } } impl B { fn g() -> u8 { Self::h() } fn h() -> u8 { 2 } } fn main() { A::f(); B::g(); }",
         "struct A; struct B; impl A { fn p() -> u8 { 1 } } impl B { fn q() -> u8 { Self::r() } fn r() -> u8 { 2 } } fn main() { A::p(); B::q(); }",
+    ),
+    (
+        "a local and a same-spelled local in a nested module",
+        "fn main() { let a = 1; mod m { pub fn f() -> i32 { let a = 2; a } } m::f(); let _ = a; }",
+        "fn main() { let b = 1; mod m { pub fn f() -> i32 { let b = 2; b } } m::f(); let _ = b; }",
+    ),
+    (
+        "an if-let and a for after a plain call",
+        "fn y() -> Option<i32> { None } fn main() { if let Some(a) = y() { let _ = a; } for b in [1] { let _ = b; } }",
+        "fn y() -> Option<i32> { None } fn main() { if let Some(c) = y() { let _ = c; } for d in [1] { let _ = d; } }",
+    ),
+    (
+        "a block-level use beside an unrelated function",
+        "fn go() {} fn main() { { use std::mem::drop; drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::drop; drop(1); } run(); }",
+    ),
+    (
+        "a block-level glob use beside a function outside its block",
+        "fn go() {} fn main() { { use std::mem::*; drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::*; drop(1); } run(); }",
+    ),
+    (
+        "an alias and its type in one module",
+        "mod m { pub struct S; impl S { pub fn mk() {} } type A = S; pub fn f() { A::mk(); } } fn main() { m::f(); }",
+        "mod m { pub struct S; impl S { pub fn build() {} } type A = S; pub fn f() { A::build(); } } fn main() { m::f(); }",
+    ),
+    (
+        "an alias in a function beside a top-level type",
+        "struct S; impl S { fn mk() {} } fn main() { type A = S; A::mk(); }",
+        "struct S; impl S { fn build() {} } fn main() { type A = S; A::build(); }",
+    ),
+    (
+        "a bound and its trait in one module",
+        "mod m { pub trait Tr { fn go() -> i32; } pub struct S; impl Tr for S { fn go() -> i32 { 1 } } pub fn f<T: Tr>() -> i32 { T::go() } } fn main() { m::f::<m::S>(); }",
+        "mod m { pub trait Tr { fn run() -> i32; } pub struct S; impl Tr for S { fn run() -> i32 { 1 } } pub fn f<T: Tr>() -> i32 { T::run() } } fn main() { m::f::<m::S>(); }",
+    ),
+    (
+        "self in an impl inside the type's own module",
+        "mod m { pub struct S; impl S { fn go(&self) {} pub fn h(&self) { self.go() } } } fn main() { m::S.h(); }",
+        "mod m { pub struct S; impl S { fn run(&self) {} pub fn h(&self) { self.run() } } } fn main() { m::S.h(); }",
+    ),
+    (
+        "a block-level use through a group's self beside an unrelated function",
+        "fn go() {} fn main() { { use std::mem::{self}; mem::drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::{self}; mem::drop(1); } run(); }",
+    ),
+    (
+        "an aliased self in a block-level use beside an unrelated function",
+        "fn go() {} fn main() { { use std::mem::{self as m}; m::drop(1); } go(); }",
+        "fn run() {} fn main() { { use std::mem::{self as m}; m::drop(1); } run(); }",
+    ),
+    (
+        "a block-level use's alias",
+        "fn helper(_: i32) {} fn main() { { use std::mem::drop as d; d(1); } helper(1); }",
+        "fn aid(_: i32) {} fn main() { { use std::mem::drop as e; e(1); } aid(1); }",
+    ),
+    (
+        "a method called on self in its own impl",
+        "struct S; impl S { fn a(&self) -> u8 { self.b() } fn b(&self) -> u8 { 1 } } fn main() { S.a(); }",
+        "struct S; impl S { fn a(&self) -> u8 { self.c() } fn c(&self) -> u8 { 1 } } fn main() { S.a(); }",
+    ),
+    (
+        "a method called on self in its own trait",
+        "trait T { fn a(&self) -> u8 { self.b() } fn b(&self) -> u8; } fn main() {}",
+        "trait T { fn a(&self) -> u8 { self.c() } fn c(&self) -> u8; } fn main() {}",
+    ),
+    (
+        "a method called on a local built as its type",
+        "struct S { n: u8 } impl S { fn go(&self) -> u8 { self.n } } fn main() { let c = S { n: 1 }; c.go(); }",
+        "struct S { n: u8 } impl S { fn run(&self) -> u8 { self.n } } fn main() { let d = S { n: 1 }; d.run(); }",
+    ),
+    (
+        "a program trait's function called through a generic",
+        "trait Tr { fn go() -> i32; } struct S; impl Tr for S { fn go() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::go() } fn main() { f::<S>(); }",
+        "trait Tr { fn run() -> i32; } struct S; impl Tr for S { fn run() -> i32 { 1 } } fn f<T: Tr>() -> i32 { T::run() } fn main() { f::<S>(); }",
+    ),
+    (
+        "a path through a type alias",
+        "struct S; impl S { fn mk() -> S { S } } type A = S; fn main() { let _ = A::mk(); }",
+        "struct S; impl S { fn build() -> S { S } } type A = S; fn main() { let _ = A::build(); }",
+    ),
+    (
+        "a method called on a local initialized inside the type's block",
+        "fn main() { { struct S; impl S { fn go(&self) {} } let c = S; c.go(); } }",
+        "fn main() { { struct S; impl S { fn run(&self) {} } let d = S; d.run(); } }",
     ),
 ]
 
@@ -1122,6 +1471,147 @@ def test_the_command_line_exit_codes(
     assert cli(repeat, "--bank", bank_copy, cwd=here).returncode == 1
     assert cli(passing, "--bank", bank_copy, "--threshold", "2", cwd=here).returncode == 2
     assert cli(here / "absent.json", "--bank", bank_copy, cwd=here).returncode == 2
+
+
+# --------------------------------------------------------------------------- #
+# Equal tokens, and the verifier says the programs differ
+# --------------------------------------------------------------------------- #
+
+# A name's meaning can need the compiler's types, which tokens cannot show. This
+# pair normalizes equal, and rustc 1.96.1 exits 0 on the first and 1 (E0599) on the
+# second: `std::primitive::u32` is the library's type, not the program's `struct u32`.
+SAME_TOKENS_COMPILES = "struct u32; impl u32 { fn count_ones(&self) -> u8 { 0 } } trait Tr { fn go(&self); } impl Tr for std::primitive::u32 { fn go(&self) { let _ = self.count_ones(); } } fn main() { Tr::go(&3u32); }"
+SAME_TOKENS_FAILS = "struct u32; impl u32 { fn zzq(&self) -> u8 { 0 } } trait Tr { fn go(&self); } impl Tr for std::primitive::u32 { fn go(&self) { let _ = self.zzq(); } } fn main() { Tr::go(&3u32); }"
+# A true renaming, so these rows hold whatever the name rules do.
+RENAMED_ONE = "fn main() { let a = 1; let _ = a; }"
+RENAMED_TWO = "fn main() { let b = 1; let _ = b; }"
+
+
+def ran(exit_code: int | None = 0) -> Verified:
+    return Verified(
+        rustc="rustc",
+        edition="2021",
+        legacy=exit_code is None,
+        runs=Runs(count=1, byte_identical=True),
+        exit_code=exit_code,
+    )
+
+
+def fails(*codes: str) -> Verified:
+    return Verified(rustc="rustc", edition="2021", compile_error_code=codes)
+
+
+def verified_candidate(
+    base: Question, qid: str, source: str, record: Verified | None
+) -> Question:
+    return dataclasses.replace(candidate(base, qid, source), verified=record)
+
+
+def test_the_token_pair_is_equal_and_only_the_record_separates_it() -> None:
+    """If a name rule ever closes this pair, the next test stops exercising the check."""
+    assert normalized_tokens(SAME_TOKENS_COMPILES) == normalized_tokens(SAME_TOKENS_FAILS)
+
+
+@pytest.mark.parametrize(
+    "first, second",
+    [(SAME_TOKENS_COMPILES, SAME_TOKENS_FAILS), (SAME_TOKENS_FAILS, SAME_TOKENS_COMPILES)],
+    ids=["the compiling program is in the bank", "the failing program is in the bank"],
+)
+def test_one_compiles_and_one_does_not_reaches_the_organizer(
+    bank: dict[str, Question], bank_copy: pathlib.Path, first: str, second: str
+) -> None:
+    record = {SAME_TOKENS_COMPILES: ran(), SAME_TOKENS_FAILS: fails("E0599")}
+    run(bank_copy, [verified_candidate(bank["q3"], "one", first, record[first])])
+    report = run(bank_copy, [verified_candidate(bank["q3"], "two", second, record[second])])
+
+    assert [v.kind for v in report.verdicts] == ["near_duplicate"]
+    assert report.verdicts[0].duplicate_of == "one"
+    assert report.verdicts[0].similarity == 1.0
+    queued = load_question(bank_copy, "two")
+    assert queued.review is not None
+    assert queued.review.near_duplicate_of == "one"
+    assert queued.review.status is None
+
+
+def test_the_command_line_reads_the_record_from_a_candidate_file(
+    bank: dict[str, Question], bank_copy: pathlib.Path, cli
+) -> None:
+    here = bank_copy.parent
+    one = write_candidate(
+        here / "one.json", verified_candidate(bank["q3"], "one", SAME_TOKENS_COMPILES, ran())
+    )
+    two = write_candidate(
+        here / "two.json",
+        verified_candidate(bank["q3"], "two", SAME_TOKENS_FAILS, fails("E0599")),
+    )
+    assert cli(one, "--bank", bank_copy, cwd=here).returncode == 0
+    assert cli(two, "--bank", bank_copy, cwd=here).returncode == 0
+    queued = load_question(bank_copy, "two")
+    assert queued.review is not None and queued.review.near_duplicate_of == "one"
+
+
+# Equal tokens. Each row: the bank's record, the candidate's, and the verdict.
+RECORD_COMPARISONS = [
+    ("the same exit code", ran(0), ran(0), "normalized_duplicate"),
+    ("different exit codes", ran(0), ran(101), "near_duplicate"),
+    ("the same error code", fails("E0599"), fails("E0599"), "normalized_duplicate"),
+    ("the same error codes in another order", fails("E0382", "E0599"), fails("E0599", "E0382"), "normalized_duplicate"),
+    ("different error codes", fails("E0382"), fails("E0599"), "near_duplicate"),
+    ("ran against does not compile", ran(0), fails("E0599"), "near_duplicate"),
+    ("no record in the bank", None, ran(0), "normalized_duplicate"),
+    ("no record on the candidate", ran(0), None, "normalized_duplicate"),
+    ("no record on either", None, None, "normalized_duplicate"),
+    ("a legacy record has no exit code to compare", ran(None), ran(101), "normalized_duplicate"),
+    ("a record of neither shape says nothing", Verified(rustc="rustc", edition="2021"), fails("E0599"), "normalized_duplicate"),
+]
+
+
+@pytest.mark.parametrize(
+    "label, held, new, kind", RECORD_COMPARISONS, ids=[row[0] for row in RECORD_COMPARISONS]
+)
+def test_equal_tokens_are_compared_on_the_verifier_record(
+    bank: dict[str, Question],
+    bank_copy: pathlib.Path,
+    label: str,
+    held: Verified | None,
+    new: Verified | None,
+    kind: str,
+) -> None:
+    run(bank_copy, [verified_candidate(bank["q3"], "held", RENAMED_ONE, held)])
+    report = run(bank_copy, [verified_candidate(bank["q3"], "new", RENAMED_TWO, new)])
+    assert [v.kind for v in report.verdicts] == [kind], label
+
+
+def test_a_batch_compares_records_and_any_matching_record_rejects(
+    bank: dict[str, Question], bank_copy: pathlib.Path
+) -> None:
+    """Within one batch, and across several token matches: one with the same result
+    is a duplicate, whichever order they sit in."""
+    report = run(
+        bank_copy,
+        [
+            verified_candidate(bank["q3"], "a", RENAMED_ONE, ran()),
+            verified_candidate(bank["q3"], "b", RENAMED_TWO, fails("E0599")),
+            verified_candidate(
+                bank["q3"], "c", "fn main() { let c = 1; let _ = c; }", fails("E0599")
+            ),
+            verified_candidate(bank["q3"], "d", "fn main() { let d = 1; let _ = d; }", ran()),
+        ],
+    )
+    assert [(v.kind, v.duplicate_of) for v in report.verdicts] == [
+        ("cleared", None),
+        ("near_duplicate", "a"),
+        ("normalized_duplicate", "b"),
+        ("normalized_duplicate", "a"),
+    ]
+
+
+def test_an_exact_duplicate_is_rejected_whatever_the_records_say(
+    bank: dict[str, Question], bank_copy: pathlib.Path
+) -> None:
+    run(bank_copy, [verified_candidate(bank["q3"], "one", RENAMED_ONE, ran())])
+    report = run(bank_copy, [verified_candidate(bank["q3"], "two", RENAMED_ONE, fails("E0599"))])
+    assert [v.kind for v in report.verdicts] == ["exact_duplicate"]
 
 
 # --------------------------------------------------------------------------- #

@@ -34,8 +34,9 @@ a small hand-written lexer and normalizes the token stream instead:
   entry point, names used outside the scope that declares them, and names in
   sources with derives stay;
 * every other name is kept exactly: keywords, every standard-library type,
-  function, method and macro the program uses without declaring, and declared
-  members on the library keep-list (`fn len`). That list is incomplete.
+  function, method and macro the program uses without declaring, declared members
+  on the library keep-list (`fn len`), which is incomplete, and declared members a
+  method call may share with the library (`3u32.count_ones()`).
 
 The rule behind all of it: **no normalization may make two different programs
 equal.** A normalized duplicate is *rejected*, with no person in the loop, and in
@@ -43,6 +44,16 @@ this quiz a program that does not compile is as good a question as one that does
 - so a rule that equated `P { a: Q {}, b: 2 }` with the same line missing its
 comma would throw away a question. Documentation comments outside recognized
 item positions are kept as markers, including comments before parameters.
+
+**The verifier's record is the backstop for that rule, because tokens cannot keep
+it alone.** Whether a spelling means the program's type or the library's can take
+the compiler's types to answer. So in a run, equal tokens are rejected only if the
+two records do not show different programs (`_results_differ`). Where one ran and
+one did not compile, or their error or exit codes differ, the candidate falls
+through to the near check at similarity 1.00 and an organizer decides. This closes
+a false match only where both programs have a record, and only where the record
+differs: two programs with the same result stay merged, even if they mean different
+things, and `check`, which is given no records, compares tokens alone.
 
 **A declared name is renamed only where the tokens place it in scope.** Each
 declaration reaches a token range that approximates its Rust scope: parameters and
@@ -63,17 +74,28 @@ closing them is closed too: a name declared in an `impl` of a library trait
 (`type Item` in an `impl Iterator`) is kept, and a tail after a type or `Self` is
 renamed only when that type, its trait or its enum declares it.
 
-Known open: these shapes still make a program that compiles normalize equal to
-one that does not (PQ-66).
+PQ-66 closes the four shapes PQ-30's exact-head review left open, for the forms in
+the test tables. A binding stops at a `mod` nested in its range. A name a block-level
+`use` may import keeps its spelling, and with a glob so does every name in that
+block. A binding reaches no block when that block may belong to its condition's
+head (`if let Some(drop) = { drop(1); Some(2) } { }`). A declared member called with
+a dot (`.name(` or `.name::<T>(`) keeps its spelling, with no list needed, unless
+tokens tie every such call to a program type that declares it: the receiver is
+`self` in that type's `impl` or `trait`, the bare type, or a local whose every
+binding is `let c = S;` or `let c = S { .. };`. That rule covers method calls only.
 
-1. A `let` binding or parameter reaches into a `mod` nested in its function body,
-   where the bare name is the library's (`let drop = 1; mod m { .. drop(1) .. }`).
-2. A block-level `use` shadows an item of the same name
-   (`{ use std::mem::drop; drop(1); }` beside a program's `fn drop`).
-3. A library method name missing from `_STD_MEMBERS` that the program also
-   declares (`fn count_ones` beside `3u32.count_ones()`).
-4. An `if let` binding's range starts at the first `{` after the pattern, which can
-   be its initializer block (`if let Some(drop) = { drop(1); Some(2) } { }`).
+Known open: these shapes still make a program that compiles normalize equal to one
+that does not (found while closing PQ-66). Each stays token-equal. Each is separated
+only when both programs have a readable verifier record and those records differ,
+so with no records the candidate is still discarded.
+
+1. A generic parameter reaches into a `mod` nested in its function, where the bare
+   name is the library's (`fn f<String>() { mod m { .. String::new() .. } }`).
+2. `self` in an `impl` for `std::primitive::u32` is tied to a program's `struct u32`,
+   where the method is the library's
+   (`impl Tr for std::primitive::u32 { .. self.count_ones() .. }`).
+
+False matches whose two programs have the same recorded result also stay merged.
 
 That is a bounded list of the shapes known so far, not proof that no other exists.
 
@@ -90,17 +112,22 @@ an item used inside a nested module through `use super::*`, and every spelling
 that a kept path tail shares (`T::default()` keeps a program's own `default`),
 every name declared in an `impl` of a library trait, and a tail the tokens cannot
 tie to its type (a trait's default method called through an implementing type,
-an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`).
-The scoping also misses two renames Rust would allow: a program trait's function
-called through a generic (`T::go()` in `fn f<T: Tr>`) and a path through a type
-alias (`type A = S; A::mk()`). Each of those is two token streams, so the check
+an `impl` for `[u8; 4]` or `&T`, `Self` inside a `fn` nested in an `impl`), a method
+called on a receiver tokens cannot tie to the program's type
+(`let c = S::new(); c.go()`), a name a block-level `use` imports, every name in a
+block with a glob `use`, and a binding whose condition's head holds a block
+(`if let Some(x) = unsafe { f() } { x }`).
+A generic's path is renamed only when it is bound plainly by one program trait
+(`T::go()` in `fn f<T: Tr>`), and an alias's only for `type A = S;` of a program type
+(`A::mk()`). Other forms are missed: `T: Tr + Send`, a `where` clause, a trait with
+supertraits, a generic alias. Each of those is two token streams, so the check
 says "not a normalized duplicate" and the near-duplicate check - which sees them
 as very similar - sends the pair to an organizer. A miss costs a person a look; a
 false match would cost a question silently. The approximation is built to fail in
 the first direction, though the known-open list above shows it does not always.
-`scope_outside_modules` checks every item against every module, so time grows
-quadratically on very large programs (PQ-30's exact-head review timed the largest
-bank question at 0.5 ms). The missed renames and the time are recall and speed
+`scope_outside_modules` checks each top-level item against every module, so time
+grows quadratically on very large programs (PQ-30's exact-head review timed the
+largest bank question at 0.5 ms). The missed renames and the time are recall and speed
 costs, not safety gaps.
 
 The near-duplicate bigrams abstract every renamed name to the same placeholder,
@@ -127,7 +154,8 @@ import hashlib
 import json
 import re
 import sys
-from collections.abc import Callable, Iterable, Sequence
+from bisect import bisect_right
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
@@ -139,11 +167,13 @@ from popquiz.bank import (
     History,
     Question,
     Review,
+    Verified,
     append_question,
     history_path,
     load_bank,
     load_history,
     question_from_dict,
+    receipt_class,
     save_history,
     source_hash,
 )
@@ -546,14 +576,15 @@ class _Stream:
         return parts
 
 
-def _pattern_names(s: _Stream, a: int, b: int) -> set[str]:
+def _pattern_names(s: _Stream, a: int, b: int, *, any_case: bool = False) -> set[str]:
     """The names a pattern in `[a, b)` binds.
 
     An identifier binds when it starts lowercase or with `_`, is not a path segment
     or a tuple-struct, struct or macro name (followed by `(`, `{`, `::` or `!`),
     and is not a field name inside braces (`Point { x: px }` binds `px`). Rust's
     own rule is close to this: an uppercase name in a pattern is a constant, a unit
-    struct or a variant.
+    struct or a variant. It may still be a binding (`fn f(S: u32)`), so `any_case`
+    takes those too, for a check that must not trust a spelling to mean a type.
     """
     names: set[str] = set()
     groups: list[str] = []
@@ -568,7 +599,7 @@ def _pattern_names(s: _Stream, a: int, b: int) -> set[str]:
         if t.kind != "ident":
             continue
         bare = t.text.removeprefix("r#")
-        if not (bare[0] == "_" or bare[0].islower()):
+        if not (any_case or bare[0] == "_" or bare[0].islower()):
             continue
         after = s.at(k + 1)
         if (
@@ -634,6 +665,33 @@ def _generic_names(s: _Stream, lt: int, names: set[str]) -> int:
         entry_start = False
         k += 1
     return s.n - 1
+
+
+def _plain_bounds(s: _Stream, lt: int, gt: int) -> dict[str, str]:
+    """The generics in the `<...>` from `lt` to `gt` written exactly `T: Bound`, with
+    one bound that is a single identifier."""
+    bounds: dict[str, str] = {}
+    depth = 0
+    entry_start = True
+    for k in range(lt + 1, gt):
+        t = s.tokens[k]
+        if _is(t, "<"):
+            depth += 1
+        elif _is(t, ">") and not (_is(s.at(k - 1), "-") and s.tokens[k - 1].joint):
+            depth -= 1
+        elif _is(t, ",") and depth == 0:
+            entry_start = True
+            continue
+        if entry_start and depth == 0 and t.kind == "ident" and s.colon(k + 1):
+            bound = s.at(k + 2)
+            if (
+                bound is not None
+                and bound.kind == "ident"
+                and (k + 3 == gt or _is(s.at(k + 3), ","))
+            ):
+                bounds[t.text] = bound.text
+        entry_start = False
+    return bounds
 
 
 def _skip_attributes_and_visibility(s: _Stream, a: int, b: int) -> int:
@@ -806,6 +864,19 @@ class _Declared:
     `assoc_owners` maps each associated name to the spellings of the types and
     traits that declare it. `impl_owner` maps the `{` of each `impl` or `trait` to
     its owner's spelling, so `Self` can be followed to the type around it.
+    `block_use_names` are the spellings a `use` inside a block may bring in, which
+    can shadow a program's item there, so they are kept. `sole_types` are the
+    types and traits whose spelling no other item, binding or `use` shares, and none
+    at all in a program with a glob `use`, so the spelling can only mean the type
+    wherever `_in_scope` holds; `module_braces` are the `{` of every module.
+    `local_types` maps a local
+    to the types it holds, where every binding of its spelling is `let c = S;` or
+    `let c = S { .. };` and each `S` is a sole type in scope at that `let`, since a
+    spelling outside its type's block is the library's (`let c = None;`).
+    `generic_traits` maps a generic to the program traits that are all it is bound
+    by, when tokens show every declaration of its spelling plainly and each trait is
+    in scope there. `aliases` maps a `type A = S;` declared once to `S`, a sole
+    program type in scope at the alias.
     """
 
     names: frozenset[str]
@@ -823,6 +894,12 @@ class _Declared:
     assoc_owners: dict[str, set[str]]
     impl_owner: dict[int, str]
     enclosing: list[int | None]
+    block_use_names: frozenset[str]
+    module_braces: frozenset[int]
+    sole_types: frozenset[str]
+    local_types: dict[str, frozenset[str]]
+    generic_traits: dict[str, frozenset[str]]
+    aliases: dict[str, str]
 
 
 # Words that, in the tokens before a `{`, make it a block or an item body rather
@@ -901,6 +978,25 @@ def _header_keyword(s: _Stream, brace: int, word: str) -> int | None:
     return found
 
 
+def _in_scope(
+    item_braces: dict[str, set[int | None]],
+    module_braces: frozenset[int],
+    enclosing: list[int | None],
+    name: str,
+    k: int,
+) -> bool:
+    """Whether the item `name` is declared around the token at `k`: in a brace that
+    holds `k`, no farther out than the nearest module, which an item's bare name does
+    not enter. Outside that, the spelling may be the library's (`u32`, `Default`)."""
+    where = item_braces.get(name, ())
+    brace = enclosing[k]
+    while brace not in where:
+        if brace is None or brace in module_braces:
+            return False
+        brace = enclosing[brace]
+    return True
+
+
 def _impl_owner(s: _Stream, brace: int) -> str | None:
     """The type an `impl` (or the name of a `trait`) owns the items in the `{` at
     `brace`: for `impl<..> Trait for Type<..> where .. {` the last identifier of
@@ -975,6 +1071,39 @@ def _impl_trait(s: _Stream, brace: int) -> str | None:
     return None
 
 
+# Words that open a block inside a condition's head, before the block it guards.
+_HEAD_BLOCK_WORDS = frozenset(
+    ["if", "match", "loop", "while", "for", "unsafe", "async", "const"]
+)
+_EXPRESSION_END_WORDS = frozenset(["self", "true", "false", "await"])
+
+
+def _body_brace(s: _Stream, start: int) -> int | None:
+    """The `{` of the block a condition guards, for the head starting at `start`, or
+    `None` when tokens cannot tell it from a block in the head. Rust forbids a struct
+    literal there, so a `{` after a plain expression's last token is the block. A `{`
+    after anything else (`=`, `|`, `!`, a label's `:`), or after a word like `unsafe`
+    or a closure's `->`, may open the initializer, and then the binding reaches no
+    block at all: its uses are kept, which costs a missed rename rather than a false
+    match."""
+    k = s.find(
+        start,
+        s.n,
+        lambda j: _is(s.tokens[j], "{")
+        or (s.tokens[j].kind == "keyword" and s.tokens[j].text in _HEAD_BLOCK_WORDS)
+        or (_is(s.tokens[j], "-") and s.tokens[j].joint and _is(s.at(j + 1), ">")),
+    )
+    if not _is(s.at(k), "{") or k not in s.partner or k == 0:
+        return None
+    before = s.tokens[k - 1]
+    ends_expression = (
+        before.kind in ("ident", "number", "string", "char")
+        or (before.kind == "keyword" and before.text in _EXPRESSION_END_WORDS)
+        or before.text in (")", "]", "?")
+    )
+    return k if ends_expression else None
+
+
 class _Collector:
     """Gathers declarations, and for each the range where its bare name reaches.
 
@@ -1026,6 +1155,24 @@ class _Collector:
                 and (k + 2) in s.partner
             ):
                 self.module_bodies.setdefault(name.text, set()).add(k + 2)
+        self.module_spans = sorted(
+            (b, s.partner[b]) for bodies in self.module_bodies.values() for b in bodies
+        )
+        self.module_starts = [b for b, _ in self.module_spans]
+        self.block_use_names: set[str] = set()
+        self.imported_names: set[str] = set()
+        self.glob_use = False
+        # How many items declare each spelling, which of them are types or traits,
+        # how many patterns bind each spelling, and the types `let` gives a local.
+        self.item_counts: dict[str, int] = {}
+        self.type_items: set[str] = set()
+        self.bound_counts: dict[str, int] = {}
+        self.let_types: dict[str, list[tuple[str, int]]] = {}
+        # Per generic spelling, each declaration's plain bound, `None` when it has
+        # another shape; and the traits declared with no supertrait or generics.
+        self.generic_bounds: dict[str, set[tuple[str, int] | None]] = {}
+        self.plain_traits: set[str] = set()
+        self.alias_targets: dict[str, tuple[str, int] | None] = {}
 
     def scope(self, names: Iterable[str], lo: int, hi: int) -> None:
         for name in names:
@@ -1036,7 +1183,16 @@ class _Collector:
         self.patterns.append((a, b))
         bound = _pattern_names(self.s, a, b)
         self.names |= bound
+        for name in bound:
+            self.bound_counts[name] = self.bound_counts.get(name, 0) + 1
         return bound
+
+    def pattern_spellings(self) -> set[str]:
+        """Every spelling any pattern may bind, whatever its case."""
+        found: set[str] = set()
+        for a, b in self.patterns:
+            found |= _pattern_names(self.s, a, b, any_case=True)
+        return found
 
     def item_end(self, start: int) -> int:
         """Where the item or closure whose header continues at `start` ends: the
@@ -1057,6 +1213,7 @@ class _Collector:
         s = self.s
         name = s.tokens[d].text
         self.names.add(name)
+        self.item_counts[name] = self.item_counts.get(name, 0) + 1
         brace = self.enclosing[d]
         if brace is not None and _header_words(s, brace) & {"impl", "trait"}:
             self.scope([name], d, d)
@@ -1071,37 +1228,98 @@ class _Collector:
             return True
         self.item_braces.setdefault(name, set()).add(brace)
         if brace is None:
-            self.scope_outside_modules(name, d, 0, s.n - 1)
+            self.scope_outside_modules([name], d, 0, s.n - 1)
         else:
-            self.scope_outside_modules(name, d, brace, s.partner[brace])
+            self.scope_outside_modules([name], d, brace, s.partner[brace])
         return False
 
-    def scope_outside_modules(self, name: str, d: int, lo: int, hi: int) -> None:
-        """`name`, declared at `d`, reaches `[lo, hi]` except the bodies of the
-        modules nested in it: inside one, the bare name means that module's own
-        item or the library's, never this one."""
-        holes = sorted(
-            (b, self.s.partner[b])
-            for bodies in self.module_bodies.values()
-            for b in bodies
-            if lo < b and self.s.partner[b] <= hi and not b <= d <= self.s.partner[b]
-        )
+    def scope_outside_modules(
+        self, names: Iterable[str], d: int, lo: int, hi: int
+    ) -> None:
+        """`names`, declared at `d`, reach `[lo, hi]` except the bodies of the
+        modules nested in it: inside one, a bare name means that module's own item
+        or the library's, never this declaration."""
+        ranges: list[tuple[int, int]] = []
         a = lo
-        for b, e in holes:
-            if b < a:
-                continue  # inside a hole already cut
+        for i in range(bisect_right(self.module_starts, lo), len(self.module_spans)):
+            b, e = self.module_spans[i]
+            if b > hi:
+                break
+            if b < a or e > hi or b <= d <= e:
+                continue  # inside a hole already cut, past the range, or around `d`
             if a <= b - 1:
-                self.scope([name], a, b - 1)
+                ranges.append((a, b - 1))
             a = e + 1
         if a <= hi:
-            self.scope([name], a, hi)
+            ranges.append((a, hi))
+        for first, last in ranges:
+            self.scope(names, first, last)
+
+    def local(self, names: Iterable[str], lo: int, hi: int) -> None:
+        """A binding reaches `[lo, hi]`, and like an item stops at nested modules."""
+        self.scope_outside_modules(names, lo, lo, hi)
+
+    def use_leaf(self, k: int, j: int) -> str | None:
+        """The name the token at `j` imports, in the `use` at `k`: an identifier that
+        ends a path, or the parent module of a group's `self`. An alias is not one: it
+        is the program's own name, and scoped as an item."""
+        s = self.s
+        t = s.tokens[j]
+        if _kw(s.at(j + 1), "as") or _kw(s.at(j - 1), "as"):
+            return None
+        if t.kind == "ident":
+            return None if s.path_sep[j + 1] else t.text
+        group = self.enclosing[j]
+        if not _kw(t, "self") or group is None or group <= k or not s.path_sep[group - 1]:
+            return None
+        parent = s.at(group - 3)
+        return parent.text if parent is not None and parent.kind == "ident" else None
+
+    def use_tree(self, k: int, end: int) -> None:
+        """What the `use` at `k`, ending at `end`, may import. Any of it may be a value
+        named like a program type, whatever the `use`'s level. In a block rather than
+        at the top level or directly in a module, each name may also shadow an item
+        there, and tokens cannot tell, so its spelling is kept. A glob may bring in
+        any name, so every name in the block is kept."""
+        s = self.s
+        brace = self.enclosing[k]
+        in_block = brace is not None and brace not in self.module_starts
+        for j in range(k + 1, min(end, s.n)):
+            if _is(s.tokens[j], "*"):
+                self.glob_use = True
+                if in_block:
+                    self.block_use_names |= {
+                        x.text
+                        for x in s.tokens[brace : s.partner[brace]]
+                        if x.kind == "ident"
+                    }
+                continue
+            leaf = self.use_leaf(k, j)
+            if leaf is not None:
+                self.imported_names.add(leaf)
+                if in_block:
+                    self.block_use_names.add(leaf)
 
     def generics(self, lt: int) -> tuple[int, set[str]]:
         """The type and const parameters of the `<...>` at `lt`, and its `>`."""
         found: set[str] = set()
-        gt = _generic_names(self.s, lt, found)
+        s = self.s
+        gt = _generic_names(s, lt, found)
         self.names |= found
         self.generic_names |= found
+        bounds = _plain_bounds(s, lt, gt)
+        header_end = s.find(
+            gt + 1,
+            s.n,
+            lambda j: _kw(s.tokens[j], "where")
+            or _is(s.tokens[j], "{")
+            or _is(s.tokens[j], ";"),
+        )
+        where = _kw(s.at(header_end), "where")
+        for name in found:
+            self.generic_bounds.setdefault(name, set()).add(
+                (bounds[name], lt) if name in bounds and not where else None
+            )
         return gt, found
 
     def data_type(self, k: int, kind: str) -> None:
@@ -1109,6 +1327,7 @@ class _Collector:
         variants."""
         s = self.s
         self.item(k)
+        self.type_items.add(s.tokens[k].text)
         j = k + 1
         found: set[str] = set()
         if _is(s.at(j), "<"):
@@ -1157,8 +1376,31 @@ class _Collector:
         for a, b in s.split(j + 1, close):
             params |= self.bind(a, _cut_at_colon(s, a, b))
         end = self.item_end(close + 1)
-        self.scope(params, j, end)
+        self.local(params, j, end)
         self.scope(found, k + 2, end)
+
+    def local_type(self, k: int, pattern_end: int) -> None:
+        """Records the type of the `let` at `k` when it is exactly `let [mut] c = S;`
+        or `let [mut] c = S { .. };`, the only forms tokens can read a type from."""
+        s = self.s
+        a = k + 2 if _kw(s.at(k + 1), "mut") else k + 1
+        name, owner = s.at(a), s.at(pattern_end + 1)
+        if (
+            a + 1 != pattern_end
+            or not _is(s.at(pattern_end), "=")
+            or name is None
+            or name.kind != "ident"
+            or owner is None
+            or owner.kind != "ident"
+        ):
+            return
+        after = pattern_end + 2
+        if _is(s.at(after), "{") and after in s.partner:
+            after = s.partner[after] + 1
+        if _is(s.at(after), ";"):
+            self.let_types.setdefault(name.text, []).append(
+                (owner.text, pattern_end + 1)
+            )
 
     def let(self, k: int) -> None:
         s = self.s
@@ -1184,17 +1426,18 @@ class _Collector:
         if conditional:
             # `if let` / `while let`: the block after the condition, not the
             # initializer and not an `else`.
-            brace = s.find(pattern_end, s.n, lambda j: _is(tokens[j], "{"))
-            if _is(s.at(brace), "{") and brace in s.partner:
-                self.scope(bound, brace, s.partner[brace])
+            brace = _body_brace(s, pattern_end)
+            if brace is not None:
+                self.local(bound, brace, s.partner[brace])
             return
+        self.local_type(k, pattern_end)
         # A `let` statement: the rest of its block, after its own `;`, so never
         # its own initializer or `else`.
         block = self.enclosing[k]
         block_end = s.partner[block] if block is not None else s.n
         statement_end = s.find(k + 1, block_end, lambda j: _is(tokens[j], ";"))
         if statement_end + 1 <= block_end - 1:
-            self.scope(bound, statement_end + 1, block_end - 1)
+            self.local(bound, statement_end + 1, block_end - 1)
 
     def for_loop(self, k: int) -> None:
         s = self.s
@@ -1208,9 +1451,9 @@ class _Collector:
             return
         bound = self.bind(k + 1, end)
         self.scope(bound, k + 1, end - 1)
-        brace = s.find(end + 1, s.n, lambda j: _is(tokens[j], "{"))
-        if _is(s.at(brace), "{") and brace in s.partner:
-            self.scope(bound, brace, s.partner[brace])
+        brace = _body_brace(s, end + 1)
+        if brace is not None:
+            self.local(bound, brace, s.partner[brace])
 
     def match_arm(self, arrow: int) -> None:
         """The arm whose `=>` is at `arrow`: its pattern reaches its guard and body,
@@ -1229,7 +1472,7 @@ class _Collector:
         following = s.find(body, s.n, s.fat_arrow)
         if following < s.n and s.fat_arrow(following):
             end = min(end, _arm_start(s, following) - 1)
-        self.scope(bound, start, end)
+        self.local(bound, start, end)
 
     def closure(self, k: int) -> None:
         """The closure whose parameter list opens at the `|` at `k`: its parameters
@@ -1261,7 +1504,7 @@ class _Collector:
                 else:
                     brace = s.find(after, s.n, lambda j: _is(tokens[j], "{"))
                     end = min(end, brace - 1)
-        self.scope(bound, k, end)
+        self.local(bound, k, end)
 
     def field_positions(self, skip: set[int]) -> dict[int, bool]:
         """The tokens that name a field: an entry's leading name followed by a lone
@@ -1332,7 +1575,21 @@ def _declared(s: _Stream) -> _Declared:
                 j = k + 2 if word == "static" and _kw(s.at(k + 1), "mut") else k + 1
                 name = s.at(j)
                 if name is not None and name.kind == "ident":
-                    c.item(j)
+                    associated = c.item(j)
+                    if word == "type" and not associated:
+                        target = s.at(j + 2)
+                        c.alias_targets[name.text] = (
+                            (target.text, j)
+                            if _is(s.at(j + 1), "=")
+                            and target is not None
+                            and target.kind == "ident"
+                            and _is(s.at(j + 3), ";")
+                            else None
+                        )
+                    if word == "trait":
+                        c.type_items.add(name.text)
+                        if _is(s.at(j + 1), "{"):
+                            c.plain_traits.add(name.text)
                     if _is(s.at(j + 1), "<"):
                         gt, found = c.generics(j + 1)
                         c.scope(found, j, c.item_end(gt + 1))
@@ -1341,6 +1598,8 @@ def _declared(s: _Stream) -> _Declared:
                 c.scope(found, k, c.item_end(gt + 1))
             elif word == "use":
                 end = s.find(k + 1, s.n, lambda j: _is(tokens[j], ";"))
+                if not _is(s.at(k + 1), "<"):  # not `+ use<'a>`
+                    c.use_tree(k, end)
                 for j in range(k + 1, min(end, s.n)):
                     alias = s.at(j + 1)
                     if (
@@ -1374,6 +1633,25 @@ def _declared(s: _Stream) -> _Declared:
             elif t.text == "|" and _closure_opens(s, k):
                 c.closure(k)
 
+    module_braces = frozenset(c.module_starts)
+    sole_types = (
+        frozenset()
+        if c.glob_use
+        else frozenset(
+            t
+            for t in c.type_items - c.pattern_spellings() - c.imported_names
+            if c.item_counts[t] == 1
+        )
+    )
+
+    def sole_here(target: tuple[str, int] | None) -> bool:
+        """Whether a spelling read at a position is a sole type or trait in scope."""
+        return (
+            target is not None
+            and target[0] in sole_types
+            and _in_scope(c.item_braces, module_braces, c.enclosing, *target)
+        )
+
     return _Declared(
         frozenset(c.names),
         frozenset(c.members),
@@ -1390,6 +1668,29 @@ def _declared(s: _Stream) -> _Declared:
         c.assoc_owners,
         c.impl_owner,
         c.enclosing,
+        frozenset(c.block_use_names),
+        module_braces,
+        sole_types,
+        {
+            local: frozenset(t[0] for t in types)
+            for local, types in c.let_types.items()
+            if len(types) == c.bound_counts.get(local, 0)
+            and local not in c.item_counts
+            and all(sole_here(t) for t in types)
+        },
+        {
+            generic: frozenset(t[0] for t in bounds if t is not None)
+            for generic, bounds in c.generic_bounds.items()
+            if generic not in c.item_counts
+            and all(
+                sole_here(t) and t[0] in c.plain_traits for t in bounds
+            )
+        },
+        {
+            alias: target[0]
+            for alias, target in c.alias_targets.items()
+            if c.item_counts[alias] == 1 and sole_here(target)
+        },
     )
 
 
@@ -1503,8 +1804,9 @@ _COMPOUND = frozenset(
 # declares a member by one of these names may also call the library's - its own
 # `fn len` beside `self.items.len()` - and renaming both would make it equal to a
 # program that calls a `size` the library never had. So a declared member with one
-# of these names is never renamed, anywhere. The list is not complete and cannot
-# be: a rarer name still carries the risk, and it is named in `bank/README.md`.
+# of these names is never renamed, anywhere, even where a call is tied to the
+# program's type. The list is not complete and cannot be: `_untied_method_calls`
+# is what keeps a rarer name when a method call may be the library's.
 _STD_MEMBERS = frozenset(
     [
         "abs",
@@ -1900,14 +2202,69 @@ def _unscoped_names(
     return protected
 
 
+def _declared_in_scope(declared: _Declared, name: str, k: int) -> bool:
+    return _in_scope(
+        declared.item_braces, declared.module_braces, declared.enclosing, name, k
+    )
+
+
+def _call_is_tied(s: _Stream, declared: _Declared, k: int) -> bool:
+    """Whether the method call named at `k` can only be a program type's own method:
+    its receiver is `self` in the `impl` or `trait` of a type declaring the name, a
+    bare type declaring it, or a local that holds only such a type. Anything else
+    could be a library value, and tokens cannot tell (`3u32`, `a.b`, `f()`, `S::new()`)."""
+    owners = declared.assoc_owners.get(s.tokens[k].text, set()) & declared.sole_types
+    receiver = s.at(k - 2)
+    if (
+        not owners
+        or receiver is None
+        or _is(s.at(k - 3), ".")
+        or (k >= 3 and s.path_sep[k - 3])
+    ):
+        return False
+    if _kw(receiver, "self"):
+        brace = declared.enclosing[k]
+        while brace is not None and brace not in declared.impl_owner:
+            brace = declared.enclosing[brace]
+        owner = None if brace is None else declared.impl_owner[brace]
+        return owner in owners and _declared_in_scope(declared, owner, brace)
+    if receiver.kind != "ident":
+        return False
+    types = declared.local_types.get(receiver.text, frozenset([receiver.text]))
+    return types <= owners and all(_declared_in_scope(declared, t, k) for t in types)
+
+
+def _untied_method_calls(s: _Stream, declared: _Declared) -> set[str]:
+    """Declared members to keep, because a method call of that name is not tied to
+    the program's type. This is what closes a library method missing from
+    `_STD_MEMBERS` without any list: renaming `count_ones` in `3u32.count_ones()`
+    would make it the same token as a method `u32` does not have. It covers method
+    calls only, `.name(` and `.name::<T>(`, and keeps the name of every declared
+    member such a call shares."""
+    found: set[str] = set()
+    for k in range(1, s.n - 1):
+        t = s.tokens[k]
+        if (
+            t.kind == "ident"
+            and t.text in declared.members
+            and _is(s.at(k - 1), ".")
+            and not s.range_dot(k - 1)
+            and (_is(s.at(k + 1), "(") or s.path_sep[k + 1])
+            and not _call_is_tied(s, declared, k)
+        ):
+            found.add(t.text)
+    return found
+
+
 _PATH_KEYWORDS = frozenset(["Self", "self", "crate", "super"])
 
 
 def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
     """Whether the path tail at `k` can be the program's own declaration of its
     name, given the segment before it. Token-level, so it answers no whenever it
-    cannot tell: after a generic parameter (`I::Item`, `T::default()` are the
-    bound trait's), after `Self` unless the name is an associated item, after a
+    cannot tell: after a generic parameter unless the program traits that are all
+    it is bound by declare the name (`I::Item`, `T::default()` are the library
+    trait's), after `Self` unless the name is an associated item, after a
     module or `crate`/`self`/`super` unless the name is an item declared directly
     in a module (a `use` re-export of the library's is not), and after a type
     unless the name is an associated item or a variant of that very type."""
@@ -1928,8 +2285,13 @@ def _tail_reaches(s: _Stream, declared: _Declared, k: int) -> bool:
             brace is not None
             and declared.impl_owner[brace] in declared.assoc_owners.get(name, set())
         )
-    if head.kind != "ident" or head.text in declared.generics:
+    if head.kind != "ident":
         return False
+    if head.text in declared.generics:
+        traits = declared.generic_traits.get(head.text)
+        return bool(traits) and traits <= declared.assoc_owners.get(name, set())
+    if head.text in declared.aliases:
+        return declared.aliases[head.text] in declared.assoc_owners.get(name, set())
     if head.text in declared.module_bodies:
         return bool(
             declared.module_bodies[head.text] & declared.item_braces.get(name, set())
@@ -2003,7 +2365,7 @@ def _normalize(
 ) -> list[str]:
     s = _Stream(tokens)
     declared = _declared(s)
-    kept_members = declared.members & _STD_MEMBERS
+    kept_members = (declared.members & _STD_MEMBERS) | _untied_method_calls(s, declared)
     format_strings = _format_strings(s, declared)
     protected = kept_members | {"main"} | _unscoped_names(s, declared, format_strings)
     # Derives can expose names (Debug) or interpret them (other derives). Without
@@ -2012,6 +2374,7 @@ def _normalize(
         protected |= declared.names | declared.members | declared.macros
     # A library trait fixes the names declared in its `impl`.
     protected |= declared.library_impl_items
+    protected |= declared.block_use_names
     # A protected head keeps its tails verbatim, which may protect more: repeat
     # until nothing changes. Each round only grows `protected`.
     while extra := _unreached_path_tails(s, declared, protected) - protected:
@@ -2380,19 +2743,45 @@ def _require_threshold(threshold: float) -> None:
         )
 
 
+def _results_differ(a: Verified | None, b: Verified | None) -> bool:
+    """Whether the verifier's records show two programs are not the same program: one
+    ran and one did not compile, or the error codes or exit codes differ. Printed
+    output is not compared, since a true renaming can change it (`{:?}`, `stringify!`).
+    A missing or partial record shows nothing, and neither does a legacy record's
+    absent exit code."""
+    kind = receipt_class(a)
+    other = receipt_class(b)
+    if a is None or b is None or kind is None or other is None:
+        return False
+    if kind != other:
+        return True
+    if kind == "does_not_compile":
+        return set(a.compile_error_code or ()) != set(b.compile_error_code or ())
+    return (
+        a.exit_code is not None
+        and b.exit_code is not None
+        and a.exit_code != b.exit_code
+    )
+
+
 def _check_entry(
     candidate_id: str,
     entry: Entry,
     history: History,
     threshold: float,
     excluding: str | None,
+    result: Verified | None = None,
+    results: Mapping[str, Verified | None] | None = None,
 ) -> Verdict:
     ids = [qid for qid in sorted(recorded_ids(history)) if qid != excluding]
+    known = results or {}
     for qid in ids:
         if history.exact_hashes.get(qid) == entry.exact_hash:
             return Verdict(candidate_id, "exact_duplicate", threshold, duplicate_of=qid)
     for qid in ids:
-        if history.ast_fingerprints.get(qid) == entry.fingerprint:
+        if history.ast_fingerprints.get(qid) == entry.fingerprint and not _results_differ(
+            result, known.get(qid)
+        ):
             return Verdict(
                 candidate_id, "normalized_duplicate", threshold, duplicate_of=qid
             )
@@ -2591,15 +2980,19 @@ def run(
     # Lex every candidate before anything is written, so one that cannot be lexed
     # stops the run with the bank untouched.
     entries = [entry_for(candidate.source) for candidate in candidates]
+    results = {question.id: question.verified for question in questions}
 
     verdicts: list[Verdict] = []
     queued: list[Question] = []
     for candidate, entry in zip(candidates, entries):
-        verdict = _check_entry(candidate.id, entry, history, threshold, None)
+        verdict = _check_entry(
+            candidate.id, entry, history, threshold, None, candidate.verified, results
+        )
         verdicts.append(verdict)
         if verdict.admitted:
             queued.append(_into_review_queue(candidate, verdict))
             history = _with_entry(history, candidate.id, entry)
+            results[candidate.id] = candidate.verified
 
     if write:
         for question in queued:
