@@ -89,6 +89,7 @@ pub const HOST_REVEAL_READ_ALOUD: &str = "Read it aloud";
 pub const HOST_REVEAL_BEAT_WHAT: &str = "What happens";
 pub const HOST_REVEAL_BEAT_WHY: &str = "Why ‹n› of us said ‹X›";
 pub const HOST_REVEAL_BEAT_REMEMBER: &str = "What to remember";
+pub const HOST_REVEAL_PROVENANCE: &str = "An organizer approved this explanation.";
 pub const HOST_FIT_FITS: &str = "fits the room";
 pub const HOST_FIT_CLIPPED_Y: &str = "too long for this room — clipped at the bottom";
 pub const HOST_FIT_CLIPPED_X: &str = "too wide for this room — clipped at the right";
@@ -215,6 +216,7 @@ pub const ALL: &[(&str, &str)] = &[
     ("host_reveal_beat_what", HOST_REVEAL_BEAT_WHAT),
     ("host_reveal_beat_why", HOST_REVEAL_BEAT_WHY),
     ("host_reveal_beat_remember", HOST_REVEAL_BEAT_REMEMBER),
+    ("host_reveal_provenance", HOST_REVEAL_PROVENANCE),
     ("host_fit_fits", HOST_FIT_FITS),
     ("host_fit_clipped_y", HOST_FIT_CLIPPED_Y),
     ("host_fit_clipped_x", HOST_FIT_CLIPPED_X),

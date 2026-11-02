@@ -230,6 +230,9 @@
       if (s.phase === state.phase && s.at === state.at) return;
       state = s;
       wall.show(frame(bake, state));
+      /* Idle says nothing (announcement() is null), so Esc back to it must empty
+         the region itself or it keeps the line it last held (AC-83). */
+      if (state.phase === "idle") PQ.announce("");
     });
     var api = { state: function () { return state; }, wall: wall };
     PQ.staticWall = api;

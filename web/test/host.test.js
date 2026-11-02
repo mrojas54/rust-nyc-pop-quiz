@@ -168,7 +168,8 @@ test('AC-47: the page asks the room for the host projection and the host socket 
 test('AC-74: the three beats sit under the human provenance marker, in order', () => {
   const html = unescape(PQ.host.render(payload('reveal')));
   assert.ok(/<section class="panel by-human[^"]*" data-provenance="human">/.test(html));
-  assert.ok(html.includes('<span class="provenance human">✎</span>'));
+  assert.ok(html.includes('<span class="provenance human" aria-hidden="true">✎</span>'));
+  assert.ok(html.includes(`<p class="sr-only">${PQ.COPY.host_reveal_provenance}</p>`), 'the provenance reads in text');
   assert.ok(!html.includes('by-machine'));
   const order = ['FIXTURE-WHAT', 'Why 4 of us said B', 'FIXTURE-WHY-B', PQ.COPY.host_reveal_beat_remember, 'FIXTURE-TAKEAWAY'];
   const at = order.map((s) => html.indexOf(s));

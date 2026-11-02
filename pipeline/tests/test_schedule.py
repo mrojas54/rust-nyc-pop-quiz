@@ -950,7 +950,7 @@ def test_ac102_a_write_failure_after_a_push_says_the_room_holds_the_record(affir
     monkeypatch.setattr(fallback, "write_fallback", full_disk)
     assert schedule_q3(affirmed, tmp_path / "out") == 1
     err = capsys.readouterr().err
-    assert "the room holds the record" in err and "were not written" in err
+    assert "the room holds the record" in err and "may not both be in" in err
     assert "Traceback" not in err and PLANT not in err
 
 

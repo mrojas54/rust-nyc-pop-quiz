@@ -116,7 +116,6 @@
 .tval .tname { font-weight:700; color:var(--text-primary); }
 .tval .twas  { color:var(--text-secondary); text-decoration:line-through; }
 .tval .tarrow{ color:var(--accent-hover); }
-[data-room="dim"] .tval .tarrow { color:var(--accent-primary); }
 .tval .tnow  { color:var(--text-primary); font-weight:700; }
 
 /* Step progress: the NUMBER is the accessible signal, the dots are
@@ -141,8 +140,6 @@
               text-transform:uppercase; letter-spacing:var(--tracking-caps); font-weight:600; }
 .provenance.machine { color:#276749; }
 .provenance.human   { color:#9c4221; }
-[data-room="dim"] .provenance.machine { color:var(--success); }
-[data-room="dim"] .provenance.human   { color:var(--warning); }
 
 /* ===========================================================================
    The ✓ helper — AC-40. NOT in the prototype; see check.js.

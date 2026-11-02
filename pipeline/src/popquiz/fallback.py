@@ -298,8 +298,9 @@ def sheet_path(out: Path) -> Path:
 def write_fallback(
     question: Question, out: Path, *, home_link: str = DEFAULT_HOME_LINK, web: Path = WEB
 ) -> tuple[Path, Path]:
-    """Write the fallback file and its host sheet beside it. Both or neither: each
-    is rendered before either is written, so a refusal leaves nothing behind."""
+    """Write the fallback file and its host sheet beside it. Each is rendered before
+    either is written, so a refusal leaves nothing behind; a failed write (a full
+    disk) can still leave the page without its sheet."""
     out = Path(out)
     page = build_html(question, home_link=home_link, web=web)
     sheet = host_sheet(question)

@@ -154,6 +154,7 @@
     host_reveal_beat_what: "What happens",
     host_reveal_beat_why: "Why ‹n› of us said ‹X›",
     host_reveal_beat_remember: "What to remember",
+    host_reveal_provenance: "An organizer approved this explanation.",
 
     /* --- Host, fit line (AC-100) — in the payload, not shown ----------- */
     /* One per fitVerdict() value. There is deliberately no entry for an
@@ -293,7 +294,7 @@
                        "host_denied_wrong_role"],
     "Wall + host, reveal, no incorrect votes": ["wall_reveal_nobody_else", "host_reveal_nobody_else"],
     "Host, reveal": ["host_reveal_read_aloud", "host_reveal_beat_what", "host_reveal_beat_why",
-                       "host_reveal_beat_remember"],
+                       "host_reveal_beat_remember", "host_reveal_provenance"],
     "Host, fit line (AC-100)": ["host_fit_fits", "host_fit_clipped_y", "host_fit_clipped_x",
                        "host_fit_clipped_xy"],
     "Title (host phone, buzzer, wall)": ["title_wordmark", "host_title_role", "buzzer_title_role"],
