@@ -271,6 +271,7 @@ SHUFFLE = '    options = _shuffled(others, "distractors", day.isoformat(), quest
 RNG_CALL = "    nxt = _rng(*seed_parts)\n"
 RNG_SEED = 'seed = int(hashlib.blake2b("|".join(map(str, parts)).encode(), digest_size=8).hexdigest(), 16)'
 RETURN = "    return arranged\n"
+ARRANGED = "    arranged = dataclasses.replace(question, options=tuple(options))\n"
 #: M1c as the audit wrote it: read the bank's latest used date, recompute that
 #: night's slot, bump tonight's by one if they match.
 M1C = (
@@ -301,11 +302,15 @@ ARRANGE_PLANTS = [
     ("insert at a slot drawn from _rng", on_schedule(PLACE, '    drawn = _rng("letter", day.isoformat())(5)\n    options.insert(drawn, question.options[correct])\n'), "the name bound from slot_for_day(day)"),
     ("_rng read in arrange", on_schedule(PLACE, '    drawn = _rng("letter", day.isoformat())(5)\n    options.insert(drawn, question.options[correct])\n'), "reads '_rng'"),
     ("slot bound from _rng", on_schedule(DRAW_SLOT, '    slot = _rng("letter", day.isoformat())(5)\n'), "must bind slot_for_day(day)"),
-    ("_rng seeded with the bank's used count", on_schedule(RNG_SEED, 'seed = int(hashlib.blake2b("|".join(map(str, (*parts, len(load_bank(QUESTIONS_DIR))))).encode(), digest_size=8).hexdigest(), 16)'), "'load_bank'"),
-    ("_shuffled seeded with the used count", on_schedule(RNG_CALL, "    nxt = _rng(*seed_parts, USED_COUNT)\n"), "_rng(*seed_parts) alone"),
+    ("_rng seeded with the bank's used count", on_schedule(RNG_SEED, 'seed = int(hashlib.blake2b("|".join(map(str, (*parts, len(load_bank(QUESTIONS_DIR))))).encode(), digest_size=8).hexdigest(), 16)'), "_rng has changed"),
+    ("_shuffled seeded with the used count", on_schedule(RNG_CALL, "    nxt = _rng(*seed_parts, USED_COUNT)\n"), "_shuffled has changed"),
     ("the shuffle seeded with the used count", on_schedule(SHUFFLE, '    options = _shuffled(others, "distractors", day.isoformat(), question.id, used)\n'), "must shuffle the four other options"),
     ("the shuffle on the date alone", on_schedule(SHUFFLE, '    options = _shuffled(others, "distractors", day.isoformat())\n'), "must shuffle the four other options"),
     ("a second shuffle picks the letter", on_schedule(PLACE, "    picked = _shuffled(range(5), day.isoformat())[0]\n    options.insert(picked, question.options[correct])\n"), "the name bound from slot_for_day(day)"),
+    ("_shuffled drops an option", on_schedule("    return out\n", "    return out[:-1]\n"), "_shuffled has changed"),
+    ("_shuffled replaces its seed", on_schedule(RNG_CALL, '    seed_parts = ("distractors",)\n' + RNG_CALL), "_shuffled has changed"),
+    ("_rng ignores what it is given", on_schedule(RNG_SEED, RNG_SEED.replace("parts", '("distractors",)')), "_rng has changed"),
+    ("the record copied before the answer is in", on_schedule(PLACE + ARRANGED, ARRANGED + PLACE), "before the answer is in them"),
     ("arrange renamed", on_schedule("def arrange(", "def arrange_options("), "one top-level function arrange"),
     ("_shuffled renamed", SCHEDULE_SOURCE.replace("_shuffled", "_mix"), "one top-level function _shuffled"),
     ("_rng renamed", SCHEDULE_SOURCE.replace("_rng", "_stream"), "one top-level function _rng"),

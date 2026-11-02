@@ -594,16 +594,33 @@ def ledger_violations(sources: Mapping[str, str]) -> list[str]:
 # caller of `arrange` handing it another date, or an edit to `bank.correct_index`
 # all pass.
 
-#: What each function may read beyond its own parameters and locals: (globals, attributes).
-ARRANGE_READS = {
-    "arrange": (
-        frozenset({"slot_for_day", "correct_index", "BankError", "enumerate", "_shuffled", "dataclasses", "tuple"}),
-        frozenset({"options", "id", "isoformat", "replace", "insert"}),
-    ),
-    "_shuffled": (frozenset({"list", "_rng", "range", "len"}), frozenset()),
-    "_rng": (frozenset({"int", "hashlib", "str", "map"}), frozenset({"blake2b", "encode", "hexdigest", "join"})),
-}
+#: What `arrange` may read beyond its own parameters and locals.
+ARRANGE_NAMES = frozenset({"slot_for_day", "correct_index", "BankError", "enumerate", "_shuffled", "dataclasses", "tuple"})
+ARRANGE_ATTRIBUTES = frozenset({"options", "id", "isoformat", "replace", "insert"})
 ARRANGE_SIGNATURES = {"arrange": "question, day", "_shuffled": "items, *seed_parts", "_rng": "*parts"}
+#: The shuffle's two helpers, as code. They have one job, a permutation seeded on
+#: exactly what they are given, and an allow-list cannot say that: `return out[:-1]`
+#: or a replaced seed reads nothing new. So any change to them is a change to this.
+SHUFFLE_CODE = {
+    "_shuffled": """
+out = list(items)
+nxt = _rng(*seed_parts)
+for i in range(len(out) - 1, 0, -1):
+    j = nxt(i + 1)
+    out[i], out[j] = out[j], out[i]
+return out
+""",
+    "_rng": """
+seed = int(hashlib.blake2b("|".join(map(str, parts)).encode(), digest_size=8).hexdigest(), 16)
+
+def nxt(bound):
+    nonlocal seed
+    seed = (seed * 6364136223846793005 + 1442695040888963407) & 0xFFFFFFFFFFFFFFFF
+    return (seed >> 33) % bound
+
+return nxt
+""",
+}
 
 
 def _signature(fn: ast.FunctionDef) -> str:
@@ -627,11 +644,8 @@ def _named_calls(fn: ast.FunctionDef, name: str) -> list[ast.Call]:
     ]
 
 
-def _arrangement_reads(fn: ast.FunctionDef, docstrings: set[int]) -> list[str]:
-    """Nothing in this function reads what its allow-list does not name."""
+def _signature_violations(fn: ast.FunctionDef) -> list[str]:
     problems: list[str] = []
-    names, attributes = ARRANGE_READS[fn.name]
-    bound = _bound_in_functions(fn)
     if fn.decorator_list:
         problems.append(f"line {fn.lineno}: {fn.name} is decorated; a decorator can cache or wrap the arrangement")
     a = fn.args
@@ -642,33 +656,54 @@ def _arrangement_reads(fn: ast.FunctionDef, docstrings: set[int]) -> list[str]:
             f"line {fn.lineno}: {fn.name} takes ({_signature(fn)}); it must take exactly "
             f"({ARRANGE_SIGNATURES[fn.name]})"
         )
+    return problems
+
+
+def _code_of(body: list[ast.stmt]) -> str:
+    return "\n".join(ast.unparse(stmt) for stmt in body)
+
+
+def _shuffle_code_violations(fn: ast.FunctionDef, docstrings: set[int]) -> list[str]:
+    body = [s for s in fn.body if not (isinstance(s, ast.Expr) and id(s.value) in docstrings)]
+    if _code_of(body) == _code_of(ast.parse(SHUFFLE_CODE[fn.name]).body):
+        return []
+    return [
+        f"line {fn.lineno}: {fn.name} has changed; it permutes the four other options on the date "
+        "and question id it is given, and a different job changes this lint on purpose"
+    ]
+
+
+def _arrange_reads(fn: ast.FunctionDef, docstrings: set[int]) -> list[str]:
+    """Nothing in `arrange` reads what its allow-list does not name."""
+    problems: list[str] = []
+    bound = _bound_in_functions(fn)
     for stmt in fn.body:
         for node in ast.walk(stmt):
             line = f"line {getattr(node, 'lineno', fn.lineno)}"
             if isinstance(node, ast.Name):
-                if node.id in names:
+                if node.id in ARRANGE_NAMES:
                     if not isinstance(node.ctx, ast.Load):
-                        problems.append(f"{line}: {fn.name} rebinds {node.id!r}")
+                        problems.append(f"{line}: arrange rebinds {node.id!r}")
                 elif FORBIDDEN_WORDS.search(node.id):
-                    problems.append(f"{line}: name {node.id!r} in {fn.name} reaches for history")
+                    problems.append(f"{line}: name {node.id!r} in arrange reaches for history")
                 elif isinstance(node.ctx, ast.Load) and node.id not in bound:
-                    problems.append(f"{line}: {fn.name} reads {node.id!r}, which it has no use for")
+                    problems.append(f"{line}: arrange reads {node.id!r}, which it has no use for")
             elif isinstance(node, ast.Attribute):
-                if node.attr not in attributes:
-                    problems.append(f"{line}: {fn.name} reads attribute {node.attr!r}, which it has no use for")
+                if node.attr not in ARRANGE_ATTRIBUTES:
+                    problems.append(f"{line}: arrange reads attribute {node.attr!r}, which it has no use for")
             elif isinstance(node, ast.keyword):
                 if node.arg and FORBIDDEN_WORDS.search(node.arg):
-                    problems.append(f"{line}: keyword {node.arg!r} in {fn.name} reaches for history")
+                    problems.append(f"{line}: keyword {node.arg!r} in arrange reaches for history")
             elif isinstance(node, ast.Constant):
                 if isinstance(node.value, str) and id(node) not in docstrings and FORBIDDEN_WORDS.search(node.value):
-                    problems.append(f"{line}: string {node.value!r} in {fn.name} names history")
+                    problems.append(f"{line}: string {node.value!r} in arrange names history")
             elif isinstance(node, ast.Global):
-                problems.append(f"{line}: `global {', '.join(node.names)}` in {fn.name}")
-            elif isinstance(node, (ast.With, ast.AsyncWith, ast.Import, ast.ImportFrom, ast.Lambda, ast.ClassDef)):
-                problems.append(f"{line}: {type(node).__name__} in {fn.name}; the arrangement has no use for one")
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if fn.name != "_rng" or node.decorator_list:
-                    problems.append(f"{line}: nested function {node.name} in {fn.name}")
+                problems.append(f"{line}: `global {', '.join(node.names)}` in arrange")
+            elif isinstance(
+                node,
+                (ast.With, ast.AsyncWith, ast.Import, ast.ImportFrom, ast.Lambda, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+            ):
+                problems.append(f"{line}: {type(node).__name__} in arrange, which has no use for one")
     return problems
 
 
@@ -734,6 +769,13 @@ def _placement_violations(fn: ast.FunctionDef) -> list[str]:
     last = fn.body[-1] if fn.body else None
     if arranged is None or not (isinstance(last, ast.Return) and _same_code(last.value, arranged)):
         problems.append("arrange must return dataclasses.replace(question, options=tuple(<that list>)), in that order")
+    elif insert is not None:
+        for stmt in fn.body:
+            if isinstance(stmt, ast.Expr) and stmt.value is insert:
+                break
+            if isinstance(stmt, ast.Assign) and stmt.value is top[arranged]:
+                problems.append(f"line {stmt.lineno}: arrange copies the options before the answer is in them")
+                break
     return problems
 
 
@@ -741,11 +783,12 @@ def arrange_violations(source: str) -> list[str]:
     """What is wrong with this `schedule.py` as the place the letter lands (G-1). Empty is clean.
 
     Covers `arrange`, `_shuffled` and `_rng`, and fails closed: if any of them is
-    missing or renamed that is a problem, never a clean pass over nothing. They may
-    read only what `ARRANGE_READS` names, so no bank, used, ledger, history or
-    previous-slot state; the answer's position is the name bound from
-    `slot_for_day(day)`; `_rng` and `_shuffled` do one job, shuffling the four other
-    options on (date, question id), and nothing else in the module may call them.
+    missing or renamed that is a problem, never a clean pass over nothing. `arrange`
+    may read only what `ARRANGE_NAMES` and `ARRANGE_ATTRIBUTES` name, so no bank,
+    used, ledger, history or previous-slot state; the answer's position is the name
+    bound from `slot_for_day(day)`; `_rng` and `_shuffled` are held to `SHUFFLE_CODE`,
+    do one job, shuffling the four other options on (date, question id), and nothing
+    else in the module may call them.
     """
     try:
         tree = ast.parse(source)
@@ -755,7 +798,7 @@ def arrange_violations(source: str) -> list[str]:
     problems: list[str] = []
     docstrings = _docstring_nodes(tree)
     functions: dict[str, ast.FunctionDef] = {}
-    for name in ARRANGE_READS:
+    for name in ARRANGE_SIGNATURES:
         found = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name]
         if len(found) != 1 or not isinstance(found[0], ast.FunctionDef):
             problems.append(f"schedule.py must define one top-level function {name}, found {len(found)}; nothing was linted in its place")
@@ -763,7 +806,7 @@ def arrange_violations(source: str) -> list[str]:
             functions[name] = found[0]
 
     covered = {id(n) for fn in functions.values() for stmt in fn.body for n in ast.walk(stmt)}
-    pinned = {*ARRANGE_READS, "slot_for_day"}
+    pinned = {*ARRANGE_SIGNATURES, "slot_for_day"}
     for node in ast.walk(tree):
         if id(node) in covered:
             continue
@@ -778,20 +821,19 @@ def arrange_violations(source: str) -> list[str]:
                 problems.append(f"{line}: defines {node.name} a second time")
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             for alias in node.names:
-                if alias.name in ARRANGE_READS or alias.asname in pinned or (
+                if alias.name in ARRANGE_SIGNATURES or alias.asname in pinned or (
                     alias.name == "slot_for_day"
                     and not (isinstance(node, ast.ImportFrom) and node.module == "popquiz.slot" and node in tree.body)
                 ):
                     problems.append(f"{line}: imports {alias.name!r}; slot_for_day comes from popquiz.slot, the rest are defined here")
 
-    for fn in functions.values():
-        problems.extend(_arrangement_reads(fn, docstrings))
+    for name, fn in functions.items():
+        problems.extend(_signature_violations(fn))
+        if name in SHUFFLE_CODE:
+            problems.extend(_shuffle_code_violations(fn, docstrings))
     if "arrange" in functions:
+        problems.extend(_arrange_reads(functions["arrange"], docstrings))
         problems.extend(_placement_violations(functions["arrange"]))
-    if "_shuffled" in functions:
-        calls = _named_calls(functions["_shuffled"], "_rng")
-        if len(calls) != 1 or not _same_code(calls[0], "_rng(*seed_parts)"):
-            problems.append("_shuffled must draw from _rng(*seed_parts) alone; the seed is the date and the question id")
     return problems
 
 
