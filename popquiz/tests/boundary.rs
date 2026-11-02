@@ -112,6 +112,20 @@ fn witness_impls(code: &str) -> Vec<String> {
     out
 }
 
+/// The lines naming a derive above a declaration, given the text before its
+/// line. The walk stops where the previous item ends, not at the first line
+/// that isn't an attribute, so a blank line or a wrapped derive can't hide one.
+fn derives_above(before: &str) -> Vec<&str> {
+    before
+        .lines()
+        .rev()
+        .map(str::trim)
+        .filter(|l| !l.starts_with("//"))
+        .take_while(|l| !l.ends_with(['}', ';', '{']))
+        .filter(|l| l.contains("derive"))
+        .collect()
+}
+
 #[test]
 fn unsafe_is_forbidden_crate_wide() {
     assert!(src("lib.rs").contains("#![forbid(unsafe_code)]"));
@@ -251,6 +265,28 @@ fn the_vault_holds_only_the_allowed_functions_and_every_read_takes_the_witness()
 
 #[test]
 fn nothing_sealed_can_be_printed_copied_or_serialized() {
+    // The walk must see a derive however it is spaced, or it proves nothing.
+    for form in [
+        "#[derive(Default)]\n",
+        "#[derive(Default)]\n\n",
+        "#[derive(Default)]\n/// Docs.\n",
+        "#[derive(\n    Default,\n)]\n",
+        "#[cfg_attr(test, derive(Default))]\n#[must_use]\n",
+    ] {
+        assert!(!derives_above(form).is_empty(), "the walk misses {form:?}");
+    }
+    for clean in [
+        "",
+        "/// #[derive(Default)] is refused.\n",
+        "#[derive(Clone)]\nstruct Earlier;\n\n",
+        "#[derive(Clone)]\nstruct Earlier {\n    a: u8,\n}\n\n/// Docs.\n",
+    ] {
+        assert!(
+            derives_above(clean).is_empty(),
+            "the walk trips on {clean:?}"
+        );
+    }
+
     let sealed_types = [
         ("quiz_session/models/answers.rs", "pub struct Vault"),
         ("quiz_session/models/answers.rs", "pub struct Verdict"),
@@ -268,18 +304,8 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         let at = text
             .find(decl)
             .unwrap_or_else(|| panic!("{decl} not in {file}"));
-        // The attributes directly above the declaration.
-        // Cut back to the start of the declaration's line: the vault's types
-        // are indented, and the indentation is not an attribute.
-        let line_start = text[..at].rfind('\n').map_or(0, |i| i + 1);
-        let above: Vec<&str> = text[..line_start]
-            .lines()
-            .rev()
-            .take_while(|l| l.trim_start().starts_with("#[") || l.trim_start().starts_with("//"))
-            .collect();
-        for line in above.iter().filter(|l| l.trim_start().starts_with("#[")) {
-            assert!(!line.contains("derive"), "{decl} in {file} derives: {line}");
-        }
+        let derives = derives_above(&text[..at]);
+        assert!(derives.is_empty(), "{decl} in {file} derives: {derives:?}");
         let ty = decl.split_whitespace().last().unwrap();
         for all in &everything {
             for tr in ["Debug", "Clone", "Copy", "Serialize"] {
