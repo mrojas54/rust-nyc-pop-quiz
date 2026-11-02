@@ -362,6 +362,8 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
     set -euo pipefail
     record="bank/questions/{{ question }}.json"
     [ -f "$record" ] || { echo "No $record. Verified questions: $(cd bank/questions && ls *.json | sed 's/.json//' | tr '\n' ' ')" >&2; exit 1; }
+    # The provenance check (AC-7), before any network call: this pushes the stored file.
+    uv run --offline --no-sync --project pipeline python -m popquiz.verify --check "$record"
     token="${POPQUIZ_ADMIN_TOKEN:-}"
     if [ -z "$token" ]; then
         ref="${POPQUIZ_OP_REF:-op://Personal/Rust NYC - POPQUIZ_ADMIN_TOKEN/password}"

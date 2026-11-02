@@ -42,6 +42,7 @@ from typing import Any
 
 from popquiz.bank import BankError, Question, correct_index, receipt_class
 from popquiz.receipt import RECEIPT_HEADING, receipt_lines
+from popquiz.verify import ProvenanceError, check_question
 
 LETTERS = ("A", "B", "C", "D", "E")
 
@@ -111,6 +112,8 @@ def bake(question: Question, *, home_link: str = DEFAULT_HOME_LINK) -> dict[str,
     ran whose final step names no `stdout`, or an incorrect option with no
     `why_tempting` (AC-95). A file built from any of those would show a room a
     question the room itself would not run, and a sheet with a blank middle beat.
+    Also refuses a record that fails the build's provenance check (AC-7,
+    `verify.check_question`), which cannot see a self-consistent edit inside it.
     """
     if len(question.options) != len(LETTERS):
         raise _refuse(question, f"it has {len(question.options)} options, not five")
@@ -131,6 +134,10 @@ def bake(question: Question, *, home_link: str = DEFAULT_HOME_LINK) -> dict[str,
     for i, option in enumerate(question.options):
         if i != correct and not (option.why_tempting or "").strip():
             raise _refuse(question, f"option {LETTERS[i]} has no why_tempting text")
+    try:
+        check_question(question)
+    except ProvenanceError as e:  # its text starts with the id, and so does _refuse's
+        raise _refuse(question, str(e).removeprefix(f"{question.id}: ")) from e
 
     return {
         "id": question.id,

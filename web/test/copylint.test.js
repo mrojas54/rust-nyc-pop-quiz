@@ -9,8 +9,10 @@
 //      Python twin, so the two engines are held to one expectation;
 //   3. the copy module is clean of both: a match of either lint in any entry
 //      fails the build (§11.1: "Those strings are fixed and ours").
-// Question prose takes the other consequence — a warning on the review screen,
-// never a failure — and is the Python twin's (copylint.check_prose).
+// Question prose takes the other consequence, and is the Python twin's
+// (copylint.check_prose): a warning on the review screen. `just test` fails on a
+// Forbidden match or a lint crash in a committed question, and only reports a
+// trope (pipeline/tests/test_copylint.py).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

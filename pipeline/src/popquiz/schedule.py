@@ -73,6 +73,7 @@ from popquiz.bank import (
     save_question,
 )
 from popquiz.slot import slot_for_day
+from popquiz.verify import ProvenanceError, check_question
 
 #: The one place the pipeline reads the admin token from (SPEC 8.3, H-11).
 TOKEN_ENV = "POPQUIZ_ADMIN_TOKEN"
@@ -138,6 +139,8 @@ def refusal(question: Question, club: str = DEFAULT_CLUB) -> str | None:
     A hard error, never a warning: scheduling takes a question from the reserve
     (SPEC 3.3, `audit.in_reserve`: accepted, affirmed, unused) and a verified
     record. This names *which* part is missing, so the organizer knows what to do.
+    The record must also pass the build's provenance check (AC-7,
+    `verify.check_question`), which cannot see a self-consistent edit inside it.
 
     The rule that a question needs two trace steps to be affirmed is the affirm
     step's (SPEC 7.4, T-18), not this gate's; `fallback.bake` refuses a trace too
@@ -175,6 +178,10 @@ def refusal(question: Question, club: str = DEFAULT_CLUB) -> str | None:
         return f"{qid} is affirmed but has not been accepted at review, so it cannot be scheduled"
     if not in_reserve(question, club):  # the checks above are in_reserve, spelled out
         return f"{qid} is not in the reserve, so it cannot be scheduled"
+    try:
+        check_question(question)  # AC-7: last, so the refusals above read as they did
+    except ProvenanceError as e:
+        return str(e)
     return None
 
 

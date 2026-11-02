@@ -22,17 +22,19 @@ the verifier and the pin, with q8's error codes still the ones the migration car
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import pathlib
 import shutil
 
 import pytest
 
-from fixtures.verify.verify_cases import RECORDINGS
+from fixtures.verify.verify_cases import RECORDINGS, question_for
 from popquiz import bank, dedupe, migrate_mvp, sandbox, verify
 from popquiz.bank import (
     Explains,
     History,
+    Option,
     correct_index,
     history_path,
     incorrect_indexes,
@@ -410,8 +412,66 @@ def test_a_non_compiling_question_with_no_error_codes_is_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("qid", MIGRATED)
-def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) -> None:
+def _recorded_bank_questions(bank_dir: pathlib.Path, recordings: pathlib.Path) -> list[str]:
+    """Every question in the bank that has a recording, read from the two directories
+    so a new question with a recording is replayed without anyone listing it."""
+    held = {p.stem for p in (bank_dir / "questions").glob("*.json")}
+    return sorted(held & {p.stem for p in recordings.glob("*.json")})
+
+
+def test_the_replay_covers_every_bank_question_with_a_recording(tmp_path: pathlib.Path) -> None:
+    """GAP-4. A question with a recording joins the replay, one without it stays out,
+    and a recording with no bank question (a verifier case) is not a bank question."""
+    (tmp_path / "bank" / "questions").mkdir(parents=True)
+    (tmp_path / "recordings").mkdir()
+    for name in ("q3", "q99", "no-recording"):
+        (tmp_path / "bank" / "questions" / f"{name}.json").write_text("{}", encoding="utf-8")
+    for name in ("q3", "q99", "panics"):
+        (tmp_path / "recordings" / f"{name}.json").write_text("{}", encoding="utf-8")
+    assert _recorded_bank_questions(tmp_path / "bank", tmp_path / "recordings") == ["q3", "q99"]
+
+
+def test_no_migrated_question_has_lost_its_recording() -> None:
+    """The replay is read from the directories, so a deleted recording would shrink
+    it without a failure. Each of the four was recorded, and stays recorded."""
+    assert set(MIGRATED) <= set(_recorded_bank_questions(BANK, RECORDINGS))
+
+
+def _assert_replay_agrees(question: bank.Question) -> None:
+    """`verify` replayed over the question's recording derives the bank's correct
+    option. `StubRunner` never reads the source it is handed, so the recording is
+    first held to the question's current program."""
+    recording = json.loads((RECORDINGS / f"{question.id}.json").read_text(encoding="utf-8"))
+    current = hashlib.sha256(question.source.encode("utf-8")).hexdigest()
+    assert recording["_source_sha256"] == current, (
+        f"{question.id}'s source changed since it was recorded: re-record with "
+        "`uv run --no-sync python tests/fixtures/verify/record.py`"
+    )
+
+    index = correct_index(question)
+    assert index is not None, f"{question.id}: no option matches the verified answer"
+
+    expect = verify.expect_from_record(question.verified)
+    replayed = verify.verify(question, StubRunner(RECORDINGS), expect=expect)
+    assert replayed.accepted, replayed.reason
+    assert correct_index(verify.with_record(question, replayed)) == index
+
+    option = question.options[index]
+    if question.verified.compile_error_code:
+        assert option.kind == "does_not_compile"
+        assert replayed.verified.compile_error_code == question.verified.compile_error_code
+        return
+    assert question.verified.stdout == replayed.verified.stdout
+    if option.kind == "output":
+        assert option.text == normalized_output(replayed.verified.stdout)
+    else:
+        # Panic and UB options are matched by kind, so their text is not the output.
+        assert option.kind in ("panic", "ub")
+        assert question.verified.exit_code == replayed.verified.exit_code
+
+
+@pytest.mark.parametrize("qid", _recorded_bank_questions(BANK, RECORDINGS))
+def test_the_correct_option_is_the_machines_output(qid: str) -> None:
     """PHILOSOPHY 3: the machine decides the answer, and here the machine is asked
     again rather than the bank restated. `verify` is replayed over the question's
     recording (`tests/fixtures/verify/recordings/`, which `record.py` made on the
@@ -422,24 +482,35 @@ def test_the_correct_option_is_the_machines_output(qid: str, committed: dict) ->
     the matching option's text changed together - passes `check_provenance` (it
     says so); it does not pass this. q3's bank record is still August's, so it is
     also held to the batch's output."""
-    question = committed[qid]
-    index = correct_index(question)
-    assert index is not None, f"{qid}: no option matches the verified answer"
-
-    expect = verify.expect_from_record(question.verified)
-    replayed = verify.verify(question, StubRunner(RECORDINGS), expect=expect)
-    assert replayed.accepted, replayed.reason
-    assert correct_index(verify.with_record(question, replayed)) == index
-
-    if qid == "q8":
-        assert question.options[index].kind == "does_not_compile"
-        assert replayed.verified.compile_error_code == question.verified.compile_error_code
-    else:
-        assert question.options[index].kind == "output"
-        assert question.options[index].text == normalized_output(replayed.verified.stdout)
-        assert question.verified.stdout == replayed.verified.stdout
+    question = load_question(BANK, qid)
+    _assert_replay_agrees(question)
     if qid in STILL_LEGACY:
         assert question.verified.stdout == MVP_BY_ID[qid]["answer"]
+
+
+@pytest.mark.parametrize(
+    ("program", "expect", "kind"), [("panics", "ran", "panic"), ("ub-both", "ub", "ub")]
+)
+def test_the_replay_accepts_a_panic_or_ub_answer(program: str, expect: str, kind: str) -> None:
+    """No bank question has either answer yet; the replay must take one when it does."""
+    candidate = question_for(program)
+    verdict = verify.verify(candidate, StubRunner(RECORDINGS), expect=expect)
+    question = dataclasses.replace(
+        verify.with_record(candidate, verdict),
+        options=(Option("a", "output"), Option("b", "panic"), Option("c", "output"),
+                 Option("d", "ub"), Option("does not compile", "does_not_compile")),
+    )
+    assert question.options[correct_index(question)].kind == kind
+    _assert_replay_agrees(question)
+
+
+def test_the_replay_refuses_a_recording_of_an_older_program() -> None:
+    """A question found by directory has no `cases.toml` entry, so nothing else holds
+    its recording to its source, and the stub replays the old steps regardless."""
+    q3 = load_question(BANK, "q3")
+    edited = dataclasses.replace(q3, source=q3.source + "\n// edited\n")
+    with pytest.raises(AssertionError, match="source changed since it was recorded"):
+        _assert_replay_agrees(edited)
 
 
 def test_the_resolving_trace_step_is_derived_from_the_record() -> None:

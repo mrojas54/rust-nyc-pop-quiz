@@ -27,7 +27,9 @@
        `trace.steps[].note` — the last is F-47's: AC-98 outranks SPEC's
        four-field list), a match is a warning beside the text on the review
        screen (§7.4) — the Python twin's check_prose() is the hook T-18 calls;
-       checkProse() here is its twin, held to the same fixtures.
+       checkProse() here is its twin, held to the same fixtures. `just test`
+       fails on a Forbidden match or a lint crash in a committed question and
+       only reports a trope (pipeline/tests/test_copylint.py).
 
    Text is normalized before matching (normalize(), below): SPEC's patterns
    spell one space, a straight apostrophe (`that'?s`) and an em dash, and a

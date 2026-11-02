@@ -171,8 +171,12 @@ What it does, in order:
    warning when fewer than `--threshold` are ready (default: the `--lead-time`,
    two meetups at one question each). `sync` and `reserve` open the same way.
 2. **Refuses** a question with no `verified` record, one not accepted at review,
-   one missing `affirmed_by` or `affirmed_at` (AC-72, G-12), or one already used
-   (G-10). A refusal is a hard error: nothing is sent and nothing is written.
+   one missing `affirmed_by` or `affirmed_at` (AC-72, G-12), one already used
+   (G-10), or one whose record fails the provenance check (AC-7, G-2): no
+   `verified_at` or `verifier_version` on a non-legacy record, fields that
+   contradict each other, or options that no longer derive an answer. The fallback
+   refuses the same records. The check cannot see a self-consistent edit inside
+   the record. A refusal is a hard error: nothing is sent and nothing is written.
 3. **Arranges** the options for that night: the correct one at
    `slot_for_day(date)` — the date and nothing else (AC-23) — and the other four
    shuffled on the date and the question id. The file in `bank/` is not changed.
