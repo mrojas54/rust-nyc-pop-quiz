@@ -26,6 +26,13 @@
 //! a macro writes, and paths used with no `use` at all (`openai::Client::new()`),
 //! are left to the manifest and lock checks: a crate the source can name must be
 //! declared there first. This is the static half of AC-1 only.
+//!
+//! **What it guards against.** Ordinary code: a dependency added, renamed,
+//! gated behind a feature or a `cfg`, or imported in a file nobody reviews. It
+//! does not try to out-read an author hiding an import on purpose; the source
+//! reader is not rustc, and where the two could disagree it refuses rather than
+//! guesses (non-ASCII in code, a `mod` that may be absent). A file it refuses
+//! that compiles fine is the price of that, and is the safe way to be wrong.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -828,8 +835,16 @@ enum Tok {
     Punct(char),
 }
 
+/// ASCII only. Rust allows non-ASCII identifiers, but where they start and end
+/// (combining marks, `℘`, …) is Unicode's call, and a reader that guesses wrong
+/// can merge or split a name. Any other character in code becomes a non-ASCII
+/// [`Tok::Punct`], and the scan refuses the file (see [`FileImports::unreadable`]).
 fn is_ident_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+fn is_ident_start(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_'
 }
 
 /// Past a `"…"` body whose opening quote is just before `at`.
@@ -972,7 +987,7 @@ fn tokens(source: &str) -> Vec<Tok> {
             at = skip_quoted(&text, at + 1);
         } else if c == '\'' {
             at = skip_tick(&text, at);
-        } else if c.is_alphabetic() || c == '_' {
+        } else if is_ident_start(c) {
             let start = at;
             while at < text.len() && is_ident_char(text[at]) {
                 at += 1;
@@ -997,11 +1012,7 @@ fn tokens(source: &str) -> Vec<Tok> {
                     at = skip_raw(&text, end + 1, hashes);
                     continue;
                 }
-                if word == "r"
-                    && hashes == 1
-                    && text
-                        .get(end)
-                        .is_some_and(|c| c.is_alphabetic() || *c == '_')
+                if word == "r" && hashes == 1 && text.get(end).copied().is_some_and(is_ident_start)
                 {
                     let start = end;
                     while end < text.len() && is_ident_char(text[end]) {
@@ -1101,6 +1112,10 @@ struct FileImports {
     /// The file starts `#![cfg(…)]` (or `cfg_attr`, `path`), so the module it
     /// holds may be absent.
     conditional: bool,
+    /// The first non-ASCII character in code (outside comments, literals and
+    /// whitespace), which this reader cannot place: an identifier, or part of
+    /// one, that would hide the names around it. The file is refused.
+    unreadable: Option<char>,
 }
 
 impl FileImports {
@@ -1184,6 +1199,10 @@ fn imports(source: &str) -> FileImports {
         loads: BTreeSet::new(),
         load_names: BTreeSet::new(),
         conditional: false,
+        unreadable: tokens.iter().find_map(|token| match token {
+            Tok::Punct(c) if !c.is_ascii() => Some(*c),
+            _ => None,
+        }),
     };
     let mut scopes = vec![0];
     // The next item carries a `#[cfg…]`, `#[cfg_attr…]` or `#[path…]`. Only an
@@ -1332,6 +1351,13 @@ fn attribute(tokens: &[Tok], at: usize) -> Option<(usize, bool, bool)> {
 fn file_violations(file: &str, scanned: &FileImports) -> (Vec<String>, BTreeSet<String>) {
     let mut violations = Vec::new();
     let mut local = BTreeSet::new();
+    if let Some(c) = scanned.unreadable {
+        violations.push(format!(
+            "{file}: non-ASCII character U+{:04X} in code; the scan reads ASCII \
+             identifiers only",
+            u32::from(c)
+        ));
+    }
     for import in &scanned.found {
         if !denied(&import.root) {
             continue;
@@ -2130,6 +2156,16 @@ fn the_planted_mutations_are_refused() {
     ] {
         assert_eq!(source(text).len(), 1, "{text:?}");
     }
+    // A non-ASCII identifier is refused, not read: split wrongly, `mod á { … }`
+    // (U+0061 U+0301) or `mod ℘ { … }` reads as a plain block, which would
+    // borrow the outer `mod openai` and let a gated `use openai` through.
+    for text in [
+        "mod openai {}\nmod a\u{301} {\n#[cfg(any())]\nuse openai::Client;\n}\n",
+        "mod openai {}\nmod \u{2118} {\n#[cfg(any())]\nuse openai::Client;\n}\n",
+        "fn caf\u{e9}() {}\n",
+    ] {
+        assert_eq!(source(text).len(), 1, "{text:?}");
+    }
     // An import inside one is still read.
     assert_eq!(
         source(
@@ -2192,6 +2228,8 @@ fn the_readers_do_not_mistake_text_for_code() {
         "#!/usr/bin/env use openai\nfn main() {}\n",
         "#! [allow(dead_code)] mod openai {}\nuse openai::Client;\n",
         "#! // a comment\n/* another */ [allow(dead_code)] mod openai {}\nuse openai::Client;\n",
+        // Non-ASCII outside code is fine.
+        "// caf\u{e9} \u{2014} na\u{ef}ve\n/** \u{2118} */\nconst S: &str = \"\u{e9}\";\nconst C: char = '\u{e9}';\nconst B: &str = r\"\u{2014}\";\n",
     ] {
         assert!(source_violations("text.rs", text).0.is_empty(), "{text}");
     }
