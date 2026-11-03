@@ -455,8 +455,9 @@ def test_five_options_fails_on_a_malformed_record(kinds: list[str], complaint: s
 
 
 def test_the_real_participant_facing_files_are_clean() -> None:
-    hits, scanned, _absent = audit.distribution_lint(REPO)
+    hits, scanned, _absent, unreadable = audit.distribution_lint(REPO)
     assert hits == [], [str(h) for h in hits]
+    assert unreadable == [], unreadable
     assert "README.md" in scanned and "mvp/README.md" in scanned
 
 
@@ -464,7 +465,7 @@ def test_every_authored_file_outside_bank_is_in_scope() -> None:
     """GAP-22: the repository is public, so the scan goes by rule, not by a list.
     The files the old list missed (M11b and the audit's G-11 section) are read
     now, beside the ones it named."""
-    _hits, scanned, stale = audit.distribution_lint(REPO)
+    _hits, scanned, stale, _unreadable = audit.distribution_lint(REPO)
     for rel in (
         "docs/RUNBOOK.md",
         "web/README.md",
@@ -510,7 +511,7 @@ def test_a_tell_anywhere_authored_is_caught(tmp_path: pathlib.Path, rel: str) ->
     target = tmp_path / rel
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(TELL, encoding="utf-8")
-    hits, scanned, _stale = audit.distribution_lint(tmp_path)
+    hits, scanned, _stale, _unreadable = audit.distribution_lint(tmp_path)
     assert scanned == [rel]
     assert [h.path for h in hits] == [rel]
 
@@ -534,16 +535,67 @@ def test_skipped_and_exempt_paths_are_not_read(tmp_path: pathlib.Path, rel: str)
     target = tmp_path / rel
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(TELL, encoding="utf-8")
-    hits, scanned, _stale = audit.distribution_lint(tmp_path)
-    assert (hits, scanned) == ([], [])
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned, unreadable) == ([], [], [])
 
 
 def test_bank_is_skipped_only_at_the_root(tmp_path: pathlib.Path) -> None:
     nested = tmp_path / "docs" / "bank" / "notes.md"
     nested.parent.mkdir(parents=True)
     nested.write_text(TELL, encoding="utf-8")
-    hits, _scanned, _stale = audit.distribution_lint(tmp_path)
+    hits, _scanned, _stale, _unreadable = audit.distribution_lint(tmp_path)
     assert [h.path for h in hits] == ["docs/bank/notes.md"]
+
+
+def test_a_tell_in_utf16_text_is_caught(tmp_path: pathlib.Path) -> None:
+    """A byte-order mark says the file is text, whatever its NUL bytes suggest."""
+    (tmp_path / "notes.md").write_text(TELL, encoding="utf-16")
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (scanned, unreadable) == (["notes.md"], [])
+    assert [h.path for h in hits] == ["notes.md"]
+
+
+def test_binary_files_are_skipped_not_reported(tmp_path: pathlib.Path) -> None:
+    """Git's rule: a NUL byte in the first 8 KiB is binary (fonts, images)."""
+    (tmp_path / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + TELL.encode())
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned, unreadable) == ([], [], [])
+
+
+def test_text_the_scan_cannot_decode_is_reported(tmp_path: pathlib.Path) -> None:
+    """Codex review, PQ-62: a Latin-1 file used to drop out of the scan in silence."""
+    (tmp_path / "notes.md").write_bytes(("Résumé. " + TELL).encode("latin-1"))
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], [])
+    assert [u.split(":")[0] for u in unreadable] == ["notes.md"]
+
+
+def test_a_file_the_scan_cannot_read_is_reported(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "notes.md").write_text(TELL, encoding="utf-8")
+    real = pathlib.Path.read_bytes
+
+    def refuse(self: pathlib.Path) -> bytes:
+        if self.name == "notes.md":
+            raise PermissionError(13, "Permission denied", str(self))
+        return real(self)
+
+    monkeypatch.setattr(pathlib.Path, "read_bytes", refuse)
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], [])
+    assert [u.split(":")[0] for u in unreadable] == ["notes.md"]
+
+
+def test_an_unreadable_file_fails_the_distribution_check(tmp_path: pathlib.Path) -> None:
+    """A scan that could not read a file has not shown the file is clean."""
+    repo = copy_bank(tmp_path)
+    (repo / "notes.md").write_bytes("Résumé.\n".encode("latin-1"))
+    checks = {c["name"]: c for c in audit.run_audit(repo)["checks"]}
+    distribution = checks["no published distribution"]
+    assert distribution["verdict"] == "fail", distribution["summary"]
+    assert "notes.md" in distribution["summary"]
+    assert [u.split(":")[0] for u in distribution["detail"]["unreadable"]] == ["notes.md"]
 
 
 @pytest.mark.parametrize(

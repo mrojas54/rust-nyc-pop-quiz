@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import codecs
 import datetime
 import hashlib
 import json
@@ -1012,20 +1013,38 @@ def participant_facing_files(repo: Path) -> tuple[list[Path], list[str]]:
     return present, stale
 
 
-def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], list[str]]:
-    """AC-25 over the tree: (hits, files scanned, exempt paths no longer in the tree)."""
+def _authored_text(raw: bytes) -> str | None:
+    """The file's text, or None for a binary file (a font, an image).
+
+    Binary is git's rule: a NUL byte in the first 8 KiB. A UTF-16 byte-order mark
+    overrides it, since UTF-16 text is full of NULs. Anything else must be UTF-8;
+    a decode failure raises, and the caller reports the file rather than passing it.
+    """
+    if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return raw.decode("utf-16")
+    if b"\x00" in raw[:8192]:
+        return None
+    return raw.decode("utf-8")
+
+
+def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], list[str], list[str]]:
+    """AC-25 over the tree: (hits, files scanned, exempt paths no longer in the
+    tree, files it could not read or decode). An unreadable file is not a clean one."""
     repo = Path(repo)
     present, stale = participant_facing_files(repo)
-    hits, scanned = [], []
+    hits, scanned, unreadable = [], [], []
     for path in present:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue  # a font, an image or an unreadable file: nothing authored to read
         label = path.relative_to(repo).as_posix()
+        try:
+            text = _authored_text(path.read_bytes())
+        except (UnicodeDecodeError, OSError) as exc:
+            unreadable.append(f"{label}: {exc}")
+            continue
+        if text is None:
+            continue
         scanned.append(label)
         hits.extend(distribution_hits(text, label))
-    return hits, scanned, stale
+    return hits, scanned, stale, unreadable
 
 
 def bank_audit_references(repo: Path) -> list[str]:
@@ -1784,16 +1803,26 @@ def run_audit(repo: Path, room: Room = Room()) -> dict[str, Any]:
             Check("records load", ("SPEC 3.1",), "fail", "; ".join(unreadable), {"problems": unreadable})
         )
 
-    hits, scanned, stale = distribution_lint(repo)
+    hits, scanned, stale, unreadable = distribution_lint(repo)
     leaks = bank_audit_references(repo)
     checks.append(
         Check(
             "no published distribution",
             ("AC-25", "G-11"),
-            "fail" if hits or leaks else "pass",
-            "; ".join([str(h) for h in hits] + [f"{p} mentions bank/audit" for p in leaks])
+            "fail" if hits or leaks or unreadable else "pass",
+            "; ".join(
+                [str(h) for h in hits]
+                + [f"{p} mentions bank/audit" for p in leaks]
+                + [f"could not read {u}" for u in unreadable]
+            )
             or f"{len(scanned)} participant-facing file(s) clean",
-            {"scanned": scanned, "stale_exemptions": stale, "hits": [str(h) for h in hits], "report_references": leaks},
+            {
+                "scanned": scanned,
+                "stale_exemptions": stale,
+                "unreadable": unreadable,
+                "hits": [str(h) for h in hits],
+                "report_references": leaks,
+            },
         )
     )
 
