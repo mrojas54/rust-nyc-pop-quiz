@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-03T08:13:55Z",
+  "created_by": "agent:delegator-pq62",
+  "custom_fields": {},
+  "id": "art_01M6G7HN7GF3BMQ71GJ6HSFX4W",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6G7HN7GF3BMQ71GJ6HSFX4W.md",
+    "size_bytes": 7216
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Widened AC-25 rule, read-only, at 1fbc6bd",
+  "tags": [],
+  "title": "Survey",
+  "token_usage": null,
+  "type": "note"
+}
