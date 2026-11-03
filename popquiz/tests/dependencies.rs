@@ -874,10 +874,86 @@ fn skip_tick(text: &[char], at: usize) -> usize {
     end
 }
 
+/// Past the block comment, which may nest, that starts at `at`.
+fn skip_block(text: &[char], mut at: usize) -> usize {
+    let mut depth = 0;
+    while at < text.len() {
+        if text[at] == '/' && text.get(at + 1) == Some(&'*') {
+            depth += 1;
+            at += 2;
+        } else if text[at] == '*' && text.get(at + 1) == Some(&'/') {
+            depth -= 1;
+            at += 2;
+            if depth == 0 {
+                break;
+            }
+        } else {
+            at += 1;
+        }
+    }
+    at
+}
+
+/// Whether the comment starting at `rest` is a doc comment (`///`, `//!`,
+/// `/**`, `/*!`), which rustc reads as an attribute rather than skipping.
+fn is_doc_comment(rest: &[char]) -> bool {
+    let start: String = rest.iter().take(4).collect();
+    (start.starts_with("///") && !start.starts_with("////"))
+        || start.starts_with("//!")
+        || (start.starts_with("/**") && !start.starts_with("/***") && start != "/**/")
+        || start.starts_with("/*!")
+}
+
+/// How many characters the shebang line at the start of `text` takes, or 0.
+/// rustc drops a first line that starts `#!` unless, past whitespace and plain
+/// comments, a `[` follows: then it is an inner attribute.
+fn shebang_len(text: &[char]) -> usize {
+    if !text.starts_with(&['#', '!']) {
+        return 0;
+    }
+    // rustc's whitespace (Pattern_White_Space), narrower than `char::is_whitespace`.
+    let space = |c: char| {
+        matches!(
+            c,
+            '\t' | '\n'
+                | '\u{b}'
+                | '\u{c}'
+                | '\r'
+                | ' '
+                | '\u{85}'
+                | '\u{200e}'
+                | '\u{200f}'
+                | '\u{2028}'
+                | '\u{2029}'
+        )
+    };
+    let mut at = 2;
+    loop {
+        let rest = &text[at..];
+        if rest.first().is_some_and(|c| space(*c)) {
+            at += 1;
+        } else if rest.starts_with(&['/', '/']) && !is_doc_comment(rest) {
+            while at < text.len() && text[at] != '\n' {
+                at += 1;
+            }
+        } else if rest.starts_with(&['/', '*']) && !is_doc_comment(rest) {
+            at = skip_block(text, at);
+        } else {
+            break;
+        }
+    }
+    if text.get(at) == Some(&'[') {
+        return 0;
+    }
+    text.iter().position(|c| *c == '\n').unwrap_or(text.len())
+}
+
 fn tokens(source: &str) -> Vec<Tok> {
+    // rustc drops a byte order mark, then a shebang line, before lexing.
+    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
     let text: Vec<char> = source.chars().collect();
     let mut out = Vec::new();
-    let mut at = 0;
+    let mut at = shebang_len(&text);
     while at < text.len() {
         let c = text[at];
         let next = text.get(at + 1).copied();
@@ -888,21 +964,7 @@ fn tokens(source: &str) -> Vec<Tok> {
                 at += 1;
             }
         } else if c == '/' && next == Some('*') {
-            let mut depth = 0;
-            while at < text.len() {
-                if text[at] == '/' && text.get(at + 1) == Some(&'*') {
-                    depth += 1;
-                    at += 2;
-                } else if text[at] == '*' && text.get(at + 1) == Some(&'/') {
-                    depth -= 1;
-                    at += 2;
-                    if depth == 0 {
-                        break;
-                    }
-                } else {
-                    at += 1;
-                }
-            }
+            at = skip_block(&text, at);
         } else if c == '"' {
             at = skip_quoted(&text, at + 1);
         } else if c == '\'' {
@@ -1054,21 +1116,21 @@ impl FileImports {
 }
 
 /// Where a `use` whose path starts at `start` ends: its `;`, or the bracket
-/// that closes the group it sits in, whichever comes first. Whether it was `;`.
-fn use_end(tokens: &[Tok], start: usize) -> (usize, bool) {
+/// that closes the group it sits in, whichever comes first.
+fn use_end(tokens: &[Tok], start: usize) -> usize {
     let mut depth = 0usize;
     for (index, token) in tokens.iter().enumerate().skip(start) {
         match token {
-            Tok::Semi if depth == 0 => return (index, true),
+            Tok::Semi if depth == 0 => return index,
             Tok::Open | Tok::Punct('(' | '[') => depth += 1,
             Tok::Close | Tok::Punct(')' | ']') => match depth.checked_sub(1) {
                 Some(outer) => depth = outer,
-                None => return (index, false),
+                None => return index,
             },
             _ => {}
         }
     }
-    (tokens.len(), false)
+    tokens.len()
 }
 
 /// Which tokens are a macro's input: inside `name!(…)`, `name![…]`,
@@ -1178,7 +1240,7 @@ fn imports(source: &str) -> FileImports {
             conditional = false;
             // `use<'a>` in `impl Trait + use<'a>` is not an import, and is the
             // only `use` followed by punctuation.
-            let (end, terminated) = use_end(&tokens, at + 1);
+            let end = use_end(&tokens, at + 1);
             for (root, external) in use_roots(&tokens[at + 1..end], false) {
                 file.found.push(Import {
                     scope: here,
@@ -1187,9 +1249,10 @@ fn imports(source: &str) -> FileImports {
                     keyword: "use",
                 });
             }
-            // An unterminated one (`(use std)` in a macro matcher) leaves the
-            // bracket that closes its group to be read.
-            at = end + usize::from(terminated);
+            // Read on from the word after `use`, not from past its end: a `use`
+            // that is not one (`m!(use std extern crate openai;)`) must not hide
+            // what follows it. A real use tree holds nothing else to find.
+            at += 1;
             continue;
         } else if keyword(tokens.get(at), "extern") && keyword(tokens.get(at + 1), "crate") {
             conditional = false;
@@ -2036,6 +2099,26 @@ fn the_planted_mutations_are_refused() {
     ] {
         assert_eq!(source(text).len(), 1, "{text}");
     }
+    // Nor can one hide an import that follows it before its `;`.
+    for text in [
+        "m!(use std extern crate openai;);\n",
+        "m!(use std #[cfg(any())] use openai::Client;);\n",
+    ] {
+        assert_eq!(source(text).len(), 1, "{text}");
+    }
+    // A shebang line is not code: rustc drops it, so what it seems to declare
+    // or import is not there.
+    for text in [
+        "#!/usr/bin/env use std\n//! Docs.\n#[cfg(any())]\nuse openai::Client;\n",
+        "#!/usr/bin/env mod openai;\n#[cfg(any())]\nuse openai::Client;\n",
+        "\u{feff}#!/x mod openai {}\n#[cfg(any())]\nuse openai::Client;\n",
+        // rustc's whitespace leaves out U+00A0, and a doc comment is not
+        // skipped, so neither turns the line into an attribute.
+        "#!\u{a0}[allow(unused)] mod openai {}\n#[cfg(any())]\nuse openai::Client;\n",
+        "#!/** x */[allow(unused)] mod openai {}\n#[cfg(any())]\nuse openai::Client;\n",
+    ] {
+        assert_eq!(source(text).len(), 1, "{text:?}");
+    }
     // An import inside one is still read.
     assert_eq!(
         source(
@@ -2094,6 +2177,10 @@ fn the_readers_do_not_mistake_text_for_code() {
         "const QUOTE: char = '\"';\nconst EXAMPLE: &str = \"use openai::Client;\";\n",
         "fn f<'a>(x: &'a str) -> impl Sized + use<'a> { x }\n",
         "fn pipeline_name() -> &'static str { \"pipeline\" }\n",
+        // A shebang line, and inner attributes that only look like one.
+        "#!/usr/bin/env use openai\nfn main() {}\n",
+        "#! [allow(dead_code)] mod openai {}\nuse openai::Client;\n",
+        "#! // a comment\n/* another */ [allow(dead_code)] mod openai {}\nuse openai::Client;\n",
     ] {
         assert!(source_violations("text.rs", text).0.is_empty(), "{text}");
     }
