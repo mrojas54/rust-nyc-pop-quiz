@@ -1,0 +1,1 @@
+PASS, reviewed HEAD 2c52f2fe03ec9cd0adecb0a5795218ac21e9bceb. Pass 1 on 71bf3a6 was FAIL (1 Major, 2 Minor: _shuffled could drop an option; seed could be replaced; record copied before insert), all fixed in 2c52f2fe03ec9cd0adecb0a5795218ac21e9bceb and confirmed on pass 2. No false refusal, no change to arrange.

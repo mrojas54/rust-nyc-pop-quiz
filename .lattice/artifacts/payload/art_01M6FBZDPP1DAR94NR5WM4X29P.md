@@ -1,0 +1,1 @@
+just test green on the tree of c834a92edf392df42ae3eae6f86d38cd62e59763, warm 27 s: cargo 349 passed, 0 failed, 4 ignored across room and organizer; pytest 1150 passed at the first commit, pipeline untouched since; web 306 passed; phase.rs doctests 4 ok, 2 of them compile-fail. Not run: just test-full (CI runs it).

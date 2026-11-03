@@ -1,0 +1,1 @@
+HEAD e8ba950edbe63839b9eb8e421c85cb23b5797938: just test rc 0, 28s warm (pipeline 1196 passed 1 skipped, web 306 passed, 35 Rust test binaries ok); just test-pipeline rc 0 (1196 passed 1 skipped). Not run: just test-full (left to CI).

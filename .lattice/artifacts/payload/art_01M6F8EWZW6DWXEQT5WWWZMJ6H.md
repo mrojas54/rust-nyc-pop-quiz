@@ -1,0 +1,1 @@
+just test green at fad8d99 in 35s: web 306 pass 0 fail; pipeline 1154 passed 1 skipped; Rust 349 passed across 35 test binaries. Not run locally: just test-full (no production code changed; CI runs it).

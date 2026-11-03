@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-03T01:48:17Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6FHFGWH5Y48EWE4RGCS6EDH",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6FHFGWH5Y48EWE4RGCS6EDH.md",
+    "size_bytes": 73
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged PR #122 at 875dbb8 on the client's word; main CI and deploy green.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

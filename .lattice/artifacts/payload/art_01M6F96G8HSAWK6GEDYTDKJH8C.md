@@ -1,0 +1,1 @@
+FAIL, reviewed HEAD 0397cc7dc5b0bc212bbac798774d62f5cde4829f, pass 2 of 2. Major: popquiz/tests/boundary.rs:124, a derive with a trailing comment ending in ; stops derives_above early, a regression from the pass 1 fix. Pass 1 at 1e33334 FAIL: derive above a blank line; fixed.

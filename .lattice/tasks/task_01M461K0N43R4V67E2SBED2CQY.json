@@ -1,23 +1,49 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 8,
   "complexity": null,
   "created_at": "2026-10-05T12:46:00Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-1** (G-1, Major, new): The arrangement is outside every slot lint and simulation\n- Evidence: schedule.py:189-208, schedule.py:166 (own _rng); audit.py:357,501,537 read slot.py and slot_for_day calls only; M1c survived\n- What would close it: Lint schedule.arrange like the slot path (no bank, used or ledger reads; no draw but slot_for_day) and run the attendee simulation over arrange's output positions\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-11-03T01:48:17Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M6FAWF0KJFS63VRT45X96AG0",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6FBKXGHYNMQB9NCBKPQ9GD7",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6FBY6W21RM7N329NHZ6V9V1",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M6FHFH01YWRBQEF1GTD4N73S",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M6FHFH01YWRBQEF1GTD4N73R",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M461K0N43R4V67E2SBED2CQY",
-  "last_event_id": "ev_01M56R02SNAYGE83KSKKP6SFXC",
-  "last_status_changed_at": "2026-10-05T12:46:00Z",
+  "last_event_id": "ev_01M6FHFH01YWRBQEF1GTD4N73V",
+  "last_status_changed_at": "2026-11-03T01:48:17Z",
   "priority": "medium",
   "relationships_out": [],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-51",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "audit-gap",
     "held",
@@ -25,6 +51,6 @@
   ],
   "title": "The arrangement is outside every slot lint and simulation",
   "type": "bug",
-  "updated_at": "2026-10-18T05:33:19Z",
+  "updated_at": "2026-11-03T01:48:17Z",
   "urgency": null
 }

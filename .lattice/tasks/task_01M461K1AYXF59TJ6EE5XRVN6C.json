@@ -1,23 +1,49 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 9,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-16** (G-7, Major, new): A receipt can claim a Miri run the record does not hold\n- Evidence: answers.rs:347, receipt.py:120-121; answers.rs:174 accepts runs without miri; M7a, M7b survived\n- What would close it: A receipt fixture with runs and no miri, asserting no Miri line, in both twins\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-11-03T01:48:17Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M6F8B6EHZ9KWW991KJ6F6ZRN",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6F8EWZW6DWXEQT5WWWZMJ6H",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6F8WGSTQPC82AC09XQ286EX",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M6FHFGS1Y74FPFZMZ589QNV6",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M6FHFGS1Y74FPFZMZ589QNV5",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M461K1AYXF59TJ6EE5XRVN6C",
-  "last_event_id": "ev_01M4QGMP1VKPDJDWP0FJ1ZQHF0",
-  "last_status_changed_at": "2026-10-05T12:46:01Z",
+  "last_event_id": "ev_01M6FHFGS2PHC1X6C90W3MDGC0",
+  "last_status_changed_at": "2026-11-03T01:48:17Z",
   "priority": "medium",
   "relationships_out": [],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-57",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "audit-gap",
     "held",
@@ -25,6 +51,6 @@
   ],
   "title": "A receipt can claim a Miri run the record does not hold",
   "type": "bug",
-  "updated_at": "2026-10-12T07:36:09Z",
+  "updated_at": "2026-11-03T01:48:17Z",
   "urgency": null
 }

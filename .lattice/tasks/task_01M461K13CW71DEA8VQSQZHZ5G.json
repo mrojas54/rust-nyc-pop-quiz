@@ -1,23 +1,54 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 8,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-9** (G-3, Major, new): A RevealWitness can be forged without boundary.rs noticing\n- Evidence: phase.rs:336; boundary.rs:98-113,148-156; M3e, M3e2 survived\n- What would close it: Put RevealWitness in the no-derive, no-impl scan and count every constructor form in phase.rs\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-11-03T01:48:17Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M6F96G8HSAWK6GEDYTDKJH8C",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6FBZDK4RTV65WT0DF4XF9H9",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6FBZDPP1DAR94NR5WM4X29P",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6FC9PRYM164C3KBV7QP7F7Y",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M6FHFGWH5Y48EWE4RGCS6EDJ",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M6FHFGWH5Y48EWE4RGCS6EDH",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M461K13CW71DEA8VQSQZHZ5G",
-  "last_event_id": "ev_01M4QGMNSCTR0K422SW4X7FAV3",
-  "last_status_changed_at": "2026-10-05T12:46:01Z",
+  "last_event_id": "ev_01M6FHFGWH5Y48EWE4RGCS6EDM",
+  "last_status_changed_at": "2026-11-03T01:48:17Z",
   "priority": "medium",
   "relationships_out": [],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-55",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "audit-gap",
     "held",
@@ -25,6 +56,6 @@
   ],
   "title": "A RevealWitness can be forged without boundary.rs noticing",
   "type": "bug",
-  "updated_at": "2026-10-12T07:36:09Z",
+  "updated_at": "2026-11-03T01:48:17Z",
   "urgency": null
 }
