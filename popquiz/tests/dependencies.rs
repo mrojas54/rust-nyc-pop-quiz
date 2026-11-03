@@ -448,7 +448,12 @@ impl TomlParser {
 
 fn parse_toml(text: &str) -> Toml {
     let mut parser = TomlParser {
-        text: text.chars().collect(),
+        // Cargo accepts a file that starts with a byte order mark.
+        text: text
+            .strip_prefix('\u{feff}')
+            .unwrap_or(text)
+            .chars()
+            .collect(),
         at: 0,
     };
     let mut root = Vec::new();
@@ -737,7 +742,8 @@ fn unpinned(source: &str) -> &str {
 /// version, then the source, only when the shorter form would be ambiguous.
 fn resolve<'a>(packages: &'a [Package], dep: &str) -> Vec<usize> {
     let (spec, source) = match dep.split_once(" (") {
-        Some((spec, source)) => (spec, Some(source.trim_end_matches(')'))),
+        // Only the closing delimiter: a source URL may end in `)` itself.
+        Some((spec, source)) => (spec, Some(source.strip_suffix(')').unwrap_or(source))),
         None => (dep, None),
     };
     let mut words = spec.split_whitespace();
@@ -1041,8 +1047,46 @@ impl FileImports {
     }
 }
 
+/// Which tokens are a macro's input: inside `name!(…)`, `name![…]`,
+/// `name!{…}`, or the body of `macro_rules! name {…}`.
+fn macro_inputs(tokens: &[Tok]) -> Vec<bool> {
+    let mut inside = vec![false; tokens.len()];
+    for at in 0..tokens.len() {
+        if !matches!(tokens[at], Tok::Ident(..)) || tokens.get(at + 1) != Some(&Tok::Punct('!')) {
+            continue;
+        }
+        let mut open = at + 2;
+        if keyword(tokens.get(at), "macro_rules")
+            && matches!(tokens.get(open), Some(Tok::Ident(..)))
+        {
+            open += 1;
+        }
+        let close = match tokens.get(open) {
+            Some(Tok::Punct('(')) => Tok::Punct(')'),
+            Some(Tok::Punct('[')) => Tok::Punct(']'),
+            Some(Tok::Open) => Tok::Close,
+            _ => continue,
+        };
+        let opening = &tokens[open];
+        let mut depth = 0;
+        for index in open..tokens.len() {
+            if tokens[index] == *opening {
+                depth += 1;
+            } else if tokens[index] == close {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            inside[index] = true;
+        }
+    }
+    inside
+}
+
 fn imports(source: &str) -> FileImports {
     let tokens = tokens(source);
+    let in_macro = macro_inputs(&tokens);
     let mut file = FileImports {
         found: Vec::new(),
         declared: BTreeSet::new(),
@@ -1073,7 +1117,9 @@ fn imports(source: &str) -> FileImports {
             continue;
         }
         if keyword(tokens.get(at), "mod") {
-            let counts = !conditional;
+            // In a macro's input a `mod` is only tokens, whatever the macro
+            // makes of them.
+            let counts = !conditional && !in_macro[at];
             conditional = false;
             if let Some(Tok::Ident(name, _)) = tokens.get(at + 1) {
                 let declaration = (here, name.clone());
@@ -1223,13 +1269,52 @@ struct SourceScan {
     local: BTreeSet<String>,
 }
 
+/// The crate roots: the library, each binary the manifest names, and Cargo's
+/// default binary paths. A `mod name;` in a root loads from the root's own
+/// directory, as in a `mod.rs`.
+fn crate_roots(manifest: &Toml) -> BTreeSet<PathBuf> {
+    let path = |target: &Toml| target.get("path").and_then(Toml::str).map(clean);
+    let mut roots: BTreeSet<PathBuf> = ["src/lib.rs", "src/main.rs"]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect();
+    roots.extend(manifest.get("lib").and_then(path));
+    roots.extend(
+        manifest
+            .get("bin")
+            .map_or(&[][..], Toml::items)
+            .iter()
+            .filter_map(path),
+    );
+    roots
+}
+
+/// A manifest path as the scan names files: relative, without `./`.
+fn clean(path: &str) -> PathBuf {
+    Path::new(path)
+        .components()
+        .filter(|component| *component != std::path::Component::CurDir)
+        .collect()
+}
+
+/// Whether the file at `path` is a crate root: named in `roots`, or one of
+/// Cargo's automatic binaries, `src/bin/name.rs` or `src/bin/name/main.rs`.
+fn is_root(path: &Path, roots: &BTreeSet<PathBuf>) -> bool {
+    let bin = Path::new("src/bin");
+    roots.contains(path)
+        || path.parent() == Some(bin)
+        || (path.file_name() == Some("main.rs".as_ref())
+            && path.parent().and_then(Path::parent) == Some(bin))
+}
+
 /// The files `mod name;` at `scope` in the file at `path` can load: `name.rs`
 /// or `name/mod.rs`, inside each inline module around it, under the declaring
-/// file's own directory (a `mod.rs` or a crate root such as `lib.rs`) or, for
-/// any other file, the directory named for it. `None` when an inline module
-/// around it is itself conditional, which may carry a `#[path]` that moves it.
+/// file's own directory (a `mod.rs` or a crate root) or, for any other file,
+/// the directory named for it. `None` when an inline module around it is
+/// itself conditional, which may carry a `#[path]` that moves it.
 fn module_files(
     path: &Path,
+    root: bool,
     file: &FileImports,
     (scope, name): &(usize, String),
 ) -> Option<Vec<PathBuf>> {
@@ -1248,25 +1333,18 @@ fn module_files(
         }
     }
     let dir = path.parent().unwrap_or(Path::new(""));
-    let mut bases = vec![dir.to_path_buf()];
-    if path.file_name() != Some("mod.rs".as_ref()) {
-        bases.extend(path.file_stem().map(|stem| dir.join(stem)));
-    }
-    Some(
-        bases
-            .into_iter()
-            .flat_map(|base| {
-                let dir = inline
-                    .iter()
-                    .rev()
-                    .fold(base, |dir, module| dir.join(module));
-                [
-                    dir.join(format!("{name}.rs")),
-                    dir.join(name).join("mod.rs"),
-                ]
-            })
-            .collect(),
-    )
+    let base = match path.file_stem() {
+        Some(stem) if !root && path.file_name() != Some("mod.rs".as_ref()) => dir.join(stem),
+        _ => dir.to_path_buf(),
+    };
+    let dir = inline
+        .iter()
+        .rev()
+        .fold(base, |dir, module| dir.join(module));
+    Some(vec![
+        dir.join(format!("{name}.rs")),
+        dir.join(name).join("mod.rs"),
+    ])
 }
 
 fn scan_source(crate_dir: &Path) -> SourceScan {
@@ -1282,11 +1360,12 @@ fn scan_source(crate_dir: &Path) -> SourceScan {
             )
         })
         .collect();
-    scan_files(&files)
+    let roots = crate_roots(&parse_toml(&read(&crate_dir.join("Cargo.toml"))));
+    scan_files(&files, &roots)
 }
 
-/// Source files as paths within the crate and their text.
-fn scan_files(files: &[(PathBuf, String)]) -> SourceScan {
+/// Source files as paths within the crate and their text, and the crate roots.
+fn scan_files(files: &[(PathBuf, String)], roots: &BTreeSet<PathBuf>) -> SourceScan {
     let mut scanned: Vec<FileImports> = files.iter().map(|(_, source)| imports(source)).collect();
     // A module file that gates itself makes the `mod name;` that loads it
     // conditional, as does one whose file this cannot place.
@@ -1301,7 +1380,7 @@ fn scan_files(files: &[(PathBuf, String)]) -> SourceScan {
             .loads
             .iter()
             .filter(|declaration| {
-                module_files(path, file, declaration)
+                module_files(path, is_root(path, roots), file, declaration)
                     .is_none_or(|candidates| candidates.iter().any(|path| gated.contains(path)))
             })
             .cloned()
@@ -1460,7 +1539,8 @@ fn planted(manifest: &str, header: &str, extra: &str) -> String {
 #[test]
 fn the_planted_mutations_are_refused() {
     let dir = crate_dir();
-    let manifest = read(&dir.join("Cargo.toml"));
+    // Without a byte order mark of its own, so a fixture can add one.
+    let manifest = read(&dir.join("Cargo.toml")).replacen('\u{feff}', "", 1);
     let refused = |text: &str, expected: &str| {
         let found = manifest_violations(&dir, text);
         assert!(
@@ -1477,6 +1557,7 @@ fn the_planted_mutations_are_refused() {
     );
     refused(&m1, "path `../pipeline` points into pipeline/");
     refused(&m1, "[dependencies] pipeline: denied crate name");
+    refused(&format!("\u{feff}{m1}"), "points into pipeline/");
 
     // M2: an optional, feature-gated LLM client.
     let m2 = planted(
@@ -1691,7 +1772,7 @@ fn the_planted_mutations_are_refused() {
             .iter()
             .map(|(path, text)| (PathBuf::from(path), text.to_string()))
             .collect();
-        scan_files(&files).violations
+        scan_files(&files, &crate_roots(&parse_toml(&manifest))).violations
     };
     let routes = "mod pipeline;\nuse pipeline::admin_routes;\n";
     for module in ["src/pipeline.rs", "src/pipeline/mod.rs"] {
@@ -1751,13 +1832,62 @@ fn the_planted_mutations_are_refused() {
             "{elsewhere}"
         );
     }
+    // A crate root loads from its own folder, not one named for it: the
+    // library, a binary the manifest names, an automatic binary.
+    for (root, loaded, beside) in [
+        (
+            "src/lib.rs",
+            "src/pipeline/mod.rs",
+            "src/lib/pipeline/mod.rs",
+        ),
+        (
+            "src/cli/smoke.rs",
+            "src/cli/pipeline.rs",
+            "src/cli/smoke/pipeline.rs",
+        ),
+        (
+            "src/server/main.rs",
+            "src/server/pipeline.rs",
+            "src/server/main/pipeline.rs",
+        ),
+        (
+            "src/bin/tool.rs",
+            "src/bin/pipeline.rs",
+            "src/bin/tool/pipeline.rs",
+        ),
+    ] {
+        assert_eq!(scan(&[(root, routes), (loaded, gate)]).len(), 1, "{root}");
+        assert!(
+            scan(&[(root, routes), (loaded, ""), (beside, gate)]).is_empty(),
+            "{root}"
+        );
+    }
+
+    // A `mod` in a macro's input declares nothing.
+    for text in [
+        "const _: &str = stringify!(mod openai {});\n#[cfg(any())]\nuse openai::Client;\n",
+        "const _: &str = stringify![mod openai;];\n#[cfg(any())]\nuse openai::Client;\n",
+        "m! { mod openai {} }\n#[cfg(any())]\nuse openai::Client;\n",
+        "macro_rules! m { () => { mod openai {} } }\n#[cfg(any())]\nuse openai::Client;\n",
+    ] {
+        assert_eq!(source(text).len(), 1, "{text}");
+    }
+    // An import inside one is still read.
+    assert_eq!(
+        source(
+            "cfg_if::cfg_if! {\n    if #[cfg(any())] {\n        use openai::Client;\n    }\n}\n"
+        )
+        .len(),
+        1
+    );
 }
 
 /// Text that only looks like a dependency or an import is not one.
 #[test]
 fn the_readers_do_not_mistake_text_for_code() {
     let dir = crate_dir();
-    let manifest = read(&dir.join("Cargo.toml"));
+    // Without a byte order mark of its own, so a fixture can add one.
+    let manifest = read(&dir.join("Cargo.toml")).replacen('\u{feff}', "", 1);
     // Measured against the manifest's own result, so a real dependency planted
     // in it fails the manifest check alone, not this one too.
     let baseline = manifest_violations(&dir, &manifest);
@@ -1786,6 +1916,7 @@ fn the_readers_do_not_mistake_text_for_code() {
             "an empty patch table",
             format!("{manifest}\n[patch.crates-io]\n"),
         ),
+        ("a byte order mark", format!("\u{feff}{manifest}")),
     ] {
         assert_eq!(manifest_violations(&dir, &text), baseline, "{what}");
     }
@@ -1918,7 +2049,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 /// line, only a `replace` field on the package it stands in for.
 #[test]
 fn the_lock_walk_follows_replacements() {
-    let lock = r#"
+    // The second repository's URL ends in `)`, which Cargo keeps in the source.
+    for b in [
+        "https://example.com/b?branch=dev",
+        "https://example.com/shim-b)",
+    ] {
+        replacement_lock_reaches_openai(b);
+    }
+}
+
+fn replacement_lock_reaches_openai(b: &str) {
+    let lock = &format!(
+        r#"
 version = 4
 
 [[package]]
@@ -1931,7 +2073,7 @@ dependencies = [
 [[package]]
 name = "shim"
 version = "1.0.0"
-source = "git+https://example.com/b?branch=dev#84b81c3f13100567babfe14dea141f96d2d8f1f4"
+source = "git+{b}#84b81c3f13100567babfe14dea141f96d2d8f1f4"
 dependencies = [
  "openai",
 ]
@@ -1940,16 +2082,17 @@ dependencies = [
 name = "shim"
 version = "1.0.0"
 source = "git+https://example.com/a#2e4a07543fbfb2fbda07356922c0fa81f18b9bbb"
-replace = "shim 1.0.0 (git+https://example.com/b?branch=dev)"
+replace = "shim 1.0.0 (git+{b})"
 
 [[package]]
 name = "openai"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-"#;
+"#
+    );
     let packages = lock_packages(lock);
     let reached = room_subgraph(&packages).len();
-    assert_eq!(reached, 4, "room, both shims and openai");
+    assert_eq!(reached, 4, "room, both shims and openai, via {b}");
     assert!(
         lock_violations(lock)
             .iter()
