@@ -10,6 +10,10 @@
 //!
 //! Do not edit a string here. Edit SPEC §11, then `copy.js`, then this file.
 //! Placeholders keep §11's ‹guillemet› form; [`fill`] substitutes them.
+//!
+//! The one exception is the ROOM-ONLY block below [`ALL`]: reasons the room's
+//! routes send that §11 does not author, kept here so no client-bound sentence
+//! is written anywhere else (`tests/reason_copy.rs`).
 
 pub const WALL_IDLE_TITLE: &str = "Time for a pop quiz.";
 pub const WALL_IDLE_JOIN: &str = "join @ ‹link›";
@@ -263,6 +267,39 @@ pub const ALL: &[(&str, &str)] = &[
     ("proposed_well_label", PROPOSED_WELL_LABEL),
 ];
 
+// ROOM-ONLY: the `reason` sentences the room's routes send that §11 does not
+// author (PQ-60, GAP-14). Moved out of the routes word for word; changing one
+// is still a copy change (AC-98). Not in [`ALL`], so not mirrored in `copy.js`:
+// no page renders them (the buzzer renders a refused answer from `phase` and
+// `saved`, never `reason`), and a `copy.js` key must belong to a §11 row. The
+// admin reasons reach the organizer through `popquiz schedule`'s error.
+// `tests/reason_copy.rs` fails a sentence left as a literal in a route.
+
+/// `PUT /rooms/{id}/answer`, 400: the letter is not one of the five.
+pub const ANSWER_BAD_LETTER: &str = "An answer is one of A, B, C, D or E.";
+/// `PUT /rooms/{id}/answer`, 409 before the question is on the screen.
+pub const ANSWER_NOT_YET_OPEN: &str = "Answers open when the question is on the screen.";
+/// The admin channel's refusals of a pushed record.
+pub const ADMIN_NOT_A_CLUB: &str = "That is not a club name.";
+pub const ADMIN_RECORD_TOO_LARGE: &str = "The record is larger than a question record can be.";
+pub const ADMIN_RECORD_NOT_UTF8: &str = "The record is not UTF-8 JSON.";
+pub const ADMIN_RECORD_NOT_OBJECT: &str = "The record is not a JSON object.";
+pub const ADMIN_BANK_ORDER_NOT_INDEXES: &str = "‹id›: bank_order is not a list of option indexes.";
+pub const ADMIN_PATH_NAMES_ANOTHER: &str = "The path names ‹id›; the record is ‹record›.";
+
+/// [`ADMIN_BANK_ORDER_NOT_INDEXES`] for the record pushed as `id`.
+pub fn admin_bank_order_not_indexes(id: &str) -> String {
+    fill(ADMIN_BANK_ORDER_NOT_INDEXES, &[("id", id)])
+}
+
+/// [`ADMIN_PATH_NAMES_ANOTHER`]: the path's id, then the record's own.
+pub fn admin_path_names_another(path_id: &str, record_id: &str) -> String {
+    fill(
+        ADMIN_PATH_NAMES_ANOTHER,
+        &[("id", path_id), ("record", record_id)],
+    )
+}
+
 /// Substitute ‹placeholders›. Panics on a placeholder nobody supplied — the
 /// same rule as `copy.js`'s `fill()`: a wall reading "‹n› of us said A" in front
 /// of the room is worse than a loud failure at the call site.
@@ -299,6 +336,19 @@ mod tests {
             "24 of us said A"
         );
         assert_eq!(fill(WALL_IDLE_TITLE, &[]), "Time for a pop quiz.");
+    }
+
+    #[test]
+    fn the_admin_templates_fill_to_the_sentences_the_routes_sent() {
+        // The text `format!` produced before PQ-60 moved it here.
+        assert_eq!(
+            admin_bank_order_not_indexes("q7"),
+            "q7: bank_order is not a list of option indexes."
+        );
+        assert_eq!(
+            admin_path_names_another("q7", "q3"),
+            "The path names q7; the record is q3."
+        );
     }
 
     #[test]
