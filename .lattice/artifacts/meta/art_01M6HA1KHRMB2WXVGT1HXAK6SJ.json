@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-03T18:16:49Z",
+  "created_by": "agent:delegator-pq47-reviewer",
+  "custom_fields": {},
+  "id": "art_01M6HA1KHRMB2WXVGT1HXAK6SJ",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6HA1KHRMB2WXVGT1HXAK6SJ.md",
+    "size_bytes": 518
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Code review (Codex) pass 8",
+  "token_usage": null,
+  "type": "note"
+}

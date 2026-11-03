@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 26,
+  "comment_count": 35,
   "complexity": "low",
   "created_at": "2026-10-04T08:50:24Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the Result Validator report, row 1 (AC-1, Partial). room/Cargo.toml depends on axum, tokio, serde, serde_json, getrandom, subtle, rustls, tokio-rustls, webpki-roots, futures-util and optional tokio-tungstenite; no generator, verifier or LLM crate and no path dependency on pipeline/, but nothing in just test asserts it (room/tests/boundary.rs checks unsafe and the vault only). The check is T-16's deliverable and PQ-21 waits on H-4, so this splits the static half out. Shape: a test under room/tests/ (boundary.rs or a sibling) that reads room/Cargo.toml and Cargo.lock's room subgraph and fails if any crate or path matches a denylist (anthropic, openai, llm, generator, popquiz, pipeline, miri, rustc_*), plus a source scan of room/src for a use of any such module; cargo test picks it up, so the justfile is untouched. Acceptance: the test passes on main; a planted path dependency on ../pipeline in a throwaway copy fails it (name the mutation). HELD: minted from the audit; released on the client's word.",
-  "done_at": null,
+  "done_at": "2026-11-03T19:41:58Z",
   "evidence_refs": [
     {
       "id": "art_01M6GRZZ37T0EB7A0EAQ83QK7Q",
@@ -38,17 +38,37 @@
       "id": "art_01M6H7ACNWJC5E4D9JKTCHRAMG",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6HA1KHRMB2WXVGT1HXAK6SJ",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6HBH9WFMZD274BNF1HB37ZK",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6HDP37JN23WN64C1PY28BHB",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6HE0Q4S3J0SB2XDRJNC652N",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M431PWBSC3CP4ED9NQJGK2VN",
-  "last_event_id": "ev_01M6H91VCQ22B9286P0BQ5Z5SG",
-  "last_status_changed_at": "2026-11-03T17:29:12Z",
+  "last_event_id": "ev_01M6HEXFYSW32QWWWMG2X0KXQ2",
+  "last_status_changed_at": "2026-11-03T19:41:58Z",
   "priority": "medium",
   "relationships_out": [],
-  "reopened_count": 7,
+  "reopened_count": 10,
   "schema_version": 1,
   "short_id": "PQ-47",
-  "status": "needs_human",
+  "status": "done",
   "tags": [
     "follow-up",
     "room",
@@ -58,6 +78,6 @@
   ],
   "title": "Static dependency check: the room reaches no generator, verifier or LLM code",
   "type": "task",
-  "updated_at": "2026-11-03T17:59:29Z",
+  "updated_at": "2026-11-03T19:41:58Z",
   "urgency": null
 }
