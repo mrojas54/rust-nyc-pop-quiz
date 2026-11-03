@@ -38,3 +38,7 @@ Client ruling (RESUME, "recommendation"): exempt by path `sequence/`, `docs/audi
 Each should fail `test_the_real_participant_facing_files_are_clean`.
 
 **Check:** `just test` passes, and `distribution_lint` on this tree reports 0 hits.
+
+## Reset 2026-11-03 by agent:delegator-pq62
+
+## Reset 2026-11-03 by agent:delegator-pq62

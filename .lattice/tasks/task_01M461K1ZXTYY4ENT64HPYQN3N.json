@@ -1,29 +1,54 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 9,
+  "comment_count": 20,
   "complexity": null,
   "created_at": "2026-10-05T12:46:02Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-22** (G-11, Minor, new (CONTRACT NOTE 2)): The distribution scan's file list misses docs/RUNBOOK.md, web/README.md, the page shells and room/src/copy.rs\n- Evidence: audit.py:636-647; M11b survived\n- What would close it: Scan by rule (every authored file outside bank/) and settle which organizer docs may carry tells\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
+  "done_at": "2026-11-03T17:23:17Z",
   "evidence_refs": [
     {
       "id": "art_01M6G7HN7GF3BMQ71GJ6HSFX4W",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6GTESK6BQ4S78H0474JS4S9",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6GX4AP8BNK3RDMN7QD5YMM4",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6GXYDSD3VJGAJHNZH2R52V4",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6H1VMZFMVJ1V3NTWMBXXKHR",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6H605D9PEHTD4YZH4JHNT6J",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M461K1ZXTYY4ENT64HPYQN3N",
-  "last_event_id": "ev_01M6GSDSGPHZBGWDR7WABG67KV",
-  "last_status_changed_at": "2026-11-03T08:34:45Z",
+  "last_event_id": "ev_01M6H6ZJ0SN4QJM63D3ZJS7CMP",
+  "last_status_changed_at": "2026-11-03T17:23:17Z",
   "priority": "low",
   "relationships_out": [],
-  "reopened_count": 1,
+  "reopened_count": 3,
   "schema_version": 1,
   "short_id": "PQ-62",
-  "status": "in_progress",
+  "status": "done",
   "tags": [
     "audit-gap",
     "held",
@@ -31,6 +56,6 @@
   ],
   "title": "The distribution scan's file list misses docs/RUNBOOK.md, web/README.md, the page shells and room/src/copy.rs",
   "type": "chore",
-  "updated_at": "2026-11-03T13:26:23Z",
+  "updated_at": "2026-11-03T17:23:17Z",
   "urgency": null
 }

@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 11,
+  "comment_count": 26,
   "complexity": "low",
   "created_at": "2026-10-04T08:50:24Z",
   "created_by": "agent:orchestrator",
@@ -13,17 +13,42 @@
       "id": "art_01M6GRZZ37T0EB7A0EAQ83QK7Q",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6GT6WSYB8ZA1H0Z5KYHZP08",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6GXF460BG4SSV71APQVT5PQ",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6H2CFQBSAAHJ1NV16Z7N7Z9",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6H6CT0EF22S6ACKY5TXG5V2",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6H7ACNWJC5E4D9JKTCHRAMG",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M431PWBSC3CP4ED9NQJGK2VN",
-  "last_event_id": "ev_01M6GSDT2Y8AW8A61YFA2VKHHK",
-  "last_status_changed_at": "2026-11-03T13:26:23Z",
+  "last_event_id": "ev_01M6H91VCQ22B9286P0BQ5Z5SG",
+  "last_status_changed_at": "2026-11-03T17:29:12Z",
   "priority": "medium",
   "relationships_out": [],
-  "reopened_count": 3,
+  "reopened_count": 7,
   "schema_version": 1,
   "short_id": "PQ-47",
-  "status": "in_progress",
+  "status": "needs_human",
   "tags": [
     "follow-up",
     "room",
@@ -33,6 +58,6 @@
   ],
   "title": "Static dependency check: the room reaches no generator, verifier or LLM code",
   "type": "task",
-  "updated_at": "2026-11-03T13:26:24Z",
+  "updated_at": "2026-11-03T17:59:29Z",
   "urgency": null
 }

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-03T17:29:12Z",
+  "created_by": "agent:delegator-pq47",
+  "custom_fields": {},
+  "id": "art_01M6H7ACNWJC5E4D9JKTCHRAMG",
+  "model": null,
+  "payload": {
+    "content_type": "text/plain",
+    "file": "art_01M6H7ACNWJC5E4D9JKTCHRAMG.txt",
+    "size_bytes": 369946
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "pq47-codex-review-7.txt",
+  "token_usage": null,
+  "type": "file"
+}

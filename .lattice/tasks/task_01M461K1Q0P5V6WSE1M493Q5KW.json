@@ -1,23 +1,39 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 8,
+  "comment_count": 12,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-14** (G-5, Minor, new): Room-authored reason strings sit outside the copy module and are unlinted\n- Evidence: routes.rs:196,208; M5b3 survived\n- What would close it: Move them into copy.rs/copy.js or lint room/src string literals\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-11-03T17:10:02Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M6GXNA2RHC7S7SGJ7D4MSMJ3",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6GXNA6VY78VDH4Z6PPMNVKY",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6H5QGNJBNTDTYWQ574KRN5C",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M461K1Q0P5V6WSE1M493Q5KW",
-  "last_event_id": "ev_01M6GRJMHEM97AAFARD2G0EQ6Y",
-  "last_status_changed_at": "2026-11-03T13:11:10Z",
+  "last_event_id": "ev_01M6H679ZR9FF126SDFKV6FDNV",
+  "last_status_changed_at": "2026-11-03T17:10:02Z",
   "priority": "low",
   "relationships_out": [],
-  "reopened_count": 1,
+  "reopened_count": 2,
   "schema_version": 1,
   "short_id": "PQ-60",
-  "status": "in_progress",
+  "status": "done",
   "tags": [
     "audit-gap",
     "held",
@@ -25,6 +41,6 @@
   ],
   "title": "Room-authored reason strings sit outside the copy module and are unlinted",
   "type": "chore",
-  "updated_at": "2026-11-03T13:11:33Z",
+  "updated_at": "2026-11-03T17:10:02Z",
   "urgency": null
 }

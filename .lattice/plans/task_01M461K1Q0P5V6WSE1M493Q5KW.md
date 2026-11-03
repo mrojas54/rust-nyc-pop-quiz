@@ -27,3 +27,5 @@ Base `origin/main` @ 1fbc6bd. Re-verified: `JoinRefusal::message()` already retu
 Checks: `just test` green; the three mutations red; Codex review ≤2 passes.
 
 ## Reset 2026-11-03 by agent:delegator-pq60
+
+## Reset 2026-11-03 by agent:delegator-pq60

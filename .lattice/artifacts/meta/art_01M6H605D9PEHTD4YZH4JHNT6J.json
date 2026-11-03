@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-03T17:06:08Z",
+  "created_by": "agent:delegator-pq62",
+  "custom_fields": {},
+  "id": "art_01M6H605D9PEHTD4YZH4JHNT6J",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6H605D9PEHTD4YZH4JHNT6J.md",
+    "size_bytes": 515
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Validation (ruling D)",
+  "token_usage": null,
+  "type": "note"
+}
