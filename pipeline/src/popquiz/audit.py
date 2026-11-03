@@ -994,11 +994,18 @@ def _exempt(rel: str) -> bool:
     return any(rel == p or (p.endswith("/") and rel.startswith(p)) for p in DISTRIBUTION_EXEMPT_PATHS)
 
 
-def participant_facing_files(repo: Path) -> tuple[list[Path], list[str]]:
-    """The files the AC-25 lint reads, and the exempt paths no longer in the tree."""
+def participant_facing_files(repo: Path) -> tuple[list[Path], list[str], list[str]]:
+    """The files the AC-25 lint reads, the exempt paths no longer in the tree, and
+    the directories the walk could not open (each a subtree left unread)."""
     repo = Path(repo)
     present: list[Path] = []
-    for root, dirs, files in os.walk(repo):
+    walk_errors: list[str] = []
+
+    def unopened(exc: OSError) -> None:
+        where = Path(exc.filename) if exc.filename else repo
+        walk_errors.append(f"{where.relative_to(repo).as_posix()}: {exc}")
+
+    for root, dirs, files in os.walk(repo, onerror=unopened):
         here = Path(root)
         dirs[:] = sorted(
             d
@@ -1010,7 +1017,7 @@ def participant_facing_files(repo: Path) -> tuple[list[Path], list[str]]:
             if path.is_file() and not _exempt(path.relative_to(repo).as_posix()):
                 present.append(path)
     stale = [p for p in DISTRIBUTION_EXEMPT_PATHS if not (repo / p).exists()]
-    return present, stale
+    return present, stale, walk_errors
 
 
 def _authored_text(raw: bytes) -> str | None:
@@ -1036,10 +1043,11 @@ def _authored_text(raw: bytes) -> str | None:
 
 def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], list[str], list[str]]:
     """AC-25 over the tree: (hits, files scanned, exempt paths no longer in the
-    tree, files it could not read or decode). An unreadable file is not a clean one."""
+    tree, files and directories it could not read or decode). An unreadable file
+    is not a clean one."""
     repo = Path(repo)
-    present, stale = participant_facing_files(repo)
-    hits, scanned, unreadable = [], [], []
+    present, stale, unreadable = participant_facing_files(repo)
+    hits, scanned = [], []
     for path in present:
         label = path.relative_to(repo).as_posix()
         try:
@@ -1050,7 +1058,9 @@ def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], lis
         if text is None:
             continue
         scanned.append(label)
-        hits.extend(distribution_hits(text, label))
+        # UTF-16 or UTF-32 with no byte-order mark also decodes as UTF-8, with NULs
+        # between the characters; dropping them leaves the words to match.
+        hits.extend(distribution_hits(text.replace("\x00", ""), label))
     return hits, scanned, stale, unreadable
 
 

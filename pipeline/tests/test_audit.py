@@ -20,6 +20,7 @@ import datetime
 import inspect
 import json
 import math
+import os
 import pathlib
 import random
 import shutil
@@ -558,8 +559,24 @@ def test_bank_is_skipped_only_at_the_root(tmp_path: pathlib.Path) -> None:
         codecs.BOM_UTF32_BE + TELL.encode("utf-32-be"),
         # UTF-8 that happens to carry a NUL is text, not binary (Codex review, pass 2).
         ("Intro\x00\n" + TELL).encode("utf-8"),
+        # With no mark, UTF-16 and UTF-32 also decode as UTF-8, NULs between the
+        # characters (Codex review, pass 3).
+        TELL.encode("utf-16-le"),
+        TELL.encode("utf-16-be"),
+        TELL.encode("utf-32-le"),
+        TELL.encode("utf-32-be"),
     ],
-    ids=["utf16-le", "utf16-be", "utf32-le", "utf32-be", "utf8-with-nul"],
+    ids=[
+        "utf16-le",
+        "utf16-be",
+        "utf32-le",
+        "utf32-be",
+        "utf8-with-nul",
+        "utf16-le-no-bom",
+        "utf16-be-no-bom",
+        "utf32-le-no-bom",
+        "utf32-be-no-bom",
+    ],
 )
 def test_a_tell_in_any_text_encoding_is_caught(tmp_path: pathlib.Path, encoded: bytes) -> None:
     """A byte-order mark, or a clean UTF-8 decode, says the file is text,
@@ -600,6 +617,26 @@ def test_a_file_the_scan_cannot_read_is_reported(
     hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
     assert (hits, scanned) == ([], [])
     assert [u.split(":")[0] for u in unreadable] == ["notes.md"]
+
+
+def test_a_directory_the_scan_cannot_open_is_reported(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review, pass 3: a walk error used to drop a whole subtree in silence."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "RUNBOOK.md").write_text(TELL, encoding="utf-8")
+    (tmp_path / "README.md").write_text("Nothing to see.\n", encoding="utf-8")
+    real = os.scandir
+
+    def refuse(path: object = ".") -> object:
+        if pathlib.Path(os.fspath(path)) == tmp_path / "docs":
+            raise PermissionError(13, "Permission denied", os.fspath(path))
+        return real(path)
+
+    monkeypatch.setattr(os, "scandir", refuse)
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], ["README.md"])
+    assert [u.split(":")[0] for u in unreadable] == ["docs"]
 
 
 def test_an_unreadable_file_fails_the_distribution_check(tmp_path: pathlib.Path) -> None:
