@@ -904,6 +904,25 @@ fn is_doc_comment(rest: &[char]) -> bool {
         || start.starts_with("/*!")
 }
 
+/// Whether rustc reads `c` as whitespace (Pattern_White_Space). Not
+/// `char::is_whitespace`: that leaves out U+200E and U+200F, which rustc
+/// accepts between words, and takes in others rustc refuses in code.
+fn is_rustc_space(c: char) -> bool {
+    matches!(
+        c,
+        '\t' | '\n'
+            | '\u{b}'
+            | '\u{c}'
+            | '\r'
+            | ' '
+            | '\u{85}'
+            | '\u{200e}'
+            | '\u{200f}'
+            | '\u{2028}'
+            | '\u{2029}'
+    )
+}
+
 /// How many characters the shebang line at the start of `text` takes, or 0.
 /// rustc drops a first line that starts `#!` unless, past whitespace and plain
 /// comments, a `[` follows: then it is an inner attribute.
@@ -911,26 +930,10 @@ fn shebang_len(text: &[char]) -> usize {
     if !text.starts_with(&['#', '!']) {
         return 0;
     }
-    // rustc's whitespace (Pattern_White_Space), narrower than `char::is_whitespace`.
-    let space = |c: char| {
-        matches!(
-            c,
-            '\t' | '\n'
-                | '\u{b}'
-                | '\u{c}'
-                | '\r'
-                | ' '
-                | '\u{85}'
-                | '\u{200e}'
-                | '\u{200f}'
-                | '\u{2028}'
-                | '\u{2029}'
-        )
-    };
     let mut at = 2;
     loop {
         let rest = &text[at..];
-        if rest.first().is_some_and(|c| space(*c)) {
+        if rest.first().is_some_and(|c| is_rustc_space(*c)) {
             at += 1;
         } else if rest.starts_with(&['/', '/']) && !is_doc_comment(rest) {
             while at < text.len() && text[at] != '\n' {
@@ -957,7 +960,7 @@ fn tokens(source: &str) -> Vec<Tok> {
     while at < text.len() {
         let c = text[at];
         let next = text.get(at + 1).copied();
-        if c.is_whitespace() {
+        if is_rustc_space(c) {
             at += 1;
         } else if c == '/' && next == Some('/') {
             while at < text.len() && text[at] != '\n' {
@@ -2116,6 +2119,14 @@ fn the_planted_mutations_are_refused() {
         // skipped, so neither turns the line into an attribute.
         "#!\u{a0}[allow(unused)] mod openai {}\n#[cfg(any())]\nuse openai::Client;\n",
         "#!/** x */[allow(unused)] mod openai {}\n#[cfg(any())]\nuse openai::Client;\n",
+    ] {
+        assert_eq!(source(text).len(), 1, "{text:?}");
+    }
+    // Between words, rustc takes U+200E and U+200F as whitespace too.
+    for text in [
+        "#[cfg(any())]\nuse\u{200e}openai::Client;\n",
+        "#[cfg(any())]\nextern\u{200f}crate openai;\n",
+        "#[cfg(any())]\nextern crate\u{200e}openai;\n",
     ] {
         assert_eq!(source(text).len(), 1, "{text:?}");
     }
