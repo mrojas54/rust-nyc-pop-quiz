@@ -72,7 +72,7 @@ impl std::fmt::Display for LoadError {
 impl std::error::Error for LoadError {}
 
 fn refuse<T>(id: &str, why: impl std::fmt::Display) -> Result<T, LoadError> {
-    Err(LoadError(format!("{id}: {why}")))
+    Err(LoadError(copy::load_refused(id, &why.to_string())))
 }
 
 // --------------------------------------------------------------------------
@@ -219,7 +219,8 @@ struct Miri {
 
 impl Record {
     pub fn from_json(json: &str) -> Result<Record, LoadError> {
-        serde_json::from_str(json).map_err(|e| LoadError(format!("not a bank record: {e}")))
+        serde_json::from_str(json)
+            .map_err(|e| LoadError(copy::load_not_a_bank_record(&e.to_string())))
     }
 
     /// The twin of `bank.correct_index`: which option is correct, derived from
@@ -269,14 +270,7 @@ impl Record {
             None => return Ok(None),
         };
         if matches.len() > 1 {
-            return refuse(
-                &self.id,
-                format_args!(
-                    "{} options match the verified answer (indexes {:?}), so no single option is the correct one",
-                    matches.len(),
-                    matches
-                ),
-            );
+            return refuse(&self.id, copy::load_several_correct(&matches));
         }
         Ok(matches.first().copied())
     }
@@ -295,10 +289,7 @@ impl Record {
                         .iter()
                         .all(|&i| i < seen.len() && !std::mem::replace(&mut seen[i], true));
                 if !valid {
-                    return refuse(
-                        &self.id,
-                        "bank_order is not an arrangement of the five options.",
-                    );
+                    return refuse(&self.id, copy::LOAD_BANK_ORDER_NOT_ARRANGEMENT);
                 }
                 let mut bank: Vec<Option<&RecordOption>> = vec![None; self.options.len()];
                 for (slot, &i) in order.iter().enumerate() {
@@ -689,11 +680,9 @@ impl Scheduled {
     /// it may: the affirmation's refusal, then acceptance at review, in the
     /// order `schedule.refusal` checks them. Quotes no question text.
     pub fn refusal(&self, id: &str) -> Option<String> {
-        self.affirmation.refusal(id).or_else(|| {
-            (!self.accepted).then(|| {
-                format!("{id}: is affirmed but was not accepted at review; accept it at review, then schedule it again.")
-            })
-        })
+        self.affirmation
+            .refusal(id)
+            .or_else(|| (!self.accepted).then(|| copy::load_not_accepted(id)))
     }
 
     /// Decide §4.5's middle beat from the frozen totals. Sealed.
@@ -730,10 +719,7 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
     let id = record.id.clone();
 
     if record.options.len() != 5 {
-        return refuse(
-            &id,
-            format_args!("has {} options; a room needs five", record.options.len()),
-        );
+        return refuse(&id, copy::load_option_count(record.options.len()));
     }
     let dnc = record
         .options
@@ -741,35 +727,32 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
         .filter(|o| o.kind == OptionKind::DoesNotCompile)
         .count();
     if dnc != 1 {
-        return refuse(
-            &id,
-            format_args!("has {dnc} does-not-compile options; it needs exactly one"),
-        );
+        return refuse(&id, copy::load_dnc_count(dnc));
     }
     let affirmation = record.affirmation(bank_order)?;
     let accepted = record.review.as_ref().is_some_and(|r| r.accepted());
 
     let Some(verified) = &record.verified else {
-        return refuse(&id, "has no verified record, so it has no answer");
+        return refuse(&id, copy::LOAD_NO_VERIFIED);
     };
     let Some(receipt) = receipt_lines(verified) else {
-        return refuse(&id, "renders no receipt, so it cannot be scheduled");
+        return refuse(&id, copy::LOAD_NO_RECEIPT);
     };
     let Some(correct) = record.correct_index()? else {
-        return refuse(&id, "no option matches the verified answer");
+        return refuse(&id, copy::LOAD_NO_MATCH);
     };
     let correct = Letter::from_index(correct).expect("five options");
 
     let steps = &record.trace.steps;
     let Some(trace_len) = TraceLen::new(steps.len()) else {
-        return refuse(&id, "the trace needs at least two steps to walk");
+        return refuse(&id, copy::LOAD_TRACE_TOO_SHORT);
     };
     if matches!(receipt_class(verified), Some(ReceiptClass::Ran))
         && !steps
             .last()
             .is_some_and(|s| s.values.iter().any(|v| v.name == "stdout"))
     {
-        return refuse(&id, "the trace's final step names no stdout");
+        return refuse(&id, copy::LOAD_TRACE_NO_STDOUT);
     }
     // The twin of `bank.validate_question`: only the verifier writes `stdout`,
     // on the last step, so a `stdout` row earlier is a claim nobody observed.
@@ -779,26 +762,14 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
             .iter()
             .any(|v| py_strip(&v.name).to_lowercase() == "stdout")
     }) {
-        return refuse(
-            &id,
-            format_args!(
-                "trace step {} names stdout, but only the last step may, and only the verifier writes it",
-                i + 1
-            ),
-        );
+        return refuse(&id, copy::load_trace_early_stdout(i + 1));
     }
 
     let mut why_tempting: [Option<String>; 5] = Default::default();
     for (i, option) in record.options.iter().enumerate() {
         let text = option.why_tempting.clone().filter(|t| !t.trim().is_empty());
         if i != correct.index() && text.is_none() {
-            return refuse(
-                &id,
-                format_args!(
-                    "option {} has no why_tempting text",
-                    Letter::ALL[i].as_str()
-                ),
-            );
+            return refuse(&id, copy::load_no_why_tempting(Letter::ALL[i].as_str()));
         }
         why_tempting[i] = text;
     }
@@ -869,5 +840,6 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
 /// Parse just the `verified` object of a record — for the receipt twin test,
 /// which reads `bank/fixtures/receipts/*.json`.
 pub fn verified_from_json(json: &serde_json::Value) -> Result<Verified, LoadError> {
-    Verified::deserialize(json).map_err(|e| LoadError(format!("not a verified record: {e}")))
+    Verified::deserialize(json)
+        .map_err(|e| LoadError(copy::load_not_a_verified_record(&e.to_string())))
 }

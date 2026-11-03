@@ -47,6 +47,7 @@ use crate::answers;
 use crate::auth::Denied;
 use crate::club::ClubSlug;
 use crate::config::ConfigError;
+use crate::copy;
 use crate::rooms::{AppState, RoomError, Scheduling};
 
 /// The variable the token is read from — the one place in `src/` it is named.
@@ -135,7 +136,7 @@ pub async fn serve(State(admin): State<Arc<Admin>>, request: Request) -> Respons
         // slug gets the same answer as any record the room refuses.
         (["clubs", club, "questions", id], &Method::PUT) => match ClubSlug::parse(club) {
             Some(club) => put_question(&admin.rooms, &club, id, body).await,
-            None => refused(StatusCode::BAD_REQUEST, "That is not a club name."),
+            None => refused(StatusCode::BAD_REQUEST, copy::ADMIN_NOT_A_CLUB),
         },
         (["used"], &Method::GET) => Json(admin.rooms.used().all()).into_response(),
         (["questions", _], _) | (["clubs", _, "questions", _], _) | (["used"], _) => {
@@ -151,16 +152,13 @@ fn refused(status: StatusCode, reason: impl Into<String>) -> Response {
 
 async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -> Response {
     let Ok(bytes) = axum::body::to_bytes(body, MAX_RECORD_BYTES).await else {
-        return refused(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "The record is larger than a question record can be.",
-        );
+        return refused(StatusCode::PAYLOAD_TOO_LARGE, copy::ADMIN_RECORD_TOO_LARGE);
     };
     let Ok(json) = std::str::from_utf8(&bytes) else {
-        return refused(StatusCode::BAD_REQUEST, "The record is not UTF-8 JSON.");
+        return refused(StatusCode::BAD_REQUEST, copy::ADMIN_RECORD_NOT_UTF8);
     };
     let Ok(serde_json::Value::Object(mut record)) = serde_json::from_str(json) else {
-        return refused(StatusCode::BAD_REQUEST, "The record is not a JSON object.");
+        return refused(StatusCode::BAD_REQUEST, copy::ADMIN_RECORD_NOT_OBJECT);
     };
     // `bank_order` rides beside the record and is never stored or returned.
     let bank_order: Option<Vec<usize>> = match record.remove("bank_order") {
@@ -170,7 +168,7 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
             Err(_) => {
                 return refused(
                     StatusCode::BAD_REQUEST,
-                    format!("{id}: bank_order is not a list of option indexes."),
+                    copy::admin_bank_order_not_indexes(id),
                 )
             }
         },
@@ -183,10 +181,7 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
     if question.public().id() != id {
         return refused(
             StatusCode::BAD_REQUEST,
-            format!(
-                "The path names {id}; the record is {}.",
-                question.public().id()
-            ),
+            copy::admin_path_names_another(id, question.public().id()),
         );
     }
     match rooms.schedule_for(club, question) {

@@ -76,7 +76,7 @@ async fn answer(
     let Some(letter) = crate::sessions::parse_letter(&body.letter) else {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "reason": "An answer is one of A, B, C, D or E." })),
+            Json(serde_json::json!({ "reason": crate::copy::ANSWER_BAD_LETTER })),
         )
             .into_response();
     };
@@ -88,7 +88,7 @@ async fn answer(
             StatusCode::CONFLICT,
             Json(serde_json::json!({
                 "reason": match phase {
-                    crate::phase::Phase::Idle => "Answers open when the question is on the screen.",
+                    crate::phase::Phase::Idle => crate::copy::ANSWER_NOT_YET_OPEN,
                     _ => crate::copy::BUZZER_CLOSED,
                 },
                 "phase": phase,
