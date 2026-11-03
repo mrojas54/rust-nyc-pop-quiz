@@ -542,9 +542,16 @@ struct Dep {
     /// `package = "…"`: the crate it really is, when renamed.
     package: Option<String>,
     path: Option<String>,
+    /// `workspace = true`: the real spec is the workspace's entry of this name.
+    /// (Cargo refuses `workspace = false`, so the key alone says it.)
+    inherited: bool,
 }
 
-/// Every dependency in every dependency table.
+/// Where inherited dependency specs live. The room is its own workspace root,
+/// so this is in its own manifest.
+const WORKSPACE_DEPENDENCIES: &str = "workspace.dependencies";
+
+/// Every dependency in every dependency table, the workspace's included.
 fn manifest_deps(manifest: &Toml) -> Vec<Dep> {
     let mut deps = Vec::new();
     let mut read_table = |table: String, entries: &[(String, Toml)]| {
@@ -555,9 +562,16 @@ fn manifest_deps(manifest: &Toml) -> Vec<Dep> {
                 name: key.split(':').next().unwrap_or(key).to_string(),
                 package: field("package"),
                 path: field("path"),
+                inherited: spec.get("workspace").is_some(),
             });
         }
     };
+    if let Some(table) = manifest
+        .get("workspace")
+        .and_then(|workspace| workspace.get("dependencies"))
+    {
+        read_table(WORKSPACE_DEPENDENCIES.to_string(), table.entries());
+    }
     for kind in DEPENDENCY_KINDS {
         if let Some(table) = manifest.get(kind) {
             read_table(kind.to_string(), table.entries());
@@ -583,7 +597,23 @@ fn manifest_deps(manifest: &Toml) -> Vec<Dep> {
 fn manifest_violations(crate_dir: &Path, manifest: &str) -> Vec<String> {
     let pipeline = normalize(&crate_dir.join("..").join("pipeline"));
     let mut violations = Vec::new();
-    for dep in manifest_deps(&parse_toml(manifest)) {
+    let deps = manifest_deps(&parse_toml(manifest));
+    let in_workspace: BTreeSet<&str> = deps
+        .iter()
+        .filter(|dep| dep.table == WORKSPACE_DEPENDENCIES)
+        .map(|dep| dep.name.as_str())
+        .collect();
+    for dep in &deps {
+        let at = format!("Cargo.toml [{}] {}", dep.table, dep.name);
+        // Its spec is checked where it is written. One this manifest does not
+        // write comes from a workspace above the room that this test cannot read.
+        if dep.inherited && !in_workspace.contains(dep.name.as_str()) {
+            violations.push(format!(
+                "{at}: inherits from a workspace outside the room's manifest"
+            ));
+        }
+    }
+    for dep in deps {
         let at = format!("Cargo.toml [{}] {}", dep.table, dep.name);
         if denied(&dep.name) {
             violations.push(format!("{at}: denied crate name"));
@@ -632,6 +662,14 @@ fn lock_packages(lock: &str) -> Vec<Package> {
         .collect()
 }
 
+/// A lock source without the commit a git source is pinned to. Cargo writes a
+/// package's source as `git+URL?query#commit` and a dependency line's as
+/// `(git+URL?query)`; the URL and its `?branch=`/`?tag=`/`?rev=` still tell
+/// two git sources apart.
+fn unpinned(source: &str) -> &str {
+    source.split_once('#').map_or(source, |(source, _)| source)
+}
+
 /// The packages a lock entry's dependency line can mean. The lock adds the
 /// version, then the source, only when the shorter form would be ambiguous.
 fn resolve<'a>(packages: &'a [Package], dep: &str) -> Vec<usize> {
@@ -647,7 +685,9 @@ fn resolve<'a>(packages: &'a [Package], dep: &str) -> Vec<usize> {
             let candidate: &'a Package = &packages[index];
             candidate.name == name
                 && version.is_none_or(|version| candidate.version == version)
-                && source.is_none_or(|source| candidate.source.as_deref() == Some(source))
+                && source.is_none_or(|source| {
+                    candidate.source.as_deref().map(unpinned) == Some(unpinned(source))
+                })
         })
         .collect()
 }
@@ -893,22 +933,49 @@ fn use_roots(tree: &[Tok], absolute: bool) -> Vec<(String, bool)> {
 
 /// One crate-or-module root a file imports.
 struct Import {
-    /// The module the import sits in: 0 for the file, then one per inline `mod`.
-    module: usize,
+    /// The scope the import sits in (see [`FileImports::parent`]).
+    scope: usize,
     root: String,
     /// Written `::root`, or by `extern crate`: always an external crate.
     external: bool,
     keyword: &'static str,
 }
 
-/// A file's imports, and the module names each of its modules declares.
-fn imports(source: &str) -> (Vec<Import>, BTreeSet<(usize, String)>) {
+/// A file's imports and the module names it declares, by scope.
+struct FileImports {
+    found: Vec<Import>,
+    /// `(scope, name)` for each `mod name;` or `mod name { … }`.
+    declared: BTreeSet<(usize, String)>,
+    /// Each scope's enclosing scope. Scope 0 is the file; every brace opens
+    /// one more. A block sees the names its enclosing blocks declare, up to its
+    /// module, so a block's parent is the scope around it. A module (the file,
+    /// or an inline `mod name { … }`) has none: Rust does not look past it
+    /// without `super::`.
+    parent: Vec<Option<usize>>,
+}
+
+impl FileImports {
+    /// Whether `name` is a module that `scope` can see: declared in it, or in a
+    /// scope around it within the same module.
+    fn declares(&self, scope: usize, name: &str) -> bool {
+        let mut at = Some(scope);
+        while let Some(scope) = at {
+            if self.declared.contains(&(scope, name.to_string())) {
+                return true;
+            }
+            at = self.parent[scope];
+        }
+        false
+    }
+}
+
+fn imports(source: &str) -> FileImports {
     let tokens = tokens(source);
-    let mut found = Vec::new();
-    let mut declared = BTreeSet::new();
-    let mut modules = 1;
-    // The module each open brace belongs to. A function or impl body stays in
-    // its module; only an inline `mod name { … }` starts a new one.
+    let mut file = FileImports {
+        found: Vec::new(),
+        declared: BTreeSet::new(),
+        parent: vec![None],
+    };
     let mut scopes = vec![0];
     let mut at = 0;
     while at < tokens.len() {
@@ -917,14 +984,14 @@ fn imports(source: &str) -> (Vec<Import>, BTreeSet<(usize, String)>) {
             if let Some(Tok::Ident(name, _)) = tokens.get(at + 1) {
                 match tokens.get(at + 2) {
                     Some(Tok::Semi) => {
-                        declared.insert((here, name.clone()));
+                        file.declared.insert((here, name.clone()));
                         at += 3;
                         continue;
                     }
                     Some(Tok::Open) => {
-                        declared.insert((here, name.clone()));
-                        scopes.push(modules);
-                        modules += 1;
+                        file.declared.insert((here, name.clone()));
+                        scopes.push(file.parent.len());
+                        file.parent.push(None);
                         at += 3;
                         continue;
                     }
@@ -939,8 +1006,8 @@ fn imports(source: &str) -> (Vec<Import>, BTreeSet<(usize, String)>) {
                 .position(|token| *token == Tok::Semi)
                 .map_or(tokens.len(), |offset| at + 1 + offset);
             for (root, external) in use_roots(&tokens[at + 1..end], false) {
-                found.push(Import {
-                    module: here,
+                file.found.push(Import {
+                    scope: here,
                     root,
                     external,
                     keyword: "use",
@@ -950,8 +1017,8 @@ fn imports(source: &str) -> (Vec<Import>, BTreeSet<(usize, String)>) {
             continue;
         } else if keyword(tokens.get(at), "extern") && keyword(tokens.get(at + 1), "crate") {
             if let Some(Tok::Ident(name, _)) = tokens.get(at + 2) {
-                found.push(Import {
-                    module: here,
+                file.found.push(Import {
+                    scope: here,
                     root: name.clone(),
                     external: true,
                     keyword: "extern crate",
@@ -960,33 +1027,35 @@ fn imports(source: &str) -> (Vec<Import>, BTreeSet<(usize, String)>) {
                 continue;
             }
         } else if tokens[at] == Tok::Open {
-            scopes.push(here);
+            scopes.push(file.parent.len());
+            file.parent.push(Some(here));
         } else if tokens[at] == Tok::Close && scopes.len() > 1 {
             scopes.pop();
         }
         at += 1;
     }
-    (found, declared)
+    file
 }
 
 /// What is wrong with one source file, and the denied names it was allowed to
 /// `use` because its own module declares them.
 ///
-/// A `use` root that the same module declares with `mod` is that module, which
-/// is how Rust resolves it: `server/routes/mod.rs` declares `mod pipeline;`
-/// (the room's admin route for the pipeline's pushes) and then
-/// `use pipeline::admin_routes;`. An absolute `::name` and `extern crate`
-/// always name a crate, so they get no such reading.
+/// A `use` root that its scope can see declared with `mod` is that module,
+/// which is how Rust resolves it: `server/routes/mod.rs` declares
+/// `mod pipeline;` (the room's admin route for the pipeline's pushes) and then
+/// `use pipeline::admin_routes;`. A `mod` inside a block is seen only inside
+/// that block. An absolute `::name` and `extern crate` always name a crate, so
+/// they get no such reading.
 fn source_violations(file: &str, source: &str) -> (Vec<String>, BTreeSet<String>) {
-    let (found, declared) = imports(source);
+    let scanned = imports(source);
     let mut violations = Vec::new();
     let mut local = BTreeSet::new();
-    for import in found {
+    for import in &scanned.found {
         if !denied(&import.root) {
             continue;
         }
-        if !import.external && declared.contains(&(import.module, import.root.clone())) {
-            local.insert(import.root);
+        if !import.external && scanned.declares(import.scope, &import.root) {
+            local.insert(import.root.clone());
             continue;
         }
         violations.push(format!(
@@ -1020,7 +1089,7 @@ fn scan_source(crate_dir: &Path) -> SourceScan {
             .unwrap_or(&path)
             .display()
             .to_string();
-        scan.imports += imports(&source).0.len();
+        scan.imports += imports(&source).found.len();
         let (violations, local) = source_violations(&name, &source);
         scan.violations.extend(violations);
         scan.local.extend(local);
@@ -1255,6 +1324,35 @@ fn the_planted_mutations_are_refused() {
         refused(&format!("{manifest}\n{appended}\n"), expected);
     }
 
+    // Workspace inheritance: the spec is in `[workspace.dependencies]`, or in a
+    // workspace above the room that this test cannot read.
+    let inheriting = planted(
+        &manifest,
+        "[dependencies]",
+        "client = { workspace = true, optional = true }",
+    );
+    refused(
+        &format!(
+            "{inheriting}\n[workspace.dependencies]\n\
+             client = {{ package = \"openai\", version = \"0.1\" }}\n"
+        ),
+        "[workspace.dependencies] client: renames denied crate `openai`",
+    );
+    refused(
+        &format!("{manifest}\n[workspace.dependencies]\nhelper = {{ path = \"../pipeline\" }}\n"),
+        "[workspace.dependencies] helper: path `../pipeline` points into pipeline/",
+    );
+    // A name of its own, so a manifest that already inherits `client` from its
+    // own workspace still shows this case.
+    refused(
+        &planted(
+            &manifest,
+            "[dependencies]",
+            "pq47-inherited = { workspace = true }",
+        ),
+        "[dependencies] pq47-inherited: inherits from a workspace outside",
+    );
+
     // M3: an import the compiler never sees.
     let source = |text: &str| source_violations("planted.rs", text).0;
     assert_eq!(
@@ -1277,13 +1375,25 @@ fn the_planted_mutations_are_refused() {
         "mod pipeline;\n#[cfg(any())]\nuse ::pipeline::Client;\n",
         "mod inner {\n    mod openai;\n}\n#[cfg(any())]\nuse openai::Client;\n",
         "fn f() {\n    use generator::Gen;\n}\n",
+        // A `mod` in a block is not seen outside it.
+        "fn f() { mod openai {} }\n#[cfg(any())]\nuse openai::Client;\n",
+        "fn f() {\n    { mod openai {} }\n    use openai::Client;\n}\n",
+        "const _: () = { mod openai {} };\n#[cfg(any())]\nuse openai::Client;\n",
+        // Nor is a module's `mod` seen inside an inline module, without `super::`.
+        "mod openai;\nmod inner {\n    use openai::Client;\n}\n",
     ] {
         assert_eq!(source(text).len(), 1, "{text}");
     }
 
-    // The room's own `mod pipeline` is local where it is declared, and only there.
-    assert!(source("mod pipeline;\npub(crate) use pipeline::admin_routes;\n").is_empty());
-    assert!(source("mod pipeline;\nfn f() {\n    use pipeline::admin_routes;\n}\n").is_empty());
+    // The room's own `mod pipeline` is local where it is seen, and only there.
+    for text in [
+        "mod pipeline;\npub(crate) use pipeline::admin_routes;\n",
+        "mod pipeline;\nfn f() {\n    use pipeline::admin_routes;\n}\n",
+        "fn f() {\n    mod pipeline {}\n    use pipeline::admin_routes;\n}\n",
+        "fn f() {\n    mod pipeline {}\n    {\n        use pipeline::admin_routes;\n    }\n}\n",
+    ] {
+        assert!(source(text).is_empty(), "{text}");
+    }
     assert_eq!(source("pub(crate) use pipeline::admin_routes;\n").len(), 1);
 }
 
@@ -1384,5 +1494,65 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
         reached.len(),
         3,
         "room, the git shim and openai: {reached:?}"
+    );
+}
+
+/// The shape `cargo generate-lockfile` writes for one crate from two git
+/// repositories (one on a branch): each package's source carries the commit it
+/// is pinned to, and each dependency line names the source without it.
+#[test]
+fn the_lock_walk_matches_git_sources_without_their_commit() {
+    let lock = r#"
+version = 4
+
+[[package]]
+name = "room"
+version = "0.1.0"
+dependencies = [
+ "shim 1.0.0 (git+https://example.com/b?branch=dev)",
+ "shim 1.0.0 (git+https://example.com/a)",
+]
+
+[[package]]
+name = "shim"
+version = "1.0.0"
+source = "git+https://example.com/b?branch=dev#84b81c3f13100567babfe14dea141f96d2d8f1f4"
+dependencies = [
+ "openai",
+]
+
+[[package]]
+name = "shim"
+version = "1.0.0"
+source = "git+https://example.com/a#2e4a07543fbfb2fbda07356922c0fa81f18b9bbb"
+
+[[package]]
+name = "openai"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+"#;
+    let packages = lock_packages(lock);
+    let reached: Vec<_> = room_subgraph(&packages)
+        .iter()
+        .map(|package| (package.name.clone(), package.source.clone()))
+        .collect();
+    assert_eq!(reached.len(), 4, "room, both shims and openai: {reached:?}");
+    assert!(
+        lock_violations(lock)
+            .iter()
+            .any(|violation| violation.contains("openai")),
+        "the branch `shim` reaches openai"
+    );
+    // The branch still tells the two repositories' sources apart.
+    assert_eq!(
+        resolve(
+            &packages,
+            "shim 1.0.0 (git+https://example.com/b?branch=dev)"
+        ),
+        vec![1]
+    );
+    assert_eq!(
+        resolve(&packages, "shim 1.0.0 (git+https://example.com/a)"),
+        vec![2]
     );
 }
