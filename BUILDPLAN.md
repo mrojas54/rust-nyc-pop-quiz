@@ -45,7 +45,7 @@ whose project this is — and she made it.
 |---|---|---|
 | Language | **Python 3.12, `uv`-managed**, inheriting `mvp/tools/verify.py` and `build_deck.py` after audit. The pipeline is glue around `rustc`, Miri, and an LLM. | A Rust CLI — more work, no benefit. |
 | Sandbox (AC-12) | **Docker**: an image built once with the pinned toolchain and nightly Miri; run with `--network none`, memory/CPU/pids limits, read-only root, tmpfs work dir, a hard timeout. Works on the client's Mac. | Modal Sandbox (sponsored, isolation undisclosed); bubblewrap (Linux only). |
-| Bank storage | **JSON files in `bank/` in this private repo** — reviewable in PRs, diffable, no server; `bank-audit` is a script over them. | SQLite — nothing here needs a query engine. |
+| Bank storage | **JSON files in `bank/` in this repo** (public, so the bank is readable; see `bank/README.md`) — reviewable in PRs, diffable, no server; `bank-audit` is a script over them. | SQLite — nothing here needs a query engine. |
 | Review surface | **A local page served by the CLI** (`popquiz review`) that writes back to the bank | A static page can render but not affirm. |
 
 Decide-and-log.

@@ -12,11 +12,14 @@ diffable, with no server in front of it (BUILDPLAN D-C).
 | `fixtures/receipts/*.json` | the receipt's cases, with the lines each must render | by hand from `SPEC.md` §7.5, except `ran-no-miri.json` — see below |
 | `audit/` | `bank-audit`'s run reports, organizer-only and gitignored — see [below](#what-bank-audit-checks-and-why-it-can-never-touch-a-real-night) | **T-19** |
 
-## This directory is private, and that is load-bearing
+## This directory is public: treat every question in it as seen
 
-Nobody in the room has seen the question. A public bank would end the segment as
-a thing worth doing, so the repository stays private and **nothing here is ever
-published or linked** — not the questions, not the fixtures, not the audit report.
+The segment works only if nobody in the room has seen the question. This
+repository is public, so everything committed here — questions, candidates,
+their answers, the fixtures — is readable by anyone, attendees included.
+**Treat every question committed here, used or not, as one an attendee may
+already have read.** Deleting a file does not change that; git history keeps it.
+Only `audit/`'s reports stay local, because they are gitignored.
 
 ## Two rules for whoever fills it
 

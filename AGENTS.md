@@ -123,7 +123,7 @@ and accessibility contract.
 Two decoupled components:
 
 - **Offline question pipeline** — generate → pinned rustc + Miri verify →
-  dedupe → organizer review → a growing private bank. No deadline.
+  dedupe → organizer review → a growing bank (public; see `bank/README.md`). No deadline.
 - **Live room app** — join by code, read code, answer, reveal, aggregate.
 
 Plus **`mvp/`**: the hand-run HTML projector deck from before the room existed.
