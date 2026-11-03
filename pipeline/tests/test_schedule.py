@@ -215,6 +215,13 @@ def test_ac23_the_slot_path_is_still_the_slot_path():
     assert audit.slot_path_violations(audit.slot_source()) == []
 
 
+def test_ac23_this_arrangement_passes_its_lint():
+    """This file's `arrange`, `_shuffled` and `_rng`, read from disk: an edit to any of
+    them that lets something but the date place the answer goes red here, by name."""
+    assert audit.arrange_violations(audit.pipeline_sources()["schedule.py"]) == []
+    assert audit._lint_check().verdict == "pass"
+
+
 # --------------------------------------------------------------------------- #
 # AC-72, G-12, G-10 - the gate is a hard error
 # --------------------------------------------------------------------------- #
