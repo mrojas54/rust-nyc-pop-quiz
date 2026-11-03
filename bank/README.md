@@ -224,9 +224,11 @@ of the code it tests proves only that the code equals itself.
 **`ran-no-miri.json` is the exception, and its `_note` says so.** Its
 `expected_lines` were taken from running `receipt_lines` on the record, then read
 against §7.5 to confirm there is no Miri line. It does not prove the lines'
-wording; the hand-written fixtures do that. It proves the absence of a Miri step,
-and the JavaScript twin's test, which reads the same file, holds the two
-implementations to that.
+wording; the hand-written fixtures do that. It proves the absence of a Miri step:
+the Rust twin, `room::answers::receipt_lines`, is held to the same file by
+`popquiz/tests/twins.rs` (every fixture, plus a test of this one that asserts no
+Miri line). The wall's test in `web/test/wall.test.js` reads these files too, but
+only checks that the wall prints the lines it is given; it generates none.
 
 **Two of the ten cases are real; eight are synthetic, and each says which.**
 `legacy-ran` (q3) and `q8-does-not-compile-legacy` are copied from
