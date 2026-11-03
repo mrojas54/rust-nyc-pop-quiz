@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 2,
+  "comment_count": 3,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K1Q0P5V6WSE1M493Q5KW",
-  "last_event_id": "ev_01M6G63ZBHMD2AS9JACG88XY8B",
+  "last_event_id": "ev_01M6G7B7P275FMQWH9SVNDXW5M",
   "last_status_changed_at": "2026-10-05T12:46:01Z",
   "priority": "low",
   "relationships_out": [],
@@ -25,6 +25,6 @@
   ],
   "title": "Room-authored reason strings sit outside the copy module and are unlinted",
   "type": "chore",
-  "updated_at": "2026-11-03T07:48:58Z",
+  "updated_at": "2026-11-03T08:10:25Z",
   "urgency": null
 }

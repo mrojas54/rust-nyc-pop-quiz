@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-10-05T12:46:02Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K1ZXTYY4ENT64HPYQN3N",
-  "last_event_id": "ev_01M6G63Z7Y5BNRB9JTNTKH0VMY",
+  "last_event_id": "ev_01M6G7B7JMXK8KAVP34VW2YXS6",
   "last_status_changed_at": "2026-10-05T12:46:02Z",
   "priority": "low",
   "relationships_out": [],
@@ -25,6 +25,6 @@
   ],
   "title": "The distribution scan's file list misses docs/RUNBOOK.md, web/README.md, the page shells and room/src/copy.rs",
   "type": "chore",
-  "updated_at": "2026-11-03T07:48:58Z",
+  "updated_at": "2026-11-03T08:10:25Z",
   "urgency": null
 }
