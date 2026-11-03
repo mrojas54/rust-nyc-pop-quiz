@@ -178,6 +178,20 @@ def test_a_line_renders_only_when_the_record_holds_its_step() -> None:
     assert not any("Miri" in line for line in mismatched)
 
 
+def test_a_record_that_ran_without_miri_renders_no_miri_line() -> None:
+    """G-7, GAP-16: with no Miri result in the record, no line may mention Miri.
+
+    A record can hold runs and no `miri`, because the room's loader keeps it optional.
+    The steps it does hold still render, so an empty list cannot pass this.
+    """
+    case = _case("ran-no-miri")
+    assert "runs" in case["verified"] and "miri" not in case["verified"]
+    lines = _lines_for(case)
+    assert lines is not None
+    assert "✓ Compiled" in lines
+    assert not any("miri" in line.lower() for line in lines), lines
+
+
 def test_undefined_behavior_as_the_answer_reads_as_a_flag_not_a_pass() -> None:
     """AC-9, AC-43: `miri.clean` false renders the flagged wording, still one line."""
     lines = _lines_for(_case("ub-declared"))
