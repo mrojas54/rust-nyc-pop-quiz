@@ -13,6 +13,11 @@
 //! - in the arguments of a call to a [`REASON_SINKS`] helper, which puts its
 //!   argument in a `reason` field (admin's `refused`).
 //!
+//! The [`REASON_SOURCES`] build the refusals those routes forward through a
+//! variable (`LoadError`, `RoomError::Refused`). In them, a literal containing
+//! a letter also fails in the arguments of any [`SOURCE_SINKS`] call or macro;
+//! every `format!` there builds a refusal, so none may carry its own words.
+//!
 //! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
 //! Those are the codes a client branches on, not sentences anyone reads; any
 //! other word there fails, so a new code is added to the list on purpose.
@@ -38,6 +43,18 @@ const REFUSAL_CODES: &[&str] = &[
 
 /// Helpers that put their argument in a `reason` field.
 const REASON_SINKS: &[&str] = &["refused"];
+
+/// Files outside `src/server/` and `src/connections/` whose refusals a route
+/// sends as its `reason`: the admin channel's `LoadError` and `RoomError`, and
+/// the host routes' `RoomError` (PQ-60 ruling A, these three files only).
+const REASON_SOURCES: &[&str] = &[
+    "quiz_session/models/answers.rs",
+    "quiz_session/state_manager.rs",
+    "quiz_session/host/create.rs",
+];
+
+/// In [`REASON_SOURCES`], the calls and macros that build a refusal.
+const SOURCE_SINKS: &[&str] = &["refuse", "Refused", "LoadError", "format", "format_args"];
 
 #[derive(Debug, PartialEq)]
 enum Tok {
@@ -155,18 +172,18 @@ fn string(c: &[char], mut i: usize, line: &mut usize) -> (String, usize) {
 /// The tokens from `from` to the first unmatched closer, or, when `field` is
 /// set, to the first `,` at depth 0 if that comes sooner: a JSON field's value,
 /// or (unset) a call's whole argument list.
-fn span(toks: &[(usize, Tok)], from: usize, field: bool) -> &[(usize, Tok)] {
+fn span(toks: &[(usize, Tok)], from: usize, field: bool) -> std::ops::Range<usize> {
     let mut depth = 0usize;
     for (j, (_, t)) in toks.iter().enumerate().skip(from) {
         match t {
             Tok::Punct('(' | '[' | '{') => depth += 1,
-            Tok::Punct(')' | ']' | '}') if depth == 0 => return &toks[from..j],
+            Tok::Punct(')' | ']' | '}') if depth == 0 => return from..j,
             Tok::Punct(')' | ']' | '}') => depth -= 1,
-            Tok::Punct(',') if field && depth == 0 => return &toks[from..j],
+            Tok::Punct(',') if field && depth == 0 => return from..j,
             _ => {}
         }
     }
-    &toks[from..]
+    from..toks.len()
 }
 
 /// A literal sentence bound for a person: (line, what it is in, the literal).
@@ -179,11 +196,27 @@ struct Scan {
     sink_calls: usize,
 }
 
-fn scan(src: &str) -> Scan {
+fn scan(src: &str, sinks: &[&str]) -> Scan {
     let toks = tokens(src);
     let mut out = Scan::default();
+    // A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
+    // hit, not one per enclosing call.
+    let mut seen = vec![false; toks.len()];
+    let mut hit = |j: usize, what: String, out: &mut Scan| {
+        if let Tok::Str(s) = &toks[j].1 {
+            if !std::mem::replace(&mut seen[j], true) {
+                out.hits.push((toks[j].0, what, s.clone()));
+            }
+        }
+    };
     for (i, (_, t)) in toks.iter().enumerate() {
         let next = |k: usize| toks.get(i + k).map(|(_, t)| t);
+        // `name(` or the macro `name!(`: where the arguments open.
+        let args = match (next(1), next(2)) {
+            (Some(Tok::Punct('(')), _) => Some(i + 2),
+            (Some(Tok::Punct('!')), Some(Tok::Punct('('))) => Some(i + 3),
+            _ => None,
+        };
         match t {
             Tok::Str(key)
                 if KEYS.contains(&key.as_str())
@@ -191,26 +224,26 @@ fn scan(src: &str) -> Scan {
                     && next(2) != Some(&Tok::Punct(':')) =>
             {
                 out.fields += 1;
-                for (line, v) in span(&toks, i + 2, true) {
-                    if let Tok::Str(s) = v {
+                for j in span(&toks, i + 2, true) {
+                    if let Tok::Str(s) = &toks[j].1 {
                         if s.chars().any(char::is_alphabetic)
                             && !(key == "refusal" && REFUSAL_CODES.contains(&s.as_str()))
                         {
-                            out.hits.push((*line, format!("\"{key}\""), s.clone()));
+                            hit(j, format!("\"{key}\""), &mut out);
                         }
                     }
                 }
             }
             Tok::Word(name)
-                if REASON_SINKS.contains(&name.as_str())
-                    && next(1) == Some(&Tok::Punct('('))
+                if sinks.contains(&name.as_str())
+                    && args.is_some()
                     && !(i > 0 && toks[i - 1].1 == Tok::Word("fn".into())) =>
             {
                 out.sink_calls += 1;
-                for (line, v) in span(&toks, i + 2, false) {
-                    if let Tok::Str(s) = v {
+                for j in span(&toks, args.unwrap_or(i), false) {
+                    if let Tok::Str(s) = &toks[j].1 {
                         if s.chars().any(char::is_alphabetic) {
-                            out.hits.push((*line, format!("{name}(…)"), s.clone()));
+                            hit(j, format!("{name}(…)"), &mut out);
                         }
                     }
                 }
@@ -229,6 +262,14 @@ fn covered() -> Vec<(String, String)> {
         .collect()
 }
 
+/// The [`REASON_SOURCES`], read.
+fn sources() -> Vec<(String, String)> {
+    common::room_sources(&[])
+        .into_iter()
+        .filter(|(name, _)| REASON_SOURCES.contains(&name.as_str()))
+        .collect()
+}
+
 #[test]
 fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
     let files = covered();
@@ -242,11 +283,27 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
             "the scan did not read {must}"
         );
     }
-    let (mut hits, mut fields, mut sink_calls) = (Vec::new(), 0, 0);
-    for (name, text) in &files {
-        let s = scan(text);
+    let srcs = sources();
+    for must in REASON_SOURCES {
+        assert!(
+            srcs.iter().any(|(n, _)| n == must),
+            "the scan did not read {must}; update REASON_SOURCES"
+        );
+    }
+    let (mut hits, mut fields, mut sink_calls, mut source_calls) = (Vec::new(), 0, 0, 0);
+    let all_sinks: Vec<&str> = REASON_SINKS.iter().chain(SOURCE_SINKS).copied().collect();
+    let read = files
+        .iter()
+        .map(|f| (f, false))
+        .chain(srcs.iter().map(|f| (f, true)));
+    for ((name, text), is_source) in read {
+        let s = scan(text, if is_source { &all_sinks } else { REASON_SINKS });
         fields += s.fields;
-        sink_calls += s.sink_calls;
+        if is_source {
+            source_calls += s.sink_calls;
+        } else {
+            sink_calls += s.sink_calls;
+        }
         hits.extend(
             s.hits
                 .into_iter()
@@ -254,7 +311,8 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
         );
     }
     // Floors against a tokenizer that silently matches nothing: PQ-60 left 14
-    // such fields and 8 `refused` calls in these files.
+    // such fields and 8 `refused` calls in server/ and connections/, and over
+    // 20 refusal calls in the three sources.
     assert!(
         fields >= 10,
         "read only {fields} reason/message/refusal fields"
@@ -262,6 +320,10 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
     assert!(
         sink_calls >= 5,
         "read only {sink_calls} calls to {REASON_SINKS:?}"
+    );
+    assert!(
+        source_calls >= 15,
+        "read only {source_calls} calls to {SOURCE_SINKS:?} in {REASON_SOURCES:?}"
     );
     assert!(
         hits.is_empty(),
@@ -301,7 +363,61 @@ fn every_refusal_code_is_still_sent() {
 // the rule's reach is pinned here and not only in a reverted edit.
 
 fn flags(src: &str) -> Vec<String> {
-    scan(src).hits.into_iter().map(|(_, _, lit)| lit).collect()
+    scan(src, REASON_SINKS)
+        .hits
+        .into_iter()
+        .map(|(_, _, lit)| lit)
+        .collect()
+}
+
+/// [`flags`] as the scan reads a [`REASON_SOURCES`] file.
+fn source_flags(src: &str) -> Vec<String> {
+    let sinks: Vec<&str> = REASON_SINKS.iter().chain(SOURCE_SINKS).copied().collect();
+    scan(src, &sinks)
+        .hits
+        .into_iter()
+        .map(|(_, _, lit)| lit)
+        .collect()
+}
+
+#[test]
+fn the_scan_fails_a_sentence_written_in_a_reason_source() {
+    // The shapes the three sources had before PQ-60 moved their words.
+    assert_eq!(
+        source_flags(r#"return refuse(&id, "has no verified record, so it has no answer");"#),
+        ["has no verified record, so it has no answer"]
+    );
+    assert_eq!(
+        source_flags(r#"refuse(&id, format_args!("has {dnc} options; it needs one"))"#),
+        ["has {dnc} options; it needs one"]
+    );
+    assert_eq!(
+        source_flags(r#".ok_or_else(|| RoomError::Refused("No question.".into()))?;"#),
+        ["No question."]
+    );
+    assert_eq!(
+        source_flags(r#"Err(RoomError::Refused(format!("A room is running {id}.")))"#),
+        ["A room is running {id}."]
+    );
+    assert_eq!(
+        source_flags(r#"map_err(|e| LoadError(format!("not a bank record: {e}")))"#),
+        ["not a bank record: {e}"]
+    );
+    assert_eq!(
+        source_flags(r#"then(|| format!("{id}: is affirmed"))"#),
+        ["{id}: is affirmed"]
+    );
+    // The moved forms pass.
+    let clean = r#"
+        pub struct LoadError(pub String);
+        fn refuse<T>(id: &str, why: impl std::fmt::Display) -> Result<T, LoadError> {
+            Err(LoadError(copy::load_refused(id, &why.to_string())))
+        }
+        return refuse(&id, copy::LOAD_NO_VERIFIED);
+        return Err(RoomError::Refused(copy::ROOM_NOTHING_SCHEDULED.into()));
+        Err(RoomError::Refused(why)) => refused(StatusCode::CONFLICT, why),
+    "#;
+    assert_eq!(source_flags(clean), Vec::<String>::new());
 }
 
 #[test]
@@ -348,7 +464,7 @@ fn the_scan_passes_constants_slugs_comments_and_the_helper_itself() {
         refused(StatusCode::BAD_REQUEST, copy::admin_bank_order_not_indexes(id));
         Json(serde_json::json!({ "id": id, "scheduled": "new" }));
     "#;
-    let s = scan(clean);
+    let s = scan(clean, REASON_SINKS);
     assert_eq!(s.hits, Vec::<(usize, String, String)>::new());
     assert_eq!((s.fields, s.sink_calls), (5, 1));
 }
