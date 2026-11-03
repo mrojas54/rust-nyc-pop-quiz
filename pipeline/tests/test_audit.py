@@ -14,11 +14,13 @@ program printed. Their `stdout` values are placeholders in the style
 
 from __future__ import annotations
 
+import codecs
 import dataclasses
 import datetime
 import inspect
 import json
 import math
+import os
 import pathlib
 import random
 import shutil
@@ -455,17 +457,197 @@ def test_five_options_fails_on_a_malformed_record(kinds: list[str], complaint: s
 
 
 def test_the_real_participant_facing_files_are_clean() -> None:
-    hits, scanned, _absent = audit.distribution_lint(REPO)
+    hits, scanned, _absent, unreadable = audit.distribution_lint(REPO)
     assert hits == [], [str(h) for h in hits]
+    assert unreadable == [], unreadable
     assert "README.md" in scanned and "mvp/README.md" in scanned
 
 
-def test_the_copy_table_and_take_it_home_are_in_scope() -> None:
-    """`web/shared/copy.js` arrives with PR #9 (branch ai-c11-cc/shared-web-layer,
-    BUILDPLAN T-02) and take-it-home with T-12. Neither is on this branch yet;
-    both are linted the moment they are in the tree."""
-    assert "web/shared/copy.js" in audit.PARTICIPANT_FACING
-    assert "web/home" in audit.PARTICIPANT_FACING_DIRS
+def test_every_authored_file_outside_bank_is_in_scope() -> None:
+    """GAP-22: the repository is public, so the scan goes by rule, not by a list.
+    The files the old list missed (M11b and the audit's G-11 section) are read
+    now, beside the ones it named."""
+    _hits, scanned, stale, _unreadable = audit.distribution_lint(REPO)
+    for rel in (
+        "docs/RUNBOOK.md",
+        "web/README.md",
+        "popquiz/src/copy.rs",
+        "web/shared/copy.js",
+        "web/buzzer/index.html",
+        "web/home/index.html",
+        "web/host/index.html",
+        "web/landing/index.html",
+        "web/wall/index.html",
+        "SPEC.md",
+        "EVALUATION.md",
+        "BUILDPLAN.md",
+    ):
+        assert rel in scanned, rel
+    assert not any(s.startswith("bank/") for s in scanned)
+    assert stale == [], stale
+
+
+def test_every_path_exemption_names_something_in_the_tree() -> None:
+    """A path exemption that covers nothing is a hole waiting for a file."""
+    for path, reason in audit.DISTRIBUTION_EXEMPT_PATHS.items():
+        assert (REPO / path).exists(), path
+        assert reason.strip(), path
+
+
+TELL = "About 40% of the answers are *does not compile*.\n"
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "docs/RUNBOOK.md",  # M11b
+        "web/README.md",
+        "web/wall/index.html",
+        "popquiz/src/copy.rs",
+        "sequencex/notes.md",  # `sequence/` exempts a directory, not a prefix
+        "docs/auditing.md",
+        "notes/PRD.md",  # `PRD.md` exempts the root file only
+    ],
+)
+def test_a_tell_anywhere_authored_is_caught(tmp_path: pathlib.Path, rel: str) -> None:
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(TELL, encoding="utf-8")
+    hits, scanned, _stale, _unreadable = audit.distribution_lint(tmp_path)
+    assert scanned == [rel]
+    assert [h.path for h in hits] == [rel]
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "bank/audit/report.md",
+        "popquiz/target/debug/build.txt",
+        "web/node_modules/pkg/README.md",
+        "pipeline/.venv/lib/site.py",
+        "pipeline/.pytest_cache/README.md",
+        "sequence/research/notes.md",
+        "docs/audit/report.md",
+        "pipeline/tests/test_audit.py",
+        "mvp/2026-08-12/deck.html",
+        "PRD.md",
+    ],
+)
+def test_skipped_and_exempt_paths_are_not_read(tmp_path: pathlib.Path, rel: str) -> None:
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(TELL, encoding="utf-8")
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned, unreadable) == ([], [], [])
+
+
+def test_bank_is_skipped_only_at_the_root(tmp_path: pathlib.Path) -> None:
+    nested = tmp_path / "docs" / "bank" / "notes.md"
+    nested.parent.mkdir(parents=True)
+    nested.write_text(TELL, encoding="utf-8")
+    hits, _scanned, _stale, _unreadable = audit.distribution_lint(tmp_path)
+    assert [h.path for h in hits] == ["docs/bank/notes.md"]
+
+
+@pytest.mark.parametrize(
+    "encoded",
+    [
+        codecs.BOM_UTF16_LE + TELL.encode("utf-16-le"),
+        codecs.BOM_UTF16_BE + TELL.encode("utf-16-be"),
+        # UTF-32 LE's mark begins with UTF-16 LE's, so the order of the checks matters.
+        codecs.BOM_UTF32_LE + TELL.encode("utf-32-le"),
+        codecs.BOM_UTF32_BE + TELL.encode("utf-32-be"),
+        # UTF-8 that happens to carry a NUL is text, not binary (Codex review, pass 2).
+        ("Intro\x00\n" + TELL).encode("utf-8"),
+        # With no mark, UTF-16 and UTF-32 also decode as UTF-8, NULs between the
+        # characters (Codex review, pass 3).
+        TELL.encode("utf-16-le"),
+        TELL.encode("utf-16-be"),
+        TELL.encode("utf-32-le"),
+        TELL.encode("utf-32-be"),
+    ],
+    ids=[
+        "utf16-le",
+        "utf16-be",
+        "utf32-le",
+        "utf32-be",
+        "utf8-with-nul",
+        "utf16-le-no-bom",
+        "utf16-be-no-bom",
+        "utf32-le-no-bom",
+        "utf32-be-no-bom",
+    ],
+)
+def test_a_tell_in_any_text_encoding_is_caught(tmp_path: pathlib.Path, encoded: bytes) -> None:
+    """A byte-order mark, or a clean UTF-8 decode, says the file is text,
+    whatever its NUL bytes suggest."""
+    (tmp_path / "notes.md").write_bytes(encoded)
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (scanned, unreadable) == (["notes.md"], [])
+    assert [h.path for h in hits] == ["notes.md"]
+
+
+def test_binary_files_are_skipped_not_reported(tmp_path: pathlib.Path) -> None:
+    """Git's rule: a NUL byte in the first 8 KiB is binary (fonts, images)."""
+    (tmp_path / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + TELL.encode())
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned, unreadable) == ([], [], [])
+
+
+def test_text_the_scan_cannot_decode_is_reported(tmp_path: pathlib.Path) -> None:
+    """Codex review, PQ-62: a Latin-1 file used to drop out of the scan in silence."""
+    (tmp_path / "notes.md").write_bytes(("Résumé. " + TELL).encode("latin-1"))
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], [])
+    assert [u.split(":")[0] for u in unreadable] == ["notes.md"]
+
+
+def test_a_file_the_scan_cannot_read_is_reported(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "notes.md").write_text(TELL, encoding="utf-8")
+    real = pathlib.Path.read_bytes
+
+    def refuse(self: pathlib.Path) -> bytes:
+        if self.name == "notes.md":
+            raise PermissionError(13, "Permission denied", str(self))
+        return real(self)
+
+    monkeypatch.setattr(pathlib.Path, "read_bytes", refuse)
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], [])
+    assert [u.split(":")[0] for u in unreadable] == ["notes.md"]
+
+
+def test_a_directory_the_scan_cannot_open_is_reported(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review, pass 3: a walk error used to drop a whole subtree in silence."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "RUNBOOK.md").write_text(TELL, encoding="utf-8")
+    (tmp_path / "README.md").write_text("Nothing to see.\n", encoding="utf-8")
+    real = os.scandir
+
+    def refuse(path: object = ".") -> object:
+        if pathlib.Path(os.fspath(path)) == tmp_path / "docs":
+            raise PermissionError(13, "Permission denied", os.fspath(path))
+        return real(path)
+
+    monkeypatch.setattr(os, "scandir", refuse)
+    hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], ["README.md"])
+    assert [u.split(":")[0] for u in unreadable] == ["docs"]
+
+
+def test_an_unreadable_file_fails_the_distribution_check(tmp_path: pathlib.Path) -> None:
+    """A scan that could not read a file has not shown the file is clean."""
+    repo = copy_bank(tmp_path)
+    (repo / "notes.md").write_bytes("Résumé.\n".encode("latin-1"))
+    checks = {c["name"]: c for c in audit.run_audit(repo)["checks"]}
+    distribution = checks["no published distribution"]
+    assert distribution["verdict"] == "fail", distribution["summary"]
+    assert "notes.md" in distribution["summary"]
+    assert [u.split(":")[0] for u in distribution["detail"]["unreadable"]] == ["notes.md"]
 
 
 @pytest.mark.parametrize(
