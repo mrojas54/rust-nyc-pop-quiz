@@ -3,22 +3,29 @@
 //! Generation, verification and every model call live in the offline pipeline
 //! (`pipeline/`, the Python package `popquiz`). The room must have no way to
 //! call into any of it. This file reads the room's manifest, its lock and its
-//! source as text, and refuses:
+//! source, and refuses:
 //!
 //! - a dependency in any table (ordinary, optional, feature-gated, dev, build,
-//!   per-target, patch) whose crate name is denied, or whose `path` points into
-//!   `pipeline/`;
+//!   per-target, patch, replace) whose crate name is denied, or whose `path`
+//!   points into `pipeline/`;
 //! - a denied crate anywhere in the lock's subgraph under `room`;
 //! - a `use` or `extern crate` in `src/` whose root is a denied name.
 //!
 //! **The denylist names crates, never folders.** The room's own folder is
 //! `popquiz/`, the same word as the Python package, so a check on paths would
 //! fail on main or need a carve-out. A dependency carries a name, and names are
-//! what is checked; the only path check is the one that resolves a `path =`
-//! dependency against the repository's `pipeline/` folder.
+//! what is checked; the only path check resolves a `path` dependency against
+//! the repository's `pipeline/` folder.
 //!
-//! A scan is a tripwire, not a proof: someone who means to can dodge it. It
-//! checks the static half of AC-1 only.
+//! The manifest and the lock are read by a small TOML parser and the source by
+//! a small Rust tokenizer, both below, so layout (dotted or quoted keys, escaped
+//! strings, comments, imports split across lines) does not change what is seen.
+//! No crate is added for either.
+//!
+//! A scan is a tripwire, not a proof: someone who means to can dodge it. Imports
+//! a macro writes, and paths used with no `use` at all (`openai::Client::new()`),
+//! are left to the manifest and lock checks: a crate the source can name must be
+//! declared there first. This is the static half of AC-1 only.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -102,210 +109,489 @@ fn normalize(path: &Path) -> PathBuf {
     out
 }
 
-// --- TOML, read as text ---------------------------------------------------------
+// --- TOML -----------------------------------------------------------------------
+//
+// Enough of TOML 1.0 for Cargo.toml and Cargo.lock: bare, quoted and dotted
+// keys; `[table]` and `[[array]]` headers; the four string kinds with their
+// escapes; arrays and inline tables. Numbers, booleans and dates are kept as
+// `Other`, since nothing here reads them. Malformed input panics with a line.
 
-/// One line of TOML with its comment (a `#` outside a string) removed.
-fn toml_code(line: &str) -> &str {
-    let mut quote: Option<char> = None;
-    let mut escaped = false;
-    for (i, c) in line.char_indices() {
-        match quote {
-            Some(q) => {
-                if escaped {
-                    escaped = false;
-                } else if c == '\\' && q == '"' {
-                    escaped = true;
-                } else if c == q {
-                    quote = None;
+#[derive(Debug)]
+enum Toml {
+    Str(String),
+    Table(Vec<(String, Toml)>),
+    Array(Vec<Toml>),
+    Other,
+}
+
+impl Toml {
+    fn get(&self, key: &str) -> Option<&Toml> {
+        self.entries()
+            .iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| value)
+    }
+
+    fn str(&self) -> Option<&str> {
+        match self {
+            Toml::Str(text) => Some(text),
+            _ => None,
+        }
+    }
+
+    fn entries(&self) -> &[(String, Toml)] {
+        match self {
+            Toml::Table(entries) => entries,
+            _ => &[],
+        }
+    }
+
+    fn items(&self) -> &[Toml] {
+        match self {
+            Toml::Array(items) => items,
+            _ => &[],
+        }
+    }
+}
+
+/// The table a key path names, created where missing. A path through an array
+/// of tables goes into its last element, as a TOML header does.
+fn table_at<'a>(
+    table: &'a mut Vec<(String, Toml)>,
+    path: &[String],
+) -> &'a mut Vec<(String, Toml)> {
+    let Some((first, rest)) = path.split_first() else {
+        return table;
+    };
+    let index = match table.iter().position(|(name, _)| name == first) {
+        Some(index) => index,
+        None => {
+            table.push((first.clone(), Toml::Table(Vec::new())));
+            table.len() - 1
+        }
+    };
+    let child = match &mut table[index].1 {
+        Toml::Table(entries) => entries,
+        Toml::Array(items) => match items.last_mut() {
+            Some(Toml::Table(entries)) => entries,
+            _ => panic!("TOML key `{first}` is an array, not an array of tables"),
+        },
+        _ => panic!("TOML key `{first}` is a value, not a table"),
+    };
+    table_at(child, rest)
+}
+
+fn insert(table: &mut Vec<(String, Toml)>, key: &[String], value: Toml) {
+    let (last, parents) = key.split_last().expect("a key has at least one part");
+    table_at(table, parents).push((last.clone(), value));
+}
+
+struct TomlParser {
+    text: Vec<char>,
+    at: usize,
+}
+
+impl TomlParser {
+    fn peek(&self) -> Option<char> {
+        self.text.get(self.at).copied()
+    }
+
+    fn looking_at(&self, word: &str) -> bool {
+        word.chars()
+            .enumerate()
+            .all(|(k, c)| self.text.get(self.at + k) == Some(&c))
+    }
+
+    fn fail(&self, what: &str) -> ! {
+        let end = self.at.min(self.text.len());
+        let line = self.text[..end].iter().filter(|c| **c == '\n').count() + 1;
+        panic!("TOML line {line}: {what}")
+    }
+
+    fn expect(&mut self, c: char) {
+        if self.peek() != Some(c) {
+            self.fail(&format!("expected `{c}`"));
+        }
+        self.at += 1;
+    }
+
+    fn spaces(&mut self) {
+        while matches!(self.peek(), Some(' ' | '\t')) {
+            self.at += 1;
+        }
+    }
+
+    /// Spaces, line breaks and comments.
+    fn blank(&mut self) {
+        loop {
+            self.spaces();
+            match self.peek() {
+                Some('\n' | '\r') => self.at += 1,
+                Some('#') => {
+                    while !matches!(self.peek(), None | Some('\n')) {
+                        self.at += 1;
+                    }
+                }
+                _ => return,
+            }
+        }
+    }
+
+    fn key(&mut self) -> Vec<String> {
+        let mut parts = Vec::new();
+        loop {
+            self.spaces();
+            let part = match self.peek() {
+                Some('"') => self.basic_string(),
+                Some('\'') => self.literal_string(),
+                _ => {
+                    let start = self.at;
+                    while self
+                        .peek()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+                    {
+                        self.at += 1;
+                    }
+                    if start == self.at {
+                        self.fail("expected a key");
+                    }
+                    self.text[start..self.at].iter().collect()
+                }
+            };
+            parts.push(part);
+            self.spaces();
+            if self.peek() != Some('.') {
+                return parts;
+            }
+            self.at += 1;
+        }
+    }
+
+    /// The end of a multi-line string: three quotes, and up to two more that
+    /// belong to the content.
+    fn closes_multiline(&mut self, quote: char, out: &mut String) -> bool {
+        let mut run = 0;
+        while self.text.get(self.at + run) == Some(&quote) {
+            run += 1;
+        }
+        if run < 3 {
+            return false;
+        }
+        let extra = (run - 3).min(2);
+        out.extend(std::iter::repeat_n(quote, extra));
+        self.at += 3 + extra;
+        true
+    }
+
+    fn skip_first_newline(&mut self) {
+        if self.looking_at("\r\n") {
+            self.at += 2;
+        } else if self.looking_at("\n") {
+            self.at += 1;
+        }
+    }
+
+    fn basic_string(&mut self) -> String {
+        let multi = self.looking_at("\"\"\"");
+        self.at += if multi { 3 } else { 1 };
+        if multi {
+            self.skip_first_newline();
+        }
+        let mut out = String::new();
+        loop {
+            let Some(c) = self.peek() else {
+                self.fail("unterminated string");
+            };
+            if multi && c == '"' && self.closes_multiline('"', &mut out) {
+                return out;
+            }
+            if !multi && c == '"' {
+                self.at += 1;
+                return out;
+            }
+            if !multi && c == '\n' {
+                self.fail("line break in a one-line string");
+            }
+            self.at += 1;
+            if c != '\\' {
+                out.push(c);
+                continue;
+            }
+            let Some(escape) = self.peek() else {
+                self.fail("unterminated escape");
+            };
+            self.at += 1;
+            match escape {
+                'b' => out.push('\u{8}'),
+                't' => out.push('\t'),
+                'n' => out.push('\n'),
+                'f' => out.push('\u{c}'),
+                'r' => out.push('\r'),
+                'e' => out.push('\u{1b}'),
+                '"' => out.push('"'),
+                '\\' => out.push('\\'),
+                'u' | 'U' | 'x' => {
+                    let width = match escape {
+                        'u' => 4,
+                        'U' => 8,
+                        _ => 2,
+                    };
+                    let Some(hex) = self.text.get(self.at..self.at + width) else {
+                        self.fail("short unicode escape");
+                    };
+                    let hex: String = hex.iter().collect();
+                    let Some(decoded) = u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32)
+                    else {
+                        self.fail("bad unicode escape");
+                    };
+                    out.push(decoded);
+                    self.at += width;
+                }
+                ' ' | '\t' | '\n' | '\r' if multi => {
+                    // A line-ending backslash: the break and the next line's indent go.
+                    while matches!(self.peek(), Some(' ' | '\t' | '\n' | '\r')) {
+                        self.at += 1;
+                    }
+                }
+                _ => self.fail("bad escape"),
+            }
+        }
+    }
+
+    fn literal_string(&mut self) -> String {
+        let multi = self.looking_at("'''");
+        self.at += if multi { 3 } else { 1 };
+        if multi {
+            self.skip_first_newline();
+        }
+        let mut out = String::new();
+        loop {
+            let Some(c) = self.peek() else {
+                self.fail("unterminated string");
+            };
+            if multi && c == '\'' && self.closes_multiline('\'', &mut out) {
+                return out;
+            }
+            if !multi && c == '\'' {
+                self.at += 1;
+                return out;
+            }
+            if !multi && c == '\n' {
+                self.fail("line break in a one-line string");
+            }
+            out.push(c);
+            self.at += 1;
+        }
+    }
+
+    fn value(&mut self) -> Toml {
+        match self.peek() {
+            Some('"') => Toml::Str(self.basic_string()),
+            Some('\'') => Toml::Str(self.literal_string()),
+            Some('[') => {
+                self.at += 1;
+                let mut items = Vec::new();
+                loop {
+                    self.blank();
+                    if self.peek() == Some(']') {
+                        self.at += 1;
+                        return Toml::Array(items);
+                    }
+                    items.push(self.value());
+                    self.blank();
+                    match self.peek() {
+                        Some(',') => self.at += 1,
+                        Some(']') => {}
+                        _ => self.fail("expected `,` or `]`"),
+                    }
                 }
             }
-            None => match c {
-                '"' | '\'' => quote = Some(c),
-                '#' => return &line[..i],
-                _ => {}
-            },
-        }
-    }
-    line
-}
-
-/// How much a line of TOML code opens (`[`, `{`) minus closes, strings excluded.
-fn depth_change(code: &str) -> i32 {
-    let mut quote: Option<char> = None;
-    let mut escaped = false;
-    let mut depth = 0;
-    for c in code.chars() {
-        match quote {
-            Some(q) => {
-                if escaped {
-                    escaped = false;
-                } else if c == '\\' && q == '"' {
-                    escaped = true;
-                } else if c == q {
-                    quote = None;
+            Some('{') => {
+                self.at += 1;
+                let mut table = Vec::new();
+                loop {
+                    self.blank();
+                    if self.peek() == Some('}') {
+                        self.at += 1;
+                        return Toml::Table(table);
+                    }
+                    let key = self.key();
+                    self.expect('=');
+                    self.spaces();
+                    let value = self.value();
+                    insert(&mut table, &key, value);
+                    self.blank();
+                    match self.peek() {
+                        Some(',') => self.at += 1,
+                        Some('}') => {}
+                        _ => self.fail("expected `,` or `}`"),
+                    }
                 }
             }
-            None => match c {
-                '"' | '\'' => quote = Some(c),
-                '[' | '{' => depth += 1,
-                ']' | '}' => depth -= 1,
-                _ => {}
-            },
+            Some(_) => {
+                let start = self.at;
+                while !matches!(
+                    self.peek(),
+                    None | Some(',' | ']' | '}' | '\n' | '\r' | '#')
+                ) {
+                    self.at += 1;
+                }
+                if start == self.at {
+                    self.fail("expected a value");
+                }
+                Toml::Other
+            }
+            None => self.fail("expected a value"),
         }
     }
-    depth
 }
 
-fn unquote(text: &str) -> String {
-    text.trim()
-        .trim_matches(|c| c == '"' || c == '\'')
-        .to_string()
-}
-
-/// The string value of `key = "…"` anywhere in an entry's text: inside an
-/// inline table, or on its own line in a `[dependencies.<name>]` table.
-fn string_field(text: &str, key: &str) -> Option<String> {
-    for (i, _) in text.match_indices(key) {
-        let before = text[..i].chars().next_back();
-        if before.is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-            continue;
+fn parse_toml(text: &str) -> Toml {
+    let mut parser = TomlParser {
+        text: text.chars().collect(),
+        at: 0,
+    };
+    let mut root = Vec::new();
+    let mut current: Vec<String> = Vec::new();
+    loop {
+        parser.blank();
+        match parser.peek() {
+            None => return Toml::Table(root),
+            Some('[') => {
+                parser.at += 1;
+                let array = parser.peek() == Some('[');
+                if array {
+                    parser.at += 1;
+                }
+                let key = parser.key();
+                parser.expect(']');
+                if array {
+                    parser.expect(']');
+                    let (last, parents) = key.split_last().expect("a header has a key");
+                    let parent = table_at(&mut root, parents);
+                    match parent.iter_mut().find(|(name, _)| name == last) {
+                        Some((_, Toml::Array(items))) => items.push(Toml::Table(Vec::new())),
+                        Some(_) => parser.fail("`[[…]]` over a key that is not an array"),
+                        None => {
+                            parent.push((last.clone(), Toml::Array(vec![Toml::Table(Vec::new())])))
+                        }
+                    }
+                } else {
+                    table_at(&mut root, &key);
+                }
+                current = key;
+            }
+            Some(_) => {
+                let key = parser.key();
+                parser.expect('=');
+                parser.spaces();
+                let value = parser.value();
+                insert(table_at(&mut root, &current), &key, value);
+            }
         }
-        let Some(after) = text[i + key.len()..].trim_start().strip_prefix('=') else {
-            continue;
-        };
-        let after = after.trim_start();
-        let Some(quote) = after.chars().next().filter(|c| *c == '"' || *c == '\'') else {
-            continue;
-        };
-        let value = &after[1..];
-        return value.find(quote).map(|end| value[..end].to_string());
+        parser.spaces();
+        if !matches!(parser.peek(), None | Some('\n' | '\r' | '#')) {
+            parser.fail("expected the end of the line");
+        }
     }
-    None
 }
 
 // --- The manifest -------------------------------------------------------------
 
-enum Table {
-    /// `[dependencies]` and its kin: every key is a dependency.
-    List,
-    /// `[dependencies.<name>]`: one dependency, its fields one per line.
-    One(String),
-    Other,
-}
+/// The tables a dependency can be declared in, at the root or under
+/// `target.<cfg>`. Cargo also takes the `_` spellings.
+const DEPENDENCY_KINDS: &[&str] = &[
+    "dependencies",
+    "dev-dependencies",
+    "dev_dependencies",
+    "build-dependencies",
+    "build_dependencies",
+];
 
-/// What kind of table a header opens. Dependency tables are `dependencies`,
-/// `dev-dependencies` and `build-dependencies` (Cargo also takes the `_`
-/// spellings), each possibly under `target.<cfg>.`, plus `patch.<source>` and
-/// `replace`.
-fn table_kind(header: &str) -> Table {
-    let header = header.trim();
-    if header.starts_with("patch.") || header == "replace" {
-        return Table::List;
-    }
-    let Some((before, after)) = header.rsplit_once("dependencies") else {
-        return Table::Other;
-    };
-    let whole_word = before.is_empty()
-        || before.ends_with('.')
-        || ["dev-", "dev_", "build-", "build_"]
-            .iter()
-            .any(|kind| before == *kind || before.ends_with(&format!(".{kind}")));
-    if !whole_word {
-        return Table::Other;
-    }
-    if after.is_empty() {
-        Table::List
-    } else if let Some(name) = after.strip_prefix('.') {
-        Table::One(unquote(name))
-    } else {
-        Table::Other
-    }
-}
+/// Every root key Cargo.toml may hold, so a section this file does not read
+/// fails `the_readers_see_every_section_they_check` instead of passing unread.
+const KNOWN_ROOT_KEYS: &[&str] = &[
+    "cargo-features",
+    "package",
+    "lib",
+    "bin",
+    "example",
+    "test",
+    "bench",
+    "features",
+    "dependencies",
+    "dev-dependencies",
+    "dev_dependencies",
+    "build-dependencies",
+    "build_dependencies",
+    "target",
+    "patch",
+    "replace",
+    "badges",
+    "lints",
+    "profile",
+    "workspace",
+];
 
 /// One dependency as the manifest declares it.
 struct Dep {
-    /// The header of the table it sits in.
+    /// Where it is declared, as a dotted table name.
     table: String,
-    /// The key it is declared under.
+    /// The key it is declared under (for `[replace]`, the name before `:`).
     name: String,
-    /// The text that declares it, where `package` and `path` are read from.
-    body: String,
+    /// `package = "…"`: the crate it really is, when renamed.
+    package: Option<String>,
+    path: Option<String>,
 }
 
-/// Every dependency in every dependency table, and how many such tables there are.
-fn manifest_deps(manifest: &str) -> (Vec<Dep>, usize) {
-    let mut deps: Vec<Dep> = Vec::new();
-    let mut tables = 0;
-    let mut current: Option<(String, Table)> = None;
-    let mut depth = 0;
-    for raw in manifest.lines() {
-        let code = toml_code(raw);
-        let trimmed = code.trim();
-        if depth == 0 && trimmed.starts_with('[') {
-            let header = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
-            let kind = if trimmed.starts_with("[[") {
-                Table::Other
-            } else {
-                table_kind(header)
-            };
-            if !matches!(kind, Table::Other) {
-                tables += 1;
-            }
-            if let Table::One(name) = &kind {
-                deps.push(Dep {
-                    table: header.to_string(),
-                    name: name.clone(),
-                    body: String::new(),
-                });
-            }
-            current = Some((header.to_string(), kind));
-            continue;
+/// Every dependency in every dependency table.
+fn manifest_deps(manifest: &Toml) -> Vec<Dep> {
+    let mut deps = Vec::new();
+    let mut read_table = |table: String, entries: &[(String, Toml)]| {
+        for (key, spec) in entries {
+            let field = |name: &str| spec.get(name).and_then(Toml::str).map(String::from);
+            deps.push(Dep {
+                table: table.clone(),
+                name: key.split(':').next().unwrap_or(key).to_string(),
+                package: field("package"),
+                path: field("path"),
+            });
         }
-        match &current {
-            Some((header, Table::List)) => {
-                if depth == 0 {
-                    if let Some((key, _)) = trimmed.split_once('=') {
-                        deps.push(Dep {
-                            table: header.clone(),
-                            name: unquote(key),
-                            body: String::new(),
-                        });
-                    }
-                }
-                if let Some(dep) = deps.last_mut().filter(|dep| dep.table == *header) {
-                    dep.body.push_str(code);
-                    dep.body.push('\n');
-                }
-            }
-            Some((_, Table::One(_))) => {
-                let dep = deps
-                    .last_mut()
-                    .expect("a dotted table pushed its dependency");
-                dep.body.push_str(code);
-                dep.body.push('\n');
-            }
-            _ => {}
+    };
+    for kind in DEPENDENCY_KINDS {
+        if let Some(table) = manifest.get(kind) {
+            read_table(kind.to_string(), table.entries());
         }
-        depth += depth_change(code);
     }
-    (deps, tables)
+    for (cfg, target) in manifest.get("target").map_or(&[][..], Toml::entries) {
+        for kind in DEPENDENCY_KINDS {
+            if let Some(table) = target.get(kind) {
+                read_table(format!("target.{cfg}.{kind}"), table.entries());
+            }
+        }
+    }
+    for (source, table) in manifest.get("patch").map_or(&[][..], Toml::entries) {
+        read_table(format!("patch.{source}"), table.entries());
+    }
+    if let Some(table) = manifest.get("replace") {
+        read_table("replace".to_string(), table.entries());
+    }
+    deps
 }
 
 /// What is wrong with a manifest that sits in `crate_dir`.
 fn manifest_violations(crate_dir: &Path, manifest: &str) -> Vec<String> {
     let pipeline = normalize(&crate_dir.join("..").join("pipeline"));
     let mut violations = Vec::new();
-    for dep in manifest_deps(manifest).0 {
+    for dep in manifest_deps(&parse_toml(manifest)) {
         let at = format!("Cargo.toml [{}] {}", dep.table, dep.name);
         if denied(&dep.name) {
             violations.push(format!("{at}: denied crate name"));
         }
-        if let Some(package) = string_field(&dep.body, "package") {
-            if denied(&package) {
-                violations.push(format!("{at}: renames denied crate `{package}`"));
-            }
+        if let Some(package) = dep.package.filter(|package| denied(package)) {
+            violations.push(format!("{at}: renames denied crate `{package}`"));
         }
-        if let Some(path) = string_field(&dep.body, "path") {
+        if let Some(path) = dep.path {
             if normalize(&crate_dir.join(&path)).starts_with(&pipeline) {
                 violations.push(format!("{at}: path `{path}` points into pipeline/"));
             }
@@ -316,7 +602,6 @@ fn manifest_violations(crate_dir: &Path, manifest: &str) -> Vec<String> {
 
 // --- The lock -------------------------------------------------------------------
 
-#[derive(Default)]
 struct Package {
     name: String,
     version: String,
@@ -327,93 +612,70 @@ struct Package {
 }
 
 fn lock_packages(lock: &str) -> Vec<Package> {
-    let mut packages = Vec::new();
-    let mut current: Option<Package> = None;
-    let mut in_deps = false;
-    for raw in lock.lines() {
-        let line = toml_code(raw).trim();
-        if in_deps {
-            if line.starts_with(']') {
-                in_deps = false;
-            } else if !line.is_empty() {
-                if let Some(package) = current.as_mut() {
-                    package.deps.push(unquote(line.trim_end_matches(',')));
-                }
-            }
-            continue;
-        }
-        if line.starts_with('[') {
-            packages.extend(current.take());
-            if line == "[[package]]" {
-                current = Some(Package::default());
-            }
-            continue;
-        }
-        let (Some(package), Some((key, value))) = (current.as_mut(), line.split_once('=')) else {
-            continue;
-        };
-        match key.trim() {
-            "name" => package.name = unquote(value),
-            "version" => package.version = unquote(value),
-            "source" => package.source = Some(unquote(value)),
-            "dependencies" => {
-                let value = value.trim();
-                if value == "[" {
-                    in_deps = true;
-                } else {
-                    package.deps.extend(
-                        value
-                            .trim_matches(|c| c == '[' || c == ']')
-                            .split(',')
-                            .filter(|dep| !dep.trim().is_empty())
-                            .map(unquote),
-                    );
-                }
-            }
-            _ => {}
-        }
-    }
-    packages.extend(current);
-    packages
+    let lock = parse_toml(lock);
+    let text = |package: &Toml, key: &str| package.get(key).and_then(Toml::str).map(String::from);
+    lock.get("package")
+        .map_or(&[][..], Toml::items)
+        .iter()
+        .map(|package| Package {
+            name: text(package, "name").unwrap_or_default(),
+            version: text(package, "version").unwrap_or_default(),
+            source: text(package, "source"),
+            deps: package
+                .get("dependencies")
+                .map_or(&[][..], Toml::items)
+                .iter()
+                .filter_map(Toml::str)
+                .map(String::from)
+                .collect(),
+        })
+        .collect()
+}
+
+/// The packages a lock entry's dependency line can mean. The lock adds the
+/// version, then the source, only when the shorter form would be ambiguous.
+fn resolve<'a>(packages: &'a [Package], dep: &str) -> Vec<usize> {
+    let (spec, source) = match dep.split_once(" (") {
+        Some((spec, source)) => (spec, Some(source.trim_end_matches(')'))),
+        None => (dep, None),
+    };
+    let mut words = spec.split_whitespace();
+    let name = words.next().unwrap_or_default();
+    let version = words.next();
+    (0..packages.len())
+        .filter(|&index| {
+            let candidate: &'a Package = &packages[index];
+            candidate.name == name
+                && version.is_none_or(|version| candidate.version == version)
+                && source.is_none_or(|source| candidate.source.as_deref() == Some(source))
+        })
+        .collect()
 }
 
 /// Every package the room reaches in its lock, the room included.
 fn room_subgraph(packages: &[Package]) -> Vec<&Package> {
     let root = packages
         .iter()
-        .find(|package| package.name == "room" && package.source.is_none())
+        .position(|package| package.name == "room" && package.source.is_none())
         .expect("the lock holds the room crate itself");
     let mut seen = BTreeSet::new();
     let mut stack = vec![root];
-    let mut reached = Vec::new();
-    while let Some(package) = stack.pop() {
-        if !seen.insert((package.name.as_str(), package.version.as_str())) {
+    while let Some(index) = stack.pop() {
+        if !seen.insert(index) {
             continue;
         }
-        reached.push(package);
+        let package = &packages[index];
         for dep in &package.deps {
-            let mut words = dep.split_whitespace();
-            let name = words.next().unwrap_or_default();
-            let version = words.next();
-            let matches: Vec<&Package> = packages
-                .iter()
-                .filter(|candidate| {
-                    candidate.name == name
-                        && match version {
-                            None => true,
-                            Some(version) => candidate.version == version,
-                        }
-                })
-                .collect();
+            let found = resolve(packages, dep);
             assert!(
-                !matches.is_empty(),
+                !found.is_empty(),
                 "Cargo.lock lists `{dep}` under {} but holds no such package",
                 package.name
             );
-            stack.extend(matches);
+            stack.extend(found);
         }
     }
-    reached
+    seen.into_iter().map(|index| &packages[index]).collect()
 }
 
 fn lock_violations(lock: &str) -> Vec<String> {
@@ -432,170 +694,305 @@ fn lock_violations(lock: &str) -> Vec<String> {
 }
 
 // --- The source -----------------------------------------------------------------
+//
+// A tokenizer that knows what Rust does not read as code: line and nested block
+// comments, string, byte and C string literals (raw ones too), character
+// literals and lifetimes. What is left is identifiers (raw ones unwrapped),
+// `::`, braces, `;`, `,` and single punctuation, which is all the import reader
+// needs.
 
-/// A line of Rust with any attributes and visibility in front of the item removed:
-/// `#[cfg(any())] pub(crate) use x;` reads as `use x;`.
-fn item_head(line: &str) -> &str {
-    let mut rest = line.trim_start();
-    loop {
-        if rest.starts_with("#[") {
+#[derive(Debug, PartialEq)]
+enum Tok {
+    /// An identifier or keyword; `true` when written raw (`r#name`), which is
+    /// never a keyword.
+    Ident(String, bool),
+    PathSep,
+    Open,
+    Close,
+    Semi,
+    Comma,
+    Punct,
+}
+
+fn is_ident_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Past a `"…"` body whose opening quote is just before `at`.
+fn skip_quoted(text: &[char], mut at: usize) -> usize {
+    while at < text.len() {
+        match text[at] {
+            '\\' => at += 2,
+            '"' => return at + 1,
+            _ => at += 1,
+        }
+    }
+    at
+}
+
+/// Past a raw string body whose opening `"` is just before `at`.
+fn skip_raw(text: &[char], mut at: usize, hashes: usize) -> usize {
+    while at < text.len() {
+        if text[at] == '"' && (1..=hashes).all(|k| text.get(at + k) == Some(&'#')) {
+            return at + 1 + hashes;
+        }
+        at += 1;
+    }
+    at
+}
+
+/// Past a character literal or a lifetime that starts with the `'` at `at`.
+fn skip_tick(text: &[char], at: usize) -> usize {
+    if text.get(at + 1) == Some(&'\\') {
+        let mut end = at + 3;
+        while end < text.len() && text[end] != '\'' {
+            end += 1;
+        }
+        return end + 1;
+    }
+    if text.get(at + 2) == Some(&'\'') {
+        return at + 3;
+    }
+    let mut end = at + 1;
+    while end < text.len() && is_ident_char(text[end]) {
+        end += 1;
+    }
+    end
+}
+
+fn tokens(source: &str) -> Vec<Tok> {
+    let text: Vec<char> = source.chars().collect();
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < text.len() {
+        let c = text[at];
+        let next = text.get(at + 1).copied();
+        if c.is_whitespace() {
+            at += 1;
+        } else if c == '/' && next == Some('/') {
+            while at < text.len() && text[at] != '\n' {
+                at += 1;
+            }
+        } else if c == '/' && next == Some('*') {
             let mut depth = 0;
-            let mut end = None;
-            for (i, c) in rest.char_indices() {
-                match c {
-                    '[' => depth += 1,
-                    ']' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            end = Some(i);
-                            break;
-                        }
+            while at < text.len() {
+                if text[at] == '/' && text.get(at + 1) == Some(&'*') {
+                    depth += 1;
+                    at += 2;
+                } else if text[at] == '*' && text.get(at + 1) == Some(&'/') {
+                    depth -= 1;
+                    at += 2;
+                    if depth == 0 {
+                        break;
+                    }
+                } else {
+                    at += 1;
+                }
+            }
+        } else if c == '"' {
+            at = skip_quoted(&text, at + 1);
+        } else if c == '\'' {
+            at = skip_tick(&text, at);
+        } else if c.is_alphabetic() || c == '_' {
+            let start = at;
+            while at < text.len() && is_ident_char(text[at]) {
+                at += 1;
+            }
+            let word: String = text[start..at].iter().collect();
+            let after = text.get(at).copied();
+            if matches!(word.as_str(), "b" | "c") && after == Some('"') {
+                at = skip_quoted(&text, at + 1);
+                continue;
+            }
+            if word == "b" && after == Some('\'') {
+                at = skip_tick(&text, at);
+                continue;
+            }
+            if matches!(word.as_str(), "r" | "br" | "cr") && matches!(after, Some('"' | '#')) {
+                let mut end = at;
+                while text.get(end) == Some(&'#') {
+                    end += 1;
+                }
+                let hashes = end - at;
+                if text.get(end) == Some(&'"') {
+                    at = skip_raw(&text, end + 1, hashes);
+                    continue;
+                }
+                if word == "r"
+                    && hashes == 1
+                    && text
+                        .get(end)
+                        .is_some_and(|c| c.is_alphabetic() || *c == '_')
+                {
+                    let start = end;
+                    while end < text.len() && is_ident_char(text[end]) {
+                        end += 1;
+                    }
+                    out.push(Tok::Ident(text[start..end].iter().collect(), true));
+                    at = end;
+                    continue;
+                }
+            }
+            out.push(Tok::Ident(word, false));
+        } else if c.is_ascii_digit() {
+            while at < text.len() && is_ident_char(text[at]) {
+                at += 1;
+            }
+        } else {
+            at += 1;
+            out.push(match c {
+                ':' if next == Some(':') => {
+                    at += 1;
+                    Tok::PathSep
+                }
+                '{' => Tok::Open,
+                '}' => Tok::Close,
+                ';' => Tok::Semi,
+                ',' => Tok::Comma,
+                _ => Tok::Punct,
+            });
+        }
+    }
+    out
+}
+
+fn keyword(token: Option<&Tok>, word: &str) -> bool {
+    matches!(token, Some(Tok::Ident(name, false)) if name == word)
+}
+
+/// The root of each path in a use tree, and whether it was written absolute
+/// (`::name`, which in Rust 2018 and later is always an external crate).
+fn use_roots(tree: &[Tok], absolute: bool) -> Vec<(String, bool)> {
+    match tree.first() {
+        Some(Tok::PathSep) => use_roots(&tree[1..], true),
+        Some(Tok::Open) => {
+            let mut out = Vec::new();
+            let mut depth = 0;
+            let mut start = 1;
+            for (index, token) in tree.iter().enumerate().skip(1) {
+                match token {
+                    Tok::Open => depth += 1,
+                    Tok::Close if depth == 0 => {
+                        out.extend(use_roots(&tree[start..index], absolute));
+                        break;
+                    }
+                    Tok::Close => depth -= 1,
+                    Tok::Comma if depth == 0 => {
+                        out.extend(use_roots(&tree[start..index], absolute));
+                        start = index + 1;
                     }
                     _ => {}
                 }
             }
-            match end {
-                Some(end) => rest = rest[end + 1..].trim_start(),
-                None => return "",
-            }
-        } else if rest.starts_with("pub(") {
-            match rest.find(')') {
-                Some(end) => rest = rest[end + 1..].trim_start(),
-                None => return "",
-            }
-        } else if let Some(after) = rest.strip_prefix("pub ") {
-            rest = after.trim_start();
-        } else {
-            return rest;
+            out
         }
+        Some(Tok::Ident(name, _)) => vec![(name.clone(), absolute)],
+        _ => Vec::new(),
     }
 }
 
-/// A `use` or `extern crate` statement: its text after the keyword, up to `;`.
+/// One crate-or-module root a file imports.
 struct Import {
-    extern_crate: bool,
-    tree: String,
+    /// The module the import sits in: 0 for the file, then one per inline `mod`.
+    module: usize,
+    root: String,
+    /// Written `::root`, or by `extern crate`: always an external crate.
+    external: bool,
+    keyword: &'static str,
 }
 
-/// A file's imports and the module names it declares with `mod`.
-fn imports(text: &str) -> (Vec<Import>, BTreeSet<String>) {
+/// A file's imports, and the module names each of its modules declares.
+fn imports(source: &str) -> (Vec<Import>, BTreeSet<(usize, String)>) {
+    let tokens = tokens(source);
     let mut found = Vec::new();
-    let mut mods = BTreeSet::new();
-    let mut open: Option<Import> = None;
-    for raw in text.lines() {
-        let line = raw.find("//").map_or(raw, |comment| &raw[..comment]);
-        if let Some(mut import) = open.take() {
-            import.tree.push(' ');
-            import.tree.push_str(line);
-            match import.tree.find(';') {
-                Some(end) => {
-                    import.tree.truncate(end);
-                    found.push(import);
+    let mut declared = BTreeSet::new();
+    let mut modules = 1;
+    // The module each open brace belongs to. A function or impl body stays in
+    // its module; only an inline `mod name { … }` starts a new one.
+    let mut scopes = vec![0];
+    let mut at = 0;
+    while at < tokens.len() {
+        let here = *scopes.last().expect("the file scope is never popped");
+        if keyword(tokens.get(at), "mod") {
+            if let Some(Tok::Ident(name, _)) = tokens.get(at + 1) {
+                match tokens.get(at + 2) {
+                    Some(Tok::Semi) => {
+                        declared.insert((here, name.clone()));
+                        at += 3;
+                        continue;
+                    }
+                    Some(Tok::Open) => {
+                        declared.insert((here, name.clone()));
+                        scopes.push(modules);
+                        modules += 1;
+                        at += 3;
+                        continue;
+                    }
+                    _ => {}
                 }
-                None => open = Some(import),
             }
+        } else if keyword(tokens.get(at), "use") && tokens.get(at + 1) != Some(&Tok::Punct) {
+            // `use<'a>` in `impl Trait + use<'a>` is not an import, and is the
+            // only `use` followed by punctuation.
+            let end = tokens[at + 1..]
+                .iter()
+                .position(|token| *token == Tok::Semi)
+                .map_or(tokens.len(), |offset| at + 1 + offset);
+            for (root, external) in use_roots(&tokens[at + 1..end], false) {
+                found.push(Import {
+                    module: here,
+                    root,
+                    external,
+                    keyword: "use",
+                });
+            }
+            at = end + 1;
             continue;
-        }
-        let head = item_head(line);
-        let started = if let Some(rest) = head.strip_prefix("use ") {
-            Some(Import {
-                extern_crate: false,
-                tree: rest.to_string(),
-            })
-        } else {
-            head.strip_prefix("extern crate ").map(|rest| Import {
-                extern_crate: true,
-                tree: rest.to_string(),
-            })
-        };
-        if let Some(mut import) = started {
-            match import.tree.find(';') {
-                Some(end) => {
-                    import.tree.truncate(end);
-                    found.push(import);
-                }
-                None => open = Some(import),
+        } else if keyword(tokens.get(at), "extern") && keyword(tokens.get(at + 1), "crate") {
+            if let Some(Tok::Ident(name, _)) = tokens.get(at + 2) {
+                found.push(Import {
+                    module: here,
+                    root: name.clone(),
+                    external: true,
+                    keyword: "extern crate",
+                });
+                at += 3;
+                continue;
             }
-        } else if let Some(rest) = head.strip_prefix("mod ") {
-            let name: String = rest
-                .chars()
-                .take_while(|c| c.is_alphanumeric() || *c == '_')
-                .collect();
-            if !name.is_empty() {
-                mods.insert(name);
-            }
+        } else if tokens[at] == Tok::Open {
+            scopes.push(here);
+        } else if tokens[at] == Tok::Close && scopes.len() > 1 {
+            scopes.pop();
         }
+        at += 1;
     }
-    (found, mods)
-}
-
-/// The first path segment of each path in a use tree: `{a::b, ::c::{d}}` is
-/// `a` and `c`.
-fn roots(tree: &str) -> Vec<String> {
-    let tree = tree.trim().trim_start_matches("::").trim_start();
-    if let Some(group) = tree.strip_prefix('{') {
-        let mut out = Vec::new();
-        let mut depth = 0;
-        let mut item = String::new();
-        for c in group.chars() {
-            match c {
-                '{' => {
-                    depth += 1;
-                    item.push(c);
-                }
-                '}' if depth == 0 => break,
-                '}' => {
-                    depth -= 1;
-                    item.push(c);
-                }
-                ',' if depth == 0 => out.extend(roots(&std::mem::take(&mut item))),
-                _ => item.push(c),
-            }
-        }
-        out.extend(roots(&item));
-        return out;
-    }
-    let root: String = tree
-        .chars()
-        .take_while(|c| c.is_alphanumeric() || *c == '_')
-        .collect();
-    if root.is_empty() {
-        Vec::new()
-    } else {
-        vec![root]
-    }
+    (found, declared)
 }
 
 /// What is wrong with one source file, and the denied names it was allowed to
-/// `use` because the same file declares them as modules.
+/// `use` because its own module declares them.
 ///
-/// A `use` root that the file declares with `mod` is that module, which is how
-/// Rust resolves it: `server/routes/mod.rs` declares `mod pipeline;` (the room's
-/// admin route for the pipeline's pushes) and then `use pipeline::admin_routes;`.
-/// `extern crate` always names a crate, so it gets no such reading.
-fn source_violations(file: &str, text: &str) -> (Vec<String>, BTreeSet<String>) {
-    let (found, mods) = imports(text);
+/// A `use` root that the same module declares with `mod` is that module, which
+/// is how Rust resolves it: `server/routes/mod.rs` declares `mod pipeline;`
+/// (the room's admin route for the pipeline's pushes) and then
+/// `use pipeline::admin_routes;`. An absolute `::name` and `extern crate`
+/// always name a crate, so they get no such reading.
+fn source_violations(file: &str, source: &str) -> (Vec<String>, BTreeSet<String>) {
+    let (found, declared) = imports(source);
     let mut violations = Vec::new();
     let mut local = BTreeSet::new();
     for import in found {
-        for root in roots(&import.tree) {
-            if !denied(&root) {
-                continue;
-            }
-            if !import.extern_crate && mods.contains(&root) {
-                local.insert(root);
-                continue;
-            }
-            let keyword = if import.extern_crate {
-                "extern crate"
-            } else {
-                "use"
-            };
-            violations.push(format!(
-                "{file}: `{keyword} {}` names denied crate `{root}`",
-                import.tree.trim()
-            ));
+        if !denied(&import.root) {
+            continue;
         }
+        if !import.external && declared.contains(&(import.module, import.root.clone())) {
+            local.insert(import.root);
+            continue;
+        }
+        violations.push(format!(
+            "{file}: `{}` of denied crate `{}`",
+            import.keyword, import.root
+        ));
     }
     (violations, local)
 }
@@ -617,14 +1014,14 @@ fn scan_source(crate_dir: &Path) -> SourceScan {
         local: BTreeSet::new(),
     };
     for path in files {
-        let text = read(&path);
+        let source = read(&path);
         let name = path
             .strip_prefix(crate_dir)
             .unwrap_or(&path)
             .display()
             .to_string();
-        scan.imports += imports(&text).0.len();
-        let (violations, local) = source_violations(&name, &text);
+        scan.imports += imports(&source).0.len();
+        let (violations, local) = source_violations(&name, &source);
         scan.violations.extend(violations);
         scan.local.extend(local);
     }
@@ -662,34 +1059,39 @@ fn the_room_source_imports_no_denied_crate() {
 #[test]
 fn the_readers_see_every_section_they_check() {
     let dir = crate_dir();
-    let manifest = read(&dir.join("Cargo.toml"));
-    let (deps, tables) = manifest_deps(&manifest);
-    let headers = manifest
-        .lines()
-        .map(|line| toml_code(line).trim())
-        .filter(|line| line.starts_with('[') && line.contains("dependencies"))
-        .count();
-    assert!(
-        tables >= 2,
-        "found {tables} dependency tables in Cargo.toml"
-    );
-    assert_eq!(
-        tables, headers,
-        "a dependency table in Cargo.toml went unread"
-    );
+    let manifest = parse_toml(&read(&dir.join("Cargo.toml")));
+    for (key, _) in manifest.entries() {
+        assert!(
+            KNOWN_ROOT_KEYS.contains(&key.as_str()),
+            "Cargo.toml has a `{key}` section this test does not know; \
+             read it here if it can declare a dependency"
+        );
+    }
+    for (cfg, target) in manifest.get("target").map_or(&[][..], Toml::entries) {
+        for (key, _) in target.entries() {
+            assert!(
+                DEPENDENCY_KINDS.contains(&key.as_str()),
+                "Cargo.toml [target.{cfg}] has a `{key}` table this test does not read"
+            );
+        }
+    }
+    let deps = manifest_deps(&manifest);
     let declared = |table: &str, name: &str| {
         deps.iter()
-            .find(|dep| dep.table == table && dep.name == name)
-            .unwrap_or_else(|| panic!("Cargo.toml [{table}] {name} was not read"))
+            .any(|dep| dep.table == table && dep.name == name)
     };
-    declared("dependencies", "axum");
     assert!(
-        declared("dependencies", "tokio-tungstenite")
-            .body
-            .contains("optional = true"),
-        "the optional, feature-gated tokio-tungstenite was not read as such"
+        declared("dependencies", "axum"),
+        "[dependencies] axum was not read"
     );
-    declared("dev-dependencies", "tower");
+    assert!(
+        declared("dependencies", "tokio-tungstenite"),
+        "the optional, feature-gated tokio-tungstenite was not read"
+    );
+    assert!(
+        declared("dev-dependencies", "tower"),
+        "[dev-dependencies] tower was not read"
+    );
 
     let packages = lock_packages(&read(&dir.join("Cargo.lock")));
     let reached = room_subgraph(&packages);
@@ -747,77 +1149,240 @@ fn the_denylist_matches_crate_names_not_the_rooms_folder() {
     assert!(!denied("room"));
 }
 
-/// The mutations named on PQ-47, planted in the real text. On the real files
-/// M1 and M2 stop `cargo --locked` before any test runs; here they reach the
-/// checks, so the checks stay able to refuse them.
+/// The real manifest with `extra` added straight after its first `header` line.
+fn planted(manifest: &str, header: &str, extra: &str) -> String {
+    let line = format!("{header}\n");
+    let out = manifest.replacen(&line, &format!("{line}{extra}\n"), 1);
+    assert_ne!(out, manifest, "{header} is not in Cargo.toml");
+    out
+}
+
+/// The mutations named on PQ-47, and the variants a review found, planted in
+/// the real text. On the real files M1 and M2 stop `cargo --locked` before any
+/// test runs; here they reach the checks, so the checks stay able to refuse them.
 #[test]
 fn the_planted_mutations_are_refused() {
     let dir = crate_dir();
     let manifest = read(&dir.join("Cargo.toml"));
+    let refused = |text: &str, expected: &str| {
+        let found = manifest_violations(&dir, text);
+        assert!(
+            found.iter().any(|violation| violation.contains(expected)),
+            "expected a violation containing `{expected}`, got {found:?}"
+        );
+    };
 
     // M1: a path dependency on the pipeline.
-    let m1 = manifest.replacen(
-        "[dependencies]\n",
-        "[dependencies]\npipeline = { path = \"../pipeline\" }\n",
-        1,
+    let m1 = planted(
+        &manifest,
+        "[dependencies]",
+        "pipeline = { path = \"../pipeline\" }",
     );
-    assert_ne!(m1, manifest, "M1 was not planted");
-    let found = manifest_violations(&dir, &m1);
-    assert!(
-        found.iter().any(|v| v.contains("points into pipeline/")),
-        "M1: {found:?}"
-    );
+    refused(&m1, "path `../pipeline` points into pipeline/");
+    refused(&m1, "[dependencies] pipeline: denied crate name");
 
     // M2: an optional, feature-gated LLM client.
-    let m2 = manifest
-        .replacen("[features]\n", "[features]\nllm = [\"dep:anthropic\"]\n", 1)
-        .replacen(
-            "[dependencies]\n",
-            "[dependencies]\nanthropic = { version = \"0.1\", optional = true }\n",
-            1,
-        );
-    assert_ne!(m2, manifest, "M2 was not planted");
-    let found = manifest_violations(&dir, &m2);
-    assert!(
-        found.iter().any(|v| v.contains("[dependencies] anthropic")),
-        "M2: {found:?}"
+    let m2 = planted(
+        &planted(&manifest, "[features]", "llm = [\"dep:anthropic\"]"),
+        "[dependencies]",
+        "anthropic = { version = \"0.1\", optional = true }",
     );
+    refused(&m2, "[dependencies] anthropic: denied crate name");
+
+    // Manifest variants: dotted keys, quoted keys, escaped and multi-line
+    // strings, dotted and quoted headers, patch and replace.
+    for (extra_header, extra, expected) in [
+        (
+            "[dependencies]",
+            "anthropic.version = \"0.1\"\nanthropic.optional = true",
+            "] anthropic: denied",
+        ),
+        (
+            "[dependencies]",
+            "client = { \"package\" = \"openai\", version = \"0.1\" }",
+            "`openai`",
+        ),
+        (
+            "[dependencies]",
+            "helper = { \"path\" = \"../pipeline\" }",
+            "points into pipeline/",
+        ),
+        (
+            "[dependencies]",
+            "helper = { path = '../pipeline/src' }",
+            "points into pipeline/",
+        ),
+        (
+            "[dependencies]",
+            "client = { package = \"op\\u0065nai\", version = \"0.1\" }",
+            "`openai`",
+        ),
+        (
+            "[dependencies]",
+            "client = { package = \"\"\"openai\"\"\", version = \"0.1\" }",
+            "`openai`",
+        ),
+        (
+            "[dev-dependencies]",
+            "client = { package = \"async-openai\", version = \"0.1\" }",
+            "`async-openai`",
+        ),
+    ] {
+        refused(&planted(&manifest, extra_header, extra), expected);
+    }
+    for (appended, expected) in [
+        (
+            "[target.'cfg(unix)'.build-dependencies.helper]\npackage = \"llm\"",
+            "`llm`",
+        ),
+        (
+            "[target.'cfg(any())'.\"build-dependencies\"]\nllm = \"0.1\"",
+            "] llm: denied",
+        ),
+        (
+            "[target . 'cfg(any())' . build-dependencies]\nllm = \"0.1\"",
+            "] llm: denied",
+        ),
+        (
+            "[patch.crates-io]\nopenai = { git = \"https://example.com/x\" }",
+            "[patch.crates-io] openai",
+        ),
+        (
+            "[replace]\n\"miri:0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] miri",
+        ),
+    ] {
+        refused(&format!("{manifest}\n{appended}\n"), expected);
+    }
 
     // M3: an import the compiler never sees.
-    let (found, _) = source_violations("m3.rs", "#[cfg(any())]\nuse openai::Client;\n");
-    assert_eq!(found.len(), 1, "M3: {found:?}");
+    let source = |text: &str| source_violations("planted.rs", text).0;
+    assert_eq!(
+        source("#[cfg(any())]\nuse openai::Client;\n").len(),
+        1,
+        "M3"
+    );
 
-    // The same name as the room's own module is local only where it is declared.
-    let declared = "mod pipeline;\npub(crate) use pipeline::admin_routes;\n";
-    assert!(source_violations("routes.rs", declared).0.is_empty());
-    let undeclared = "pub(crate) use pipeline::admin_routes;\n";
-    assert_eq!(source_violations("other.rs", undeclared).0.len(), 1);
-
+    // Source variants: layout, raw identifiers, absolute paths, nested modules.
     for text in [
+        "#[cfg(any())]\nuse\n    openai::Client;\n",
+        "#[cfg(any())]\nuse{openai::Client};\n",
+        "fn f() {} #[cfg(any())] use openai::Client;\n",
         "use {std::fmt, ::openai::Client};\n",
         "use std::{\n    fmt,\n};\nuse anthropic\n    ::Messages;\n",
+        "#[cfg(any())]\nuse r#openai::Client;\n",
         "extern crate rustc_driver;\n",
+        "extern crate r#popquiz;\n",
         "mod popquiz;\nextern crate popquiz;\n",
+        "mod pipeline;\n#[cfg(any())]\nuse ::pipeline::Client;\n",
+        "mod inner {\n    mod openai;\n}\n#[cfg(any())]\nuse openai::Client;\n",
+        "fn f() {\n    use generator::Gen;\n}\n",
     ] {
-        assert_eq!(source_violations("planted.rs", text).0.len(), 1, "{text}");
+        assert_eq!(source(text).len(), 1, "{text}");
     }
-    let renamed = manifest.replacen(
-        "[dev-dependencies]\n",
-        "[dev-dependencies]\nclient = { package = \"async-openai\", version = \"0.1\" }\n",
-        1,
-    );
+
+    // The room's own `mod pipeline` is local where it is declared, and only there.
+    assert!(source("mod pipeline;\npub(crate) use pipeline::admin_routes;\n").is_empty());
+    assert!(source("mod pipeline;\nfn f() {\n    use pipeline::admin_routes;\n}\n").is_empty());
+    assert_eq!(source("pub(crate) use pipeline::admin_routes;\n").len(), 1);
+}
+
+/// Text that only looks like a dependency or an import is not one.
+#[test]
+fn the_readers_do_not_mistake_text_for_code() {
+    let dir = crate_dir();
+    let manifest = read(&dir.join("Cargo.toml"));
+    // Measured against the manifest's own result, so a real dependency planted
+    // in it fails the manifest check alone, not this one too.
+    let baseline = manifest_violations(&dir, &manifest);
+    for (what, text) in [
+        (
+            "a multi-line string",
+            planted(
+                &manifest,
+                "[package]",
+                "metadata.example = \"\"\"\n[dependencies]\nopenai = \"0.1\"\n\"\"\"",
+            ),
+        ),
+        (
+            "a multi-line literal string",
+            planted(
+                &manifest,
+                "[package]",
+                "metadata.example = '''\n[dependencies]\nopenai = \"0.1\"\n'''",
+            ),
+        ),
+        (
+            "a comment",
+            planted(&manifest, "[dependencies]", "# openai = \"0.1\""),
+        ),
+        (
+            "an empty patch table",
+            format!("{manifest}\n[patch.crates-io]\n"),
+        ),
+    ] {
+        assert_eq!(manifest_violations(&dir, &text), baseline, "{what}");
+    }
+
+    for text in [
+        "/* an example:\nuse openai::Client;\n*/\n",
+        "/* nested /* comments */\nuse openai::Client;\n*/\n",
+        "// use openai::Client;\n",
+        "const EXAMPLE: &str = r#\"\nuse openai::Client;\n\"#;\n",
+        "const EXAMPLE: &str = \"\\\"\nuse openai::Client;\n\";\n",
+        "const QUOTE: char = '\"';\nconst EXAMPLE: &str = \"use openai::Client;\";\n",
+        "fn f<'a>(x: &'a str) -> impl Sized + use<'a> { x }\n",
+        "fn pipeline_name() -> &'static str { \"pipeline\" }\n",
+    ] {
+        assert!(source_violations("text.rs", text).0.is_empty(), "{text}");
+    }
+}
+
+/// Cargo can lock two packages of one name and version from different sources,
+/// and then names the source in each dependency line.
+#[test]
+fn the_lock_walk_tells_sources_apart() {
+    let lock = r#"
+version = 4
+
+[[package]]
+name = "room"
+version = "0.1.0"
+dependencies = [
+ "shim 1.0.0 (git+https://example.com/shim)",
+]
+
+[[package]]
+name = "shim"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "shim"
+version = "1.0.0"
+source = "git+https://example.com/shim"
+dependencies = [
+ "openai",
+]
+
+[[package]]
+name = "openai"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+"#;
+    let found = lock_violations(lock);
     assert!(
-        manifest_violations(&dir, &renamed)
-            .iter()
-            .any(|v| v.contains("async-openai")),
-        "a renamed denied crate"
+        found.iter().any(|violation| violation.contains("openai")),
+        "the git `shim` reaches openai: {found:?}"
     );
-    let dotted =
-        format!("{manifest}\n[target.'cfg(unix)'.build-dependencies.helper]\npackage = \"llm\"\n");
-    assert!(
-        manifest_violations(&dir, &dotted)
-            .iter()
-            .any(|v| v.contains("renames denied crate `llm`")),
-        "a dotted per-target build dependency"
+    let packages = lock_packages(lock);
+    let reached: Vec<_> = room_subgraph(&packages)
+        .iter()
+        .map(|package| (package.name.clone(), package.source.clone()))
+        .collect();
+    assert_eq!(
+        reached.len(),
+        3,
+        "room, the git shim and openai: {reached:?}"
     );
 }
