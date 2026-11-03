@@ -557,15 +557,50 @@ fn spec_name(spec: &str) -> String {
         None if spec.contains("://") => (Some(spec), ""),
         None => (None, spec),
     };
+    let rest = if url.is_some() {
+        url_text(rest)
+    } else {
+        rest.to_string()
+    };
     let name = rest.split(['@', ':']).next().unwrap_or_default();
     match url {
         Some(url) if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) => {
-            let path = url.split('?').next().unwrap_or(url).trim_end_matches('/');
-            let last = path.rsplit('/').next().unwrap_or(path);
-            last.strip_suffix(".git").unwrap_or(last).to_string()
+            let last = url_path_segments(url).pop().unwrap_or_default();
+            last.strip_suffix(".git").unwrap_or(&last).to_string()
         }
         _ => name.to_string(),
     }
+}
+
+/// A URL as the WHATWG parser Cargo uses reads it: tabs and newlines anywhere
+/// are dropped, and leading or trailing spaces and control characters trimmed.
+fn url_text(url: &str) -> String {
+    url.trim_matches(|c: char| c <= ' ')
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect()
+}
+
+/// The path segments of a URL as that parser leaves them: `\` separates them
+/// like `/`, `.` segments (also written `%2e`) are dropped and `..` ones remove
+/// the segment before, and a trailing `/` adds no segment of its own.
+fn url_path_segments(url: &str) -> Vec<String> {
+    let url = url_text(url).replace('\\', "/");
+    let url = url.split(['?', '#']).next().unwrap_or_default();
+    let path = url.split_once("://").map_or(url, |(_, rest)| {
+        rest.split_once('/').map_or("", |(_, path)| path)
+    });
+    let mut segments: Vec<String> = Vec::new();
+    for segment in path.split('/') {
+        match segment.to_ascii_lowercase().replace("%2e", ".").as_str() {
+            "" | "." => {}
+            ".." => {
+                segments.pop();
+            }
+            _ => segments.push(segment.to_string()),
+        }
+    }
+    segments
 }
 
 /// Where inherited dependency specs live. The room is its own workspace root,
@@ -663,6 +698,8 @@ struct Package {
     /// `None` for a path package: the room itself, or a path dependency.
     source: Option<String>,
     /// As the lock writes them: `name`, `name version` or `name version (source)`.
+    /// A `replace = "name version (source)"` field, which `[replace]` writes on
+    /// the package it redirects, is one more: Cargo builds that package instead.
     deps: Vec<String>,
 }
 
@@ -682,6 +719,7 @@ fn lock_packages(lock: &str) -> Vec<Package> {
                 .iter()
                 .filter_map(Toml::str)
                 .map(String::from)
+                .chain(text(package, "replace"))
                 .collect(),
         })
         .collect()
@@ -978,8 +1016,11 @@ struct FileImports {
     /// or an inline `mod name { … }`) has none: Rust does not look past it
     /// without `super::`.
     parent: Vec<Option<usize>>,
-    /// Each inline module's scope, and the `(scope, name)` that declares it.
+    /// Each inline module's scope, and the `(scope, name)` that declares it,
+    /// whether or not the declaration counts.
     modules: BTreeMap<usize, (usize, String)>,
+    /// The declarations written `mod name;`, which load a file.
+    loads: BTreeSet<(usize, String)>,
     /// The file starts `#![cfg(…)]` (or `cfg_attr`, `path`), so the module it
     /// holds may be absent.
     conditional: bool,
@@ -1007,6 +1048,7 @@ fn imports(source: &str) -> FileImports {
         declared: BTreeSet::new(),
         parent: vec![None],
         modules: BTreeMap::new(),
+        loads: BTreeSet::new(),
         conditional: false,
     };
     let mut scopes = vec![0];
@@ -1038,6 +1080,7 @@ fn imports(source: &str) -> FileImports {
                 match tokens.get(at + 2) {
                     Some(Tok::Semi) => {
                         if counts {
+                            file.loads.insert(declaration.clone());
                             file.declared.insert(declaration);
                         }
                         at += 3;
@@ -1047,8 +1090,8 @@ fn imports(source: &str) -> FileImports {
                         let scope = file.parent.len();
                         if counts {
                             file.declared.insert(declaration.clone());
-                            file.modules.insert(scope, declaration);
                         }
+                        file.modules.insert(scope, declaration);
                         scopes.push(scope);
                         file.parent.push(None);
                         at += 3;
@@ -1125,8 +1168,9 @@ fn attribute(tokens: &[Tok], at: usize) -> Option<(usize, bool, bool)> {
             Tok::Punct(']') => {
                 depth -= 1;
                 if depth == 0 {
+                    // Raw or not: `#[r#cfg(…)]` is `#[cfg(…)]`.
                     let conditional = tokens[open..index].iter().any(|token| {
-                        matches!(token, Tok::Ident(name, false)
+                        matches!(token, Tok::Ident(name, _)
                             if matches!(name.as_str(), "cfg" | "cfg_attr" | "path"))
                     });
                     return Some((index + 1, inner, conditional));
@@ -1146,23 +1190,16 @@ fn attribute(tokens: &[Tok], at: usize) -> Option<(usize, bool, bool)> {
 /// `mod pipeline;` (the room's admin route for the pipeline's pushes) and then
 /// `use pipeline::admin_routes;`. A `mod` inside a block is seen only inside
 /// that block, and a conditional `mod` (see [`imports`]) is not counted, nor
-/// is a `mod name;` whose file, in `conditional`, gates itself. An absolute
+/// (see [`scan_files`]) is a `mod name;` whose file gates itself. An absolute
 /// `::name` and `extern crate` always name a crate, so they get no such reading.
-fn file_violations(
-    file: &str,
-    scanned: &FileImports,
-    conditional: &BTreeSet<String>,
-) -> (Vec<String>, BTreeSet<String>) {
+fn file_violations(file: &str, scanned: &FileImports) -> (Vec<String>, BTreeSet<String>) {
     let mut violations = Vec::new();
     let mut local = BTreeSet::new();
     for import in &scanned.found {
         if !denied(&import.root) {
             continue;
         }
-        if !import.external
-            && !conditional.contains(&import.root)
-            && scanned.declares(import.scope, &import.root)
-        {
+        if !import.external && scanned.declares(import.scope, &import.root) {
             local.insert(import.root.clone());
             continue;
         }
@@ -1176,7 +1213,7 @@ fn file_violations(
 
 /// One file on its own, as the planted cases use it.
 fn source_violations(file: &str, source: &str) -> (Vec<String>, BTreeSet<String>) {
-    file_violations(file, &imports(source), &BTreeSet::new())
+    file_violations(file, &imports(source))
 }
 
 struct SourceScan {
@@ -1186,15 +1223,50 @@ struct SourceScan {
     local: BTreeSet<String>,
 }
 
-/// The module a file holds when `mod name;` loads it: `name.rs` or
-/// `name/mod.rs`.
-fn module_name(path: &Path) -> Option<String> {
-    let stem = path.file_stem()?.to_str()?;
-    if stem == "mod" {
-        Some(path.parent()?.file_name()?.to_str()?.to_string())
-    } else {
-        Some(stem.to_string())
+/// The files `mod name;` at `scope` in the file at `path` can load: `name.rs`
+/// or `name/mod.rs`, inside each inline module around it, under the declaring
+/// file's own directory (a `mod.rs` or a crate root such as `lib.rs`) or, for
+/// any other file, the directory named for it. `None` when an inline module
+/// around it is itself conditional, which may carry a `#[path]` that moves it.
+fn module_files(
+    path: &Path,
+    file: &FileImports,
+    (scope, name): &(usize, String),
+) -> Option<Vec<PathBuf>> {
+    let mut inline = Vec::new();
+    let mut at = Some(*scope);
+    while let Some(scope) = at {
+        match file.modules.get(&scope) {
+            Some(declaration) => {
+                if !file.declared.contains(declaration) {
+                    return None;
+                }
+                inline.push(declaration.1.clone());
+                at = Some(declaration.0);
+            }
+            None => at = file.parent[scope],
+        }
     }
+    let dir = path.parent().unwrap_or(Path::new(""));
+    let mut bases = vec![dir.to_path_buf()];
+    if path.file_name() != Some("mod.rs".as_ref()) {
+        bases.extend(path.file_stem().map(|stem| dir.join(stem)));
+    }
+    Some(
+        bases
+            .into_iter()
+            .flat_map(|base| {
+                let dir = inline
+                    .iter()
+                    .rev()
+                    .fold(base, |dir, module| dir.join(module));
+                [
+                    dir.join(format!("{name}.rs")),
+                    dir.join(name).join("mod.rs"),
+                ]
+            })
+            .collect(),
+    )
 }
 
 fn scan_source(crate_dir: &Path) -> SourceScan {
@@ -1215,14 +1287,29 @@ fn scan_source(crate_dir: &Path) -> SourceScan {
 
 /// Source files as paths within the crate and their text.
 fn scan_files(files: &[(PathBuf, String)]) -> SourceScan {
-    let scanned: Vec<FileImports> = files.iter().map(|(_, source)| imports(source)).collect();
-    // A module file that gates itself makes every `mod` of its name conditional.
-    let conditional: BTreeSet<String> = files
+    let mut scanned: Vec<FileImports> = files.iter().map(|(_, source)| imports(source)).collect();
+    // A module file that gates itself makes the `mod name;` that loads it
+    // conditional, as does one whose file this cannot place.
+    let gated: BTreeSet<PathBuf> = files
         .iter()
         .zip(&scanned)
         .filter(|(_, file)| file.conditional)
-        .filter_map(|((path, _), _)| module_name(path))
+        .map(|((path, _), _)| path.clone())
         .collect();
+    for ((path, _), file) in files.iter().zip(&mut scanned) {
+        let conditional: Vec<(usize, String)> = file
+            .loads
+            .iter()
+            .filter(|declaration| {
+                module_files(path, file, declaration)
+                    .is_none_or(|candidates| candidates.iter().any(|path| gated.contains(path)))
+            })
+            .cloned()
+            .collect();
+        for declaration in conditional {
+            file.declared.remove(&declaration);
+        }
+    }
     let mut scan = SourceScan {
         files: files.len(),
         imports: 0,
@@ -1231,7 +1318,7 @@ fn scan_files(files: &[(PathBuf, String)]) -> SourceScan {
     };
     for ((path, _), file) in files.iter().zip(&scanned) {
         scan.imports += file.found.len();
-        let (violations, local) = file_violations(&path.display().to_string(), file, &conditional);
+        let (violations, local) = file_violations(&path.display().to_string(), file);
         scan.violations.extend(violations);
         scan.local.extend(local);
     }
@@ -1485,6 +1572,27 @@ fn the_planted_mutations_are_refused() {
              { git = \"https://example.com/x\" }",
             "[replace] openai",
         ),
+        // Spellings the URL parser Cargo uses normalizes to the same name.
+        (
+            "[replace]\n'https://example.com/helpers\\openai#0.1.0' = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"https://example.com/openai/x/..#0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"https://example.com/openai/%2E/#0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"https://example.com/open\\tai#0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"https://example.com/x#open\\nai@0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
     ] {
         refused(&format!("{manifest}\n{appended}\n"), expected);
     }
@@ -1552,6 +1660,11 @@ fn the_planted_mutations_are_refused() {
         "#[allow(dead_code)]\n#[cfg_attr(any(), cfg(any()))]\nmod openai;\nuse openai::Client;\n",
         "#[path = \"elsewhere.rs\"]\nmod openai;\nuse openai::Client;\n",
         "mod openai {\n    #![cfg(not(feature = \"llm\"))]\n}\n#[cfg(feature = \"llm\")]\nuse openai::Client;\n",
+        // The same gates spelled as raw identifiers.
+        "#[r#cfg(not(feature = \"llm\"))]\nmod openai {}\n#[cfg(feature = \"llm\")]\nuse openai::Client;\n",
+        "mod openai {\n    #![r#cfg(not(feature = \"llm\"))]\n}\n#[cfg(feature = \"llm\")]\nuse openai::Client;\n",
+        "#[r#cfg_attr(any(), r#cfg(any()))]\nmod openai;\nuse openai::Client;\n",
+        "#[r#path = \"elsewhere.rs\"]\nmod openai;\nuse openai::Client;\n",
     ] {
         assert_eq!(source(text).len(), 1, "{text}");
     }
@@ -1594,6 +1707,48 @@ fn the_planted_mutations_are_refused() {
         assert!(
             scan(&[("src/lib.rs", routes), (module, "#![allow(dead_code)]\n")]).is_empty(),
             "{module}"
+        );
+    }
+    // The file is the one that `mod` loads, wherever it is declared: beside a
+    // `mod.rs`, in the folder named for any other file, inside inline modules.
+    let gate = "#![r#cfg(not(feature = \"llm\"))]\n";
+    for files in [
+        [
+            ("src/server/routes/mod.rs", routes),
+            ("src/server/routes/pipeline.rs", gate),
+        ],
+        [
+            ("src/server/routes.rs", routes),
+            ("src/server/routes/pipeline/mod.rs", gate),
+        ],
+        [
+            (
+                "src/lib.rs",
+                "mod inner {\n    mod pipeline;\n    use pipeline::admin_routes;\n}\n",
+            ),
+            ("src/inner/pipeline.rs", gate),
+        ],
+    ] {
+        assert_eq!(scan(&files).len(), 1, "{files:?}");
+    }
+    // An inline module that may move under `#[path]` leaves its file unplaced.
+    assert_eq!(
+        scan(&[(
+            "src/lib.rs",
+            "#[path = \"elsewhere\"]\nmod inner {\n    mod pipeline;\n    use pipeline::admin_routes;\n}\n"
+        )])
+        .len(),
+        1
+    );
+    // A gated file of the same name elsewhere is another module.
+    for elsewhere in [
+        "src/unrelated/pipeline.rs",
+        "src/server/pipeline.rs",
+        "src/routes/pipeline/mod.rs",
+    ] {
+        assert!(
+            scan(&[("src/server/routes/mod.rs", routes), (elsewhere, gate)]).is_empty(),
+            "{elsewhere}"
         );
     }
 }
@@ -1755,5 +1910,50 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
     assert_eq!(
         resolve(&packages, "shim 1.0.0 (git+https://example.com/a)"),
         vec![2]
+    );
+}
+
+/// The shape `cargo generate-lockfile` writes when `[replace]` redirects the
+/// room's git `shim` to another repository: the replacement is no dependency
+/// line, only a `replace` field on the package it stands in for.
+#[test]
+fn the_lock_walk_follows_replacements() {
+    let lock = r#"
+version = 4
+
+[[package]]
+name = "room"
+version = "0.1.0"
+dependencies = [
+ "shim 1.0.0 (git+https://example.com/a)",
+]
+
+[[package]]
+name = "shim"
+version = "1.0.0"
+source = "git+https://example.com/b?branch=dev#84b81c3f13100567babfe14dea141f96d2d8f1f4"
+dependencies = [
+ "openai",
+]
+
+[[package]]
+name = "shim"
+version = "1.0.0"
+source = "git+https://example.com/a#2e4a07543fbfb2fbda07356922c0fa81f18b9bbb"
+replace = "shim 1.0.0 (git+https://example.com/b?branch=dev)"
+
+[[package]]
+name = "openai"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+"#;
+    let packages = lock_packages(lock);
+    let reached = room_subgraph(&packages).len();
+    assert_eq!(reached, 4, "room, both shims and openai");
+    assert!(
+        lock_violations(lock)
+            .iter()
+            .any(|violation| violation.contains("openai")),
+        "the replacement `shim` reaches openai"
     );
 }
