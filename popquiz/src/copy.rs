@@ -300,6 +300,97 @@ pub fn admin_path_names_another(path_id: &str, record_id: &str) -> String {
     )
 }
 
+// Why a bank record will not load (`answers::LoadError`). The admin channel
+// sends it as its `reason`, and the organizer reads it in `popquiz schedule`'s
+// error. Every one but the two parse errors is prefixed by [`LOAD_REFUSED`].
+
+pub const LOAD_REFUSED: &str = "‹id›: ‹why›";
+pub const LOAD_NOT_A_BANK_RECORD: &str = "not a bank record: ‹error›";
+pub const LOAD_NOT_A_VERIFIED_RECORD: &str = "not a verified record: ‹error›";
+pub const LOAD_SEVERAL_CORRECT: &str = "‹n› options match the verified answer (indexes ‹indexes›), so no single option is the correct one";
+pub const LOAD_BANK_ORDER_NOT_ARRANGEMENT: &str =
+    "bank_order is not an arrangement of the five options.";
+pub const LOAD_NOT_ACCEPTED: &str = "‹id›: is affirmed but was not accepted at review; accept it at review, then schedule it again.";
+pub const LOAD_OPTION_COUNT: &str = "has ‹n› options; a room needs five";
+pub const LOAD_DNC_COUNT: &str = "has ‹n› does-not-compile options; it needs exactly one";
+pub const LOAD_NO_VERIFIED: &str = "has no verified record, so it has no answer";
+pub const LOAD_NO_RECEIPT: &str = "renders no receipt, so it cannot be scheduled";
+pub const LOAD_NO_MATCH: &str = "no option matches the verified answer";
+pub const LOAD_TRACE_TOO_SHORT: &str = "the trace needs at least two steps to walk";
+pub const LOAD_TRACE_NO_STDOUT: &str = "the trace's final step names no stdout";
+pub const LOAD_TRACE_EARLY_STDOUT: &str =
+    "trace step ‹n› names stdout, but only the last step may, and only the verifier writes it";
+pub const LOAD_NO_WHY_TEMPTING: &str = "option ‹letter› has no why_tempting text";
+
+/// [`LOAD_REFUSED`]: record `id`, then why.
+pub fn load_refused(id: &str, why: &str) -> String {
+    fill(LOAD_REFUSED, &[("id", id), ("why", why)])
+}
+
+/// [`LOAD_NOT_A_BANK_RECORD`] with the parser's error.
+pub fn load_not_a_bank_record(error: &str) -> String {
+    fill(LOAD_NOT_A_BANK_RECORD, &[("error", error)])
+}
+
+/// [`LOAD_NOT_A_VERIFIED_RECORD`] with the parser's error.
+pub fn load_not_a_verified_record(error: &str) -> String {
+    fill(LOAD_NOT_A_VERIFIED_RECORD, &[("error", error)])
+}
+
+/// [`LOAD_SEVERAL_CORRECT`] for the option indexes that all match.
+pub fn load_several_correct(matches: &[usize]) -> String {
+    fill(
+        LOAD_SEVERAL_CORRECT,
+        &[
+            ("n", &matches.len().to_string()),
+            ("indexes", &format!("{matches:?}")),
+        ],
+    )
+}
+
+/// [`LOAD_NOT_ACCEPTED`] for record `id`.
+pub fn load_not_accepted(id: &str) -> String {
+    fill(LOAD_NOT_ACCEPTED, &[("id", id)])
+}
+
+/// [`LOAD_OPTION_COUNT`] for a record with `n` options.
+pub fn load_option_count(n: usize) -> String {
+    fill(LOAD_OPTION_COUNT, &[("n", &n.to_string())])
+}
+
+/// [`LOAD_DNC_COUNT`] for a record with `n` does-not-compile options.
+pub fn load_dnc_count(n: usize) -> String {
+    fill(LOAD_DNC_COUNT, &[("n", &n.to_string())])
+}
+
+/// [`LOAD_TRACE_EARLY_STDOUT`] for trace step `n`, counted from one.
+pub fn load_trace_early_stdout(n: usize) -> String {
+    fill(LOAD_TRACE_EARLY_STDOUT, &[("n", &n.to_string())])
+}
+
+/// [`LOAD_NO_WHY_TEMPTING`] for the option shown as `letter`.
+pub fn load_no_why_tempting(letter: &str) -> String {
+    fill(LOAD_NO_WHY_TEMPTING, &[("letter", letter)])
+}
+
+// Why the room will not schedule a record or open a room (`RoomError::Refused`).
+// The admin channel sends the first to the organizer; the host page shows the
+// rest as the host route's `reason`.
+
+pub const ROOM_RUNNING_CANNOT_REPLACE: &str =
+    "A room is running ‹id›; it can be replaced once that room is gone.";
+pub const ROOM_RUN_AGAIN_NEEDS_ORGANIZER: &str =
+    "Run it again needs the organizer's credential and a question.";
+pub const ROOM_QUESTION_OPEN_ELSEWHERE: &str =
+    "That question is open in another room. Pick another.";
+pub const ROOM_QUESTION_ALREADY_RUN: &str = "That question has already been run. Pick another.";
+pub const ROOM_NOTHING_SCHEDULED: &str = "No question is scheduled with that id.";
+
+/// [`ROOM_RUNNING_CANNOT_REPLACE`] for question `id`.
+pub fn room_running_cannot_replace(id: &str) -> String {
+    fill(ROOM_RUNNING_CANNOT_REPLACE, &[("id", id)])
+}
+
 /// Substitute ‹placeholders›. Panics on a placeholder nobody supplied — the
 /// same rule as `copy.js`'s `fill()`: a wall reading "‹n› of us said A" in front
 /// of the room is worse than a loud failure at the call site.
@@ -348,6 +439,55 @@ mod tests {
         assert_eq!(
             admin_path_names_another("q7", "q3"),
             "The path names q7; the record is q3."
+        );
+    }
+
+    #[test]
+    fn the_load_and_room_templates_fill_to_the_sentences_they_replaced() {
+        // Each against the `format!` it replaced, with the old literal, so a
+        // character changed in the move fails here (AC-98).
+        let (id, e, m) = ("q7", "expected value at line 1 column 1", vec![1, 3]);
+        assert_eq!(load_refused(id, "x"), format!("{id}: {}", "x"));
+        assert_eq!(load_not_a_bank_record(e), format!("not a bank record: {e}"));
+        assert_eq!(
+            load_not_a_verified_record(e),
+            format!("not a verified record: {e}")
+        );
+        assert_eq!(
+            load_several_correct(&m),
+            format!(
+                "{} options match the verified answer (indexes {:?}), so no single option is the correct one",
+                m.len(),
+                m
+            )
+        );
+        assert_eq!(
+            load_not_accepted(id),
+            format!("{id}: is affirmed but was not accepted at review; accept it at review, then schedule it again.")
+        );
+        assert_eq!(
+            load_option_count(4),
+            format!("has {} options; a room needs five", 4)
+        );
+        let dnc = 2;
+        assert_eq!(
+            load_dnc_count(dnc),
+            format!("has {dnc} does-not-compile options; it needs exactly one")
+        );
+        assert_eq!(
+            load_trace_early_stdout(2),
+            format!(
+                "trace step {} names stdout, but only the last step may, and only the verifier writes it",
+                2
+            )
+        );
+        assert_eq!(
+            load_no_why_tempting("B"),
+            format!("option {} has no why_tempting text", "B")
+        );
+        assert_eq!(
+            room_running_cannot_replace(id),
+            format!("A room is running {id}; it can be replaced once that room is gone.")
         );
     }
 

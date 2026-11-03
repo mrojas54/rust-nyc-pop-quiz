@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::auth::OrganizerId;
 use crate::club::ClubSlug;
+use crate::copy;
 use crate::phase::{Command, HostAction, Phase};
 
 use crate::quiz_session::state_manager::{lock, Entry};
@@ -101,7 +102,7 @@ impl AppState {
         let mut rooms = lock(&self.rooms);
         if rooms.values().any(|e| e.room.holds(club, question_id, now)) {
             return Err(RoomError::Refused(
-                "That question is open in another room. Pick another.".into(),
+                copy::ROOM_QUESTION_OPEN_ELSEWHERE.into(),
             ));
         }
         // The rooms on this question that ended without release stay ended:
@@ -115,15 +116,13 @@ impl AppState {
             }
         }
         if self.used.contains(club, question_id) {
-            return Err(RoomError::Refused(
-                "That question has already been run. Pick another.".into(),
-            ));
+            return Err(RoomError::Refused(copy::ROOM_QUESTION_ALREADY_RUN.into()));
         }
         // No fallback to another club's record: it was arranged for another date.
         let question = questions
             .get(&(club.clone(), question_id.to_string()))
             .cloned()
-            .ok_or_else(|| RoomError::Refused("No question is scheduled with that id.".into()))?;
+            .ok_or_else(|| RoomError::Refused(copy::ROOM_NOTHING_SCHEDULED.into()))?;
         if let Some(why) = question.refusal(question_id) {
             return Err(RoomError::Refused(why));
         }

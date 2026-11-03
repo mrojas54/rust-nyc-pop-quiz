@@ -7,6 +7,7 @@ use std::time::SystemTime;
 use crate::answers::Scheduled;
 use crate::auth::HostAuth;
 use crate::club::{ClubSlug, Clubs};
+use crate::copy;
 use crate::phase::Command;
 use crate::used::{TakeHome, UsedEntry, UsedLedger, UsedRecord};
 
@@ -258,9 +259,7 @@ impl AppState {
             .values()
             .any(|e| &e.room.club == club && e.room.question_id() == id)
         {
-            return Err(RoomError::Refused(format!(
-                "A room is running {id}; it can be replaced once that room is gone."
-            )));
+            return Err(RoomError::Refused(copy::room_running_cannot_replace(&id)));
         }
         drop(rooms);
         Ok(
@@ -293,7 +292,7 @@ impl AppState {
             Acted::Changed => {}
             Acted::NewRoomRequested => {
                 return Err(RoomError::Refused(
-                    "Run it again needs the organizer's credential and a question.".into(),
+                    copy::ROOM_RUN_AGAIN_NEEDS_ORGANIZER.into(),
                 ))
             }
         }
