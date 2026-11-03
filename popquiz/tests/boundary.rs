@@ -115,12 +115,12 @@ fn witness_impls(code: &str) -> Vec<String> {
 /// The lines naming a derive above a declaration, given the text before its
 /// line. The walk stops where the previous item ends, not at the first line
 /// that isn't an attribute, so a blank line or a wrapped derive can't hide one.
+/// Comments go first: what a comment ends with or mentions is not code.
 fn derives_above(before: &str) -> Vec<&str> {
     before
         .lines()
         .rev()
-        .map(str::trim)
-        .filter(|l| !l.starts_with("//"))
+        .map(|l| l.split("//").next().unwrap_or(l).trim())
         .take_while(|l| !l.ends_with(['}', ';', '{']))
         .filter(|l| l.contains("derive"))
         .collect()
@@ -272,6 +272,9 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         "#[derive(Default)]\n/// Docs.\n",
         "#[derive(\n    Default,\n)]\n",
         "#[cfg_attr(test, derive(Default))]\n#[must_use]\n",
+        "#[derive(Default)] // Ends like an item;\n",
+        "#[derive(Default)] // Ends like a block }\n",
+        "#[derive(Default)]\n/// Ends like an item;\n",
     ] {
         assert!(!derives_above(form).is_empty(), "the walk misses {form:?}");
     }
@@ -279,6 +282,8 @@ fn nothing_sealed_can_be_printed_copied_or_serialized() {
         "",
         "/// #[derive(Default)] is refused.\n",
         "#[derive(Clone)]\nstruct Earlier;\n\n",
+        "#[derive(Clone)]\nstruct Earlier; // Note.\n\n",
+        "#[must_use] // derive would be wrong here\n",
         "#[derive(Clone)]\nstruct Earlier {\n    a: u8,\n}\n\n/// Docs.\n",
     ] {
         assert!(
