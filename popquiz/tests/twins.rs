@@ -31,6 +31,26 @@ fn the_receipt_matches_every_shared_fixture() {
 }
 
 #[test]
+fn a_record_that_ran_without_miri_renders_no_miri_line() {
+    // G-7, GAP-16: `miri` is optional at load, so this record reaches the room.
+    // The steps it does hold still render, so an empty list cannot pass this.
+    let path = common::repo().join("bank/fixtures/receipts/ran-no-miri.json");
+    let case: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(case["verified"].get("runs").is_some());
+    assert!(case["verified"].get("miri").is_none());
+    let verified = verified_from_json(&case["verified"]).unwrap();
+    let lines = receipt_lines(&verified).expect("a record that ran renders a receipt");
+    assert!(
+        lines.iter().any(|l| l == copy::RECEIPT_COMPILED),
+        "{lines:?}"
+    );
+    assert!(
+        !lines.iter().any(|l| l.to_lowercase().contains("miri")),
+        "{lines:?}"
+    );
+}
+
+#[test]
 fn no_receipt_line_claims_more_than_a_step() {
     // AC-43, as receipt.py states it beside the strings.
     for line in [
