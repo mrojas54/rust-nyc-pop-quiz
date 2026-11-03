@@ -1016,15 +1016,22 @@ def participant_facing_files(repo: Path) -> tuple[list[Path], list[str]]:
 def _authored_text(raw: bytes) -> str | None:
     """The file's text, or None for a binary file (a font, an image).
 
-    Binary is git's rule: a NUL byte in the first 8 KiB. A UTF-16 byte-order mark
-    overrides it, since UTF-16 text is full of NULs. Anything else must be UTF-8;
-    a decode failure raises, and the caller reports the file rather than passing it.
+    A UTF-32 or UTF-16 byte-order mark says text; UTF-32 is checked first because
+    its little-endian mark begins with UTF-16's. Then anything that decodes as
+    UTF-8 is text, NUL bytes or not. Only what fails that and has a NUL in its
+    first 8 KiB (git's rule) is binary. Anything else raises, and the caller
+    reports the file rather than passing it.
     """
+    if raw.startswith((codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE)):
+        return raw.decode("utf-32")
     if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
         return raw.decode("utf-16")
-    if b"\x00" in raw[:8192]:
-        return None
-    return raw.decode("utf-8")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        if b"\x00" in raw[:8192]:
+            return None
+        raise
 
 
 def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], list[str], list[str]]:

@@ -14,6 +14,7 @@ program printed. Their `stdout` values are placeholders in the style
 
 from __future__ import annotations
 
+import codecs
 import dataclasses
 import datetime
 import inspect
@@ -547,9 +548,23 @@ def test_bank_is_skipped_only_at_the_root(tmp_path: pathlib.Path) -> None:
     assert [h.path for h in hits] == ["docs/bank/notes.md"]
 
 
-def test_a_tell_in_utf16_text_is_caught(tmp_path: pathlib.Path) -> None:
-    """A byte-order mark says the file is text, whatever its NUL bytes suggest."""
-    (tmp_path / "notes.md").write_text(TELL, encoding="utf-16")
+@pytest.mark.parametrize(
+    "encoded",
+    [
+        codecs.BOM_UTF16_LE + TELL.encode("utf-16-le"),
+        codecs.BOM_UTF16_BE + TELL.encode("utf-16-be"),
+        # UTF-32 LE's mark begins with UTF-16 LE's, so the order of the checks matters.
+        codecs.BOM_UTF32_LE + TELL.encode("utf-32-le"),
+        codecs.BOM_UTF32_BE + TELL.encode("utf-32-be"),
+        # UTF-8 that happens to carry a NUL is text, not binary (Codex review, pass 2).
+        ("Intro\x00\n" + TELL).encode("utf-8"),
+    ],
+    ids=["utf16-le", "utf16-be", "utf32-le", "utf32-be", "utf8-with-nul"],
+)
+def test_a_tell_in_any_text_encoding_is_caught(tmp_path: pathlib.Path, encoded: bytes) -> None:
+    """A byte-order mark, or a clean UTF-8 decode, says the file is text,
+    whatever its NUL bytes suggest."""
+    (tmp_path / "notes.md").write_bytes(encoded)
     hits, scanned, _stale, unreadable = audit.distribution_lint(tmp_path)
     assert (scanned, unreadable) == (["notes.md"], [])
     assert [h.path for h in hits] == ["notes.md"]
