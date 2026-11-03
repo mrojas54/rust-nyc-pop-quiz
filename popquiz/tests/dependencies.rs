@@ -114,17 +114,21 @@ fn normalize(path: &Path) -> PathBuf {
 // Enough of TOML 1.0 for Cargo.toml and Cargo.lock: bare, quoted and dotted
 // keys; `[table]` and `[[array]]` headers; the four string kinds with their
 // escapes; arrays and inline tables. Numbers, booleans and dates are kept as
-// `Other`, since nothing here reads them. Malformed input panics with a line.
+// `Other`, with their text. Malformed input panics with a line.
 
 #[derive(Debug)]
 enum Toml {
     Str(String),
     Table(Vec<(String, Toml)>),
     Array(Vec<Toml>),
-    Other,
+    Other(String),
 }
 
 impl Toml {
+    fn is_false(&self) -> bool {
+        matches!(self, Toml::Other(text) if text.trim() == "false")
+    }
+
     fn get(&self, key: &str) -> Option<&Toml> {
         self.entries()
             .iter()
@@ -439,7 +443,7 @@ impl TomlParser {
                 if start == self.at {
                     self.fail("expected a value");
                 }
-                Toml::Other
+                Toml::Other(self.text[start..self.at].iter().collect())
             }
             None => self.fail("expected a value"),
         }
@@ -1027,6 +1031,8 @@ struct FileImports {
     modules: BTreeMap<usize, (usize, String)>,
     /// The declarations written `mod name;`, which load a file.
     loads: BTreeSet<(usize, String)>,
+    /// The name of every `mod name;`, counted or not.
+    load_names: BTreeSet<String>,
     /// The file starts `#![cfg(…)]` (or `cfg_attr`, `path`), so the module it
     /// holds may be absent.
     conditional: bool,
@@ -1045,6 +1051,24 @@ impl FileImports {
         }
         false
     }
+}
+
+/// Where a `use` whose path starts at `start` ends: its `;`, or the bracket
+/// that closes the group it sits in, whichever comes first. Whether it was `;`.
+fn use_end(tokens: &[Tok], start: usize) -> (usize, bool) {
+    let mut depth = 0usize;
+    for (index, token) in tokens.iter().enumerate().skip(start) {
+        match token {
+            Tok::Semi if depth == 0 => return (index, true),
+            Tok::Open | Tok::Punct('(' | '[') => depth += 1,
+            Tok::Close | Tok::Punct(')' | ']') => match depth.checked_sub(1) {
+                Some(outer) => depth = outer,
+                None => return (index, false),
+            },
+            _ => {}
+        }
+    }
+    (tokens.len(), false)
 }
 
 /// Which tokens are a macro's input: inside `name!(…)`, `name![…]`,
@@ -1093,6 +1117,7 @@ fn imports(source: &str) -> FileImports {
         parent: vec![None],
         modules: BTreeMap::new(),
         loads: BTreeSet::new(),
+        load_names: BTreeSet::new(),
         conditional: false,
     };
     let mut scopes = vec![0];
@@ -1125,6 +1150,7 @@ fn imports(source: &str) -> FileImports {
                 let declaration = (here, name.clone());
                 match tokens.get(at + 2) {
                     Some(Tok::Semi) => {
+                        file.load_names.insert(name.clone());
                         if counts {
                             file.loads.insert(declaration.clone());
                             file.declared.insert(declaration);
@@ -1152,10 +1178,7 @@ fn imports(source: &str) -> FileImports {
             conditional = false;
             // `use<'a>` in `impl Trait + use<'a>` is not an import, and is the
             // only `use` followed by punctuation.
-            let end = tokens[at + 1..]
-                .iter()
-                .position(|token| *token == Tok::Semi)
-                .map_or(tokens.len(), |offset| at + 1 + offset);
+            let (end, terminated) = use_end(&tokens, at + 1);
             for (root, external) in use_roots(&tokens[at + 1..end], false) {
                 file.found.push(Import {
                     scope: here,
@@ -1164,7 +1187,9 @@ fn imports(source: &str) -> FileImports {
                     keyword: "use",
                 });
             }
-            at = end + 1;
+            // An unterminated one (`(use std)` in a macro matcher) leaves the
+            // bracket that closes its group to be read.
+            at = end + usize::from(terminated);
             continue;
         } else if keyword(tokens.get(at), "extern") && keyword(tokens.get(at + 1), "crate") {
             conditional = false;
@@ -1269,52 +1294,93 @@ struct SourceScan {
     local: BTreeSet<String>,
 }
 
-/// The crate roots: the library, each binary the manifest names, and Cargo's
-/// default binary paths. A `mod name;` in a root loads from the root's own
-/// directory, as in a `mod.rs`.
-fn crate_roots(manifest: &Toml) -> BTreeSet<PathBuf> {
+/// The crate's targets as Cargo finds them in `src/`.
+struct Roots {
+    /// The library and the binaries, at the paths the manifest gives or
+    /// Cargo's defaults for them.
+    named: BTreeSet<PathBuf>,
+    /// `autobins` is not `false`: `src/main.rs`, `src/bin/name.rs` and
+    /// `src/bin/name/main.rs` are binaries too.
+    automatic_bins: bool,
+}
+
+impl Roots {
+    fn contains(&self, path: &Path) -> bool {
+        let bin = Path::new("src/bin");
+        self.named.contains(path)
+            || (self.automatic_bins
+                && (path == Path::new("src/main.rs")
+                    || path.parent() == Some(bin)
+                    || (path.file_name() == Some("main.rs".as_ref())
+                        && path.parent().and_then(Path::parent) == Some(bin))))
+    }
+}
+
+/// The crate roots: the library, each binary the manifest names, and the ones
+/// Cargo discovers unless `autolib`/`autobins` is `false`.
+fn crate_roots(manifest: &Toml) -> Roots {
+    let package = manifest.get("package");
+    let automatic = |key: &str| {
+        !package
+            .and_then(|package| package.get(key))
+            .is_some_and(Toml::is_false)
+    };
     let path = |target: &Toml| target.get("path").and_then(Toml::str).map(clean);
-    let mut roots: BTreeSet<PathBuf> = ["src/lib.rs", "src/main.rs"]
-        .into_iter()
-        .map(PathBuf::from)
-        .collect();
-    roots.extend(manifest.get("lib").and_then(path));
-    roots.extend(
-        manifest
-            .get("bin")
-            .map_or(&[][..], Toml::items)
-            .iter()
-            .filter_map(path),
-    );
-    roots
+    let mut named = BTreeSet::new();
+    match manifest.get("lib") {
+        Some(lib) => named.insert(path(lib).unwrap_or_else(|| PathBuf::from("src/lib.rs"))),
+        None if automatic("autolib") => named.insert(PathBuf::from("src/lib.rs")),
+        None => false,
+    };
+    let package_name = package
+        .and_then(|package| package.get("name"))
+        .and_then(Toml::str);
+    for bin in manifest.get("bin").map_or(&[][..], Toml::items) {
+        match (path(bin), bin.get("name").and_then(Toml::str)) {
+            (Some(path), _) => {
+                named.insert(path);
+            }
+            (None, Some(name)) => {
+                named.insert(PathBuf::from(format!("src/bin/{name}.rs")));
+                named.insert(PathBuf::from(format!("src/bin/{name}/main.rs")));
+                if Some(name) == package_name {
+                    named.insert(PathBuf::from("src/main.rs"));
+                }
+            }
+            (None, None) => {}
+        }
+    }
+    Roots {
+        named,
+        automatic_bins: automatic("autobins"),
+    }
 }
 
-/// A manifest path as the scan names files: relative, without `./`.
+/// A manifest path as the scan names files: relative, with `.` dropped and
+/// `..` taken back, as Cargo normalizes it.
 fn clean(path: &str) -> PathBuf {
-    Path::new(path)
-        .components()
-        .filter(|component| *component != std::path::Component::CurDir)
-        .collect()
-}
-
-/// Whether the file at `path` is a crate root: named in `roots`, or one of
-/// Cargo's automatic binaries, `src/bin/name.rs` or `src/bin/name/main.rs`.
-fn is_root(path: &Path, roots: &BTreeSet<PathBuf>) -> bool {
-    let bin = Path::new("src/bin");
-    roots.contains(path)
-        || path.parent() == Some(bin)
-        || (path.file_name() == Some("main.rs".as_ref())
-            && path.parent().and_then(Path::parent) == Some(bin))
+    let mut clean = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir if clean.file_name().is_some() => {
+                clean.pop();
+            }
+            component => clean.push(component),
+        }
+    }
+    clean
 }
 
 /// The files `mod name;` at `scope` in the file at `path` can load: `name.rs`
-/// or `name/mod.rs`, inside each inline module around it, under the declaring
-/// file's own directory (a `mod.rs` or a crate root) or, for any other file,
-/// the directory named for it. `None` when an inline module around it is
-/// itself conditional, which may carry a `#[path]` that moves it.
+/// or `name/mod.rs`, inside each inline module around it. A `mod.rs`, and a
+/// crate root that no `mod` loads as a module, load from their own directory.
+/// Any other file loads from the directory named for it, or from its own when
+/// a `#[path]` loaded it, so both are checked. `None` when an inline module
+/// around it is itself conditional, which may carry a `#[path]` that moves it.
 fn module_files(
     path: &Path,
-    root: bool,
+    own_dir_only: bool,
     file: &FileImports,
     (scope, name): &(usize, String),
 ) -> Option<Vec<PathBuf>> {
@@ -1333,18 +1399,25 @@ fn module_files(
         }
     }
     let dir = path.parent().unwrap_or(Path::new(""));
-    let base = match path.file_stem() {
-        Some(stem) if !root && path.file_name() != Some("mod.rs".as_ref()) => dir.join(stem),
-        _ => dir.to_path_buf(),
-    };
-    let dir = inline
-        .iter()
-        .rev()
-        .fold(base, |dir, module| dir.join(module));
-    Some(vec![
-        dir.join(format!("{name}.rs")),
-        dir.join(name).join("mod.rs"),
-    ])
+    let mut bases = vec![dir.to_path_buf()];
+    if !own_dir_only {
+        bases.extend(path.file_stem().map(|stem| dir.join(stem)));
+    }
+    Some(
+        bases
+            .into_iter()
+            .flat_map(|base| {
+                let dir = inline
+                    .iter()
+                    .rev()
+                    .fold(base, |dir, module| dir.join(module));
+                [
+                    dir.join(format!("{name}.rs")),
+                    dir.join(name).join("mod.rs"),
+                ]
+            })
+            .collect(),
+    )
 }
 
 fn scan_source(crate_dir: &Path) -> SourceScan {
@@ -1365,8 +1438,22 @@ fn scan_source(crate_dir: &Path) -> SourceScan {
 }
 
 /// Source files as paths within the crate and their text, and the crate roots.
-fn scan_files(files: &[(PathBuf, String)], roots: &BTreeSet<PathBuf>) -> SourceScan {
+fn scan_files(files: &[(PathBuf, String)], roots: &Roots) -> SourceScan {
     let mut scanned: Vec<FileImports> = files.iter().map(|(_, source)| imports(source)).collect();
+    // Every name a `mod name;` loads, gated or not: a crate root by one of
+    // these names may also be loaded as a module, from the folder named for it.
+    let loaded: BTreeSet<String> = scanned
+        .iter()
+        .flat_map(|file| file.load_names.iter().cloned())
+        .collect();
+    let own_dir_only = |path: &Path| {
+        path.file_name() == Some("mod.rs".as_ref())
+            || (roots.contains(path)
+                && path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .is_some_and(|stem| !loaded.contains(stem)))
+    };
     // A module file that gates itself makes the `mod name;` that loads it
     // conditional, as does one whose file this cannot place.
     let gated: BTreeSet<PathBuf> = files
@@ -1380,7 +1467,7 @@ fn scan_files(files: &[(PathBuf, String)], roots: &BTreeSet<PathBuf>) -> SourceS
             .loads
             .iter()
             .filter(|declaration| {
-                module_files(path, is_root(path, roots), file, declaration)
+                module_files(path, own_dir_only(path), file, declaration)
                     .is_none_or(|candidates| candidates.iter().any(|path| gated.contains(path)))
             })
             .cloned()
@@ -1436,6 +1523,13 @@ fn the_room_source_imports_no_denied_crate() {
 fn the_readers_see_every_section_they_check() {
     let dir = crate_dir();
     let manifest = parse_toml(&read(&dir.join("Cargo.toml")));
+    // The roots a `mod` resolves from: the library and every named binary, and
+    // no automatic ones, since the room turns `autobins` off.
+    let roots = crate_roots(&manifest);
+    for root in ["src/lib.rs", "src/server/main.rs", "src/cli/smoke.rs"] {
+        assert!(roots.contains(Path::new(root)), "{root}");
+    }
+    assert!(!roots.automatic_bins);
     for (key, _) in manifest.entries() {
         assert!(
             KNOWN_ROOT_KEYS.contains(&key.as_str()),
@@ -1850,11 +1944,6 @@ fn the_planted_mutations_are_refused() {
             "src/server/pipeline.rs",
             "src/server/main/pipeline.rs",
         ),
-        (
-            "src/bin/tool.rs",
-            "src/bin/pipeline.rs",
-            "src/bin/tool/pipeline.rs",
-        ),
     ] {
         assert_eq!(scan(&[(root, routes), (loaded, gate)]).len(), 1, "{root}");
         assert!(
@@ -1862,6 +1951,72 @@ fn the_planted_mutations_are_refused() {
             "{root}"
         );
     }
+    // Cargo's automatic binaries are roots only while `autobins` is on, and a
+    // `[[bin]]` path is normalized: `src/server/../entry.rs` is `src/entry.rs`.
+    let scan_with = |manifest: &str, files: &[(&str, &str)]| {
+        let files: Vec<(PathBuf, String)> = files
+            .iter()
+            .map(|(path, text)| (PathBuf::from(path), text.to_string()))
+            .collect();
+        scan_files(&files, &crate_roots(&parse_toml(manifest))).violations
+    };
+    let automatic = "[package]\nname = \"room\"\n";
+    let entry = "[[bin]]\nname = \"entry\"\npath = \"src/server/../entry.rs\"\n";
+    for (manifest, root, loaded, beside) in [
+        (
+            automatic,
+            "src/bin/tool.rs",
+            "src/bin/pipeline.rs",
+            "src/bin/tool/pipeline.rs",
+        ),
+        (
+            entry,
+            "src/entry.rs",
+            "src/pipeline/mod.rs",
+            "src/entry/pipeline/mod.rs",
+        ),
+    ] {
+        assert_eq!(
+            scan_with(manifest, &[(root, routes), (loaded, gate)]).len(),
+            1,
+            "{root}"
+        );
+        assert!(
+            scan_with(manifest, &[(root, routes), (loaded, ""), (beside, gate)]).is_empty(),
+            "{root}"
+        );
+    }
+    // A file is checked in both places a `mod` in it may load from when it is
+    // not surely a root: `src/bin/helper.rs` with `autobins = false`, or a root
+    // that a `mod` also loads; and a file a `#[path]` loads, wherever it is.
+    let helper = "mod openai;\n#[cfg(any())]\nuse openai::Client;\n";
+    for manifest in [manifest.as_str(), automatic] {
+        assert_eq!(
+            scan_with(
+                manifest,
+                &[
+                    ("src/lib.rs", "mod bin;\n"),
+                    ("src/bin/mod.rs", "mod helper;\n"),
+                    ("src/bin/helper.rs", helper),
+                    ("src/bin/helper/openai/mod.rs", gate),
+                ]
+            )
+            .len(),
+            1
+        );
+    }
+    assert_eq!(
+        scan(&[
+            (
+                "src/lib.rs",
+                "#[path = \"support/helper.rs\"]\nmod helper;\n"
+            ),
+            ("src/support/helper.rs", helper),
+            ("src/support/openai/mod.rs", gate),
+        ])
+        .len(),
+        1
+    );
 
     // A `mod` in a macro's input declares nothing.
     for text in [
@@ -1869,6 +2024,15 @@ fn the_planted_mutations_are_refused() {
         "const _: &str = stringify![mod openai;];\n#[cfg(any())]\nuse openai::Client;\n",
         "m! { mod openai {} }\n#[cfg(any())]\nuse openai::Client;\n",
         "macro_rules! m { () => { mod openai {} } }\n#[cfg(any())]\nuse openai::Client;\n",
+    ] {
+        assert_eq!(source(text).len(), 1, "{text}");
+    }
+    // A `use` in a macro matcher ends with its group, and the import after it
+    // is read.
+    for text in [
+        "macro_rules! m { (use std) => {} }\n#[cfg(any())]\nuse openai::Client;\n",
+        "m!(use std);\n#[cfg(any())]\nuse openai::Client;\n",
+        "const _: () = m![use std];\nuse openai::Client;\n",
     ] {
         assert_eq!(source(text).len(), 1, "{text}");
     }
