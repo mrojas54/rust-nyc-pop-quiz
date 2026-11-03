@@ -13,14 +13,28 @@
 //! - in the arguments of a call to a [`REASON_SINKS`] helper, which puts its
 //!   argument in a `reason` field (admin's `refused`).
 //!
-//! One carve-out: a `refusal` value that is a bare slug (`wrong_server`) passes.
-//! A slug is what the client branches on, not a sentence anyone reads.
+//! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
+//! Those are the codes a client branches on, not sentences anyone reads; any
+//! other word there fails, so a new code is added to the list on purpose.
 //! Literals elsewhere (keys, slugs in `slug()`, headers) are not this scan's.
 
 mod common;
 
 /// The JSON keys whose string a person may read.
 const KEYS: &[&str] = &["reason", "message", "refusal"];
+
+/// The refusal codes a client branches on: the host denials (`routes/mod.rs`)
+/// and `JoinRefusal::slug()` (`connections/sessions.rs`).
+const REFUSAL_CODES: &[&str] = &[
+    "wrong_server",
+    "wrong_role",
+    "malformed",
+    "unknown",
+    "not_yet_open",
+    "already_ended",
+    "closed_for_inactivity",
+    "full",
+];
 
 /// Helpers that put their argument in a `reason` field.
 const REASON_SINKS: &[&str] = &["refused"];
@@ -138,11 +152,6 @@ fn string(c: &[char], mut i: usize, line: &mut usize) -> (String, usize) {
     (text, i + 1)
 }
 
-fn is_slug(s: &str) -> bool {
-    s.starts_with(|c: char| c.is_ascii_lowercase())
-        && s.chars().all(|c| c.is_ascii_lowercase() || c == '_')
-}
-
 /// The tokens from `from` to the first unmatched closer, or, when `field` is
 /// set, to the first `,` at depth 0 if that comes sooner: a JSON field's value,
 /// or (unset) a call's whole argument list.
@@ -184,7 +193,9 @@ fn scan(src: &str) -> Scan {
                 out.fields += 1;
                 for (line, v) in span(&toks, i + 2, true) {
                     if let Tok::Str(s) = v {
-                        if s.chars().any(char::is_alphabetic) && !(key == "refusal" && is_slug(s)) {
+                        if s.chars().any(char::is_alphabetic)
+                            && !(key == "refusal" && REFUSAL_CODES.contains(&s.as_str()))
+                        {
                             out.hits.push((*line, format!("\"{key}\""), s.clone()));
                         }
                     }
@@ -273,6 +284,19 @@ fn every_reason_sink_is_still_a_function_the_scan_can_see() {
     }
 }
 
+#[test]
+fn every_refusal_code_is_still_sent() {
+    // A code no route sends any more is a hole in the carve-out; drop it.
+    let files = covered();
+    for code in REFUSAL_CODES {
+        let lit = format!("\"{code}\"");
+        assert!(
+            files.iter().any(|(_, t)| t.contains(&lit)),
+            "{lit} is gone from src/server and src/connections; update REFUSAL_CODES"
+        );
+    }
+}
+
 // The scan against the audit's mutation and the ticket's two plants, as text, so
 // the rule's reach is pinned here and not only in a reverted edit.
 
@@ -304,8 +328,9 @@ fn the_scan_fails_m5b3_and_both_plants() {
         ["{id}: bad order."]
     );
     assert_eq!(flags(r#"json!({ "message": "hello" })"#), ["hello"]);
-    // A slug passes only as a refusal.
+    // A code passes only as a refusal, and only a listed one.
     assert_eq!(flags(r#"json!({ "reason": "full" })"#), ["full"]);
+    assert_eq!(flags(r#"json!({ "refusal": "volunteer" })"#), ["volunteer"]);
 }
 
 #[test]
