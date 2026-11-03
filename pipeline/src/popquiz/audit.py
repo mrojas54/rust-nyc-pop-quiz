@@ -40,6 +40,7 @@ import datetime
 import hashlib
 import json
 import math
+import os
 import random
 import re
 import sys
@@ -884,23 +885,47 @@ def _raw_records(bank_dir: Path) -> list[tuple[Path, Any]]:
 # AC-25, G-11 - no answer-category distribution where an attendee can read it
 # --------------------------------------------------------------------------- #
 
-# Every authored participant-facing file (EVALUATION AC-25): the copy table, the
-# public README, take-it-home's authored text, the organizer docs. Rendered wall
-# text is excluded - a room's split legitimately prints a share beside an option's
-# own text. `bank/` is excluded because it is private and is where the tells are
-# allowed to live (SPEC G-11: the organizer-only report carries them).
-PARTICIPANT_FACING = (
-    # The copy table, SPEC section 11's port. It arrives with PR #9 (branch
-    # ai-c11-cc/shared-web-layer, BUILDPLAN T-02) and is linted from the moment
-    # it is in the tree.
-    "web/shared/copy.js",
-    "README.md",
-    "mvp/README.md",
-    "mvp/PRACTICE-RUN.md",
-    "mvp/FIELD-NOTES-TEMPLATE.md",
+# The repository is public, so every committed file is one an attendee can read,
+# and a fixed list of "participant-facing" files is the wrong boundary (GAP-22).
+# The scan goes by rule: every authored text file in the tree. Rendered wall text
+# is not in the tree; a room's split legitimately prints a share beside an
+# option's own text. `bank/` is skipped: SPEC G-11 lets the organizer-only tell
+# report there carry the distribution, and its records are scanned by the
+# bank-level checks, not this lint.
+DISTRIBUTION_SKIP_TOP = "bank"
+# Build output, vendored trees and tool caches, skipped at any depth. Nothing in
+# them is authored.
+DISTRIBUTION_SKIP_DIRS = frozenset(
+    {
+        "target",
+        "node_modules",
+        ".git",
+        ".venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".mypy_cache",
+    }
 )
-# Take-it-home's authored text (T-12), whatever files it lands as.
-PARTICIPANT_FACING_DIRS = ("web/home",)
+# Paths the client cleared to carry tells (PQ-62 survey, ruling 2026-11-03).
+# A directory ends in `/`. Every other file is scanned; a line-level exemption
+# belongs in LINT_EXEMPTIONS below, never here.
+DISTRIBUTION_EXEMPT_PATHS = {
+    "sequence/": (
+        "the Tone arc's research and run-state: they quote and analyse the PRD's "
+        "superseded category weights by design"
+    ),
+    "docs/audit/": "audit reports quote the mutation sentences they planted",
+    "pipeline/tests/test_audit.py": "this lint's own test inputs are tells by construction",
+    "mvp/2026-08-12/": (
+        "the retired deck's build output; its hits are verification-receipt run "
+        "counts and an integer-division example, not a distribution"
+    ),
+    "PRD.md": (
+        "a prior artifact stating the superseded category weights; exempt "
+        "pending a separate fix, recorded as not-done on PQ-62"
+    ),
+}
 
 # A percentage or a ratio. `N:M` is deliberately absent: times and 16:9 would trip it.
 _NUMBER = r"(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|twenty)"
@@ -927,6 +952,13 @@ LINT_EXEMPTIONS = {
         "the odds of guessing an answer POSITION, which the slot draw keeps at chance; "
         "it sits beside the 'does not compile' bullet but says nothing about how often "
         "any category is the answer. mvp/ is outside this ticket's reach to reword."
+    ),
+    (
+        "BUILDPLAN.md",
+        "Message Batches API** — the pipeline is offline, so batch's 50% discount is",
+    ): (
+        "the Batches API price discount; 'structured outputs' on the next line is an "
+        "API feature, not an answer category (PQ-62 survey, ruling 2026-11-03)"
     ),
 }
 
@@ -957,39 +989,43 @@ def distribution_hits(text: str, label: str) -> list[DistributionHit]:
     return hits
 
 
+def _exempt(rel: str) -> bool:
+    return any(rel == p or (p.endswith("/") and rel.startswith(p)) for p in DISTRIBUTION_EXEMPT_PATHS)
+
+
 def participant_facing_files(repo: Path) -> tuple[list[Path], list[str]]:
-    """The files the AC-25 lint reads, and the named ones not in the tree yet."""
+    """The files the AC-25 lint reads, and the exempt paths no longer in the tree."""
     repo = Path(repo)
     present: list[Path] = []
-    absent: list[str] = []
-    for rel in PARTICIPANT_FACING:
-        if (repo / rel).is_file():
-            present.append(repo / rel)
-        else:
-            absent.append(rel)
-    for rel in PARTICIPANT_FACING_DIRS:
-        found = [p for p in sorted((repo / rel).rglob("*")) if p.is_file() and p.name != ".gitkeep"]
-        if found:
-            present.extend(found)
-        else:
-            absent.append(f"{rel}/")
-    return present, absent
+    for root, dirs, files in os.walk(repo):
+        here = Path(root)
+        dirs[:] = sorted(
+            d
+            for d in dirs
+            if d not in DISTRIBUTION_SKIP_DIRS and not (here == repo and d == DISTRIBUTION_SKIP_TOP)
+        )
+        for name in sorted(files):
+            path = here / name
+            if path.is_file() and not _exempt(path.relative_to(repo).as_posix()):
+                present.append(path)
+    stale = [p for p in DISTRIBUTION_EXEMPT_PATHS if not (repo / p).exists()]
+    return present, stale
 
 
 def distribution_lint(repo: Path) -> tuple[list[DistributionHit], list[str], list[str]]:
-    """AC-25 over the tree: (hits, files scanned, named files not present yet)."""
+    """AC-25 over the tree: (hits, files scanned, exempt paths no longer in the tree)."""
     repo = Path(repo)
-    present, absent = participant_facing_files(repo)
+    present, stale = participant_facing_files(repo)
     hits, scanned = [], []
     for path in present:
         try:
             text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue  # a font or an image: nothing authored to read
+        except (UnicodeDecodeError, OSError):
+            continue  # a font, an image or an unreadable file: nothing authored to read
         label = path.relative_to(repo).as_posix()
         scanned.append(label)
         hits.extend(distribution_hits(text, label))
-    return hits, scanned, absent
+    return hits, scanned, stale
 
 
 def bank_audit_references(repo: Path) -> list[str]:
@@ -1748,7 +1784,7 @@ def run_audit(repo: Path, room: Room = Room()) -> dict[str, Any]:
             Check("records load", ("SPEC 3.1",), "fail", "; ".join(unreadable), {"problems": unreadable})
         )
 
-    hits, scanned, absent = distribution_lint(repo)
+    hits, scanned, stale = distribution_lint(repo)
     leaks = bank_audit_references(repo)
     checks.append(
         Check(
@@ -1757,7 +1793,7 @@ def run_audit(repo: Path, room: Room = Room()) -> dict[str, Any]:
             "fail" if hits or leaks else "pass",
             "; ".join([str(h) for h in hits] + [f"{p} mentions bank/audit" for p in leaks])
             or f"{len(scanned)} participant-facing file(s) clean",
-            {"scanned": scanned, "not_present_yet": absent, "hits": [str(h) for h in hits], "report_references": leaks},
+            {"scanned": scanned, "stale_exemptions": stale, "hits": [str(h) for h in hits], "report_references": leaks},
         )
     )
 

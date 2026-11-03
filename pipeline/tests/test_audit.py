@@ -460,12 +460,90 @@ def test_the_real_participant_facing_files_are_clean() -> None:
     assert "README.md" in scanned and "mvp/README.md" in scanned
 
 
-def test_the_copy_table_and_take_it_home_are_in_scope() -> None:
-    """`web/shared/copy.js` arrives with PR #9 (branch ai-c11-cc/shared-web-layer,
-    BUILDPLAN T-02) and take-it-home with T-12. Neither is on this branch yet;
-    both are linted the moment they are in the tree."""
-    assert "web/shared/copy.js" in audit.PARTICIPANT_FACING
-    assert "web/home" in audit.PARTICIPANT_FACING_DIRS
+def test_every_authored_file_outside_bank_is_in_scope() -> None:
+    """GAP-22: the repository is public, so the scan goes by rule, not by a list.
+    The files the old list missed (M11b and the audit's G-11 section) are read
+    now, beside the ones it named."""
+    _hits, scanned, stale = audit.distribution_lint(REPO)
+    for rel in (
+        "docs/RUNBOOK.md",
+        "web/README.md",
+        "popquiz/src/copy.rs",
+        "web/shared/copy.js",
+        "web/buzzer/index.html",
+        "web/home/index.html",
+        "web/host/index.html",
+        "web/landing/index.html",
+        "web/wall/index.html",
+        "SPEC.md",
+        "EVALUATION.md",
+        "BUILDPLAN.md",
+    ):
+        assert rel in scanned, rel
+    assert not any(s.startswith("bank/") for s in scanned)
+    assert stale == [], stale
+
+
+def test_every_path_exemption_names_something_in_the_tree() -> None:
+    """A path exemption that covers nothing is a hole waiting for a file."""
+    for path, reason in audit.DISTRIBUTION_EXEMPT_PATHS.items():
+        assert (REPO / path).exists(), path
+        assert reason.strip(), path
+
+
+TELL = "About 40% of the answers are *does not compile*.\n"
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "docs/RUNBOOK.md",  # M11b
+        "web/README.md",
+        "web/wall/index.html",
+        "popquiz/src/copy.rs",
+        "sequencex/notes.md",  # `sequence/` exempts a directory, not a prefix
+        "docs/auditing.md",
+        "notes/PRD.md",  # `PRD.md` exempts the root file only
+    ],
+)
+def test_a_tell_anywhere_authored_is_caught(tmp_path: pathlib.Path, rel: str) -> None:
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(TELL, encoding="utf-8")
+    hits, scanned, _stale = audit.distribution_lint(tmp_path)
+    assert scanned == [rel]
+    assert [h.path for h in hits] == [rel]
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "bank/audit/report.md",
+        "popquiz/target/debug/build.txt",
+        "web/node_modules/pkg/README.md",
+        "pipeline/.venv/lib/site.py",
+        "pipeline/.pytest_cache/README.md",
+        "sequence/research/notes.md",
+        "docs/audit/report.md",
+        "pipeline/tests/test_audit.py",
+        "mvp/2026-08-12/deck.html",
+        "PRD.md",
+    ],
+)
+def test_skipped_and_exempt_paths_are_not_read(tmp_path: pathlib.Path, rel: str) -> None:
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(TELL, encoding="utf-8")
+    hits, scanned, _stale = audit.distribution_lint(tmp_path)
+    assert (hits, scanned) == ([], [])
+
+
+def test_bank_is_skipped_only_at_the_root(tmp_path: pathlib.Path) -> None:
+    nested = tmp_path / "docs" / "bank" / "notes.md"
+    nested.parent.mkdir(parents=True)
+    nested.write_text(TELL, encoding="utf-8")
+    hits, _scanned, _stale = audit.distribution_lint(tmp_path)
+    assert [h.path for h in hits] == ["docs/bank/notes.md"]
 
 
 @pytest.mark.parametrize(
