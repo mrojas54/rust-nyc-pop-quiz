@@ -42,4 +42,4 @@ All three at `review` with PRs open and CI green; then report and wait.
 
 ## Also owed to Michelle (not part of this unit)
 
-`just schedule` needs her question id, meetup date and club(s); `JoinRefusal::NotYetOpen`.
+`JoinRefusal::NotYetOpen`. `just schedule`: skipped by Michelle 2026-11-03 ("skip schedule"); do not raise it.
