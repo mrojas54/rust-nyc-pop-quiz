@@ -29,7 +29,7 @@ Two decoupled components and two small pages:
 
 | Component | What it is | Runs |
 |---|---|---|
-| **The pipeline** | Generate → verify → dedupe → review → a private bank; schedule one question per meetup; audit the bank. | Offline, on an organizer's laptop or a scheduled job. Never inside a room. |
+| **The pipeline** | Generate → verify → dedupe → review → a bank; schedule one question per meetup; audit the bank. | Offline, on an organizer's laptop or a scheduled job. Never inside a room. |
 | **The room** | One room per meetup, created by an organizer, joined by phones, driven through seven phases from the host phone, shown on the wall. | A hosted service, live for ≤ 4 hours. |
 | **Take it home** | A public page holding the *last* meetup's question, explanation, trace and receipt. No room state. | Static, rebuilt at each release. |
 | **The static fallback** | The wall's seven views with the night's question baked in, keyboard-driven, one file, no network. | Opened from a laptop when the room cannot run. |

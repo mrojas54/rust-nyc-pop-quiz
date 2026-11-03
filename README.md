@@ -82,7 +82,7 @@ Two halves, and they never talk during a meetup.
 
 **The question pipeline** runs offline, with no deadline. Generate candidates,
 run each one through a pinned `rustc` and Miri, drop duplicates, put the
-survivors in front of an organizer, and keep a growing private bank. Freshness
+survivors in front of an organizer, and keep a growing bank. Freshness
 is a supply problem, so it gets solved long before the night. Verify, dedupe and
 the bank audit are built. Generate, review and schedule are still stubs.
 

@@ -277,7 +277,7 @@ change too.
   reads the rule differently from the review CLI, the two disagree on which
   questions may run. The room must call the same rule, not reimplement it.
 - *Affirmation is mistaken for security.* It is a person's sign-off, stored
-  in the private bank, not a signature the room can verify. Anyone who can
+  in the bank, not a signature the room can verify. Anyone who can
   write to the bank can write an affirmation. It guards against shipping an
   unreviewed question, not against an attacker.
 

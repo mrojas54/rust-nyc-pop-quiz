@@ -2,7 +2,7 @@
 
 The offline half. Generate candidate questions, verify them against a real
 toolchain, drop duplicates, put them in front of an organizer, and keep a
-growing private bank. Nothing here runs inside a room, and a room runs with this
+growing bank. Nothing here runs inside a room, and a room runs with this
 package absent from the environment (AC-1).
 
 There is no deadline on any of it. Freshness is a supply problem, not a runtime

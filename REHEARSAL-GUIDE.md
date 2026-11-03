@@ -20,14 +20,15 @@ are ready.
 Run the commands from the repository root of an up-to-date `main`, after
 `just setup`.
 
-## 1. Prepare the private bank
+## 1. Prepare the bank
 
 ### Generate candidates
 
 - [ ] Generate a batch offline. The room app does not generate questions.
 - [ ] For each candidate, prepare the Rust source, five options, private hint,
       explanation, and stepped trace in the bank record format.
-- [ ] Keep candidates and the bank private.
+- [ ] Remember the repository is public: a committed candidate is readable by
+      anyone, so treat it as seen (`bank/README.md`).
 
 `just generate` drafts candidates into `bank/candidates/` and never into
 `bank/questions/`; `pipeline/README.md`, *Generating*, has the backends, the
