@@ -1,0 +1,3 @@
+# PQ-83: PRD.md: mark the superseded 79.99/0.01/20 category weights
+
+PRD.md still states the version-one answer-category weights 79.99% / 0.01% / 20% as a product constant (lines ~346-363, ~774-777 on main 0ca67a1). CLAUDE.md records that a fixed, published distribution is superseded (PHILOSOPHY.md section 2), and PQ-62 exempted PRD.md as a whole from the distribution scan (DISTRIBUTION_EXEMPT_PATHS, audit.py:925) rather than editing it. PRD.md is a prior artifact, so the edit is the client's call: options are a superseded banner at each passage, or striking the passages. Acceptance: the client approves exact wording; the PRD.md path exemption is narrowed or removed and the distribution scan still reports 0 hits; just test green.
