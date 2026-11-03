@@ -9,7 +9,7 @@ diffable, with no server in front of it (BUILDPLAN D-C).
 | `schema/question.schema.json` | the published shape of that file | by hand, kept in step with the types by a test — see below |
 | `history.json` | dedupe's memory across runs: exact hashes, normalized-AST fingerprints, token-bigram sets (§3.3) | **T-17**. The three stores are empty; T-14 fixed the shape |
 | `candidates/<id>.json` | drafted questions waiting on the pinned verifier; not part of the bank until `just verify` writes a record and they move to `questions/` | by hand, then the verifier |
-| `fixtures/receipts/*.json` | the receipt's cases, with the lines each must render | by hand from `SPEC.md` §7.5 |
+| `fixtures/receipts/*.json` | the receipt's cases, with the lines each must render | by hand from `SPEC.md` §7.5, except `ran-no-miri.json` — see below |
 | `audit/` | `bank-audit`'s run reports, organizer-only and gitignored — see [below](#what-bank-audit-checks-and-why-it-can-never-touch-a-real-night) | **T-19** |
 
 ## This directory is private, and that is load-bearing
@@ -217,11 +217,20 @@ keeps them one function rather than two that agree today and drift next month.
 `expected_lines` is `null` for a record that renders no receipt at all — not `[]`,
 which would mean a receipt with no steps, a different and wrong answer.
 
-The `expected_lines` were written **from `SPEC.md` §7.5 by hand**, not recorded
-from the implementation. A fixture whose expectations came out of the code it tests
-proves only that the code equals itself.
+Nine of the ten fixtures' `expected_lines` were written **from `SPEC.md` §7.5 by
+hand**, not recorded from the implementation. A fixture whose expectations came out
+of the code it tests proves only that the code equals itself.
 
-**Two of the nine cases are real; seven are synthetic, and each says which.**
+**`ran-no-miri.json` is the exception, and its `_note` says so.** Its
+`expected_lines` were taken from running `receipt_lines` on the record, then read
+against §7.5 to confirm there is no Miri line. It does not prove the lines'
+wording; the hand-written fixtures do that. It proves the absence of a Miri step:
+the Rust twin, `room::answers::receipt_lines`, is held to the same file by
+`popquiz/tests/twins.rs` (every fixture, plus a test of this one that asserts no
+Miri line). The wall's test in `web/test/wall.test.js` reads these files too, but
+only checks that the wall prints the lines it is given; it generates none.
+
+**Two of the ten cases are real; eight are synthetic, and each says which.**
 `legacy-ran` (q3) and `q8-does-not-compile-legacy` are copied from
 `mvp/2026-08-12/verified.json`, which a machine wrote. The rest describe **no Rust
 program** — they exist to exercise the receipt's gates, which never read

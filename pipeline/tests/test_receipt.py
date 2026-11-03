@@ -6,10 +6,12 @@ take-it-home, the contract asks for *one* function, and two languages cannot sha
 one. Testing both against the same files is how the build keeps them one function
 rather than two that agree today.
 
-It also means the expectations were written from SPEC 7.5 by hand, in the fixture
-files, rather than recorded from this implementation. A fixture whose
-`expected_lines` came out of `receipt_lines` would prove only that the code equals
-itself.
+It also means the expectations live in the fixture files. All but one were written
+from SPEC 7.5 by hand rather than recorded from this implementation, because a
+fixture whose `expected_lines` came out of `receipt_lines` proves only that the
+code equals itself. The exception is `ran-no-miri.json`, whose lines were taken
+from `receipt_lines` and then read to confirm no Miri line; its `_note` says so,
+and `bank/README.md` explains what it does and does not prove.
 """
 
 from __future__ import annotations
