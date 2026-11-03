@@ -206,9 +206,12 @@ record.
 
 ## The receipt fixtures, and why they live here rather than in the tests
 
-`SPEC.md` §7.5's receipt is needed in **two languages** — Python for the pipeline
-and review surface, JavaScript for the wall and take-it-home (T-05). The contract
-says one function; two languages cannot share one. So the cases are data:
+`SPEC.md` §7.5's receipt is needed in **two languages**: Python
+(`popquiz.receipt.receipt_lines`) for the pipeline, the review surface and the
+static fallback, and Rust (`answers::receipt_lines`) for the room, which hands its
+lines to the wall and take-it-home to print verbatim. The JavaScript only prints;
+it has no receipt function of its own. The contract says one function; two
+languages cannot share one. So the cases are data:
 
     fixtures/receipts/<case>.json   { "_note": …, "verified": …, "expected_lines": [ … ] }
 

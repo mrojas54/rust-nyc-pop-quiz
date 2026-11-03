@@ -1,10 +1,11 @@
 """The receipt (SPEC 7.5): AC-13, AC-43 and AC-87.
 
 Every case is driven from `bank/fixtures/receipts/`, not from records written inline
-here. That is deliberate: T-05 needs the same function in JavaScript for the wall and
-take-it-home, the contract asks for *one* function, and two languages cannot share
-one. Testing both against the same files is how the build keeps them one function
-rather than two that agree today.
+here. That is deliberate: the room needs the same function in Rust
+(`answers::receipt_lines`, tested in `popquiz/tests/twins.rs`), the contract asks
+for *one* function, and two languages cannot share one. Testing both against the
+same files is how the build keeps them one function rather than two that agree
+today.
 
 It also means the expectations live in the fixture files. All but one were written
 from SPEC 7.5 by hand rather than recorded from this implementation, because a
