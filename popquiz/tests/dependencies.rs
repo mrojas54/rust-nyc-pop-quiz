@@ -27,7 +27,7 @@
 //! are left to the manifest and lock checks: a crate the source can name must be
 //! declared there first. This is the static half of AC-1 only.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -547,6 +547,27 @@ struct Dep {
     inherited: bool,
 }
 
+/// The crate a `[replace]` key names. Cargo takes a package ID spec there:
+/// `name`, `name:version` or `name@version`, optionally after a source URL and
+/// `#`; a URL whose fragment is only a version (`url#1.0.0`), or that has no
+/// fragment, names the last segment of its path.
+fn spec_name(spec: &str) -> String {
+    let (url, rest) = match spec.split_once('#') {
+        Some((url, rest)) => (Some(url), rest),
+        None if spec.contains("://") => (Some(spec), ""),
+        None => (None, spec),
+    };
+    let name = rest.split(['@', ':']).next().unwrap_or_default();
+    match url {
+        Some(url) if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) => {
+            let path = url.split('?').next().unwrap_or(url).trim_end_matches('/');
+            let last = path.rsplit('/').next().unwrap_or(path);
+            last.strip_suffix(".git").unwrap_or(last).to_string()
+        }
+        _ => name.to_string(),
+    }
+}
+
 /// Where inherited dependency specs live. The room is its own workspace root,
 /// so this is in its own manifest.
 const WORKSPACE_DEPENDENCIES: &str = "workspace.dependencies";
@@ -559,7 +580,11 @@ fn manifest_deps(manifest: &Toml) -> Vec<Dep> {
             let field = |name: &str| spec.get(name).and_then(Toml::str).map(String::from);
             deps.push(Dep {
                 table: table.clone(),
-                name: key.split(':').next().unwrap_or(key).to_string(),
+                name: if table == "replace" {
+                    spec_name(key)
+                } else {
+                    key.clone()
+                },
                 package: field("package"),
                 path: field("path"),
                 inherited: spec.get("workspace").is_some(),
@@ -751,7 +776,8 @@ enum Tok {
     Close,
     Semi,
     Comma,
-    Punct,
+    /// Any other single character: `#`, `!`, `[`, `]`, `(`, `<`, …
+    Punct(char),
 }
 
 fn is_ident_char(c: char) -> bool {
@@ -889,7 +915,7 @@ fn tokens(source: &str) -> Vec<Tok> {
                 '}' => Tok::Close,
                 ';' => Tok::Semi,
                 ',' => Tok::Comma,
-                _ => Tok::Punct,
+                _ => Tok::Punct(c),
             });
         }
     }
@@ -952,6 +978,11 @@ struct FileImports {
     /// or an inline `mod name { … }`) has none: Rust does not look past it
     /// without `super::`.
     parent: Vec<Option<usize>>,
+    /// Each inline module's scope, and the `(scope, name)` that declares it.
+    modules: BTreeMap<usize, (usize, String)>,
+    /// The file starts `#![cfg(…)]` (or `cfg_attr`, `path`), so the module it
+    /// holds may be absent.
+    conditional: bool,
 }
 
 impl FileImports {
@@ -975,22 +1006,50 @@ fn imports(source: &str) -> FileImports {
         found: Vec::new(),
         declared: BTreeSet::new(),
         parent: vec![None],
+        modules: BTreeMap::new(),
+        conditional: false,
     };
     let mut scopes = vec![0];
+    // The next item carries a `#[cfg…]`, `#[cfg_attr…]` or `#[path…]`. Only an
+    // unconditional `mod` makes a `use` of its name local: a conditional one
+    // may be absent exactly when the `use` is compiled.
+    let mut conditional = false;
     let mut at = 0;
     while at < tokens.len() {
         let here = *scopes.last().expect("the file scope is never popped");
+        if let Some((end, inner, gated)) = attribute(&tokens, at) {
+            if gated && !inner {
+                conditional = true;
+            } else if gated && here == 0 {
+                // An inner `#![cfg…]` gates the module it sits in: this file's,
+                file.conditional = true;
+            } else if let Some(declaration) = file.modules.get(&here).filter(|_| gated) {
+                // or an inline one's.
+                file.declared.remove(declaration);
+            }
+            at = end;
+            continue;
+        }
         if keyword(tokens.get(at), "mod") {
+            let counts = !conditional;
+            conditional = false;
             if let Some(Tok::Ident(name, _)) = tokens.get(at + 1) {
+                let declaration = (here, name.clone());
                 match tokens.get(at + 2) {
                     Some(Tok::Semi) => {
-                        file.declared.insert((here, name.clone()));
+                        if counts {
+                            file.declared.insert(declaration);
+                        }
                         at += 3;
                         continue;
                     }
                     Some(Tok::Open) => {
-                        file.declared.insert((here, name.clone()));
-                        scopes.push(file.parent.len());
+                        let scope = file.parent.len();
+                        if counts {
+                            file.declared.insert(declaration.clone());
+                            file.modules.insert(scope, declaration);
+                        }
+                        scopes.push(scope);
                         file.parent.push(None);
                         at += 3;
                         continue;
@@ -998,7 +1057,10 @@ fn imports(source: &str) -> FileImports {
                     _ => {}
                 }
             }
-        } else if keyword(tokens.get(at), "use") && tokens.get(at + 1) != Some(&Tok::Punct) {
+        } else if keyword(tokens.get(at), "use")
+            && !matches!(tokens.get(at + 1), Some(Tok::Punct(_)))
+        {
+            conditional = false;
             // `use<'a>` in `impl Trait + use<'a>` is not an import, and is the
             // only `use` followed by punctuation.
             let end = tokens[at + 1..]
@@ -1016,6 +1078,7 @@ fn imports(source: &str) -> FileImports {
             at = end + 1;
             continue;
         } else if keyword(tokens.get(at), "extern") && keyword(tokens.get(at + 1), "crate") {
+            conditional = false;
             if let Some(Tok::Ident(name, _)) = tokens.get(at + 2) {
                 file.found.push(Import {
                     scope: here,
@@ -1027,14 +1090,52 @@ fn imports(source: &str) -> FileImports {
                 continue;
             }
         } else if tokens[at] == Tok::Open {
+            conditional = false;
             scopes.push(file.parent.len());
             file.parent.push(Some(here));
-        } else if tokens[at] == Tok::Close && scopes.len() > 1 {
-            scopes.pop();
+        } else if tokens[at] == Tok::Close {
+            conditional = false;
+            if scopes.len() > 1 {
+                scopes.pop();
+            }
+        } else if matches!(tokens[at], Tok::Semi | Tok::Comma) {
+            conditional = false;
         }
         at += 1;
     }
     file
+}
+
+/// The attribute starting at `at` (`#[…]`, or inner `#![…]`): where it ends,
+/// whether it is inner, and whether it can make its item absent or come from
+/// another file (`cfg`, `cfg_attr`, `path`).
+fn attribute(tokens: &[Tok], at: usize) -> Option<(usize, bool, bool)> {
+    if tokens.get(at) != Some(&Tok::Punct('#')) {
+        return None;
+    }
+    let inner = tokens.get(at + 1) == Some(&Tok::Punct('!'));
+    let open = at + 1 + usize::from(inner);
+    if tokens.get(open) != Some(&Tok::Punct('[')) {
+        return None;
+    }
+    let mut depth = 0;
+    for (index, token) in tokens.iter().enumerate().skip(open) {
+        match token {
+            Tok::Punct('[') => depth += 1,
+            Tok::Punct(']') => {
+                depth -= 1;
+                if depth == 0 {
+                    let conditional = tokens[open..index].iter().any(|token| {
+                        matches!(token, Tok::Ident(name, false)
+                            if matches!(name.as_str(), "cfg" | "cfg_attr" | "path"))
+                    });
+                    return Some((index + 1, inner, conditional));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// What is wrong with one source file, and the denied names it was allowed to
@@ -1044,17 +1145,24 @@ fn imports(source: &str) -> FileImports {
 /// which is how Rust resolves it: `server/routes/mod.rs` declares
 /// `mod pipeline;` (the room's admin route for the pipeline's pushes) and then
 /// `use pipeline::admin_routes;`. A `mod` inside a block is seen only inside
-/// that block. An absolute `::name` and `extern crate` always name a crate, so
-/// they get no such reading.
-fn source_violations(file: &str, source: &str) -> (Vec<String>, BTreeSet<String>) {
-    let scanned = imports(source);
+/// that block, and a conditional `mod` (see [`imports`]) is not counted, nor
+/// is a `mod name;` whose file, in `conditional`, gates itself. An absolute
+/// `::name` and `extern crate` always name a crate, so they get no such reading.
+fn file_violations(
+    file: &str,
+    scanned: &FileImports,
+    conditional: &BTreeSet<String>,
+) -> (Vec<String>, BTreeSet<String>) {
     let mut violations = Vec::new();
     let mut local = BTreeSet::new();
     for import in &scanned.found {
         if !denied(&import.root) {
             continue;
         }
-        if !import.external && scanned.declares(import.scope, &import.root) {
+        if !import.external
+            && !conditional.contains(&import.root)
+            && scanned.declares(import.scope, &import.root)
+        {
             local.insert(import.root.clone());
             continue;
         }
@@ -1066,6 +1174,11 @@ fn source_violations(file: &str, source: &str) -> (Vec<String>, BTreeSet<String>
     (violations, local)
 }
 
+/// One file on its own, as the planted cases use it.
+fn source_violations(file: &str, source: &str) -> (Vec<String>, BTreeSet<String>) {
+    file_violations(file, &imports(source), &BTreeSet::new())
+}
+
 struct SourceScan {
     files: usize,
     imports: usize,
@@ -1073,24 +1186,52 @@ struct SourceScan {
     local: BTreeSet<String>,
 }
 
+/// The module a file holds when `mod name;` loads it: `name.rs` or
+/// `name/mod.rs`.
+fn module_name(path: &Path) -> Option<String> {
+    let stem = path.file_stem()?.to_str()?;
+    if stem == "mod" {
+        Some(path.parent()?.file_name()?.to_str()?.to_string())
+    } else {
+        Some(stem.to_string())
+    }
+}
+
 fn scan_source(crate_dir: &Path) -> SourceScan {
-    let mut files = Vec::new();
-    rust_files(&crate_dir.join("src"), &mut files);
+    let mut paths = Vec::new();
+    rust_files(&crate_dir.join("src"), &mut paths);
+    let files: Vec<(PathBuf, String)> = paths
+        .into_iter()
+        .map(|path| {
+            let source = read(&path);
+            (
+                path.strip_prefix(crate_dir).unwrap_or(&path).to_path_buf(),
+                source,
+            )
+        })
+        .collect();
+    scan_files(&files)
+}
+
+/// Source files as paths within the crate and their text.
+fn scan_files(files: &[(PathBuf, String)]) -> SourceScan {
+    let scanned: Vec<FileImports> = files.iter().map(|(_, source)| imports(source)).collect();
+    // A module file that gates itself makes every `mod` of its name conditional.
+    let conditional: BTreeSet<String> = files
+        .iter()
+        .zip(&scanned)
+        .filter(|(_, file)| file.conditional)
+        .filter_map(|((path, _), _)| module_name(path))
+        .collect();
     let mut scan = SourceScan {
         files: files.len(),
         imports: 0,
         violations: Vec::new(),
         local: BTreeSet::new(),
     };
-    for path in files {
-        let source = read(&path);
-        let name = path
-            .strip_prefix(crate_dir)
-            .unwrap_or(&path)
-            .display()
-            .to_string();
-        scan.imports += imports(&source).found.len();
-        let (violations, local) = source_violations(&name, &source);
+    for ((path, _), file) in files.iter().zip(&scanned) {
+        scan.imports += file.found.len();
+        let (violations, local) = file_violations(&path.display().to_string(), file, &conditional);
         scan.violations.extend(violations);
         scan.local.extend(local);
     }
@@ -1320,6 +1461,30 @@ fn the_planted_mutations_are_refused() {
             "[replace]\n\"miri:0.1.0\" = { git = \"https://example.com/x\" }",
             "[replace] miri",
         ),
+        // The other package ID spec forms a `[replace]` key can take.
+        (
+            "[replace]\n\"openai@0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"https://github.com/rust-lang/crates.io-index#openai@0.1.0\" = \
+             { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"registry+https://github.com/rust-lang/crates.io-index#openai:0.1.0\" = \
+             { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"https://example.com/openai#0.1.0\" = { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
+        (
+            "[replace]\n\"git+https://example.com/x/openai.git?branch=main\" = \
+             { git = \"https://example.com/x\" }",
+            "[replace] openai",
+        ),
     ] {
         refused(&format!("{manifest}\n{appended}\n"), expected);
     }
@@ -1381,6 +1546,12 @@ fn the_planted_mutations_are_refused() {
         "const _: () = { mod openai {} };\n#[cfg(any())]\nuse openai::Client;\n",
         // Nor is a module's `mod` seen inside an inline module, without `super::`.
         "mod openai;\nmod inner {\n    use openai::Client;\n}\n",
+        // A conditional `mod` may be absent exactly when the `use` is compiled.
+        "#[cfg(not(feature = \"llm\"))]\nmod openai {}\n#[cfg(feature = \"llm\")]\nuse openai::Client;\n",
+        "#[cfg(not(feature = \"llm\"))]\npub(crate) mod openai;\nuse openai::Client;\n",
+        "#[allow(dead_code)]\n#[cfg_attr(any(), cfg(any()))]\nmod openai;\nuse openai::Client;\n",
+        "#[path = \"elsewhere.rs\"]\nmod openai;\nuse openai::Client;\n",
+        "mod openai {\n    #![cfg(not(feature = \"llm\"))]\n}\n#[cfg(feature = \"llm\")]\nuse openai::Client;\n",
     ] {
         assert_eq!(source(text).len(), 1, "{text}");
     }
@@ -1391,10 +1562,40 @@ fn the_planted_mutations_are_refused() {
         "mod pipeline;\nfn f() {\n    use pipeline::admin_routes;\n}\n",
         "fn f() {\n    mod pipeline {}\n    use pipeline::admin_routes;\n}\n",
         "fn f() {\n    mod pipeline {}\n    {\n        use pipeline::admin_routes;\n    }\n}\n",
+        // Attributes that cannot remove it, and a gate on the item before it.
+        "#[allow(dead_code)]\npub(crate) mod pipeline;\nuse pipeline::admin_routes;\n",
+        "#[cfg(test)]\nmod tests {}\nmod pipeline;\nuse pipeline::admin_routes;\n",
+        "#[cfg(test)]\nconst A: u8 = 1;\nmod pipeline;\nuse pipeline::admin_routes;\n",
+        "#![cfg_attr(docsrs, feature(doc_cfg))]\nmod pipeline;\nuse pipeline::admin_routes;\n",
     ] {
         assert!(source(text).is_empty(), "{text}");
     }
     assert_eq!(source("pub(crate) use pipeline::admin_routes;\n").len(), 1);
+
+    // A `mod name;` whose file gates itself, as `name.rs` or `name/mod.rs`.
+    let scan = |files: &[(&str, &str)]| {
+        let files: Vec<(PathBuf, String)> = files
+            .iter()
+            .map(|(path, text)| (PathBuf::from(path), text.to_string()))
+            .collect();
+        scan_files(&files).violations
+    };
+    let routes = "mod pipeline;\nuse pipeline::admin_routes;\n";
+    for module in ["src/pipeline.rs", "src/pipeline/mod.rs"] {
+        assert_eq!(
+            scan(&[
+                ("src/lib.rs", routes),
+                (module, "#![cfg(not(feature = \"llm\"))]\n")
+            ])
+            .len(),
+            1,
+            "{module}"
+        );
+        assert!(
+            scan(&[("src/lib.rs", routes), (module, "#![allow(dead_code)]\n")]).is_empty(),
+            "{module}"
+        );
+    }
 }
 
 /// Text that only looks like a dependency or an import is not one.
