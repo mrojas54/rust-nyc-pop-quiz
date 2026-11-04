@@ -4,14 +4,14 @@ Active table is overwritten each tick; Lattice and `c11 tree` are ground truth.
 
 ## Active
 
-Snapshot: 2026-11-02 13:3xZ. `origin/main` = `622e0fd`. Refs change on every c11 restart: `c11 tree` first.
+Snapshot: 2026-11-04 22:1xZ. `origin/main` = `0ca67a1`. Refs change on every c11 restart: `c11 tree` first.
 
 | Role | Ticket | Panel ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `panel:4` | ai-c11-cc/lattice-build | waiting on READY / PLAN / DONE by mailbox (`pq-orchestrator`) |
-| agent:delegator-pq49 (Opus, fast-track, Codex review) | PQ-49 / run the bank audit in CI | `panel:20` | ai-c11-cc/pq-49-bank-audit-ci | launched |
-| agent:delegator-pq50 (Opus, fast-track, Codex review) | PQ-50 / validation report small items | `panel:21` | ai-c11-cc/pq-50-validation-small-items | launched |
-| agent:delegator-pq59 (Opus, fast-track, Codex review) | PQ-59 / room and phase test gaps | `panel:22` | ai-c11-cc/pq-59-room-test-gaps | launched |
+| Orchestrator | — | `panel:5` (`160D05F3-7D9C-4D8C-81C9-DE464F8C6A61`), `workspace:2` | ai-c11-cc/lattice-build | waiting on READY / PLAN / QUESTION / DONE by mailbox (`pq-orchestrator`) |
+| agent:delegator-pq82 (Opus, fast-track, Codex review, one planned halt) | PQ-82 / distribution scan skips the harness's `.claude/` files | `panel:15` in `area:8` | ai-c11-cc/pq-82-scan-skip-claude (`…-worktrees/pq-82-scan-skip-claude`) | launched; halts after the plan for `RESUME PQ-82 A\|B` |
+| agent:delegator-pq83 (Opus, fast-track, Codex review, one planned halt) | PQ-83 / `PRD.md` superseded category weights | `panel:16` in `area:8` | ai-c11-cc/pq-83-prd-weights (`…-worktrees/pq-83-prd-weights`) | launched; halts after the plan for `RESUME PQ-83 1\|2 <wording>`; lands after PQ-82 |
+| agent:delegator-pq84 (Opus, fast-track, Codex review, one planned halt) | PQ-84 / remaining host refusal and lifecycle reasons into `copy.rs` | `panel:17` in `area:8` | ai-c11-cc/pq-84-lifecycle-reason-copy (`…-worktrees/pq-84-lifecycle-reason-copy`) | launched; halts after the plan for `RESUME PQ-84 <files>` |
 
 ### Archived (run history)
 

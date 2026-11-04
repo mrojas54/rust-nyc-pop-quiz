@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-11-03T20:43:22Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M6HJDY0VNY5VTRRD025A4XX3",
-  "last_event_id": "ev_01M6HJDY0WMDH2BN3PE52Y6HK4",
+  "last_event_id": "ev_01M6M9R395C486ZB5JZH68K6W3",
   "last_status_changed_at": "2026-11-03T20:43:22Z",
   "priority": "medium",
   "relationships_out": [],
@@ -25,6 +25,6 @@
   ],
   "title": "Distribution scan skips untracked .claude/ files",
   "type": "bug",
-  "updated_at": "2026-11-03T20:43:22Z",
+  "updated_at": "2026-11-04T22:09:21Z",
   "urgency": null
 }
