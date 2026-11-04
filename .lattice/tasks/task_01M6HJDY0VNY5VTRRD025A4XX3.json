@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 4,
+  "comment_count": 5,
   "complexity": "low",
   "created_at": "2026-11-03T20:43:22Z",
   "created_by": "agent:orchestrator",
@@ -10,14 +10,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M6HJDY0VNY5VTRRD025A4XX3",
-  "last_event_id": "ev_01M6MA887WS0176HQKXBF6DRQH",
-  "last_status_changed_at": "2026-11-04T22:17:53Z",
+  "last_event_id": "ev_01M6MFWBX8DS5NFAY9A5B10R44",
+  "last_status_changed_at": "2026-11-04T23:56:33Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-82",
-  "status": "planned",
+  "status": "in_progress",
   "tags": [
     "guardrail",
     "pipeline",
@@ -25,6 +25,6 @@
   ],
   "title": "Distribution scan skips untracked .claude/ files",
   "type": "bug",
-  "updated_at": "2026-11-04T22:18:11Z",
+  "updated_at": "2026-11-04T23:56:33Z",
   "urgency": null
 }

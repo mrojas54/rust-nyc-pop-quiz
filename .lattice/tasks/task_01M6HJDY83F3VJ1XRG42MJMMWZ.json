@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 4,
+  "comment_count": 5,
   "complexity": "medium",
   "created_at": "2026-11-03T20:43:22Z",
   "created_by": "agent:orchestrator",
@@ -10,14 +10,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M6HJDY83F3VJ1XRG42MJMMWZ",
-  "last_event_id": "ev_01M6MA352PZR7Q4DZYAW320E26",
-  "last_status_changed_at": "2026-11-04T22:15:12Z",
+  "last_event_id": "ev_01M6MFWN47X5PWH0WZ5VZSNSBZ",
+  "last_status_changed_at": "2026-11-04T23:56:42Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-84",
-  "status": "planned",
+  "status": "in_progress",
   "tags": [
     "copy",
     "room",
@@ -25,6 +25,6 @@
   ],
   "title": "Move remaining host refusal and lifecycle reasons into copy.rs",
   "type": "task",
-  "updated_at": "2026-11-04T22:15:23Z",
+  "updated_at": "2026-11-04T23:56:42Z",
   "urgency": null
 }
