@@ -481,6 +481,7 @@ def test_every_authored_file_outside_bank_is_in_scope() -> None:
         "SPEC.md",
         "EVALUATION.md",
         "BUILDPLAN.md",
+        "PRD.md",
     ):
         assert rel in scanned, rel
     assert not any(s.startswith("bank/") for s in scanned)
@@ -506,7 +507,8 @@ TELL = "About 40% of the answers are *does not compile*.\n"
         "popquiz/src/copy.rs",
         "sequencex/notes.md",  # `sequence/` exempts a directory, not a prefix
         "docs/auditing.md",
-        "notes/PRD.md",  # `PRD.md` exempts the root file only
+        "notes/PRD.md",
+        "PRD.md",  # PQ-83: the superseded weights are struck, so the PRD is read
     ],
 )
 def test_a_tell_anywhere_authored_is_caught(tmp_path: pathlib.Path, rel: str) -> None:
@@ -530,7 +532,6 @@ def test_a_tell_anywhere_authored_is_caught(tmp_path: pathlib.Path, rel: str) ->
         "docs/audit/report.md",
         "pipeline/tests/test_audit.py",
         "mvp/2026-08-12/deck.html",
-        "PRD.md",
     ],
 )
 def test_skipped_and_exempt_paths_are_not_read(tmp_path: pathlib.Path, rel: str) -> None:

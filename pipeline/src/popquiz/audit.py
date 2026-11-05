@@ -922,10 +922,6 @@ DISTRIBUTION_EXEMPT_PATHS = {
         "the retired deck's build output; its hits are verification-receipt run "
         "counts and an integer-division example, not a distribution"
     ),
-    "PRD.md": (
-        "a prior artifact stating the superseded category weights; exempt "
-        "pending a separate fix, recorded as not-done on PQ-62"
-    ),
 }
 
 # A percentage or a ratio. `N:M` is deliberately absent: times and 16:9 would trip it.
