@@ -68,10 +68,9 @@
     /* --- Buzzer, reveal, no answer given -------------------------------- */
     buzzer_noanswer_count_one: "You didn't answer.",
 
-    /* --- Buzzer, join failures (AC-29) — six states, six next steps ------ */
+    /* --- Buzzer, join failures (AC-29) — five states, five next steps ---- */
     join_fail_malformed: "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.",
     join_fail_unknown: "No room with that code. Check the screen at the front.",
-    join_fail_not_yet_open: "That room isn't open yet. Hold on — the host will put it on the screen.",
     join_fail_already_ended: "That room has ended. Look for the link on the screen.",
     join_fail_closed_inactivity: "That room went quiet and closed. If it comes back, the screen at the front will say so.",
     join_transport_failed: "Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along.",
@@ -271,7 +270,7 @@
     "Buzzer, reveal": ["buzzer_reveal_it_was"],
     "Buzzer, reveal, no answer given": ["buzzer_noanswer_count_one"],
     "Buzzer, join failures (AC-29)": ["join_fail_malformed", "join_fail_unknown",
-                       "join_fail_not_yet_open", "join_fail_already_ended",
+                       "join_fail_already_ended",
                        "join_fail_closed_inactivity", "join_fail_full"],
     "Buzzer, hint": ["buzzer_hint_action"],
     "Buzzer, live, submission (AC-35/36)": ["buzzer_saving", "buzzer_saved", "buzzer_save_failed",

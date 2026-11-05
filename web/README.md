@@ -82,7 +82,7 @@ here. It is hermetic and takes about a second, so `just test` runs it too
 
 It renders every surface at every phase from fixtures: the wall at every phase
 and step (and the unanimous reveal), the static fallback at every `{phase,
-step}` its keys reach, every screen the buzzer's reducer reaches (join, the six
+step}` its keys reach, every screen the buzzer's reducer reaches (join, the five
 refusals, each phase, saving / saved / failed, the hint, paused), the host's
 seven phases plus sign-in and create, and take-it-home at every step of three
 snapshots. `web/test/a11y/dom.js` builds the markup into a tree and runs the

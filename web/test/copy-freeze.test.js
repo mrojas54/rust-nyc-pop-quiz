@@ -354,7 +354,7 @@ test('every screen was drawn: each surface, each phase', () => {
   // Exact, so a screen that drops out of the set is loud rather than quiet.
   const by = (s) => SCREENS.filter((x) => x.surface === s).length;
   assert.deepEqual({ wall: by('wall'), buzzer: by('buzzer'), host: by('host'), home: by('home') },
-    { wall: 33, buzzer: 24, host: 13, home: 19 });
+    { wall: 33, buzzer: 23, host: 13, home: 19 });
   // And each surface reaches every phase it has.
   const wallPhases = new Set(SCREENS.filter((x) => x.surface === 'wall').map((x) => x.name.replace(/^static /, '').replace(/[[ ].*$/, '')));
   for (const ph of PHASES) assert.ok(wallPhases.has(ph), `wall never drew ${ph}`);

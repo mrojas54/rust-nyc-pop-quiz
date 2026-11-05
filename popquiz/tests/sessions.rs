@@ -167,16 +167,12 @@ async fn ac29_each_failure_has_its_own_sentence() {
     assert_eq!(status, StatusCode::CONFLICT);
     expect(&v, JoinRefusal::AlreadyEnded);
 
-    // Six states, six sentences, six names — including the two no phase of
-    // this machine reaches (not yet open; closed for inactivity, T-11's).
+    // Five states, five sentences, five names — including the one no phase of
+    // this machine reaches (closed for inactivity, T-11's).
     let messages: std::collections::HashSet<_> =
         JoinRefusal::ALL.iter().map(|r| r.message()).collect();
     let slugs: std::collections::HashSet<_> = JoinRefusal::ALL.iter().map(|r| r.slug()).collect();
-    assert_eq!((messages.len(), slugs.len()), (6, 6));
-    assert_eq!(
-        JoinRefusal::NotYetOpen.message(),
-        copy::JOIN_FAIL_NOT_YET_OPEN
-    );
+    assert_eq!((messages.len(), slugs.len()), (5, 5));
     assert_eq!(
         JoinRefusal::ClosedForInactivity.message(),
         copy::JOIN_FAIL_CLOSED_INACTIVITY

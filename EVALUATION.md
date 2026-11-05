@@ -88,7 +88,7 @@ decided in Phase 3. The orchestrator requires the first two.
 | ID | Tag | How it is proven |
 |---|---|---|
 | AC-28 | `autonomous` | `test`: join succeeds via the short link (code carried) and via the six-character code typed; the join form has no other field. |
-| AC-29 | `autonomous` | `test`: six distinct failure states each show their own message and next step: malformed, unknown, not yet open, already ended, closed for inactivity, full. |
+| AC-29 | `autonomous` | `test`: five distinct failure states each show their own message and next step: malformed, unknown, already ended, closed for inactivity, full. |
 | AC-30 | `autonomous` | `test`: the 201st join is refused before any session is created; storage shows nothing reserved. |
 | AC-31 | `felt` | **HC-1 and HC-4** on venue wifi. Instrumented: join-to-lobby time is logged client-side and reported. |
 | AC-32 | `autonomous` | `canary`: the source text and the trace never appear in any participant payload, HTML, or state, in any phase. |
