@@ -364,11 +364,7 @@ class _KillChildOnSignal:
             self._pending = signum
             return
         child = self.child
-        if child is not None and child.returncode is None:
-            try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+        if child is not None and _kill_if_unreaped(child):
             try:
                 child.wait(timeout=5)
             except subprocess.TimeoutExpired:
@@ -376,6 +372,28 @@ class _KillChildOnSignal:
         self._restore()
         os.kill(os.getpid(), signum)
         raise SystemExit(128 + signum)  # only if the signal did not end the process
+
+
+def _kill_if_unreaped(child: subprocess.Popen[bytes]) -> bool:
+    """From a signal handler: SIGKILL the child's group only while its pid is
+    certainly not reaped. `Popen` reaps under `_waitpid_lock` and sets `returncode`
+    only after `waitpid` returns, so a handler that lands between the two would see
+    `returncode is None` for a released pid. Holding the lock rules that out; if it
+    is already held, a reap is under way, the child has exited or been killed, and
+    its group id is left alone. Returns whether the group was signalled."""
+    lock = child._waitpid_lock  # CPython's POSIX Popen; every reap takes it
+    if not lock.acquire(False):
+        return False
+    try:
+        if child.returncode is not None:
+            return False
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        return True
+    finally:
+        lock.release()
 
 
 def _kill(child: subprocess.Popen[bytes]) -> None:

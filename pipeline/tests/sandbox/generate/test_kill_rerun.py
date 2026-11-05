@@ -54,21 +54,24 @@ def wait_for(predicate, what: str) -> None:
         time.sleep(0.05)
 
 
-@pytest.mark.parametrize("found_by", ["--claude-bin", "PATH"])
+@pytest.mark.parametrize("found_by", ["--claude-bin", "--claude-bin=", "--claude-b", "PATH"])
 def test_the_root_guard_refuses_a_generator_process_on_the_real_claude(tmp_path, claude_decoy, found_by):
     """`tests/conftest.py` refuses, here too, a claude-cli generator started as a
-    process whose `claude` is the real one, given by `--claude-bin` or found on the
-    child's PATH (PQ-70 item 1). A decoy stands in for it, and is never started."""
+    process whose `claude` is the real one, given by `--claude-bin` (in any spelling
+    argparse accepts) or found on the child's PATH (PQ-70 item 1). A decoy stands in
+    for it, and is never started."""
     command = [
-        sys.executable, "-m", "popquiz.generate", "--backend", "claude-cli",
+        sys.executable, "-m", "popquiz.generate", "--backend=claude-cli",
         "--max-candidates", "1", "--count", "1", "--topic", "ownership", "--difficulty", "2",
         "--out", str(tmp_path / "out"), "--run-id", "g1",
     ]
     env = {"PATH": SAFE_PATH}
-    if found_by == "--claude-bin":
-        command += ["--claude-bin", str(claude_decoy.exe)]
-    else:
+    if found_by == "PATH":
         env["PATH"] = f"{claude_decoy.dir}:{SAFE_PATH}"
+    elif found_by.endswith("="):
+        command.append(f"{found_by}{claude_decoy.exe}")
+    else:
+        command += [found_by, str(claude_decoy.exe)]
     with pytest.raises(pytest.fail.Exception, match="the real claude guard"):
         subprocess.run(command, cwd=PIPELINE, env=env, capture_output=True, check=False)
     assert not claude_decoy.ran()
@@ -104,6 +107,7 @@ def test_a_generator_ended_by_a_signal_takes_its_claude_with_it(tmp_path, signum
     ]
     generator = subprocess.Popen(command, cwd=PIPELINE, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     pgid = None
+    gone = False
     try:
         wait_for(lambda: len(list(log.glob("*.json"))) == 2, "the fake to be asked for c02")
         pgid = json.loads(sorted(log.glob("*.json"))[1].read_text(encoding="utf-8"))["pgid"]
@@ -118,11 +122,12 @@ def test_a_generator_ended_by_a_signal_takes_its_claude_with_it(tmp_path, signum
             return False
 
         wait_for(group_gone, "the fake's process group to be gone")
+        gone = True
     finally:
         if generator.poll() is None:
             generator.kill()
             generator.wait()
-        if pgid is not None:
+        if pgid is not None and not gone:  # once gone, the id may be someone else's
             try:
                 os.killpg(pgid, signal.SIGKILL)
             except ProcessLookupError:

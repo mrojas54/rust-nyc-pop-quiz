@@ -337,6 +337,29 @@ def test_while_a_child_runs_sigterm_is_handled_an_ignored_sighup_is_not_and_both
         assert hup == signal.SIG_IGN
 
 
+def test_the_signal_handler_never_signals_a_group_whose_child_may_be_reaped(monkeypatch):
+    """Codex review, PQ-70: `Popen` sets `returncode` only after `waitpid`, under
+    `_waitpid_lock`. While that lock is held, or once `returncode` is set, the
+    handler leaves the group id alone; only an unreaped child's group is signalled."""
+    import threading
+    from types import SimpleNamespace
+
+    signalled = []
+    monkeypatch.setattr(generate_cli.os, "killpg", lambda pgid, sig: signalled.append(pgid))
+    child = SimpleNamespace(pid=424242, returncode=None, _waitpid_lock=threading.Lock())
+
+    child._waitpid_lock.acquire()  # a reap is under way
+    assert generate_cli._kill_if_unreaped(child) is False
+    child._waitpid_lock.release()
+    child.returncode = 0  # reaped
+    assert generate_cli._kill_if_unreaped(child) is False
+    assert signalled == []
+
+    child.returncode = None  # running
+    assert generate_cli._kill_if_unreaped(child) is True
+    assert signalled == [424242] and not child._waitpid_lock.locked()
+
+
 def executable(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")

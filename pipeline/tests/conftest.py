@@ -9,11 +9,14 @@ reach the binary, for every test in every directory below this one:
 - building a `ClaudeCliClient` whose resolved binary is the real `claude`, whether
   given by path or found on PATH (`binary=None`);
 - starting a process (`subprocess.Popen`, which `subprocess.run` and the generator's
-  own child go through) that is the real `claude`, or that is the generator on the
-  claude-cli backend with `--claude-bin` (or, without it, `claude` on the child's
-  PATH) resolving to it.
+  own child go through) that is the real `claude` (as the command or `executable=`),
+  or that is the generator with `--claude-bin` (or, without it, `claude` on the
+  child's PATH) resolving to it, whatever its backend or however it is spelled.
 
-Either one fails the test before anything is spawned. "The real `claude`" is
+Either one fails the test before anything is spawned. This file starts no process
+itself: `_GuardedPopen` only checks a command, then hands it to `Popen` unchanged.
+It cannot see what an accepted command starts later (a shell, a wrapper script);
+a test that needs one gives it a PATH without the real `claude`, as `hermetic` does. "The real `claude`" is
 whatever `claude` resolves to on the PATH pytest started with, plus any of the
 standard install locations that exists.
 
@@ -76,23 +79,30 @@ def _check_command(args: object, env: Mapping[str, str] | None, cwd: str | os.Pa
         return
     if is_real_claude(_resolve(argv[0], env, cwd)):
         _refuse(f"starting {argv[0]}")
-    runs_generator = "popquiz.generate" in argv and "claude-cli" in argv
-    if not runs_generator:
+    # Any generator started as a process, whatever its backend or however `--backend`
+    # is spelled (`--backend=claude-cli`, an abbreviation): if the `claude` it would
+    # use is the real one, it is refused. A batches run needs no `claude`, so a test
+    # starting one has no reason to leave the real one on its child's PATH.
+    if not any(arg.endswith("popquiz.generate") for arg in argv):
         return
     given = None
     for i, arg in enumerate(argv):
-        if arg == "--claude-bin" and i + 1 < len(argv):
-            given = argv[i + 1]
-        elif arg.startswith("--claude-bin="):
-            given = arg.split("=", 1)[1]
+        name, eq, value = arg.partition("=")
+        if len(name) > len("--claude-") and "--claude-bin".startswith(name):  # argparse accepts a unique prefix
+            if eq:
+                given = value
+            elif i + 1 < len(argv):
+                given = argv[i + 1]
     binary = _resolve(given if given is not None else "claude", env, cwd)
     if is_real_claude(binary):
-        _refuse(f"a claude-cli generator run on {binary}")
+        _refuse(f"a generator run on {binary}")
 
 
 class _GuardedPopen(subprocess.Popen):
     def __init__(self, args, *rest, **kwargs):
         _check_command(args, kwargs.get("env"), kwargs.get("cwd"))
+        if kwargs.get("executable") is not None:
+            _check_command([kwargs["executable"]], kwargs.get("env"), kwargs.get("cwd"))
         super().__init__(args, *rest, **kwargs)
 
 
