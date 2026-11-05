@@ -231,7 +231,6 @@ async fn join_answer_transitions_and_reconnect_through_the_real_session_map() {
 
     // The phone drops. The session, its answer and its slot stay: nothing is
     // pushed, and the counts are as they were.
-    drop(all);
     buzzer.close(None).await.unwrap();
     for s in [&mut wall, &mut host] {
         assert!(
@@ -282,7 +281,6 @@ async fn join_answer_transitions_and_reconnect_through_the_real_session_map() {
             .await
             .swap_remove(1);
     }
-    drop(all);
 
     // Released: the sessions are gone with the room's answers, so the token
     // resolves to nothing — on the socket and on the answer route.

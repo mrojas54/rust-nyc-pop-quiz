@@ -925,7 +925,7 @@ fn ac101_the_repository_scan_catches_a_plant() {
     let plant = format!(
         "{}{}",
         ["CANARY", "ADMIN", "TOKEN", ""].join("-"),
-        &hex[..16].to_uppercase()
+        hex[..16].to_uppercase()
     );
     for leak in [
         format!("{VAR}={hex}"),

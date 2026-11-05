@@ -568,7 +568,7 @@ fn an_arranged_record_is_hashed_in_the_banks_order_and_no_other() {
         "stale"
     );
     for bad in [&[0, 0, 1, 2, 3][..], &[0, 1, 2, 3], &[0, 1, 2, 3, 5]] {
-        let e = arranged.affirmation(Some(bad)).err().expect("refused");
+        let e = arranged.affirmation(Some(bad)).expect_err("refused");
         assert!(
             e.to_string().contains("bank_order is not an arrangement"),
             "{e}"

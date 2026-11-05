@@ -66,7 +66,7 @@ fn a_new_room_has_the_shape_of_section_3_4() {
 #[test]
 fn codes_are_six_characters_never_o_0_i_or_1() {
     assert_eq!(CODE_ALPHABET.len(), 32);
-    for forbidden in [b'O', b'0', b'I', b'1'] {
+    for forbidden in *b"O0I1" {
         assert!(!CODE_ALPHABET.contains(&forbidden));
     }
     let mut seen = std::collections::HashSet::new();
@@ -256,7 +256,6 @@ fn verdict(totals: [u32; 5]) -> (view::WallPayload, view::HostPayload, Option<(L
         Middle::MostChosen { letter, count, .. } => Some((*letter, *count)),
         Middle::Nobody => None,
     };
-    drop(opened);
     (
         view::wall(&room, &Urls::default()),
         view::host(&room),

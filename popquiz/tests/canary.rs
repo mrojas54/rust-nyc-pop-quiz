@@ -738,7 +738,7 @@ fn bars(totals: [u32; 5]) -> Value {
     let bars: Vec<Value> = ["A", "B", "C", "D", "E"]
         .iter()
         .zip(totals)
-        .map(|(l, n)| json!({"letter": l, "count": n, "percent": if answered == 0 { 0 } else { (n * 100 + answered / 2) / answered }}))
+        .map(|(l, n)| json!({"letter": l, "count": n, "percent": (n * 100 + answered / 2).checked_div(answered).unwrap_or(0)}))
         .collect();
     Value::from(bars)
 }
