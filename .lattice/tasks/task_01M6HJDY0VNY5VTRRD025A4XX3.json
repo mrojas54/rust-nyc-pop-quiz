@@ -1,23 +1,34 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 6,
   "complexity": "low",
   "created_at": "2026-11-03T20:43:22Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Found by the PQ-47 delegator on 2026-11-03, after PQ-62 (PR #125) merged. distribution_lint in pipeline/src/popquiz/audit.py walks the working tree, so in a delegator worktree it reads the untracked .claude/ files (checkpoint-*.md, boot-prompt.md) and flags the test counts written in them as distribution tells. CI is unaffected (those files are never committed), but a local just test in a worktree can fail. Fix: add .claude to DISTRIBUTION_SKIP_DIRS (audit.py:899) or walk only git-tracked files; decide which with the client. Acceptance: a planted .claude/checkpoint.md containing a percentage in a temp repo is not reported, a test fails without the fix, real-tree scan still 0 hits / 0 unreadable, just test green. Touch only audit.py and test_audit.py.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "art_01M6MGDVAY14P2VC0X7NDEWJXX",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6MGDVF5PDQTB4CQTGRXN2HY",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M6HJDY0VNY5VTRRD025A4XX3",
-  "last_event_id": "ev_01M6MFWBX8DS5NFAY9A5B10R44",
-  "last_status_changed_at": "2026-11-04T23:56:33Z",
+  "last_event_id": "ev_01M6MX63TVYYEAVP73RAHJ7N2J",
+  "last_status_changed_at": "2026-11-05T03:49:03Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-82",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "guardrail",
     "pipeline",
@@ -25,6 +36,6 @@
   ],
   "title": "Distribution scan skips untracked .claude/ files",
   "type": "bug",
-  "updated_at": "2026-11-04T23:56:33Z",
+  "updated_at": "2026-11-05T03:49:03Z",
   "urgency": null
 }
