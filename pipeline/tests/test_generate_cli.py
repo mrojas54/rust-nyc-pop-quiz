@@ -326,6 +326,64 @@ def test_a_child_past_its_timeout_is_killed_with_its_group_and_the_run_stops(tmp
         os.killpg(call["pgid"], 0)
 
 
+def executable(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def cached(tmp_path, run_id="m1"):
+    return sorted(p.name for p in (tmp_path / "out" / run_id / generate.RUN_SUBDIR / generate.CLI_SUBDIR).glob("c*.json"))
+
+
+def test_a_claude_that_cannot_be_started_stops_cleanly_and_a_rerun_resumes(tmp_path, fake, capsys):
+    """PQ-70 item 3: `Popen` raising `OSError` (here the binary is gone between
+    resolve and spawn) is a one-sentence stop, not a traceback."""
+    fake.script("cli-clean")
+    vanishing = executable(
+        tmp_path / "vanishing" / "claude",
+        f'#!/bin/sh\n"{sys.executable}" "{FAKE / "fake_claude.py"}" "$@"\nrc=$?\nrm -f "$0"\nexit $rc\n',
+    )
+    code = generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3", "--claude-bin", str(vanishing)))
+    err = capsys.readouterr().err
+    assert code == 2
+    assert err.startswith(f"generate: Stopped at c02: could not start {vanishing} (No such file or directory)."), err
+    assert "rerun with the same --run-id" in err and "Traceback" not in err
+    assert cached(tmp_path) == ["c01.json"]
+
+    assert generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3")) == 0
+    assert len(fake.calls()) == 3, "c01 once, then only c02 and c03"
+    assert cached(tmp_path) == ["c01.json", "c02.json", "c03.json"]
+
+
+def test_output_that_is_not_utf8_stops_cleanly_and_a_rerun_resumes(tmp_path, fake, capsys):
+    """PQ-70 item 3: a child whose stdout is not UTF-8 is a one-sentence stop, and
+    the finished child is not read or killed a second time."""
+    fake.script("cli-clean")
+    garble = tmp_path / "garble.py"
+    garble.write_text(
+        "import io, runpy, sys\n"
+        "prompt = sys.stdin.read()\n"
+        "if 'Topic: iterators' in prompt:\n"
+        "    sys.stdout.buffer.write(b'\\xff\\xfe not utf-8')\n"
+        "    sys.exit(0)\n"
+        "sys.stdin = io.StringIO(prompt)\n"
+        f"runpy.run_path({str(FAKE / 'fake_claude.py')!r}, run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    garbling = executable(tmp_path / "garbling" / "claude", f'#!/bin/sh\nexec "{sys.executable}" "{garble}" "$@"\n')
+    code = generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3", "--claude-bin", str(garbling)))
+    err = capsys.readouterr().err
+    assert code == 2
+    assert err.startswith(f"generate: Stopped at c02: {garbling} printed output that is not UTF-8."), err
+    assert "rerun with the same --run-id" in err and "Traceback" not in err
+    assert cached(tmp_path) == ["c01.json"]
+
+    assert generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3")) == 0
+    assert len(fake.calls()) == 3, "c01 once, then only c02 and c03"
+
+
 # --------------------------------------------------------------------------- #
 # Ruling 5 / AC-5: measured, labelled API-equivalent, never spend
 # --------------------------------------------------------------------------- #

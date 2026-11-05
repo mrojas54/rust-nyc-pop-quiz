@@ -122,6 +122,14 @@ def prompt(params: Mapping[str, Any]) -> str:
     return params["messages"][0]["content"]
 
 
+def stopped_at(cid: str, reason: str) -> str:
+    """The one sentence for a run that stopped at `cid`."""
+    return (
+        f"Stopped at {cid}: {reason}. Candidates finished before it are written; "
+        "rerun with the same --run-id to pick up the rest."
+    )
+
+
 def _one_line(text: str, limit: int = 240) -> str:
     line = " ".join(str(text).split())
     return line if len(line) <= limit else line[: limit - 1] + "…"
@@ -182,10 +190,7 @@ class ClaudeCliClient:
             try:
                 entry, keep = self._run_one(cid, request["params"])
             except Stop as stop:
-                self.stopped = (
-                    f"Stopped at {cid}: {stop}. Candidates finished before it are written; "
-                    "rerun with the same --run-id to pick up the rest."
-                )
+                self.stopped = stopped_at(cid, str(stop))
                 yield _errored(cid, "stopped", str(stop), {})
                 return
             if keep:
@@ -196,22 +201,29 @@ class ClaudeCliClient:
 
     def _run_one(self, cid: str, params: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         """One child, start to finish. Returns the entry and whether it is finished
-        (cached for a rerun). Raises `Stop` for anything that ends the run."""
+        (cached for a rerun). Raises `Stop` for anything that ends the run, and
+        `GenerateError` when the child cannot be started or read at all.
+
+        The child's pipes are bytes: its stdout is decoded here, after it has been
+        reaped, so a decode failure never interrupts `communicate` or reaches `_kill`.
+        """
         self.spawned.append(cid)
         started = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="popquiz-claude-") as cwd:
-            child = subprocess.Popen(
-                argv(self.binary, params),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=cwd,
-                env=child_env(self._environ),
-                text=True,
-                start_new_session=True,
-            )
             try:
-                out, err = child.communicate(prompt(params), timeout=self.timeout_s)
+                child = subprocess.Popen(
+                    argv(self.binary, params),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=cwd,
+                    env=child_env(self._environ),
+                    start_new_session=True,
+                )
+            except OSError as exc:
+                raise GenerateError(stopped_at(cid, f"could not start {self.binary} ({exc.strerror or exc})")) from None
+            try:
+                raw_out, raw_err = child.communicate(prompt(params).encode("utf-8"), timeout=self.timeout_s)
             except subprocess.TimeoutExpired:
                 _kill(child)
                 raise Stop(f"claude ran past the {self.timeout_s:g} s timeout and was killed") from None
@@ -219,6 +231,11 @@ class ClaudeCliClient:
                 _kill(child)
                 raise
         elapsed = time.monotonic() - started
+        try:
+            out = raw_out.decode("utf-8")
+        except UnicodeDecodeError:
+            raise GenerateError(stopped_at(cid, f"{self.binary} printed output that is not UTF-8")) from None
+        err = raw_err.decode("utf-8", errors="replace")
 
         try:
             data = json.loads(out)
@@ -281,8 +298,11 @@ def _seconds(duration_ms: Any, fallback_s: float) -> float:
     return round(duration_ms / 1000 if _is_number(duration_ms) else fallback_s, 3)
 
 
-def _kill(child: subprocess.Popen[str]) -> None:
-    """Kill the child's whole process group, then reap it."""
+def _kill(child: subprocess.Popen[bytes]) -> None:
+    """Kill the child's whole process group, then reap it. A child already reaped
+    is left alone: its pid, and so its group id, may belong to someone else now."""
+    if child.returncode is not None:
+        return
     try:
         os.killpg(child.pid, signal.SIGKILL)
     except ProcessLookupError:
