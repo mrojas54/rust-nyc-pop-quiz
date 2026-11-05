@@ -14,9 +14,16 @@
 //!   argument in a `reason` field (admin's `refused`).
 //!
 //! The [`REASON_SOURCES`] build the refusals those routes forward through a
-//! variable (`LoadError`, `RoomError::Refused`). In them, a literal containing
-//! a letter also fails in the arguments of any [`SOURCE_SINKS`] call or macro;
-//! every `format!` there builds a refusal, so none may carry its own words.
+//! variable (`LoadError`, `RoomError::Refused`, `phase::Refused`,
+//! `Ended::host_reason`). In them, a literal containing a letter also fails
+//!
+//! - in the arguments of any [`SOURCE_SINKS`] call or macro, and, in the
+//!   [`FORMAT_SOURCES`], of any `format!`: every `format!` there builds a
+//!   refusal, so none may carry its own words (elsewhere one may build a
+//!   digest, and is read only inside one of these shapes);
+//! - in a struct literal's `reason:` field (`Refused { reason: … }`); or
+//! - anywhere in the body of a [`REASON_FNS`] function, which returns a
+//!   reason from a `match` or an `Err` rather than through a call.
 //!
 //! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
 //! Those are the codes a client branches on, not sentences anyone reads; any
@@ -46,15 +53,37 @@ const REASON_SINKS: &[&str] = &["refused"];
 
 /// Files outside `src/server/` and `src/connections/` whose refusals a route
 /// sends as its `reason`: the admin channel's `LoadError` and `RoomError`, and
-/// the host routes' `RoomError` (PQ-60 ruling A, these three files only).
+/// the host routes' `RoomError` (PQ-60 ruling A); the affirmation's refusal,
+/// the phase machine's and the ended room's (PQ-84, cleared "all").
 const REASON_SOURCES: &[&str] = &[
+    "quiz_session/models/answers.rs",
+    "quiz_session/state_manager.rs",
+    "quiz_session/host/create.rs",
+    "quiz_session/models/affirmation.rs",
+    "quiz_session/models/phase.rs",
+    "quiz_session/lifecycle.rs",
+];
+
+/// In [`REASON_SOURCES`], the calls and macros that build a refusal.
+const SOURCE_SINKS: &[&str] = &["refuse", "Refused", "LoadError"];
+
+/// The [`REASON_SOURCES`] where every `format!` builds a refusal (PQ-60's
+/// three). `affirmation.rs` formats its digest (`sha256:{hex}`), so there a
+/// `format!` is read only inside a sink, a `reason:` field or a [`REASON_FNS`]
+/// body.
+const FORMAT_SOURCES: &[&str] = &[
     "quiz_session/models/answers.rs",
     "quiz_session/state_manager.rs",
     "quiz_session/host/create.rs",
 ];
 
-/// In [`REASON_SOURCES`], the calls and macros that build a refusal.
-const SOURCE_SINKS: &[&str] = &["refuse", "Refused", "LoadError", "format", "format_args"];
+/// In [`FORMAT_SOURCES`], the macros that build a refusal.
+const FORMAT_SINKS: &[&str] = &["format", "format_args"];
+
+/// In [`REASON_SOURCES`], the functions that return a reason: every literal in
+/// their bodies is bound for a person (`Ended::host_reason`, the affirmation's
+/// `refusal`, `Review::check_shape`).
+const REASON_FNS: &[&str] = &["host_reason", "refusal", "check_shape"];
 
 #[derive(Debug, PartialEq)]
 enum Tok {
@@ -194,9 +223,12 @@ struct Scan {
     hits: Vec<(usize, String, String)>,
     fields: usize,
     sink_calls: usize,
+    reason_fns: usize,
 }
 
-fn scan(src: &str, sinks: &[&str]) -> Scan {
+/// `source` reads the file as a [`REASON_SOURCES`] file: its `reason:` struct
+/// fields and [`REASON_FNS`] bodies are read too.
+fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
     let toks = tokens(src);
     let mut out = Scan::default();
     // A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
@@ -248,6 +280,45 @@ fn scan(src: &str, sinks: &[&str]) -> Scan {
                     }
                 }
             }
+            // `Refused { reason: "…".into() }`: a struct literal's field, so
+            // the word follows `{` or `,` (not a closure's `|reason: String|`).
+            Tok::Word(w)
+                if source
+                    && w == "reason"
+                    && next(1) == Some(&Tok::Punct(':'))
+                    && next(2) != Some(&Tok::Punct(':'))
+                    && i > 0
+                    && matches!(toks[i - 1].1, Tok::Punct('{' | ',')) =>
+            {
+                out.fields += 1;
+                for j in span(&toks, i + 2, true) {
+                    if let Tok::Str(s) = &toks[j].1 {
+                        if s.chars().any(char::is_alphabetic) {
+                            hit(j, "reason:".into(), &mut out);
+                        }
+                    }
+                }
+            }
+            // `fn host_reason(…) -> … { … }`: the whole body.
+            Tok::Word(f) if source && f == "fn" => {
+                let Some(Tok::Word(name)) = next(1) else {
+                    continue;
+                };
+                if !REASON_FNS.contains(&name.as_str()) {
+                    continue;
+                }
+                let Some(open) = (i + 2..toks.len()).find(|&k| toks[k].1 == Tok::Punct('{')) else {
+                    continue;
+                };
+                out.reason_fns += 1;
+                for j in span(&toks, open + 1, false) {
+                    if let Tok::Str(s) = &toks[j].1 {
+                        if s.chars().any(char::is_alphabetic) {
+                            hit(j, format!("fn {name}"), &mut out);
+                        }
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -260,6 +331,18 @@ fn covered() -> Vec<(String, String)> {
         .into_iter()
         .filter(|(name, _)| name.starts_with("server/") || name.starts_with("connections/"))
         .collect()
+}
+
+/// The sinks the scan reads in file `name`.
+fn sinks_for(name: &str, is_source: bool) -> Vec<&'static str> {
+    let mut sinks = REASON_SINKS.to_vec();
+    if is_source {
+        sinks.extend(SOURCE_SINKS);
+    }
+    if FORMAT_SOURCES.contains(&name) {
+        sinks.extend(FORMAT_SINKS);
+    }
+    sinks
 }
 
 /// The [`REASON_SOURCES`], read.
@@ -291,14 +374,15 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
         );
     }
     let (mut hits, mut fields, mut sink_calls, mut source_calls) = (Vec::new(), 0, 0, 0);
-    let all_sinks: Vec<&str> = REASON_SINKS.iter().chain(SOURCE_SINKS).copied().collect();
+    let mut reason_fns = 0;
     let read = files
         .iter()
         .map(|f| (f, false))
         .chain(srcs.iter().map(|f| (f, true)));
     for ((name, text), is_source) in read {
-        let s = scan(text, if is_source { &all_sinks } else { REASON_SINKS });
+        let s = scan(text, &sinks_for(name, is_source), is_source);
         fields += s.fields;
+        reason_fns += s.reason_fns;
         if is_source {
             source_calls += s.sink_calls;
         } else {
@@ -323,7 +407,12 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
     );
     assert!(
         source_calls >= 15,
-        "read only {source_calls} calls to {SOURCE_SINKS:?} in {REASON_SOURCES:?}"
+        "read only {source_calls} calls to {SOURCE_SINKS:?} or {FORMAT_SINKS:?} in {REASON_SOURCES:?}"
+    );
+    // PQ-84: five such bodies (host_reason, check_shape, and three `refusal`s).
+    assert!(
+        reason_fns >= 4,
+        "read only {reason_fns} bodies of {REASON_FNS:?} in {REASON_SOURCES:?}"
     );
     assert!(
         hits.is_empty(),
@@ -347,6 +436,19 @@ fn every_reason_sink_is_still_a_function_the_scan_can_see() {
 }
 
 #[test]
+fn every_reason_fn_is_still_a_function_the_scan_can_see() {
+    // A renamed reason function would take its body out of the scan.
+    let srcs = sources();
+    for f in REASON_FNS {
+        let decl = format!("fn {f}(");
+        assert!(
+            srcs.iter().any(|(_, t)| t.contains(&decl)),
+            "{decl} is gone from {REASON_SOURCES:?}; update REASON_FNS"
+        );
+    }
+}
+
+#[test]
 fn every_refusal_code_is_still_sent() {
     // A code no route sends any more is a hole in the carve-out; drop it.
     let files = covered();
@@ -363,17 +465,16 @@ fn every_refusal_code_is_still_sent() {
 // the rule's reach is pinned here and not only in a reverted edit.
 
 fn flags(src: &str) -> Vec<String> {
-    scan(src, REASON_SINKS)
+    scan(src, REASON_SINKS, false)
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
         .collect()
 }
 
-/// [`flags`] as the scan reads a [`REASON_SOURCES`] file.
+/// [`flags`] as the scan reads a [`FORMAT_SOURCES`] file, the strictest.
 fn source_flags(src: &str) -> Vec<String> {
-    let sinks: Vec<&str> = REASON_SINKS.iter().chain(SOURCE_SINKS).copied().collect();
-    scan(src, &sinks)
+    scan(src, &sinks_for(FORMAT_SOURCES[0], true), true)
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
@@ -407,6 +508,37 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
         source_flags(r#"then(|| format!("{id}: is affirmed"))"#),
         ["{id}: is affirmed"]
     );
+    // The shapes PQ-84's three sources had: a struct literal's `reason`, a
+    // reason function's match arms, its `Err`, and its `format!` framing.
+    assert_eq!(
+        source_flags(r#"Err(Refused { from: None, command, reason: "No room yet.".into() })"#),
+        ["No room yet."]
+    );
+    assert_eq!(
+        source_flags(
+            r#"pub fn host_reason(self) -> &'static str {
+                match self { Ended::Expired => "This room has ended.", Ended::Inactive => copy::X }
+            }"#
+        ),
+        ["This room has ended."]
+    );
+    assert_eq!(
+        source_flags(
+            r#"pub(crate) fn check_shape(&self) -> Result<(), &'static str> {
+                if bad { return Err("the digest is bad"); } Ok(())
+            }"#
+        ),
+        ["the digest is bad"]
+    );
+    assert_eq!(
+        source_flags(
+            r#"pub fn refusal(&self, id: &str) -> Option<String> {
+                let why = match self { Affirmation::Stale => copy::S, _ => return None };
+                Some(format!("{id}: {why}"))
+            }"#
+        ),
+        ["{id}: {why}"]
+    );
     // The moved forms pass.
     let clean = r#"
         pub struct LoadError(pub String);
@@ -416,8 +548,24 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
         return refuse(&id, copy::LOAD_NO_VERIFIED);
         return Err(RoomError::Refused(copy::ROOM_NOTHING_SCHEDULED.into()));
         Err(RoomError::Refused(why)) => refused(StatusCode::CONFLICT, why),
+        pub struct Refused { pub from: Option<Phase>, pub command: Command, pub reason: String }
+        let refuse = |reason: String| Refused { from: Some(phase), command, reason };
+        Command::Host(_) => Err(Refused { from: None, command, reason: copy::HOST_REFUSED_NO_ROOM_YET.into() }),
+        pub fn host_reason(self) -> &'static str {
+            match self { Ended::Expired => copy::HOST_ENDED_EXPIRED, Ended::Inactive => copy::HOST_ENDED_INACTIVE }
+        }
+        pub fn refusal(&self, id: &str) -> Option<String> { Some(copy::load_refused(id, copy::LOAD_AFFIRMATION_NONE)) }
+        pub fn state(&self) -> &'static str { match self { Affirmation::Stale => "stale", _ => "none" } }
     "#;
     assert_eq!(source_flags(clean), Vec::<String>::new());
+    // affirmation.rs's digest is not a reason: outside the FORMAT_SOURCES a
+    // bare `format!` passes, and one inside `refuse(…)` still fails.
+    let affirmation = sinks_for("quiz_session/models/affirmation.rs", true);
+    let digest =
+        r#"let hex: String = bytes.map(|b| format!("{b:02x}")).collect(); format!("sha256:{hex}")"#;
+    assert_eq!(scan(digest, &affirmation, true).hits.len(), 0);
+    let inside = r#"Err(refuse(format!("{} is not ready.", id)))"#;
+    assert_eq!(scan(inside, &affirmation, true).hits.len(), 1);
 }
 
 #[test]
@@ -464,7 +612,7 @@ fn the_scan_passes_constants_slugs_comments_and_the_helper_itself() {
         refused(StatusCode::BAD_REQUEST, copy::admin_bank_order_not_indexes(id));
         Json(serde_json::json!({ "id": id, "scheduled": "new" }));
     "#;
-    let s = scan(clean, REASON_SINKS);
+    let s = scan(clean, REASON_SINKS, false);
     assert_eq!(s.hits, Vec::<(usize, String, String)>::new());
     assert_eq!((s.fields, s.sink_calls), (5, 1));
 }
