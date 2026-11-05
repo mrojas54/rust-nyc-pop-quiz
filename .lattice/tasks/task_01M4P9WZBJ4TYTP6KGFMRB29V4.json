@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 5,
+  "comment_count": 13,
   "complexity": null,
   "created_at": "2026-10-11T20:19:06Z",
   "created_by": "agent:orchestrator",
@@ -13,11 +13,16 @@
       "id": "art_01M4PBNJ7DNQCF6ZJB6KDHPHP6",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6PWM9DJ5ACE9JT2WZ149PMW",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M4P9WZBJ4TYTP6KGFMRB29V4",
-  "last_event_id": "ev_01M56R03R11NG1Q06MNRAPMZE6",
-  "last_status_changed_at": "2026-10-11T20:19:06Z",
+  "last_event_id": "ev_01M6PXV9RGMAFK9ZJ5B8B7DD5Z",
+  "last_status_changed_at": "2026-11-05T22:39:07Z",
   "priority": "low",
   "relationships_out": [
     {
@@ -35,15 +40,17 @@
       "type": "related_to"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-70",
-  "status": "backlog",
+  "status": "in_progress",
   "tags": [
-    "held"
+    "follow-up",
+    "pipeline",
+    "generator"
   ],
   "title": "Generator follow-ups from the PR #62 review",
   "type": "task",
-  "updated_at": "2026-10-18T05:33:20Z",
+  "updated_at": "2026-11-05T22:39:07Z",
   "urgency": null
 }

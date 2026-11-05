@@ -1,0 +1,1 @@
+Pass 1 FAIL on fd5f124 (Major: --backend=claude-cli bypassed the Popen guard; Major: handler could killpg a reaped pid; Minor: test cleanup killpg after gone) - fixed, uncommitted. Pass 2 FAIL on the working tree over fd5f124 (Major: busy _waitpid_lock skips the kill; Minor: guard refuses batches subprocesses). Cap reached; escalated.
