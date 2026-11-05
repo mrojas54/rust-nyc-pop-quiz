@@ -343,27 +343,24 @@ Each room must support:
 - Assign each question slot a private target answer independently with a
   cryptographically secure RNG before generation, sampling from a fixed weight
   vector that does not depend on question count, topic, difficulty, or any
-  participant-observable state. The version-one weights are 79.99% deterministic
-  output, 0.01% compiler error (`0.0001` probability), and 20% undefined
-  behavior.
-- These weights intentionally make the semantic answer labels nonuniform. Before
-  solving the program, each of the three output choices has an approximate
-  26.663% prior, **does not compile** has a 0.01% prior, and **exhibits
-  undefined behavior** has a 20% prior. Secure shuffling still makes each final
-  screen position 20% likely to contain the correct choice.
-- Accept as an explicit product tradeoff that a repeat attendee can rationally
-  almost always ignore **does not compile**. The application must not describe
-  the answer distribution as uniform or resistant to that strategy.
+  participant-observable state. *Superseded: version one sampled answer
+  categories from a fixed, published weight vector; no distribution is
+  published now (`PHILOSOPHY.md` §2, `CLAUDE.md` "Standing of `PRD.md`").*
+- *Superseded: version one's weights made the semantic answer labels
+  deliberately nonuniform and published each label's prior; no distribution is
+  published now (`PHILOSOPHY.md` §2, `CLAUDE.md` "Standing of `PRD.md`").*
+- *Superseded: version one accepted, as a product tradeoff, that its weights
+  let a repeat attendee rule out one answer label; no distribution is published
+  now (`PHILOSOPHY.md` §2, `CLAUDE.md` "Standing of `PRD.md`").*
 - Sample every slot independently. Undefined-behavior questions must be possible
   in rooms of every size; no room size may force a category to zero.
 - Generate each slot to its assigned target and accept a candidate only when its
   verified answer type matches the assignment. A mismatch — for example, a slot
   targeted at deterministic output whose program Miri reports as undefined
   behavior — is a rejection that consumes a generation retry.
-- Version the 79.99/0.01/20 vector as an immutable version-one product constant;
-  it is not host or deployment configuration. Any deviation requires a PRD
-  change, a new distribution version, and rerunning the distribution acceptance
-  suite.
+- *Superseded: version one fixed its weight vector as an immutable product
+  constant; no distribution is published now (`PHILOSOPHY.md` §2, `CLAUDE.md`
+  "Standing of `PRD.md`").*
 - Populate the three output choices by answer category. A deterministic-output
   question presents its verified output plus two distinct plausible output
   distractors. A compiler-error or undefined-behavior question presents three
@@ -769,10 +766,9 @@ and tests. They are not production metrics and do not require logging answers.
 
 ## Success Metrics
 
-- Across a 1,000,000-draw sampler-only simulation, compiler-error targets occur
-  between 0.007% and 0.013%, undefined-behavior targets remain within 0.25
-  percentage points of 20%, and deterministic-output targets make up the
-  remainder.
+- *Superseded: version one set a target share for each answer category in a
+  million-draw sampler-only simulation; no distribution is published now
+  (`PHILOSOPHY.md` §2, `CLAUDE.md` "Standing of `PRD.md`").*
 - Across the same simulation, secure shuffling makes each final choice position
   correct within 0.25 percentage points of 20%, overall and grouped by room
   size. Topic and difficulty must not shift the configured target-category
@@ -896,9 +892,11 @@ configuration, raw results, and p50/p95/p99 measurements.
 - Stacked/Tree Borrows agreement for accepted undefined-behavior fixtures and
   rejection when the models disagree.
 - Enforcement of the answer distribution: per-slot independence, room-size
-  independence, the 79.99/0.01/20 semantic-label priors, uniform secure position
-  shuffling, absence of additional category-correlated cues, and the defined
-  empirical tolerances.
+  independence, uniform secure position shuffling, absence of additional
+  category-correlated cues, and the defined empirical tolerances. *Superseded:
+  version one also enforced its published semantic-label priors; no
+  distribution is published now (`PHILOSOPHY.md` §2, `CLAUDE.md` "Standing of
+  `PRD.md`").*
 - Exact/AST duplicate rejection, semantic fixture thresholds, bounded top-K
   lookup, and dual-version fingerprint migration.
 - Quality rubric, separate judge model, malformed judge output, difficulty
@@ -971,5 +969,6 @@ configuration, raw results, and p50/p95/p99 measurements.
   answer record before reveal but may infer the answer by reading the source.
 - Exact and same-version AST duplicates are prohibited. Semantic repetition is
   reduced by measured heuristics and cannot be guaranteed absent.
-- The 0.01% compiler-error target is an intentional, learnable answer prior and
-  weakens the original repeat-attendee anti-gaming objective.
+- *Superseded: version one accepted a learnable answer prior as a tradeoff
+  against its repeat-attendee anti-gaming objective; no distribution is
+  published now (`PHILOSOPHY.md` §2, `CLAUDE.md` "Standing of `PRD.md`").*
