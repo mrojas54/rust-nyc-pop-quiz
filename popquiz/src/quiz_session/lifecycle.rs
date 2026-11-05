@@ -25,6 +25,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+use crate::copy;
 use crate::phase::Phase;
 use crate::sessions::JoinRefusal;
 
@@ -97,10 +98,11 @@ impl Ended {
 
     /// What a host command is told. An API diagnostic for the host page, like
     /// `phase::Refused`'s reasons — not §11 copy, never shown to participants.
+    /// The words live in `copy.rs`'s room-only block (PQ-84).
     pub fn host_reason(self) -> &'static str {
         match self {
-            Ended::Expired => "This room has ended.",
-            Ended::Inactive => "This room closed for inactivity.",
+            Ended::Expired => copy::HOST_ENDED_EXPIRED,
+            Ended::Inactive => copy::HOST_ENDED_INACTIVE,
         }
     }
 }
