@@ -358,7 +358,8 @@ pub enum Applied {
 ///
 /// The reasons are API diagnostics for the host page, which only ever offers
 /// the one legal action; they are not SPEC §11 copy and are never shown to
-/// participants. They avoid §11's *Forbidden* patterns all the same.
+/// participants. They avoid §11's *Forbidden* patterns all the same. The words
+/// live in `copy.rs`'s room-only block (PQ-84).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Refused {
     pub from: Option<Phase>,
@@ -385,7 +386,7 @@ pub fn apply(state: State, command: Command) -> Result<Applied, Refused> {
                 Command::Host(_) | Command::Step(_) => Err(Refused {
                     from: None,
                     command,
-                    reason: "There is no room yet. Create a room comes first.".into(),
+                    reason: copy::HOST_REFUSED_NO_ROOM_YET.into(),
                 }),
             };
         }
@@ -399,9 +400,7 @@ pub fn apply(state: State, command: Command) -> Result<Applied, Refused> {
     };
 
     match command {
-        Command::Host(HostAction::CreateRoom) => Err(refuse(
-            "This room already exists. Create a room makes a separate one.".into(),
-        )),
+        Command::Host(HostAction::CreateRoom) => Err(refuse(copy::HOST_REFUSED_ROOM_EXISTS.into())),
         Command::Host(action) if action == phase.next_action() => match phase.successor() {
             None => Ok(Applied::NewRoom),
             Some(next) => {
@@ -423,18 +422,12 @@ pub fn apply(state: State, command: Command) -> Result<Applied, Refused> {
             }
         },
         Command::Host(action) => Err(refuse(match phase {
-            Phase::Released => "The room is released. Run it again starts a new room.".into(),
-            _ => format!(
-                "{} isn't next. {} comes next.",
-                action.label(),
-                phase.next_action().label()
-            ),
+            Phase::Released => copy::HOST_REFUSED_RELEASED.into(),
+            _ => copy::host_refused_not_next(action.label(), phase.next_action().label()),
         })),
         Command::Step(step) => {
             if !phase.steps_the_trace() {
-                return Err(refuse(
-                    "The trace only steps while walking it through or at the answer.".into(),
-                ));
+                return Err(refuse(copy::HOST_REFUSED_TRACE_STILL.into()));
             }
             let at = machine
                 .trace_step
@@ -446,13 +439,13 @@ pub fn apply(state: State, command: Command) -> Result<Applied, Refused> {
             };
             let to = match step {
                 Step::Back if at == 0 => {
-                    return Err(refuse("That's the first step.".into()));
+                    return Err(refuse(copy::HOST_REFUSED_FIRST_STEP.into()));
                 }
                 Step::Back => at - 1,
                 Step::Forward if at >= ceiling => {
                     return Err(refuse(match phase {
-                        Phase::Work => "That's the last step before the reveal.".into(),
-                        _ => "That's the last step.".into(),
+                        Phase::Work => copy::HOST_REFUSED_LAST_STEP_BEFORE_REVEAL.into(),
+                        _ => copy::HOST_REFUSED_LAST_STEP.into(),
                     }));
                 }
                 Step::Forward => at + 1,

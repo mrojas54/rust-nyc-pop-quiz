@@ -468,3 +468,62 @@ fn the_scan_passes_constants_slugs_comments_and_the_helper_itself() {
     assert_eq!(s.hits, Vec::<(usize, String, String)>::new());
     assert_eq!((s.fields, s.sink_calls), (5, 1));
 }
+
+#[test]
+fn room_only_reasons_are_word_for_word() {
+    // PQ-84 moved these out of affirmation.rs, phase.rs and lifecycle.rs. Each
+    // is frozen copy (AC-98): a one-character change fails here.
+    use room::copy;
+    for (got, want) in [
+        (copy::LOAD_DIGEST_MALFORMED, "review.affirmed_digest is not sha256:<64 hex>"),
+        (
+            copy::LOAD_DIGEST_WITHOUT_WHO,
+            "review.affirmed_digest is recorded without affirmed_by and affirmed_at",
+        ),
+        (
+            copy::LOAD_AFFIRMATION_STALE,
+            "its text changed after it was affirmed; affirm it again at review.",
+        ),
+        (
+            copy::LOAD_AFFIRMATION_UNBOUND,
+            "its affirmation records who and when but not what was affirmed; affirm it again at review.",
+        ),
+        (
+            copy::LOAD_AFFIRMATION_NONE,
+            "is not affirmed; affirm it at review, then schedule it again.",
+        ),
+        (
+            copy::HOST_REFUSED_NO_ROOM_YET,
+            "There is no room yet. Create a room comes first.",
+        ),
+        (
+            copy::HOST_REFUSED_ROOM_EXISTS,
+            "This room already exists. Create a room makes a separate one.",
+        ),
+        (
+            copy::HOST_REFUSED_RELEASED,
+            "The room is released. Run it again starts a new room.",
+        ),
+        (
+            copy::HOST_REFUSED_TRACE_STILL,
+            "The trace only steps while walking it through or at the answer.",
+        ),
+        (copy::HOST_REFUSED_FIRST_STEP, "That's the first step."),
+        (
+            copy::HOST_REFUSED_LAST_STEP_BEFORE_REVEAL,
+            "That's the last step before the reveal.",
+        ),
+        (copy::HOST_REFUSED_LAST_STEP, "That's the last step."),
+        (copy::HOST_ENDED_EXPIRED, "This room has ended."),
+        (copy::HOST_ENDED_INACTIVE, "This room closed for inactivity."),
+    ] {
+        assert_eq!(got, want);
+    }
+    // The two built ones, as the `format!`s they replaced built them.
+    assert_eq!(
+        copy::host_refused_not_next("Reveal", "Start"),
+        format!("{} isn't next. {} comes next.", "Reveal", "Start")
+    );
+    let why = copy::LOAD_AFFIRMATION_NONE;
+    assert_eq!(copy::load_refused("q3", why), format!("{}: {}", "q3", why));
+}

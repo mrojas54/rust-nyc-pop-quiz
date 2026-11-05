@@ -21,6 +21,8 @@
 
 use serde::Deserialize;
 
+use crate::copy;
+
 /// The bank's `review` block, every field the schema has. The room reads only
 /// the affirmation and the status; the rest is parsed so an unknown field is refused, as
 /// everywhere else in the record.
@@ -64,10 +66,10 @@ impl Review {
             return Ok(());
         };
         if !well_formed(digest) {
-            return Err("review.affirmed_digest is not sha256:<64 hex>");
+            return Err(copy::LOAD_DIGEST_MALFORMED);
         }
         if !self.affirmed() {
-            return Err("review.affirmed_digest is recorded without affirmed_by and affirmed_at");
+            return Err(copy::LOAD_DIGEST_WITHOUT_WHO);
         }
         Ok(())
     }
@@ -138,13 +140,11 @@ impl Affirmation {
     pub fn refusal(&self, id: &str) -> Option<String> {
         let why = match self {
             Affirmation::Bound { .. } => return None,
-            Affirmation::Stale => "its text changed after it was affirmed; affirm it again at review.",
-            Affirmation::Unbound => {
-                "its affirmation records who and when but not what was affirmed; affirm it again at review."
-            }
-            Affirmation::None => "is not affirmed; affirm it at review, then schedule it again.",
+            Affirmation::Stale => copy::LOAD_AFFIRMATION_STALE,
+            Affirmation::Unbound => copy::LOAD_AFFIRMATION_UNBOUND,
+            Affirmation::None => copy::LOAD_AFFIRMATION_NONE,
         };
-        Some(format!("{id}: {why}"))
+        Some(copy::load_refused(id, why))
     }
 }
 

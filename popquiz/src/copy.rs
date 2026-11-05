@@ -321,6 +321,19 @@ pub const LOAD_TRACE_NO_STDOUT: &str = "the trace's final step names no stdout";
 pub const LOAD_TRACE_EARLY_STDOUT: &str =
     "trace step ‹n› names stdout, but only the last step may, and only the verifier writes it";
 pub const LOAD_NO_WHY_TEMPTING: &str = "option ‹letter› has no why_tempting text";
+// `Review::check_shape` (affirmation.rs): the review block's digest is malformed.
+pub const LOAD_DIGEST_MALFORMED: &str = "review.affirmed_digest is not sha256:<64 hex>";
+pub const LOAD_DIGEST_WITHOUT_WHO: &str =
+    "review.affirmed_digest is recorded without affirmed_by and affirmed_at";
+// `Affirmation::refusal` (affirmation.rs): why an unaffirmed record will not
+// run. The admin channel sends it to the organizer and the host route to the
+// host page, both after [`LOAD_REFUSED`].
+pub const LOAD_AFFIRMATION_STALE: &str =
+    "its text changed after it was affirmed; affirm it again at review.";
+pub const LOAD_AFFIRMATION_UNBOUND: &str =
+    "its affirmation records who and when but not what was affirmed; affirm it again at review.";
+pub const LOAD_AFFIRMATION_NONE: &str =
+    "is not affirmed; affirm it at review, then schedule it again.";
 
 /// [`LOAD_REFUSED`]: record `id`, then why.
 pub fn load_refused(id: &str, why: &str) -> String {
@@ -389,6 +402,28 @@ pub const ROOM_NOTHING_SCHEDULED: &str = "No question is scheduled with that id.
 /// [`ROOM_RUNNING_CANNOT_REPLACE`] for question `id`.
 pub fn room_running_cannot_replace(id: &str) -> String {
     fill(ROOM_RUNNING_CANNOT_REPLACE, &[("id", id)])
+}
+
+// Why the phase machine refuses a host command (`phase::Refused`), and what a
+// host command is told once the room has ended (`Ended::host_reason`). The host
+// page shows each as the host route's `reason`.
+
+pub const HOST_REFUSED_NO_ROOM_YET: &str = "There is no room yet. Create a room comes first.";
+pub const HOST_REFUSED_ROOM_EXISTS: &str =
+    "This room already exists. Create a room makes a separate one.";
+pub const HOST_REFUSED_RELEASED: &str = "The room is released. Run it again starts a new room.";
+pub const HOST_REFUSED_NOT_NEXT: &str = "‹action› isn't next. ‹next› comes next.";
+pub const HOST_REFUSED_TRACE_STILL: &str =
+    "The trace only steps while walking it through or at the answer.";
+pub const HOST_REFUSED_FIRST_STEP: &str = "That's the first step.";
+pub const HOST_REFUSED_LAST_STEP_BEFORE_REVEAL: &str = "That's the last step before the reveal.";
+pub const HOST_REFUSED_LAST_STEP: &str = "That's the last step.";
+pub const HOST_ENDED_EXPIRED: &str = "This room has ended.";
+pub const HOST_ENDED_INACTIVE: &str = "This room closed for inactivity.";
+
+/// [`HOST_REFUSED_NOT_NEXT`]: the refused action's label, then the next one's.
+pub fn host_refused_not_next(action: &str, next: &str) -> String {
+    fill(HOST_REFUSED_NOT_NEXT, &[("action", action), ("next", next)])
 }
 
 /// Substitute ‹placeholders›. Panics on a placeholder nobody supplied — the
