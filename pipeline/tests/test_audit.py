@@ -508,6 +508,7 @@ TELL = "About 40% of the answers are *does not compile*.\n"
         "sequencex/notes.md",  # `sequence/` exempts a directory, not a prefix
         "docs/auditing.md",
         "notes/PRD.md",
+        ".claude-notes/checkpoint.md",  # `.claude` skips that directory, not a prefix
         "PRD.md",  # PQ-83: the superseded weights are struck, so the PRD is read
     ],
 )
@@ -528,6 +529,7 @@ def test_a_tell_anywhere_authored_is_caught(tmp_path: pathlib.Path, rel: str) ->
         "web/node_modules/pkg/README.md",
         "pipeline/.venv/lib/site.py",
         "pipeline/.pytest_cache/README.md",
+        ".claude/checkpoint.md",  # PQ-82: an agent's untracked notes in a worktree
         "sequence/research/notes.md",
         "docs/audit/report.md",
         "pipeline/tests/test_audit.py",
