@@ -17,7 +17,6 @@ import json
 import os
 import signal
 import stat
-import subprocess
 import sys
 from pathlib import Path
 
@@ -119,26 +118,9 @@ def test_the_guard_stops_a_generator_run_on_the_real_claude(tmp_path, claude_dec
         generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3",
                                "--claude-bin", str(claude_decoy.exe)))
     assert not claude_decoy.ran()
-
-
-@pytest.mark.parametrize("found_by", ["--claude-bin", "PATH"])
-def test_the_guard_refuses_to_start_a_generator_process_on_the_real_claude(tmp_path, claude_decoy, found_by):
-    command = [sys.executable, "-m", "popquiz.generate",
-               *argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3")]
-    env = {"PATH": SAFE_PATH}
-    if found_by == "--claude-bin":
-        command += ["--claude-bin", str(claude_decoy.exe)]
-    else:
-        env["PATH"] = f"{claude_decoy.dir}:{SAFE_PATH}"
-    with pytest.raises(pytest.fail.Exception, match=GUARD):
-        subprocess.run(command, env=env, capture_output=True, check=False)
-    assert not claude_decoy.ran()
-
-
-def test_the_guard_refuses_to_start_the_real_claude_itself(claude_decoy):
-    with pytest.raises(pytest.fail.Exception, match=GUARD):
-        subprocess.run([str(claude_decoy.exe), "-p"], check=False)
-    assert not claude_decoy.ran()
+    # The guard on starting a process (a generator run as its own process, or the
+    # binary itself) is proved where tests start processes:
+    # tests/sandbox/generate/test_kill_rerun.py.
 
 
 def test_an_explicit_binary_that_is_not_executable_refuses(tmp_path):
@@ -332,13 +314,14 @@ def test_while_a_child_runs_sigterm_is_handled_an_ignored_sighup_is_not_and_both
     ignored SIGHUP (`nohup`) stays ignored, and the run leaves both as it found them.
     The real signal is sent in `tests/sandbox/generate/test_kill_rerun.py`."""
     seen = []
+    enter = generate_cli._KillChildOnSignal.__enter__
 
-    class Spy(subprocess.Popen):
-        def __init__(self, *args, **kwargs):
-            seen.append((signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGHUP)))
-            super().__init__(*args, **kwargs)
+    def spy(self):
+        guard = enter(self)  # entered before the child is started
+        seen.append((signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGHUP)))
+        return guard
 
-    monkeypatch.setattr(subprocess, "Popen", Spy)
+    monkeypatch.setattr(generate_cli._KillChildOnSignal, "__enter__", spy)
     fake.script("cli-clean")
     assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL
     previous = signal.signal(signal.SIGHUP, signal.SIG_IGN)

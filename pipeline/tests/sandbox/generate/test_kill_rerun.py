@@ -54,16 +54,29 @@ def wait_for(predicate, what: str) -> None:
         time.sleep(0.05)
 
 
-def test_the_root_guard_reaches_this_directory(tmp_path, claude_decoy):
-    """`tests/conftest.py` refuses a generator process on the real `claude` here too
-    (PQ-70 item 1): a decoy stands in for it, and is never started."""
+@pytest.mark.parametrize("found_by", ["--claude-bin", "PATH"])
+def test_the_root_guard_refuses_a_generator_process_on_the_real_claude(tmp_path, claude_decoy, found_by):
+    """`tests/conftest.py` refuses, here too, a claude-cli generator started as a
+    process whose `claude` is the real one, given by `--claude-bin` or found on the
+    child's PATH (PQ-70 item 1). A decoy stands in for it, and is never started."""
     command = [
-        sys.executable, "-m", "popquiz.generate", "--backend", "claude-cli", "--claude-bin", str(claude_decoy.exe),
+        sys.executable, "-m", "popquiz.generate", "--backend", "claude-cli",
         "--max-candidates", "1", "--count", "1", "--topic", "ownership", "--difficulty", "2",
         "--out", str(tmp_path / "out"), "--run-id", "g1",
     ]
+    env = {"PATH": SAFE_PATH}
+    if found_by == "--claude-bin":
+        command += ["--claude-bin", str(claude_decoy.exe)]
+    else:
+        env["PATH"] = f"{claude_decoy.dir}:{SAFE_PATH}"
     with pytest.raises(pytest.fail.Exception, match="the real claude guard"):
-        subprocess.Popen(command, cwd=PIPELINE, env={"PATH": SAFE_PATH})
+        subprocess.run(command, cwd=PIPELINE, env=env, capture_output=True, check=False)
+    assert not claude_decoy.ran()
+
+
+def test_the_root_guard_refuses_to_start_the_real_claude_itself(claude_decoy):
+    with pytest.raises(pytest.fail.Exception, match="the real claude guard"):
+        subprocess.run([str(claude_decoy.exe), "-p"], check=False)
     assert not claude_decoy.ran()
 
 
