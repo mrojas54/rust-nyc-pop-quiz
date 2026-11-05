@@ -551,3 +551,31 @@ def test_a_timeout_that_is_not_a_positive_number_refuses_before_any_spawn(tmp_pa
     assert fake.calls() == [] and not (tmp_path / "out").exists()
     with pytest.raises(GenerateError, match="a claude timeout is a positive number of seconds"):
         ClaudeCliClient(None, tmp_path, timeout_s=float(value))
+
+
+# --------------------------------------------------------------------------- #
+# PQ-70 item 5: stopped while submitting
+# --------------------------------------------------------------------------- #
+
+
+def test_a_claude_cli_run_stopped_while_submitting_resumes_under_its_run_id(tmp_path, fake, monkeypatch):
+    """claude-cli's submit starts nothing and leaks nothing, so a run stopped between
+    writing its submitting state and submit picks up under the same run id."""
+    fake.script("cli-clean")
+    submit = ClaudeCliClient.submit
+
+    def interrupted(self, requests):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(ClaudeCliClient, "submit", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        cli_run(tmp_path)
+    state = json.loads((tmp_path / "out" / "t1" / generate.RUN_SUBDIR / generate.STATE_FILE).read_text(encoding="utf-8"))
+    assert state["status"] == "submitting" and "batch_id" not in state
+    assert fake.calls() == []
+
+    monkeypatch.setattr(ClaudeCliClient, "submit", submit)
+    report, client = cli_run(tmp_path)
+    assert report["resumed"] is True and "stopped" not in report
+    assert report["totals"]["emitted"] == 3
+    assert client.spawned == ["c01", "c02", "c03"]

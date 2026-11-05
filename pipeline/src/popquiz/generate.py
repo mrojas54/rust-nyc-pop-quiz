@@ -1143,7 +1143,8 @@ def run(
     Order matters and is the point: validate, build, check the backend's cap, *then*
     build the client, write the state, submit, write the batch id. A refusal
     therefore happens before a client exists, and a resumed run never reaches
-    `submit`. Each backend has its own cap and refuses the other's: dollars for
+    `submit`, except a claude-cli run stopped just before it, whose submit only
+    keeps its requests. Each backend has its own cap and refuses the other's: dollars for
     Batches, a candidate count for claude-cli, which is checked again on a resume
     because a resumed claude-cli run starts processes.
     """
@@ -1183,12 +1184,20 @@ def run(
             raise GenerateError(
                 f"Run {run_id} was started with a different request; use a new --run-id."
             )
-        if not state.get("batch_id"):
+        if not state.get("batch_id") and backend != CLAUDE_CLI:
             raise GenerateError(
                 f"Run {run_id} stopped while submitting, so a batch may already exist for it; "
                 "check the Console before starting again under a new --run-id."
             )
         client = client_factory()
+        if not state.get("batch_id"):
+            # claude-cli: stopped between the submitting state and submit. Its submit
+            # starts nothing and leaves nothing behind but the requests it keeps, so
+            # there is no batch to leak: finish the submit and carry on (PQ-70).
+            state["batch_id"] = client.submit(requests)
+            state["submitted_at"] = clock()
+            state["status"] = "submitted"
+            write_atomic(state_path, state)
         resumed = True
     else:
         if backend == BATCHES:
