@@ -481,10 +481,11 @@ fn sentence_lets(toks: &[(usize, Tok)]) -> Vec<Binding<'_>> {
 
 /// Whether the `reason` at `i` is a struct literal's field
 /// (`Refused { from: None, command, reason: … }`): it follows `{` or `,`, past
-/// any attributes on it (`#[allow(…)] reason: …`), and its value meets no lone
-/// `|` at its own depth. One that does is a closure's parameter list
-/// (`|from: Phase, reason: &str| …`), not a field; `||` is the operator
-/// (`reason: if a || b { … }`), not the end of one.
+/// any attributes on it (`#[allow(…)] reason: …`), and it is not inside a
+/// closure's parameter list (`|from: Phase, reason: &str| …`). A `|` or `||`
+/// that is an operator (`reason: if a | b { … }`, `from: a || b, reason: …`)
+/// opens no list, and a closure that has already closed
+/// (`f: |x| x, reason: …`) does not hold it.
 fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
     let mut p = i;
     while p > 0 && toks[p - 1].1 == Tok::Punct(']') {
@@ -508,17 +509,58 @@ fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
     if p == 0 || !matches!(toks[p - 1].1, Tok::Punct('{' | ',')) {
         return false;
     }
-    let pipe = |k: usize| toks.get(k).map(|(_, t)| t) == Some(&Tok::Punct('|'));
+    // Walk back at `reason`'s own depth to the `{` that opens its braces. A
+    // `|` met on the way opens a closure's parameters only where an operand
+    // cannot stand before it; and `reason` is one of them only if that list's
+    // closing `|` comes after it.
     let mut depth = 0usize;
-    for k in span(toks, i + 2, true) {
+    for k in (0..p).rev() {
         match toks[k].1 {
-            Tok::Punct('(' | '[' | '{') => depth += 1,
-            Tok::Punct(')' | ']' | '}') => depth = depth.saturating_sub(1),
-            Tok::Punct('|') if depth == 0 && !pipe(k - 1) && !pipe(k + 1) => return false,
+            Tok::Punct(')' | ']' | '}') => depth += 1,
+            Tok::Punct('(' | '[' | '{') if depth > 0 => depth -= 1,
+            // Its braces' `{`, or a bracket no closure list was found inside.
+            Tok::Punct('(' | '[' | '{') => return true,
+            Tok::Punct('|')
+                if depth == 0
+                    && closure_opens(toks, k)
+                    && closure_closes(toks, k).is_some_and(|c| c > i) =>
+            {
+                return false;
+            }
             _ => {}
         }
     }
     true
+}
+
+/// Whether the `|` at `k` can open a closure: what comes before it is no
+/// operand (`= ( [ { , ; :`, `=>`, `move`, `return`, or nothing).
+fn closure_opens(toks: &[(usize, Tok)], k: usize) -> bool {
+    if k == 0 {
+        return true;
+    }
+    match &toks[k - 1].1 {
+        Tok::Punct('=' | '(' | '[' | '{' | ',' | ';' | ':') => true,
+        Tok::Punct('>') => k >= 2 && toks[k - 2].1 == Tok::Punct('='),
+        Tok::Word(w) => w == "move" || w == "return",
+        _ => false,
+    }
+}
+
+/// The `|` that closes the closure parameter list opened at `k`: the next `|`
+/// at its depth.
+fn closure_closes(toks: &[(usize, Tok)], k: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (m, (_, t)) in toks.iter().enumerate().skip(k + 1) {
+        match t {
+            Tok::Punct('(' | '[' | '{') => depth += 1,
+            Tok::Punct(')' | ']' | '}') if depth == 0 => return None,
+            Tok::Punct(')' | ']' | '}') => depth -= 1,
+            Tok::Punct('|') if depth == 0 => return Some(m),
+            _ => {}
+        }
+    }
+    None
 }
 
 /// The files the rule covers: every `.rs` under `src/server/` and `src/connections/`.
@@ -911,13 +953,25 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         ),
         ["No room yet."]
     );
-    // `||` in a field's value is the operator, not a closure's parameter list.
-    assert_eq!(
-        phase_flags(
-            r#"Refused { from: None, reason: if a || b { "No room yet.".into() } else { copy::X.into() }, command }"#
-        ),
-        ["No room yet."]
-    );
+    // `|` and `||` as operators, in its value or an earlier field's, and a
+    // closure that has closed before it, open no parameter list; a closure
+    // passed to a call or held in a field still does.
+    for field in [
+        r#"Refused { from: None, reason: if a || b { "No room yet.".into() } else { copy::X.into() }, command }"#,
+        r#"Refused { from: None, reason: if a | b { "No room yet.".into() } else { copy::X.into() }, command }"#,
+        r#"Refused { from: None, reason: match flags | mask { 0 => "No room yet.".into(), _ => copy::X.into() } }"#,
+        r#"Refused { from: a | b, command: x || y, reason: "No room yet.".into() }"#,
+        r#"Refused { from: f.map(|x| x), note: |x| x, reason: "No room yet.".into() }"#,
+    ] {
+        assert_eq!(phase_flags(field), ["No room yet."], "{field}");
+    }
+    for closure in [
+        r#"let n = f(|from: Phase, reason: &str| format!("{from:?}: {reason}"));"#,
+        r#"Holder { f: |from: Phase, reason: &str| format!("{from:?}: {reason}") }"#,
+        r#"let n = move |from: Phase, reason: &str| format!("{from:?}: {reason}");"#,
+    ] {
+        assert_eq!(phase_flags(closure), Vec::<String>::new(), "{closure}");
+    }
     // Gap 3: `copy::NAME` is copy's, even where this file has its own `NAME`;
     // a bare name or any other path (`self::`, `Self::`, `Phase::`) is still
     // this file's.
