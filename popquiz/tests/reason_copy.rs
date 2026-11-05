@@ -25,6 +25,10 @@
 //! - anywhere in the body of a [`REASON_FNS`] function, which returns a
 //!   reason from a `match` or an `Err` rather than through a call.
 //!
+//! A same-file `const` or `static` is read as its literal (PQ-84): where the
+//! scan reads a span, the name of one that holds a letter-bearing literal fails
+//! as that literal would. A constant used nowhere a reason is built passes.
+//!
 //! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
 //! Those are the codes a client branches on, not sentences anyone reads; any
 //! other word there fails, so a new code is added to the list on purpose.
@@ -231,13 +235,28 @@ struct Scan {
 fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
     let toks = tokens(src);
     let mut out = Scan::default();
+    let consts = sentence_consts(&toks);
+    // The literal a token stands for: itself, or, for the name of a same-file
+    // `const`/`static` that holds a letter-bearing literal, that literal. So
+    // `const WHY: &str = "…"; refused(s, WHY)` fails as the literal would.
+    let lit = |j: usize| -> Option<(usize, &str)> {
+        match &toks[j].1 {
+            Tok::Str(s) => Some((j, s.as_str())),
+            Tok::Word(w) => consts.get(w.as_str()).map(|&l| match &toks[l].1 {
+                Tok::Str(s) => (l, s.as_str()),
+                _ => unreachable!("sentence_consts records string tokens only"),
+            }),
+            Tok::Punct(_) => None,
+        }
+    };
+    let letters = |s: &str| s.chars().any(char::is_alphabetic);
     // A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
     // hit, not one per enclosing call.
     let mut seen = vec![false; toks.len()];
-    let mut hit = |j: usize, what: String, out: &mut Scan| {
-        if let Tok::Str(s) = &toks[j].1 {
-            if !std::mem::replace(&mut seen[j], true) {
-                out.hits.push((toks[j].0, what, s.clone()));
+    let mut hit = |l: usize, what: String, out: &mut Scan| {
+        if let Tok::Str(s) = &toks[l].1 {
+            if !std::mem::replace(&mut seen[l], true) {
+                out.hits.push((toks[l].0, what, s.clone()));
             }
         }
     };
@@ -249,22 +268,14 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
             (Some(Tok::Punct('!')), Some(Tok::Punct('('))) => Some(i + 3),
             _ => None,
         };
-        match t {
+        let (what, read) = match t {
             Tok::Str(key)
                 if KEYS.contains(&key.as_str())
                     && next(1) == Some(&Tok::Punct(':'))
                     && next(2) != Some(&Tok::Punct(':')) =>
             {
                 out.fields += 1;
-                for j in span(&toks, i + 2, true) {
-                    if let Tok::Str(s) = &toks[j].1 {
-                        if s.chars().any(char::is_alphabetic)
-                            && !(key == "refusal" && REFUSAL_CODES.contains(&s.as_str()))
-                        {
-                            hit(j, format!("\"{key}\""), &mut out);
-                        }
-                    }
-                }
+                (format!("\"{key}\""), span(&toks, i + 2, true))
             }
             Tok::Word(name)
                 if sinks.contains(&name.as_str())
@@ -272,13 +283,7 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
                     && !(i > 0 && toks[i - 1].1 == Tok::Word("fn".into())) =>
             {
                 out.sink_calls += 1;
-                for j in span(&toks, args.unwrap_or(i), false) {
-                    if let Tok::Str(s) = &toks[j].1 {
-                        if s.chars().any(char::is_alphabetic) {
-                            hit(j, format!("{name}(…)"), &mut out);
-                        }
-                    }
-                }
+                (format!("{name}(…)"), span(&toks, args.unwrap_or(i), false))
             }
             // `Refused { reason: "…".into() }`: a struct literal's field, so
             // the word follows `{` or `,` (not a closure's `|reason: String|`).
@@ -291,13 +296,7 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
                     && matches!(toks[i - 1].1, Tok::Punct('{' | ',')) =>
             {
                 out.fields += 1;
-                for j in span(&toks, i + 2, true) {
-                    if let Tok::Str(s) = &toks[j].1 {
-                        if s.chars().any(char::is_alphabetic) {
-                            hit(j, "reason:".into(), &mut out);
-                        }
-                    }
-                }
+                ("reason:".into(), span(&toks, i + 2, true))
             }
             // `fn host_reason(…) -> … { … }`: the whole body.
             Tok::Word(f) if source && f == "fn" => {
@@ -311,15 +310,51 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
                     continue;
                 };
                 out.reason_fns += 1;
-                for j in span(&toks, open + 1, false) {
-                    if let Tok::Str(s) = &toks[j].1 {
-                        if s.chars().any(char::is_alphabetic) {
-                            hit(j, format!("fn {name}"), &mut out);
-                        }
-                    }
+                (format!("fn {name}"), span(&toks, open + 1, false))
+            }
+            _ => continue,
+        };
+        // A `refusal` key's value may be one of the codes; nothing else may.
+        let code_ok = matches!(t, Tok::Str(key) if key == "refusal");
+        for j in read {
+            if let Some((l, s)) = lit(j) {
+                if letters(s) && !(code_ok && REFUSAL_CODES.contains(&s)) {
+                    hit(l, what.clone(), &mut out);
                 }
             }
-            _ => {}
+        }
+    }
+    out
+}
+
+/// Each same-file `const` or `static` whose initializer holds a literal with a
+/// letter in it: its name, and the token of the first such literal.
+fn sentence_consts(toks: &[(usize, Tok)]) -> std::collections::HashMap<&str, usize> {
+    let mut out = std::collections::HashMap::new();
+    for (i, (_, t)) in toks.iter().enumerate() {
+        if !matches!(t, Tok::Word(w) if w == "const" || w == "static") {
+            continue;
+        }
+        let mut k = i + 1;
+        if matches!(toks.get(k), Some((_, Tok::Word(w))) if w == "mut") {
+            k += 1;
+        }
+        // `const NAME:` — not `*const T` or `const fn`.
+        let (Some((_, Tok::Word(name))), Some((_, Tok::Punct(':')))) =
+            (toks.get(k), toks.get(k + 1))
+        else {
+            continue;
+        };
+        let Some(eq) = (k..toks.len()).find(|&m| toks[m].1 == Tok::Punct('=')) else {
+            continue;
+        };
+        let end = (eq..toks.len())
+            .find(|&m| toks[m].1 == Tok::Punct(';'))
+            .unwrap_or(toks.len());
+        let literal = (eq..end)
+            .find(|&m| matches!(&toks[m].1, Tok::Str(s) if s.chars().any(char::is_alphabetic)));
+        if let Some(l) = literal {
+            out.insert(name.as_str(), l);
         }
     }
     out
@@ -595,6 +630,44 @@ fn the_scan_fails_m5b3_and_both_plants() {
     // A code passes only as a refusal, and only a listed one.
     assert_eq!(flags(r#"json!({ "reason": "full" })"#), ["full"]);
     assert_eq!(flags(r#"json!({ "refusal": "volunteer" })"#), ["volunteer"]);
+}
+
+#[test]
+fn the_scan_reads_a_same_file_constant_as_its_literal() {
+    // PQ-60's Minor: the sentence one name away from the sink.
+    let bad = r#"
+        const BAD: &str = "Turn to your neighbour and volunteer one.";
+        fn f() -> Response { refused(StatusCode::CONFLICT, BAD) }
+    "#;
+    assert_eq!(flags(bad), ["Turn to your neighbour and volunteer one."]);
+    let json = r#"
+        pub(crate) static WHY: &str = "Saved it.";
+        Json(serde_json::json!({ "saved": saved, "reason": WHY }))
+    "#;
+    assert_eq!(flags(json), ["Saved it."]);
+    // In a source: a struct field, a sink's argument, a reason function's arm.
+    let field = r#"const NO_ROOM: &str = "No room yet.";
+        Err(Refused { from: None, command, reason: NO_ROOM.into() })"#;
+    assert_eq!(source_flags(field), ["No room yet."]);
+    let arm = r#"const ENDED: &str = "This room has ended.";
+        pub fn host_reason(self) -> &'static str { match self { Ended::Expired => ENDED, _ => copy::X } }"#;
+    assert_eq!(source_flags(arm), ["This room has ended."]);
+    // Used twice, reported once.
+    let twice = r#"const W: &str = "No."; refused(a, W); refused(b, W);"#;
+    assert_eq!(flags(twice), ["No."]);
+    // Constants that never reach a reason pass, as do a listed code and copy's.
+    let clean = r#"
+        pub const VAR: &str = "POPQUIZ_ADMIN_TOKEN";
+        const CSS: &str = "text/css; charset=utf-8";
+        const HOST_HTML: &str = include_str!("../../../../web/host/index.html");
+        const FULL: &str = "full";
+        let token = var(VAR);
+        asset(HOST_HTML, CSS);
+        Json(serde_json::json!({ "refusal": FULL, "reason": copy::ANSWER_NOT_YET_OPEN }));
+        let p: *const u8 = std::ptr::null();
+        const fn two() -> usize { 2 }
+    "#;
+    assert_eq!(flags(clean), Vec::<String>::new());
 }
 
 #[test]
