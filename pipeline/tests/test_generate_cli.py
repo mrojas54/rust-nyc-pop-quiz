@@ -1,11 +1,12 @@
 """The claude-cli backend (PQ-69) against a fake `claude`. No model, no key, no network.
 
-Every test runs with `PATH=/usr/bin:/bin`, where no `claude` exists, and with every
-billing variable removed; a test that wants the CLI puts a fake on `PATH` itself,
-in its own `tmp_path` (`fixtures/generate/claude/fake_claude.py`). So the real
-`claude` cannot be reached from here: the autouse guard fails any test that finds
-one. The fake's answers are the documented `--output-format json` shape, not a
-recording; see the fixtures' README.
+Every test runs `hermetic` (`tests/conftest.py`): `PATH=/usr/bin:/bin`, every
+billing variable removed, no network. A test that wants the CLI puts a fake on
+`PATH` itself, in its own `tmp_path` (`fixtures/generate/claude/fake_claude.py`).
+The real `claude` is out of reach from every test in every directory: the root
+conftest's guard fails a test that builds a client on it or starts it. The fake's
+answers are the documented `--output-format json` shape, not a recording; see the
+fixtures' README.
 """
 
 from __future__ import annotations
@@ -14,9 +15,8 @@ import ast
 import io
 import json
 import os
-import shutil
-import socket
 import stat
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,25 +31,9 @@ FAKE = HERE / "fixtures" / "generate" / "claude"
 SRC = HERE.parent / "src" / "popquiz"
 TOPICS = ("ownership", "iterators", "integers")
 SENTINEL = "sk-test-not-a-key-0000"  # never a real key; the test looks for it in every file
-SAFE_PATH = "/usr/bin:/bin"
+SAFE_PATH = "/usr/bin:/bin"  # what `hermetic` sets; the fake goes in front of it
 
-
-@pytest.fixture(autouse=True)
-def no_real_claude(monkeypatch):
-    """Ruling 7: the real `claude` cannot be resolved on this file's default path,
-    and nothing here can reach a network or find a credential."""
-    monkeypatch.setenv("PATH", SAFE_PATH)
-    for name in list(os.environ):
-        if generate_cli.is_billing_switch(name):
-            monkeypatch.delenv(name)
-    assert shutil.which("claude") is None, "a real claude is reachable on the test PATH"
-
-    def refuse(*args, **kwargs):
-        raise AssertionError("a test in test_generate_cli.py tried to use the network")
-
-    monkeypatch.setattr(socket.socket, "connect", refuse)
-    monkeypatch.setattr(socket, "create_connection", refuse)
-    monkeypatch.setattr(socket, "getaddrinfo", refuse)
+pytestmark = pytest.mark.usefixtures("hermetic")
 
 
 class Fake:
@@ -113,6 +97,47 @@ def test_without_a_fake_the_client_finds_no_claude_and_refuses(tmp_path):
     with pytest.raises(GenerateError) as err:
         ClaudeCliClient(None, tmp_path)
     assert str(err.value) == generate_cli.NO_CLAUDE
+
+
+GUARD = "the real claude guard"
+
+
+def test_the_guard_refuses_a_client_given_the_real_claude(tmp_path, claude_decoy):
+    with pytest.raises(pytest.fail.Exception, match=GUARD):
+        ClaudeCliClient(str(claude_decoy.exe), tmp_path)
+
+
+def test_the_guard_refuses_a_client_that_finds_the_real_claude_on_path(tmp_path, claude_decoy, monkeypatch):
+    monkeypatch.setenv("PATH", f"{claude_decoy.dir}:{SAFE_PATH}")
+    with pytest.raises(pytest.fail.Exception, match=GUARD):
+        ClaudeCliClient(None, tmp_path)
+
+
+def test_the_guard_stops_a_generator_run_on_the_real_claude(tmp_path, claude_decoy):
+    with pytest.raises(pytest.fail.Exception, match=GUARD):
+        generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3",
+                               "--claude-bin", str(claude_decoy.exe)))
+    assert not claude_decoy.ran()
+
+
+@pytest.mark.parametrize("found_by", ["--claude-bin", "PATH"])
+def test_the_guard_refuses_to_start_a_generator_process_on_the_real_claude(tmp_path, claude_decoy, found_by):
+    command = [sys.executable, "-m", "popquiz.generate",
+               *argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3")]
+    env = {"PATH": SAFE_PATH}
+    if found_by == "--claude-bin":
+        command += ["--claude-bin", str(claude_decoy.exe)]
+    else:
+        env["PATH"] = f"{claude_decoy.dir}:{SAFE_PATH}"
+    with pytest.raises(pytest.fail.Exception, match=GUARD):
+        subprocess.run(command, env=env, capture_output=True, check=False)
+    assert not claude_decoy.ran()
+
+
+def test_the_guard_refuses_to_start_the_real_claude_itself(claude_decoy):
+    with pytest.raises(pytest.fail.Exception, match=GUARD):
+        subprocess.run([str(claude_decoy.exe), "-p"], check=False)
+    assert not claude_decoy.ran()
 
 
 def test_an_explicit_binary_that_is_not_executable_refuses(tmp_path):

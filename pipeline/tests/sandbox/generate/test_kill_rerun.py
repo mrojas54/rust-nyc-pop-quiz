@@ -54,6 +54,19 @@ def wait_for(predicate, what: str) -> None:
         time.sleep(0.05)
 
 
+def test_the_root_guard_reaches_this_directory(tmp_path, claude_decoy):
+    """`tests/conftest.py` refuses a generator process on the real `claude` here too
+    (PQ-70 item 1): a decoy stands in for it, and is never started."""
+    command = [
+        sys.executable, "-m", "popquiz.generate", "--backend", "claude-cli", "--claude-bin", str(claude_decoy.exe),
+        "--max-candidates", "1", "--count", "1", "--topic", "ownership", "--difficulty", "2",
+        "--out", str(tmp_path / "out"), "--run-id", "g1",
+    ]
+    with pytest.raises(pytest.fail.Exception, match="the real claude guard"):
+        subprocess.Popen(command, cwd=PIPELINE, env={"PATH": SAFE_PATH})
+    assert not claude_decoy.ran()
+
+
 def test_ac2_a_generator_killed_mid_candidate_reruns_to_completion(tmp_path, capsys):
     started = time.monotonic()
     before = room_digest()
