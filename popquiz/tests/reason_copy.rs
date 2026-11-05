@@ -348,8 +348,21 @@ fn sentence_consts(toks: &[(usize, Tok)]) -> std::collections::HashMap<&str, usi
         let Some(eq) = (k..toks.len()).find(|&m| toks[m].1 == Tok::Punct('=')) else {
             continue;
         };
+        // The `;` that ends the item, not one inside a block initializer.
+        let mut depth = 0i32;
         let end = (eq..toks.len())
-            .find(|&m| toks[m].1 == Tok::Punct(';'))
+            .find(|&m| match toks[m].1 {
+                Tok::Punct('(' | '[' | '{') => {
+                    depth += 1;
+                    false
+                }
+                Tok::Punct(')' | ']' | '}') => {
+                    depth -= 1;
+                    false
+                }
+                Tok::Punct(';') => depth <= 0,
+                _ => false,
+            })
             .unwrap_or(toks.len());
         let literal = (eq..end)
             .find(|&m| matches!(&toks[m].1, Tok::Str(s) if s.chars().any(char::is_alphabetic)));
@@ -652,6 +665,13 @@ fn the_scan_reads_a_same_file_constant_as_its_literal() {
     let arm = r#"const ENDED: &str = "This room has ended.";
         pub fn host_reason(self) -> &'static str { match self { Ended::Expired => ENDED, _ => copy::X } }"#;
     assert_eq!(source_flags(arm), ["This room has ended."]);
+    // A block initializer: its inner `;` does not end the constant.
+    let block = r#"const WHY: &str = { let _ = (); "Not allowed." };
+        fn f() -> Response { refused(StatusCode::CONFLICT, WHY) }"#;
+    assert_eq!(flags(block), ["Not allowed."]);
+    let block_field = r#"const WHY: &str = { let _ = (); "Not allowed." };
+        Err(Refused { from: None, command, reason: WHY.into() })"#;
+    assert_eq!(source_flags(block_field), ["Not allowed."]);
     // Used twice, reported once.
     let twice = r#"const W: &str = "No."; refused(a, W); refused(b, W);"#;
     assert_eq!(flags(twice), ["No."]);
