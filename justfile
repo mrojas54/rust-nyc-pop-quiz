@@ -51,9 +51,10 @@ setup:
 [parallel]
 test: test-room test-pipeline test-web test-organizer
 
-# Checks formatting (popquiz/rustfmt.toml), then builds and tests the room crate with whatever cargo this machine has.
+# Checks formatting (popquiz/rustfmt.toml) and clippy, then builds and tests the room crate with whatever cargo this machine has.
 test-room:
     cd popquiz && cargo fmt --check
+    cd popquiz && cargo clippy --offline --locked --all-targets -- -D warnings
     cd popquiz && cargo test --offline --locked
 
 # Organizer UI stays checked against the room API it imports.
