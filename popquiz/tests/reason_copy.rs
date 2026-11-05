@@ -274,17 +274,18 @@ fn scan(src: &str, sinks: &[&str], source: bool, fns: &[&str]) -> Scan {
         };
         let before = |k: usize| j.checked_sub(k).map(|k| &toks[k].1);
         // `x.why` is a field or method, and `copy::WHY` is copy's: neither is
-        // this file's binding. `self::WHY` and `Self::WHY` are.
+        // this file's. Any other path (`Self::WHY`, `Phase::WHY`, `self::WHY`)
+        // may name this file's `const`, but never a `let`.
         let path = before(1) == Some(&Tok::Punct(':')) && before(2) == Some(&Tok::Punct(':'));
-        let own_path = matches!(before(3), Some(Tok::Word(q)) if q == "self" || q == "Self");
-        if before(1) == Some(&Tok::Punct('.')) || (path && !own_path) {
+        let copy_path = path && matches!(before(3), Some(Tok::Word(q)) if q == "copy");
+        if before(1) == Some(&Tok::Punct('.')) || copy_path {
             return None;
         }
         // The nearest binding of that name whose scope holds `j` wins, so a
         // clean `let` shadows a dirty one.
         let binding = lets
             .iter()
-            .filter(|b| b.name == w && b.from < j && j < b.to)
+            .filter(|b| !path && b.name == w && b.from < j && j < b.to)
             .max_by_key(|b| b.from);
         match binding {
             Some(b) => b.literal.map(text),
@@ -480,9 +481,10 @@ fn sentence_lets(toks: &[(usize, Tok)]) -> Vec<Binding<'_>> {
 
 /// Whether the `reason` at `i` is a struct literal's field
 /// (`Refused { from: None, command, reason: … }`): it follows `{` or `,`, past
-/// any attributes on it (`#[allow(…)] reason: …`), and its value meets no `|`
-/// at its own depth. One that does is a closure's parameter list
-/// (`|from: Phase, reason: &str| …`), not a field.
+/// any attributes on it (`#[allow(…)] reason: …`), and its value meets no lone
+/// `|` at its own depth. One that does is a closure's parameter list
+/// (`|from: Phase, reason: &str| …`), not a field; `||` is the operator
+/// (`reason: if a || b { … }`), not the end of one.
 fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
     let mut p = i;
     while p > 0 && toks[p - 1].1 == Tok::Punct(']') {
@@ -506,12 +508,13 @@ fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
     if p == 0 || !matches!(toks[p - 1].1, Tok::Punct('{' | ',')) {
         return false;
     }
+    let pipe = |k: usize| toks.get(k).map(|(_, t)| t) == Some(&Tok::Punct('|'));
     let mut depth = 0usize;
-    for (_, t) in &toks[span(toks, i + 2, true)] {
-        match t {
+    for k in span(toks, i + 2, true) {
+        match toks[k].1 {
             Tok::Punct('(' | '[' | '{') => depth += 1,
             Tok::Punct(')' | ']' | '}') => depth = depth.saturating_sub(1),
-            Tok::Punct('|') if depth == 0 => return false,
+            Tok::Punct('|') if depth == 0 && !pipe(k - 1) && !pipe(k + 1) => return false,
             _ => {}
         }
     }
@@ -908,8 +911,16 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         ),
         ["No room yet."]
     );
+    // `||` in a field's value is the operator, not a closure's parameter list.
+    assert_eq!(
+        phase_flags(
+            r#"Refused { from: None, reason: if a || b { "No room yet.".into() } else { copy::X.into() }, command }"#
+        ),
+        ["No room yet."]
+    );
     // Gap 3: `copy::NAME` is copy's, even where this file has its own `NAME`;
-    // a bare name, `self::` or `Self::` is still this file's.
+    // a bare name or any other path (`self::`, `Self::`, `Phase::`) is still
+    // this file's.
     let shadow = r#"const HOST_ENDED_EXPIRED: &str = "expired";
         pub fn host_reason(self) -> &'static str {
             match self { Ended::Expired => copy::HOST_ENDED_EXPIRED, _ => crate::copy::X }
@@ -924,6 +935,12 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
             r#"impl Ended { const WHY: &str = "Ended."; pub fn host_reason(self) -> &'static str { Self::WHY } }"#
         ),
         ["Ended."]
+    );
+    assert_eq!(
+        phase_flags(
+            r#"impl Phase { const WHY: &str = "No room yet."; } Refused { from: None, command, reason: Phase::WHY.into() }"#
+        ),
+        ["No room yet."]
     );
     // Gap 5: a `let` binding is read as its literal where the scan reads it.
     assert_eq!(
