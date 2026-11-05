@@ -34,8 +34,6 @@ pub const BUZZER_NOANSWER_COUNT_ONE: &str = "You didn't answer.";
 pub const JOIN_FAIL_MALFORMED: &str =
     "That's not a room code — six letters and numbers, never O, 0, I or 1. Try again.";
 pub const JOIN_FAIL_UNKNOWN: &str = "No room with that code. Check the screen at the front.";
-pub const JOIN_FAIL_NOT_YET_OPEN: &str =
-    "That room isn't open yet. Hold on — the host will put it on the screen.";
 pub const JOIN_FAIL_ALREADY_ENDED: &str = "That room has ended. Look for the link on the screen.";
 pub const JOIN_FAIL_CLOSED_INACTIVITY: &str =
     "That room went quiet and closed. If it comes back, the screen at the front will say so.";
@@ -161,7 +159,6 @@ pub const ALL: &[(&str, &str)] = &[
     ("buzzer_noanswer_count_one", BUZZER_NOANSWER_COUNT_ONE),
     ("join_fail_malformed", JOIN_FAIL_MALFORMED),
     ("join_fail_unknown", JOIN_FAIL_UNKNOWN),
-    ("join_fail_not_yet_open", JOIN_FAIL_NOT_YET_OPEN),
     ("join_fail_already_ended", JOIN_FAIL_ALREADY_ENDED),
     ("join_fail_closed_inactivity", JOIN_FAIL_CLOSED_INACTIVITY),
     ("join_transport_failed", JOIN_TRANSPORT_FAILED),
