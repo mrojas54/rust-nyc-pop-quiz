@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 7,
+  "comment_count": 8,
   "complexity": "low",
   "created_at": "2026-11-03T20:43:22Z",
   "created_by": "agent:orchestrator",
@@ -23,10 +23,15 @@
       "id": "art_01M6MQTFKDGGQQCD8AQVRRASCN",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6N0S7RR4Y4VBQGVZ9CFG4YW",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M6HJDY4EK06G1XVVAKAS4RZS",
-  "last_event_id": "ev_01M6MY7R3GS3KM9RXK5V6KRPPZ",
+  "last_event_id": "ev_01M6N0S7X93ZQDQQ0VJ7FFMSKV",
   "last_status_changed_at": "2026-11-05T02:15:20Z",
   "priority": "low",
   "relationships_out": [],
@@ -41,6 +46,6 @@
   ],
   "title": "PRD.md: mark the superseded 79.99/0.01/20 category weights",
   "type": "chore",
-  "updated_at": "2026-11-05T04:07:26Z",
+  "updated_at": "2026-11-05T04:51:56Z",
   "urgency": null
 }
