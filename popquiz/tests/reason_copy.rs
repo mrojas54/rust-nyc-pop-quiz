@@ -21,13 +21,18 @@
 //!   [`FORMAT_SOURCES`], of any `format!`: every `format!` there builds a
 //!   refusal, so none may carry its own words (elsewhere one may build a
 //!   digest, and is read only inside one of these shapes);
-//! - in a struct literal's `reason:` field (`Refused { reason: … }`); or
+//! - in a struct literal's `reason:` field (`Refused { reason: … }`), with or
+//!   without an attribute on it; a closure's parameter named `reason` is not
+//!   a field (PQ-85); or
 //! - anywhere in the body of a [`REASON_FNS`] function, which returns a
-//!   reason from a `match` or an `Err` rather than through a call.
+//!   reason from a `match` or an `Err` rather than through a call. Each is
+//!   pinned to its own file (PQ-85).
 //!
-//! A same-file `const` or `static` is read as its literal (PQ-84): where the
-//! scan reads a span, the name of one that holds a letter-bearing literal fails
-//! as that literal would. A constant used nowhere a reason is built passes.
+//! A same-file `const` or `static` is read as its literal (PQ-84), and so is a
+//! `let` binding in its block (PQ-85): where the scan reads a span, the name of
+//! one that holds a letter-bearing literal fails as that literal would. A name
+//! under another module's path (`copy::NAME`) is that module's, not this
+//! file's. A constant or binding used nowhere a reason is built passes.
 //!
 //! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
 //! Those are the codes a client branches on, not sentences anyone reads; any
@@ -84,10 +89,25 @@ const FORMAT_SOURCES: &[&str] = &[
 /// In [`FORMAT_SOURCES`], the macros that build a refusal.
 const FORMAT_SINKS: &[&str] = &["format", "format_args"];
 
-/// In [`REASON_SOURCES`], the functions that return a reason: every literal in
-/// their bodies is bound for a person (`Ended::host_reason`, the affirmation's
-/// `refusal`, `Review::check_shape`).
-const REASON_FNS: &[&str] = &["host_reason", "refusal", "check_shape"];
+/// In [`REASON_SOURCES`], the functions that return a reason, each in its own
+/// file: every literal in their bodies is bound for a person. Pinned by file,
+/// so renaming one is not hidden by a namesake elsewhere (PQ-85). `Ended::refusal`
+/// (`lifecycle.rs`) returns a `JoinRefusal`, not a sentence, so it is not one.
+const REASON_FNS: &[(&str, &str)] = &[
+    ("quiz_session/lifecycle.rs", "host_reason"),
+    ("quiz_session/models/affirmation.rs", "refusal"),
+    ("quiz_session/models/affirmation.rs", "check_shape"),
+    ("quiz_session/models/answers.rs", "refusal"),
+];
+
+/// The [`REASON_FNS`] in file `name`.
+fn fns_for(name: &str) -> Vec<&'static str> {
+    REASON_FNS
+        .iter()
+        .filter(|(file, _)| *file == name)
+        .map(|(_, f)| *f)
+        .collect()
+}
 
 #[derive(Debug, PartialEq)]
 enum Tok {
@@ -231,22 +251,44 @@ struct Scan {
 }
 
 /// `source` reads the file as a [`REASON_SOURCES`] file: its `reason:` struct
-/// fields and [`REASON_FNS`] bodies are read too.
-fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
+/// fields and the bodies of its reason functions `fns` are read too.
+fn scan(src: &str, sinks: &[&str], source: bool, fns: &[&str]) -> Scan {
     let toks = tokens(src);
     let mut out = Scan::default();
     let consts = sentence_consts(&toks);
-    // The literal a token stands for: itself, or, for the name of a same-file
-    // `const`/`static` that holds a letter-bearing literal, that literal. So
-    // `const WHY: &str = "…"; refused(s, WHY)` fails as the literal would.
+    let lets = sentence_lets(&toks);
+    let text = |l: usize| match &toks[l].1 {
+        Tok::Str(s) => (l, s.as_str()),
+        _ => unreachable!("sentence_consts and sentence_lets record string tokens only"),
+    };
+    // The literal a token stands for: itself, or, for the name of a `let`
+    // binding in scope or a same-file `const`/`static` that holds a
+    // letter-bearing literal, that literal. So `const WHY: &str = "…";
+    // refused(s, WHY)` and `let why = format!("…"); refuse(why)` fail as the
+    // literal would.
     let lit = |j: usize| -> Option<(usize, &str)> {
-        match &toks[j].1 {
-            Tok::Str(s) => Some((j, s.as_str())),
-            Tok::Word(w) => consts.get(w.as_str()).map(|&l| match &toks[l].1 {
-                Tok::Str(s) => (l, s.as_str()),
-                _ => unreachable!("sentence_consts records string tokens only"),
-            }),
-            Tok::Punct(_) => None,
+        let w = match &toks[j].1 {
+            Tok::Str(s) => return Some((j, s.as_str())),
+            Tok::Word(w) => w.as_str(),
+            Tok::Punct(_) => return None,
+        };
+        let before = |k: usize| j.checked_sub(k).map(|k| &toks[k].1);
+        // `x.why` is a field or method, and `copy::WHY` is copy's: neither is
+        // this file's binding. `self::WHY` and `Self::WHY` are.
+        let path = before(1) == Some(&Tok::Punct(':')) && before(2) == Some(&Tok::Punct(':'));
+        let own_path = matches!(before(3), Some(Tok::Word(q)) if q == "self" || q == "Self");
+        if before(1) == Some(&Tok::Punct('.')) || (path && !own_path) {
+            return None;
+        }
+        // The nearest binding of that name whose scope holds `j` wins, so a
+        // clean `let` shadows a dirty one.
+        let binding = lets
+            .iter()
+            .filter(|b| b.name == w && b.from < j && j < b.to)
+            .max_by_key(|b| b.from);
+        match binding {
+            Some(b) => b.literal.map(text),
+            None => consts.get(w).map(|&l| text(l)),
         }
     };
     let letters = |s: &str| s.chars().any(char::is_alphabetic);
@@ -285,15 +327,13 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
                 out.sink_calls += 1;
                 (format!("{name}(…)"), span(&toks, args.unwrap_or(i), false))
             }
-            // `Refused { reason: "…".into() }`: a struct literal's field, so
-            // the word follows `{` or `,` (not a closure's `|reason: String|`).
+            // `Refused { reason: "…".into() }`: a struct literal's field.
             Tok::Word(w)
                 if source
                     && w == "reason"
                     && next(1) == Some(&Tok::Punct(':'))
                     && next(2) != Some(&Tok::Punct(':'))
-                    && i > 0
-                    && matches!(toks[i - 1].1, Tok::Punct('{' | ',')) =>
+                    && struct_field(&toks, i) =>
             {
                 out.fields += 1;
                 ("reason:".into(), span(&toks, i + 2, true))
@@ -303,7 +343,7 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
                 let Some(Tok::Word(name)) = next(1) else {
                     continue;
                 };
-                if !REASON_FNS.contains(&name.as_str()) {
+                if !fns.contains(&name.as_str()) {
                     continue;
                 }
                 let Some(open) = (i + 2..toks.len()).find(|&k| toks[k].1 == Tok::Punct('{')) else {
@@ -348,29 +388,134 @@ fn sentence_consts(toks: &[(usize, Tok)]) -> std::collections::HashMap<&str, usi
         let Some(eq) = (k..toks.len()).find(|&m| toks[m].1 == Tok::Punct('=')) else {
             continue;
         };
-        // The `;` that ends the item, not one inside a block initializer.
-        let mut depth = 0i32;
-        let end = (eq..toks.len())
+        if let Some(l) = sentence_in(toks, eq..statement_end(toks, eq)) {
+            out.insert(name.as_str(), l);
+        }
+    }
+    out
+}
+
+/// The `;` that ends the item or statement running from `from`, not one inside
+/// a block initializer; the end of the tokens if there is none.
+fn statement_end(toks: &[(usize, Tok)], from: usize) -> usize {
+    let mut depth = 0i32;
+    (from..toks.len())
+        .find(|&m| match toks[m].1 {
+            Tok::Punct('(' | '[' | '{') => {
+                depth += 1;
+                false
+            }
+            Tok::Punct(')' | ']' | '}') => {
+                depth -= 1;
+                false
+            }
+            Tok::Punct(';') => depth <= 0,
+            _ => false,
+        })
+        .unwrap_or(toks.len())
+}
+
+/// The first literal with a letter in it among `range`.
+fn sentence_in(toks: &[(usize, Tok)], range: std::ops::Range<usize>) -> Option<usize> {
+    range
+        .into_iter()
+        .find(|&m| matches!(&toks[m].1, Tok::Str(s) if s.chars().any(char::is_alphabetic)))
+}
+
+/// A `let` binding of one name (`let why = …;`, `let mut why: String = …;`):
+/// it is in scope from its `;` (`from`) to the `}` that closes its block
+/// (`to`), and `literal` is its initializer's first letter-bearing literal.
+struct Binding<'a> {
+    name: &'a str,
+    from: usize,
+    to: usize,
+    literal: Option<usize>,
+}
+
+/// Every single-name `let` binding with an initializer. Patterns
+/// (`let Some(why) = …`, `let (a, b) = …`) bind nothing this scan reads.
+fn sentence_lets(toks: &[(usize, Tok)]) -> Vec<Binding<'_>> {
+    let mut out = Vec::new();
+    for (i, (_, t)) in toks.iter().enumerate() {
+        if *t != Tok::Word("let".into()) {
+            continue;
+        }
+        let mut k = i + 1;
+        if matches!(toks.get(k), Some((_, Tok::Word(w))) if w == "mut") {
+            k += 1;
+        }
+        let (Some((_, Tok::Word(name))), Some((_, Tok::Punct(':' | '=')))) =
+            (toks.get(k), toks.get(k + 1))
+        else {
+            continue;
+        };
+        let end = statement_end(toks, k);
+        let Some(eq) = (k..end).find(|&m| toks[m].1 == Tok::Punct('=')) else {
+            continue;
+        };
+        let mut depth = 0usize;
+        let to = (end..toks.len())
             .find(|&m| match toks[m].1 {
                 Tok::Punct('(' | '[' | '{') => {
                     depth += 1;
                     false
                 }
+                Tok::Punct(')' | ']' | '}') if depth == 0 => true,
                 Tok::Punct(')' | ']' | '}') => {
                     depth -= 1;
                     false
                 }
-                Tok::Punct(';') => depth <= 0,
                 _ => false,
             })
             .unwrap_or(toks.len());
-        let literal = (eq..end)
-            .find(|&m| matches!(&toks[m].1, Tok::Str(s) if s.chars().any(char::is_alphabetic)));
-        if let Some(l) = literal {
-            out.insert(name.as_str(), l);
-        }
+        out.push(Binding {
+            name: name.as_str(),
+            from: end,
+            to,
+            literal: sentence_in(toks, eq..end),
+        });
     }
     out
+}
+
+/// Whether the `reason` at `i` is a struct literal's field
+/// (`Refused { from: None, command, reason: … }`): it follows `{` or `,`, past
+/// any attributes on it (`#[allow(…)] reason: …`), and its value meets no `|`
+/// at its own depth. One that does is a closure's parameter list
+/// (`|from: Phase, reason: &str| …`), not a field.
+fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
+    let mut p = i;
+    while p > 0 && toks[p - 1].1 == Tok::Punct(']') {
+        let mut depth = 0usize;
+        let open = (0..p).rev().find(|&q| match toks[q].1 {
+            Tok::Punct(']') => {
+                depth += 1;
+                false
+            }
+            Tok::Punct('[') => {
+                depth -= 1;
+                depth == 0
+            }
+            _ => false,
+        });
+        match open {
+            Some(o) if o > 0 && toks[o - 1].1 == Tok::Punct('#') => p = o - 1,
+            _ => return false,
+        }
+    }
+    if p == 0 || !matches!(toks[p - 1].1, Tok::Punct('{' | ',')) {
+        return false;
+    }
+    let mut depth = 0usize;
+    for (_, t) in &toks[span(toks, i + 2, true)] {
+        match t {
+            Tok::Punct('(' | '[' | '{') => depth += 1,
+            Tok::Punct(')' | ']' | '}') => depth = depth.saturating_sub(1),
+            Tok::Punct('|') if depth == 0 => return false,
+            _ => {}
+        }
+    }
+    true
 }
 
 /// The files the rule covers: every `.rs` under `src/server/` and `src/connections/`.
@@ -428,7 +573,7 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
         .map(|f| (f, false))
         .chain(srcs.iter().map(|f| (f, true)));
     for ((name, text), is_source) in read {
-        let s = scan(text, &sinks_for(name, is_source), is_source);
+        let s = scan(text, &sinks_for(name, is_source), is_source, &fns_for(name));
         fields += s.fields;
         reason_fns += s.reason_fns;
         if is_source {
@@ -457,10 +602,10 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
         source_calls >= 15,
         "read only {source_calls} calls to {SOURCE_SINKS:?} or {FORMAT_SINKS:?} in {REASON_SOURCES:?}"
     );
-    // PQ-84: five such bodies (host_reason, check_shape, and three `refusal`s).
+    // PQ-85: every pinned body, each in its own file.
     assert!(
-        reason_fns >= 4,
-        "read only {reason_fns} bodies of {REASON_FNS:?} in {REASON_SOURCES:?}"
+        reason_fns >= REASON_FNS.len(),
+        "read only {reason_fns} bodies of {REASON_FNS:?}"
     );
     assert!(
         hits.is_empty(),
@@ -485,13 +630,14 @@ fn every_reason_sink_is_still_a_function_the_scan_can_see() {
 
 #[test]
 fn every_reason_fn_is_still_a_function_the_scan_can_see() {
-    // A renamed reason function would take its body out of the scan.
+    // A renamed reason function would take its body out of the scan, and a
+    // namesake in another file must not stand in for it (PQ-85).
     let srcs = sources();
-    for f in REASON_FNS {
+    for (file, f) in REASON_FNS {
         let decl = format!("fn {f}(");
         assert!(
-            srcs.iter().any(|(_, t)| t.contains(&decl)),
-            "{decl} is gone from {REASON_SOURCES:?}; update REASON_FNS"
+            srcs.iter().any(|(n, t)| n == file && t.contains(&decl)),
+            "{decl} is gone from src/{file}; update REASON_FNS"
         );
     }
 }
@@ -513,16 +659,32 @@ fn every_refusal_code_is_still_sent() {
 // the rule's reach is pinned here and not only in a reverted edit.
 
 fn flags(src: &str) -> Vec<String> {
-    scan(src, REASON_SINKS, false)
+    scan(src, REASON_SINKS, false, &[])
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
         .collect()
 }
 
+/// Every [`REASON_FNS`] name, for text read as though it were each file.
+fn all_fns() -> Vec<&'static str> {
+    REASON_FNS.iter().map(|(_, f)| *f).collect()
+}
+
 /// [`flags`] as the scan reads a [`FORMAT_SOURCES`] file, the strictest.
 fn source_flags(src: &str) -> Vec<String> {
-    scan(src, &sinks_for(FORMAT_SOURCES[0], true), true)
+    scan(src, &sinks_for(FORMAT_SOURCES[0], true), true, &all_fns())
+        .hits
+        .into_iter()
+        .map(|(_, _, lit)| lit)
+        .collect()
+}
+
+/// [`flags`] as the scan reads `phase.rs`: a source, but not a
+/// [`FORMAT_SOURCES`] file, so a bare `format!` there is not a sink.
+fn phase_flags(src: &str) -> Vec<String> {
+    let name = "quiz_session/models/phase.rs";
+    scan(src, &sinks_for(name, true), true, &fns_for(name))
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
@@ -609,11 +771,22 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
     // affirmation.rs's digest is not a reason: outside the FORMAT_SOURCES a
     // bare `format!` passes, and one inside `refuse(…)` still fails.
     let affirmation = sinks_for("quiz_session/models/affirmation.rs", true);
+    let affirmation_fns = fns_for("quiz_session/models/affirmation.rs");
     let digest =
         r#"let hex: String = bytes.map(|b| format!("{b:02x}")).collect(); format!("sha256:{hex}")"#;
-    assert_eq!(scan(digest, &affirmation, true).hits.len(), 0);
+    assert_eq!(
+        scan(digest, &affirmation, true, &affirmation_fns)
+            .hits
+            .len(),
+        0
+    );
     let inside = r#"Err(refuse(format!("{} is not ready.", id)))"#;
-    assert_eq!(scan(inside, &affirmation, true).hits.len(), 1);
+    assert_eq!(
+        scan(inside, &affirmation, true, &affirmation_fns)
+            .hits
+            .len(),
+        1
+    );
 }
 
 #[test]
@@ -705,9 +878,76 @@ fn the_scan_passes_constants_slugs_comments_and_the_helper_itself() {
         refused(StatusCode::BAD_REQUEST, copy::admin_bank_order_not_indexes(id));
         Json(serde_json::json!({ "id": id, "scheduled": "new" }));
     "#;
-    let s = scan(clean, REASON_SINKS, false);
+    let s = scan(clean, REASON_SINKS, false, &[]);
     assert_eq!(s.hits, Vec::<(usize, String, String)>::new());
     assert_eq!((s.fields, s.sink_calls), (5, 1));
+}
+
+#[test]
+fn the_scan_reads_the_shapes_the_pq84_review_found() {
+    // Gap 1: an attribute on a `reason:` field does not hide it.
+    assert_eq!(
+        source_flags(
+            r#"Err(Refused { from: None, command, #[allow(unused)] reason: "No room yet.".into() })"#
+        ),
+        ["No room yet."]
+    );
+    assert_eq!(
+        source_flags(r#"Refused { #[cfg(all())] #[allow(x::y)] reason: "No.".into(), command }"#),
+        ["No."]
+    );
+    // Gap 2: a closure's parameter named `reason` is not a field, and its body
+    // is not a field's value; a field whose value holds a closure still is.
+    assert_eq!(
+        phase_flags(r#"let note = |from: Phase, reason: &str| format!("{from:?}: {reason}");"#),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        phase_flags(
+            r#"Refused { from: None, reason: why.map_or_else(|| "No room yet.".into(), |w| w), command }"#
+        ),
+        ["No room yet."]
+    );
+    // Gap 3: `copy::NAME` is copy's, even where this file has its own `NAME`;
+    // a bare name, `self::` or `Self::` is still this file's.
+    let shadow = r#"const HOST_ENDED_EXPIRED: &str = "expired";
+        pub fn host_reason(self) -> &'static str {
+            match self { Ended::Expired => copy::HOST_ENDED_EXPIRED, _ => crate::copy::X }
+        }"#;
+    assert_eq!(source_flags(shadow), Vec::<String>::new());
+    assert_eq!(
+        flags(r#"const WHY: &str = "No."; refused(a, self::WHY)"#),
+        ["No."]
+    );
+    assert_eq!(
+        source_flags(
+            r#"impl Ended { const WHY: &str = "Ended."; pub fn host_reason(self) -> &'static str { Self::WHY } }"#
+        ),
+        ["Ended."]
+    );
+    // Gap 5: a `let` binding is read as its literal where the scan reads it.
+    assert_eq!(
+        phase_flags(
+            r#"let why = format!("{phase:?} does not step the trace."); return Err(refuse(why));"#
+        ),
+        ["{phase:?} does not step the trace."]
+    );
+    assert_eq!(
+        flags(r#"let mut why: &str = "No."; refused(s, why)"#),
+        ["No."]
+    );
+    // Only in its block and until a clean binding shadows it; a field or
+    // method of that name is not the binding; one with no letter, or used
+    // nowhere a reason is built, passes.
+    let clean = r#"
+        { let why = "No."; }
+        refused(s, why);
+        let why = "No."; let why = copy::NO; refused(s, why);
+        let label = "Reveal"; refused(s, copy::not_next(x.label));
+        let n = format!("{}", 3); refused(s, n);
+        let hex = format!("sha256:{hex}"); digest(hex);
+    "#;
+    assert_eq!(flags(clean), Vec::<String>::new());
 }
 
 #[test]
