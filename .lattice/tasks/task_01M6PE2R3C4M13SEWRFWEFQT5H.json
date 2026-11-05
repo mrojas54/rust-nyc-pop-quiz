@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 8,
+  "comment_count": 9,
   "complexity": null,
   "created_at": "2026-11-05T18:03:33Z",
   "created_by": "agent:orchestrator",
@@ -10,14 +10,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M6PE2R3C4M13SEWRFWEFQT5H",
-  "last_event_id": "ev_01M6Q06H1W8C8KZ1Z4W39Z04TP",
-  "last_status_changed_at": "2026-11-05T23:17:31Z",
+  "last_event_id": "ev_01M6Q0J6PBRY3WARAE8QC2VJ1V",
+  "last_status_changed_at": "2026-11-05T23:26:34Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-85",
-  "status": "in_progress",
+  "status": "needs_human",
   "tags": [
     "follow-up",
     "room",
@@ -26,6 +26,6 @@
   ],
   "title": "Reason-copy lint follow-ups from the PQ-84 review",
   "type": "chore",
-  "updated_at": "2026-11-05T23:20:12Z",
+  "updated_at": "2026-11-05T23:26:34Z",
   "urgency": null
 }
