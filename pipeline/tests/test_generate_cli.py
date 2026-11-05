@@ -503,6 +503,7 @@ def test_a_stopped_claude_cli_run_never_falls_back_to_batches(tmp_path, fake, mo
     [
         (("--backend", "claude-cli", "--max-candidates", "3", "--replay", "x.json"), generate.CLI_NO_REPLAY),
         (("--claude-bin", "/x/claude", "--cap-usd", "5"), generate.BATCHES_NO_CLAUDE_BIN),
+        (("--claude-timeout-s", "60", "--cap-usd", "5"), generate.BATCHES_NO_CLAUDE_TIMEOUT),
         (("--backend", "claude-cli"), generate.NO_CANDIDATE_CAP),
     ],
 )
@@ -511,3 +512,42 @@ def test_each_backend_refuses_the_others_flags(tmp_path, fake, capsys, extra, se
     assert generate.main(argv_for(tmp_path, *extra)) == 2
     assert sentence in capsys.readouterr().err
     assert fake.calls() == []
+
+
+# --------------------------------------------------------------------------- #
+# PQ-70 item 4: --claude-timeout-s
+# --------------------------------------------------------------------------- #
+
+
+def test_the_timeout_flag_is_in_help_with_its_default(capsys):
+    with pytest.raises(SystemExit):
+        generate.main(["--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "--claude-timeout-s" in text
+    assert f"default {generate_cli.DEFAULT_TIMEOUT_S:g}" in text
+
+
+@pytest.mark.parametrize(("extra", "expected"), [((), generate_cli.DEFAULT_TIMEOUT_S), (("--claude-timeout-s", "42.5"), 42.5)])
+def test_the_timeout_flag_reaches_the_client(tmp_path, fake, monkeypatch, extra, expected):
+    built = []
+
+    class Spy(ClaudeCliClient):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            built.append(self.timeout_s)
+
+    monkeypatch.setattr(generate_cli, "ClaudeCliClient", Spy)
+    fake.script("cli-clean")
+    assert generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3", *extra)) == 0
+    assert built == [expected]
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf"])
+def test_a_timeout_that_is_not_a_positive_number_refuses_before_any_spawn(tmp_path, fake, capsys, value):
+    fake.script("cli-clean")
+    code = generate.main(argv_for(tmp_path, "--backend", "claude-cli", "--max-candidates", "3", "--claude-timeout-s", value))
+    assert code == 2
+    assert "a claude timeout is a positive number of seconds" in capsys.readouterr().err
+    assert fake.calls() == [] and not (tmp_path / "out").exists()
+    with pytest.raises(GenerateError, match="a claude timeout is a positive number of seconds"):
+        ClaudeCliClient(None, tmp_path, timeout_s=float(value))

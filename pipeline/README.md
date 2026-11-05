@@ -132,7 +132,9 @@ sentence. `--cap-usd` is the batches backend's cap; a `claude-cli` run refuses i
 so nobody believes a subscription run is dollar-capped.
 
 A non-zero exit, an error result (a usage or rate limit, say) or a timeout stops
-the run at that candidate. There is no retry. The candidates already finished are
+the run at that candidate. The timeout is `--claude-timeout-s`, the seconds one
+candidate may run before its `claude` is killed (default 900); zero, a negative
+number or a non-number refuses before anything starts. There is no retry. The candidates already finished are
 written, and rerunning with the same `--run-id` picks up the rest. Stopping the
 generator with `kill` (SIGTERM), or closing its terminal (SIGHUP), takes the
 `claude` it was waiting on with it: the generator kills that process group, then

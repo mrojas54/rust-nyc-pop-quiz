@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 import os
 import shutil
 import signal
@@ -81,6 +82,12 @@ NO_CLAUDE = "Refusing to start: no claude executable was found; install Claude C
 
 def not_executable(path: str) -> str:
     return f"Refusing to start: {path} is not an executable file."
+
+
+def check_timeout(timeout_s: float) -> None:
+    """`--claude-timeout-s` is refused unless it is a positive, finite number of seconds."""
+    if not (math.isfinite(timeout_s) and timeout_s > 0):
+        raise GenerateError(f"Refusing to start: a claude timeout is a positive number of seconds, not {timeout_s}.")
 
 
 def is_billing_switch(name: str) -> bool:
@@ -160,6 +167,7 @@ class ClaudeCliClient:
         timeout_s: float = DEFAULT_TIMEOUT_S,
         environ: Mapping[str, str] | None = None,
     ) -> None:
+        check_timeout(timeout_s)
         resolved = binary if binary is not None else shutil.which("claude")
         if resolved is None:
             raise GenerateError(NO_CLAUDE)
