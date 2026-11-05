@@ -894,11 +894,16 @@ def _raw_records(bank_dir: Path) -> list[tuple[Path, Any]]:
 # report there carry the distribution, and its records are scanned by the
 # bank-level checks, not this lint.
 DISTRIBUTION_SKIP_TOP = "bank"
-# Build output, vendored trees and tool caches, skipped at any depth. Nothing in
-# them is authored.
+# Skipped at any depth: build output, vendored trees and tool caches, where
+# nothing is authored, and `.claude`, the coding agents' own directory. Its
+# committed files (agent prompts, install hooks, harness settings) are authored,
+# but no participant is served, shown or asked to read them, and in a worktree it
+# also holds an agent's untracked notes, whose test counts read as tells (PQ-82,
+# client ruling 2026-11-04).
 DISTRIBUTION_SKIP_DIRS = frozenset(
     {
         "target",
+        ".claude",
         "node_modules",
         ".git",
         ".venv",
