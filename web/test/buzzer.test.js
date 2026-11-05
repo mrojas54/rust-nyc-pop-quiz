@@ -1,5 +1,5 @@
 // The buzzer (T-06): every phase's render, the one-of-three submission state
-// over the answer route's response table, the six refusals, the count line,
+// over the answer route's response table, the five refusals, the count line,
 // reconnect, the private hint, and what the phone must never show.
 //
 // The fixtures below are shaped like `view::buzzer` payloads and T-04c's state
@@ -168,11 +168,11 @@ test('a reload in the same tab re-attaches the stored session instead of joining
   assert.deepEqual(other.effects.map((e) => e.do), ['join']);
 });
 
-// --- AC-29 / AC-30: six refusals, six sentences --------------------------------
+// --- AC-29 / AC-30: five refusals, five sentences ------------------------------
 
 test('AC-29, AC-30: each refusal shows its own §11 sentence and keeps the field', () => {
-  const slugs = ['malformed', 'unknown', 'not_yet_open', 'already_ended', 'closed_for_inactivity', 'full'];
-  const keys = ['join_fail_malformed', 'join_fail_unknown', 'join_fail_not_yet_open',
+  const slugs = ['malformed', 'unknown', 'already_ended', 'closed_for_inactivity', 'full'];
+  const keys = ['join_fail_malformed', 'join_fail_unknown',
                 'join_fail_already_ended', 'join_fail_closed_inactivity', 'join_fail_full'];
   const shown = slugs.map((slug, i) => {
     const status = slug === 'unknown' ? 404 : 409;
@@ -186,7 +186,7 @@ test('AC-29, AC-30: each refusal shows its own §11 sentence and keeps the field
     assert.equal((html.match(/<input\b/g) || []).length, 1, `${slug}: the field is still there`);
     return C[keys[i]];
   });
-  assert.equal(new Set(shown).size, 6, 'six distinct messages');
+  assert.equal(new Set(shown).size, 5, 'five distinct messages');
 });
 
 // --- the phases ---------------------------------------------------------------

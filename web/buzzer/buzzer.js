@@ -33,12 +33,11 @@
 
   var LETTERS = ["A", "B", "C", "D", "E"];
 
-  /* The six refusals `POST /join` names (room/README.md, *Joining*), each to
+  /* The five refusals `POST /join` names (room/README.md, *Joining*), each to
      its own §11 sentence and next step (AC-29). */
   var REFUSAL_KEY = {
     malformed: "join_fail_malformed",
     unknown: "join_fail_unknown",
-    not_yet_open: "join_fail_not_yet_open",
     already_ended: "join_fail_already_ended",
     closed_for_inactivity: "join_fail_closed_inactivity",
     full: "join_fail_full"

@@ -53,7 +53,7 @@ test('the rows SPEC §11 gives a fixed count for have that count', () => {
   assert.strictEqual(ROWS['Live region (AC-83), verbatim'].length, 10);
   assert.strictEqual(ROWS['Host, phase labels (AC-49)'].length, 7);
   assert.strictEqual(ROWS['Host, actions'].length, 8);
-  assert.strictEqual(ROWS['Buzzer, join failures (AC-29)'].length, 6);
+  assert.strictEqual(ROWS['Buzzer, join failures (AC-29)'].length, 5);
   assert.strictEqual(ROWS['Take it home, headings in order'].length, 6);
   assert.strictEqual(ROWS['Host, fit line (AC-100)'].length, 4);
   // §7.5: the heading plus seven step-line templates, Miri having two wordings.
