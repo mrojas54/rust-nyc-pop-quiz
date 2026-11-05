@@ -8,10 +8,10 @@ Snapshot: 2026-11-04 22:1xZ. `origin/main` = `0ca67a1`. Refs change on every c11
 
 | Role | Ticket | Panel ref | Branch | Phase |
 |---|---|---|---|---|
-| Orchestrator | — | `panel:4` (`160D05F3-7D9C-4D8C-81C9-DE464F8C6A61`), `workspace:1` | ai-c11-cc/lattice-build | waiting on the client: merge call for #128 then #129, PQ-84 relaunch and push (mailbox `pq-orchestrator`) |
+| Orchestrator | — | `panel:4` (`160D05F3-7D9C-4D8C-81C9-DE464F8C6A61`), `workspace:1` | ai-c11-cc/lattice-build | parked after the PQ-82/83/84 batch; PQ-84 `done` pending CI on main at `7dda474` (mailbox `pq-orchestrator`) |
 | agent:delegator-pq82 (Opus, fast-track, Codex review, one planned halt) | PQ-82 / distribution scan skips the harness's `.claude/` files | panel closed 04:5xZ (was `panel:5`) | branch deleted; worktree removed 04:5xZ | `done`: PR #128 merged at `ac48fde`; cleaned up on the client's word; checkpoint kept at templates/checkpoint-PQ-82.md |
-| agent:delegator-pq83 (Opus, fast-track, Codex review, one planned halt) | PQ-83 / `PRD.md` superseded category weights | `panel:6` in `area:3` | ai-c11-cc/pq-83-prd-weights (`…-worktrees/pq-83-prd-weights`) | `review`: PR #129 at `5231764` green and mergeable, DONE 02:59Z; lands after PQ-82 |
-| agent:delegator-pq84 (Opus, fast-track, Codex review, one planned halt) | PQ-84 / remaining host refusal and lifecycle reasons into `copy.rs` | `panel:7` in `area:3` | ai-c11-cc/pq-84-lifecycle-reason-copy (`…-worktrees/pq-84-lifecycle-reason-copy`) | `in_progress`: three commits at `b6b2c24`, not pushed, no PR; session resumed in manual mode, Codex pass died in the relaunch; checkpoint `.claude/checkpoint-pq84.md` |
+| agent:delegator-pq83 (Opus, fast-track, Codex review, one planned halt) | PQ-83 / `PRD.md` superseded category weights | panel closed 12:2xZ (was `panel:6`) | branch deleted; worktree removed 12:2xZ | `done`: PR #129 merged at `ba2abf0` (conflict with #128 resolved at `78df191`); cleaned up on the client's word; checkpoint at templates/checkpoint-PQ-83.md |
+| agent:delegator-pq84 (Opus, fast-track, Codex review, one planned halt) | PQ-84 / remaining host refusal and lifecycle reasons into `copy.rs` | panel closed 12:2xZ (was `panel:7`) | branch deleted; worktree removed 12:2xZ | PR #130 merged at `7dda474`; ticket `review` until CI on main concludes; cleaned up on the client's word; checkpoint at templates/checkpoint-PQ-84.md |
 
 ### Archived (run history)
 
