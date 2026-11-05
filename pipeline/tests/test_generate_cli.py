@@ -15,6 +15,7 @@ import ast
 import io
 import json
 import os
+import signal
 import stat
 import subprocess
 import sys
@@ -324,6 +325,33 @@ def test_a_child_past_its_timeout_is_killed_with_its_group_and_the_run_stops(tmp
     (call,) = fake.calls()
     with pytest.raises(ProcessLookupError):
         os.killpg(call["pgid"], 0)
+
+
+def test_while_a_child_runs_sigterm_is_handled_an_ignored_sighup_is_not_and_both_are_restored(tmp_path, fake, monkeypatch):
+    """PQ-70 item 2, in process: the handler is in place when the child starts, an
+    ignored SIGHUP (`nohup`) stays ignored, and the run leaves both as it found them.
+    The real signal is sent in `tests/sandbox/generate/test_kill_rerun.py`."""
+    seen = []
+
+    class Spy(subprocess.Popen):
+        def __init__(self, *args, **kwargs):
+            seen.append((signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGHUP)))
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", Spy)
+    fake.script("cli-clean")
+    assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL
+    previous = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    try:
+        cli_run(tmp_path)
+        after = (signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGHUP))
+    finally:
+        signal.signal(signal.SIGHUP, previous)
+    assert after == (signal.SIG_DFL, signal.SIG_IGN)
+    assert len(seen) == 3
+    for term, hup in seen:
+        assert type(getattr(term, "__self__", None)).__name__ == "_KillChildOnSignal"
+        assert hup == signal.SIG_IGN
 
 
 def executable(path: Path, text: str) -> Path:

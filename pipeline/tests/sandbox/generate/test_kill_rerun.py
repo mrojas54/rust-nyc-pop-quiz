@@ -67,6 +67,56 @@ def test_the_root_guard_reaches_this_directory(tmp_path, claude_decoy):
     assert not claude_decoy.ran()
 
 
+@pytest.mark.parametrize("signum", [signal.SIGTERM, signal.SIGHUP], ids=["SIGTERM", "SIGHUP"])
+def test_a_generator_ended_by_a_signal_takes_its_claude_with_it(tmp_path, signum):
+    """PQ-70 item 2: SIGTERM and SIGHUP end the generator by their default action,
+    which never reaches `_run_one`'s `except`. The handler kills the child's group
+    first, then the generator exits with the signal's own status."""
+    exe = tmp_path / "bin" / "claude"
+    exe.parent.mkdir()
+    exe.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{FAKE / "fake_claude.py"}" "$@"\n', encoding="utf-8")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    log = tmp_path / "log"
+    log.mkdir()
+    blocking = json.loads((FAKE / "cli-clean.json").read_text(encoding="utf-8"))
+    blocking["responses"][1]["sleep_s"] = 600
+    script = tmp_path / "blocks-on-c02.json"
+    script.write_text(json.dumps(blocking), encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("ANTHROPIC_", "CLAUDE_CODE_USE_"))}
+    env.update(PATH=SAFE_PATH, FAKE_CLAUDE_LOG=str(log), FAKE_CLAUDE_SCRIPT=str(script))
+    command = [
+        sys.executable, "-m", "popquiz.generate", "--backend", "claude-cli", "--claude-bin", str(exe),
+        "--max-candidates", "3", "--count", "3", *sum((["--topic", t] for t in TOPICS), []),
+        "--difficulty", "2", "--out", str(tmp_path / "out"), "--run-id", "s1",
+    ]
+    generator = subprocess.Popen(command, cwd=PIPELINE, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    pgid = None
+    try:
+        wait_for(lambda: len(list(log.glob("*.json"))) == 2, "the fake to be asked for c02")
+        pgid = json.loads(sorted(log.glob("*.json"))[1].read_text(encoding="utf-8"))["pgid"]
+        generator.send_signal(signum)
+        generator.wait(timeout=DEADLINE_S)
+
+        def group_gone() -> bool:
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                return True
+            return False
+
+        wait_for(group_gone, "the fake's process group to be gone")
+    finally:
+        if generator.poll() is None:
+            generator.kill()
+            generator.wait()
+        if pgid is not None:
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    assert generator.returncode == -signum
+
+
 def test_ac2_a_generator_killed_mid_candidate_reruns_to_completion(tmp_path, capsys):
     started = time.monotonic()
     before = room_digest()

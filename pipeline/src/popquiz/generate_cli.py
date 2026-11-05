@@ -34,18 +34,22 @@ a schema-valid answer (`error_max_structured_output_retries`).
 **Re-runnable (AC-2).** Each finished child's result is written atomically to
 `<run>/_run/cli/<custom_id>.json`; a rerun with the same `--run-id` serves those
 and runs only the rest. A child that is running when the run is interrupted is
-killed with its process group. A SIGKILL of the generator itself cannot reach the
-child: that one candidate finishes on plan usage and the rerun asks for it again.
+killed with its process group, including by a SIGTERM or SIGHUP, after which the
+generator exits as that signal would have. A SIGKILL of the generator itself cannot
+reach the child: that one candidate finishes on plan usage and the rerun asks for it
+again.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
@@ -56,6 +60,10 @@ from popquiz.generate import API_EQUIVALENT, CLAUDE_CLI, GenerateError, write_at
 #: Seconds one candidate may run before its process group is killed and the run
 #: stops. Generous: one structured answer at high effort, with no tools.
 DEFAULT_TIMEOUT_S = 900.0
+
+#: Signals whose default action ends the generator without unwinding; while a child
+#: runs, each one kills the child's process group first (`_KillChildOnSignal`).
+FORWARDED_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
 
 #: The one `is_error` subtype that is a candidate's failure, not a reason to stop.
 PER_CANDIDATE_ERRORS = frozenset({"error_max_structured_output_retries"})
@@ -209,17 +217,18 @@ class ClaudeCliClient:
         """
         self.spawned.append(cid)
         started = time.monotonic()
-        with tempfile.TemporaryDirectory(prefix="popquiz-claude-") as cwd:
+        with tempfile.TemporaryDirectory(prefix="popquiz-claude-") as cwd, _KillChildOnSignal() as guard:
             try:
-                child = subprocess.Popen(
-                    argv(self.binary, params),
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    cwd=cwd,
-                    env=child_env(self._environ),
-                    start_new_session=True,
-                )
+                with guard.spawning():
+                    guard.child = child = subprocess.Popen(
+                        argv(self.binary, params),
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        cwd=cwd,
+                        env=child_env(self._environ),
+                        start_new_session=True,
+                    )
             except OSError as exc:
                 raise GenerateError(stopped_at(cid, f"could not start {self.binary} ({exc.strerror or exc})")) from None
             try:
@@ -296,6 +305,69 @@ def _is_number(value: Any) -> bool:
 
 def _seconds(duration_ms: Any, fallback_s: float) -> float:
     return round(duration_ms / 1000 if _is_number(duration_ms) else fallback_s, 3)
+
+
+class _KillChildOnSignal:
+    """For one child's lifetime: a SIGTERM or SIGHUP kills the child's process group,
+    then ends this process the way the signal would have (PQ-70).
+
+    The child runs in its own session, so a signal that ends the generator by its
+    default action, without unwinding to `_run_one`'s `except`, would leave it
+    running on plan usage. The handler goes in before the child is started and comes
+    out after it is reaped, in the main thread only, and only for a signal still at
+    its default action: one already ignored (`nohup`'s SIGHUP) or handled by someone
+    else is left as it is. A signal that lands while `Popen` is still starting the
+    child is held until the child is known, then acted on.
+    """
+
+    def __init__(self) -> None:
+        self.child: subprocess.Popen[bytes] | None = None
+        self._starting = False
+        self._pending: int | None = None
+        self._previous: dict[int, Any] = {}
+
+    def __enter__(self) -> _KillChildOnSignal:
+        if threading.current_thread() is threading.main_thread():
+            for signum in FORWARDED_SIGNALS:
+                if signal.getsignal(signum) == signal.SIG_DFL:
+                    self._previous[signum] = signal.signal(signum, self._handle)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._restore()
+
+    @contextlib.contextmanager
+    def spawning(self) -> Iterator[None]:
+        self._starting = True
+        try:
+            yield
+        finally:
+            self._starting = False
+            if self._pending is not None:
+                self._handle(self._pending, None)
+
+    def _restore(self) -> None:
+        while self._previous:
+            signum, previous = self._previous.popitem()
+            signal.signal(signum, previous)
+
+    def _handle(self, signum: int, frame: object) -> None:
+        if self._starting:
+            self._pending = signum
+            return
+        child = self.child
+        if child is not None and child.returncode is None:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        self._restore()
+        os.kill(os.getpid(), signum)
+        raise SystemExit(128 + signum)  # only if the signal did not end the process
 
 
 def _kill(child: subprocess.Popen[bytes]) -> None:

@@ -133,9 +133,12 @@ so nobody believes a subscription run is dollar-capped.
 
 A non-zero exit, an error result (a usage or rate limit, say) or a timeout stops
 the run at that candidate. There is no retry. The candidates already finished are
-written, and rerunning with the same `--run-id` picks up the rest. Killing the
-generator itself (`kill -9`) cannot reach the `claude` it was waiting on. That one
-candidate finishes on plan usage, and the rerun asks for it again.
+written, and rerunning with the same `--run-id` picks up the rest. Stopping the
+generator with `kill` (SIGTERM), or closing its terminal (SIGHUP), takes the
+`claude` it was waiting on with it: the generator kills that process group, then
+exits as the signal would have (a shell shows status 143 or 129). Only `kill -9`
+cannot reach the `claude`. That one candidate finishes on plan usage, and the rerun
+asks for it again.
 
 The report gives each candidate's tokens, `duration_ms` and the CLI's
 `total_cost_usd`. The dollars are labelled API-equivalent, not billed, and they are
