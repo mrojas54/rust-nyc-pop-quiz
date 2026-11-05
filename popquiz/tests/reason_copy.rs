@@ -51,7 +51,6 @@ const REFUSAL_CODES: &[&str] = &[
     "wrong_role",
     "malformed",
     "unknown",
-    "not_yet_open",
     "already_ended",
     "closed_for_inactivity",
     "full",

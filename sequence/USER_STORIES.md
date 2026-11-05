@@ -127,7 +127,7 @@ because the segment is ten minutes long.*
 | ID | Criterion |
 |---|---|
 | **AC-28** | **Joining requires only a short link or a short room code**, and nothing else. No account, email, or nickname. The link may carry the code so that nobody has to type it. *Rewritten 2026-09-03 on the client's T-20 drive — the wall now says* join @ *a short link and the room code is off the wall in every phase; the buzzer and host phone still show the code as the room's identity. Same promise as before (nothing to install, nothing to sign up for), one more way in. Original: "Joining requires only a short room code. No account, email, or nickname."* |
-| **AC-29** | Every room-code failure states what went wrong and what to do next, distinctly for: malformed, unknown, not yet open, already ended, closed for inactivity, and full. |
+| **AC-29** | Every room-code failure states what went wrong and what to do next, distinctly for: malformed, unknown, already ended, closed for inactivity, and full. |
 | **AC-30** | A room at capacity says so before creating any session, and reserves nothing. |
 | **AC-31** | Joining, from tapping the field to seeing the lobby, feels immediate on venue wifi. `felt` |
 

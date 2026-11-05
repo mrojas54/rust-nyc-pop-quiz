@@ -56,22 +56,20 @@ pub struct Session {
 #[rustfmt::skip]
 const _: fn(Session) = |Session { token: _, answer: _ }| {};
 
-/// Why a join did not happen: SPEC §4.1's six failure states.
+/// Why a join did not happen: SPEC §4.1's five failure states.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JoinRefusal {
     Malformed,
     Unknown,
-    NotYetOpen,
     AlreadyEnded,
     ClosedForInactivity,
     Full,
 }
 
 impl JoinRefusal {
-    pub const ALL: [JoinRefusal; 6] = [
+    pub const ALL: [JoinRefusal; 5] = [
         JoinRefusal::Malformed,
         JoinRefusal::Unknown,
-        JoinRefusal::NotYetOpen,
         JoinRefusal::AlreadyEnded,
         JoinRefusal::ClosedForInactivity,
         JoinRefusal::Full,
@@ -82,7 +80,6 @@ impl JoinRefusal {
         match self {
             JoinRefusal::Malformed => "malformed",
             JoinRefusal::Unknown => "unknown",
-            JoinRefusal::NotYetOpen => "not_yet_open",
             JoinRefusal::AlreadyEnded => "already_ended",
             JoinRefusal::ClosedForInactivity => "closed_for_inactivity",
             JoinRefusal::Full => "full",
@@ -94,7 +91,6 @@ impl JoinRefusal {
         match self {
             JoinRefusal::Malformed => copy::JOIN_FAIL_MALFORMED,
             JoinRefusal::Unknown => copy::JOIN_FAIL_UNKNOWN,
-            JoinRefusal::NotYetOpen => copy::JOIN_FAIL_NOT_YET_OPEN,
             JoinRefusal::AlreadyEnded => copy::JOIN_FAIL_ALREADY_ENDED,
             JoinRefusal::ClosedForInactivity => copy::JOIN_FAIL_CLOSED_INACTIVITY,
             JoinRefusal::Full => copy::JOIN_FAIL_FULL,

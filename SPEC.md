@@ -182,7 +182,7 @@ quoted in this table are quoted from §11; where the two differ, §11 governs.
 
 Join via the short link (which carries the code) or by typing the six-character
 code. One field, no other input. Failure states, each with its own sentence and
-next step, authored in §11: **malformed**, **unknown**, **not yet open**,
+next step, authored in §11: **malformed**, **unknown**,
 **already ended**, **closed for inactivity**, **full** (AC-29). Capacity is checked before a
 session is created and reserves nothing (AC-30). Capacity: 200 (AC-52),
 configurable.
@@ -626,7 +626,7 @@ same homes.
 | Buzzer, reveal | ✓ It was **‹Y›**. |
 | Buzzer, reveal, **no answer given** | You didn't answer. |
 | Buzzer, join connection failure | Couldn't finish joining. Wait a moment. Try again — or watch the screen and play along. |
-| Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **not yet open:** That room isn't open yet. Hold on — the host will put it on the screen. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
+| Buzzer, join failures (AC-29) | **malformed:** That's not a room code — six letters and numbers, never O, 0, I or 1. Try again. · **unknown:** No room with that code. Check the screen at the front. · **already ended:** That room has ended. Look for the link on the screen. · **closed for inactivity:** That room went quiet and closed. If it comes back, the screen at the front will say so. · **full:** That room is full. Watch the screen — you can still play along. |
 | Buzzer, hint | Show me a hint |
 | Buzzer, live, submission (AC-35/36) | **saving…** · **saved — ‹X›** · **couldn't save. Your last answer, ‹X›, is safe.** [Try again] · *(no answer yet)* **Vote** |
 | Buzzer, reconnecting (AC-37) | **paused — reconnecting…** your answer ‹X› is safe / *(no answer yet)* **paused — reconnecting…** |

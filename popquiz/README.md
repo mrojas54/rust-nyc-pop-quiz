@@ -469,7 +469,6 @@ branches on and `reason` is its §11 sentence. It is `404` for `unknown` and
 | `unknown` | no room has that code |
 | `already_ended` | the room is `released`, or four hours old (T-11) |
 | `full` | the room holds `capacity` sessions (200; `AppState::with_capacity`) |
-| `not_yet_open` | ships with its string; no phase of the seven reaches it |
 | `closed_for_inactivity` | no host action for 30 min in `idle`, 20 min in `live`…`reveal` (T-11) |
 
 Capacity is checked before a token is drawn, so a refused join creates,
