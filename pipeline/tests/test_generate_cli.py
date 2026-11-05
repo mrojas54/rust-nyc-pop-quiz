@@ -337,27 +337,50 @@ def test_while_a_child_runs_sigterm_is_handled_an_ignored_sighup_is_not_and_both
         assert hup == signal.SIG_IGN
 
 
-def test_the_signal_handler_never_signals_a_group_whose_child_may_be_reaped(monkeypatch):
-    """Codex review, PQ-70: `Popen` sets `returncode` only after `waitpid`, under
-    `_waitpid_lock`. While that lock is held, or once `returncode` is set, the
-    handler leaves the group id alone; only an unreaped child's group is signalled."""
+def test_the_signal_handler_never_kills_from_inside_a_reap_and_never_lets_a_signal_go(monkeypatch):
+    """Codex review, PQ-70. The handler kills nothing itself. While `Popen` holds
+    `_waitpid_lock` (it may have reaped the pid without setting `returncode`) the
+    signal is held and re-sent to the main thread; outside it, `_Terminate` is raised;
+    `__exit__` kills only an unreaped child's group, then re-sends the signal, for a
+    raised signal and a held one alike."""
     import threading
     from types import SimpleNamespace
 
-    signalled = []
-    monkeypatch.setattr(generate_cli.os, "killpg", lambda pgid, sig: signalled.append(pgid))
-    child = SimpleNamespace(pid=424242, returncode=None, _waitpid_lock=threading.Lock())
+    signalled, resent, redelivered = [], [], []
+    monkeypatch.setattr(generate_cli.os, "killpg", lambda pgid, sig: signalled.append((pgid, sig)))
+    monkeypatch.setattr(generate_cli.os, "kill", lambda pid, sig: resent.append((pid, sig)))
+    monkeypatch.setattr(generate_cli, "_redeliver_later", redelivered.append)
 
-    child._waitpid_lock.acquire()  # a reap is under way
-    assert generate_cli._kill_if_unreaped(child) is False
-    child._waitpid_lock.release()
-    child.returncode = 0  # reaped
-    assert generate_cli._kill_if_unreaped(child) is False
-    assert signalled == []
+    def child(returncode=None):
+        return SimpleNamespace(pid=424242, returncode=returncode, _waitpid_lock=threading.Lock(),
+                               wait=lambda timeout=None: 0)
 
-    child.returncode = None  # running
-    assert generate_cli._kill_if_unreaped(child) is True
-    assert signalled == [424242] and not child._waitpid_lock.locked()
+    # Inside a reap: held and re-sent later, nothing raised, nothing killed.
+    guard = generate_cli._KillChildOnSignal()
+    guard.child = child()
+    guard.child._waitpid_lock.acquire()
+    assert guard._handle(signal.SIGTERM, None) is None
+    assert redelivered == [signal.SIGTERM] and signalled == []
+    guard.child._waitpid_lock.release()
+
+    # Outside it: raised; later signals are ignored while the kill runs.
+    with pytest.raises(generate_cli._Terminate) as raised:
+        guard._handle(signal.SIGTERM, None)
+    assert guard._handle(signal.SIGHUP, None) is None
+    with pytest.raises(SystemExit):
+        guard.__exit__(type(raised.value), raised.value, None)
+    assert signalled == [(424242, signal.SIGKILL)]
+    assert resent == [(os.getpid(), signal.SIGTERM)]
+
+    # A held signal is acted on at exit even if the child was reaped meanwhile,
+    # and a reaped child's group id is left alone.
+    signalled.clear(), resent.clear()
+    guard = generate_cli._KillChildOnSignal()
+    guard.child = child(returncode=0)
+    guard._pending = signal.SIGHUP
+    with pytest.raises(SystemExit):
+        guard.__exit__(None, None, None)
+    assert signalled == [] and resent == [(os.getpid(), signal.SIGHUP)]
 
 
 def executable(path: Path, text: str) -> Path:

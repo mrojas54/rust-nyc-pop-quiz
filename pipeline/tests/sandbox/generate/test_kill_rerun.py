@@ -77,6 +77,17 @@ def test_the_root_guard_refuses_a_generator_process_on_the_real_claude(tmp_path,
     assert not claude_decoy.ran()
 
 
+def test_the_root_guard_lets_a_generator_process_that_starts_no_claude_run(tmp_path, claude_decoy):
+    """A batches generator starts no `claude`, so the guard lets it run even with
+    the real one (here the decoy) on its PATH (Codex review, PQ-70)."""
+    result = subprocess.run(
+        [sys.executable, "-m", "popquiz.generate", "--help"], cwd=PIPELINE,
+        env={"PATH": f"{claude_decoy.dir}:{SAFE_PATH}"}, capture_output=True, text=True, timeout=DEADLINE_S,
+    )
+    assert result.returncode == 0 and "--claude-timeout-s" in result.stdout
+    assert not claude_decoy.ran()
+
+
 def test_the_root_guard_refuses_to_start_the_real_claude_itself(claude_decoy):
     with pytest.raises(pytest.fail.Exception, match="the real claude guard"):
         subprocess.run([str(claude_decoy.exe), "-p"], check=False)

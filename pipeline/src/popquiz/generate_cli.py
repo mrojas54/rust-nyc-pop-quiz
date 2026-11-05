@@ -244,6 +244,8 @@ class ClaudeCliClient:
             except subprocess.TimeoutExpired:
                 _kill(child)
                 raise Stop(f"claude ran past the {self.timeout_s:g} s timeout and was killed") from None
+            except _Terminate:
+                raise  # the guard's __exit__ kills the group, then re-sends the signal
             except BaseException:
                 _kill(child)
                 raise
@@ -315,23 +317,42 @@ def _seconds(duration_ms: Any, fallback_s: float) -> float:
     return round(duration_ms / 1000 if _is_number(duration_ms) else fallback_s, 3)
 
 
+class _Terminate(BaseException):
+    """A SIGTERM or SIGHUP, raised out of whatever the main thread was doing so the
+    child is killed from ordinary code, never from inside `Popen`'s own reaping."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
+
+
 class _KillChildOnSignal:
     """For one child's lifetime: a SIGTERM or SIGHUP kills the child's process group,
     then ends this process the way the signal would have (PQ-70).
 
     The child runs in its own session, so a signal that ends the generator by its
-    default action, without unwinding to `_run_one`'s `except`, would leave it
-    running on plan usage. The handler goes in before the child is started and comes
-    out after it is reaped, in the main thread only, and only for a signal still at
-    its default action: one already ignored (`nohup`'s SIGHUP) or handled by someone
-    else is left as it is. A signal that lands while `Popen` is still starting the
-    child is held until the child is known, then acted on.
+    default action would leave it running on plan usage. The handler goes in before
+    the child is started and comes out after it is reaped, in the main thread only,
+    and only for a signal still at its default action: one already ignored
+    (`nohup`'s SIGHUP) or handled by someone else is left as it is.
+
+    The handler never kills anything itself. It raises `_Terminate`, and `__exit__`
+    kills the group and re-sends the signal. Two moments are unsafe to raise in, and
+    there the signal is held instead: while `Popen` is still starting the child (the
+    child is not known yet; acted on as soon as it is), and while `Popen` holds
+    `_waitpid_lock` (it may have reaped the pid without yet setting `returncode`, so
+    the group id may already be someone else's). In the second case the signal is
+    re-sent to the main thread every 50 ms until it lands outside the lock, so a
+    child that is still running is not left to run on; `__exit__` acts on a held
+    signal too. After the first `_Terminate`, further signals are ignored so the kill
+    in `__exit__` cannot itself be interrupted.
     """
 
     def __init__(self) -> None:
         self.child: subprocess.Popen[bytes] | None = None
         self._starting = False
         self._pending: int | None = None
+        self._terminating = False
         self._previous: dict[int, Any] = {}
 
     def __enter__(self) -> _KillChildOnSignal:
@@ -341,8 +362,19 @@ class _KillChildOnSignal:
                     self._previous[signum] = signal.signal(signum, self._handle)
         return self
 
-    def __exit__(self, *exc: object) -> None:
-        self._restore()
+    def __exit__(self, exc_type: object, exc: BaseException | None, tb: object) -> None:
+        signum = exc.signum if isinstance(exc, _Terminate) else self._pending
+        if signum is None:
+            self._restore()
+            return
+        self._terminating = True
+        try:
+            if self.child is not None:
+                _kill_group(self.child)
+        finally:
+            self._restore()
+        os.kill(os.getpid(), signum)
+        raise SystemExit(128 + signum)  # only if the signal did not end the process
 
     @contextlib.contextmanager
     def spawning(self) -> Iterator[None]:
@@ -360,40 +392,40 @@ class _KillChildOnSignal:
             signal.signal(signum, previous)
 
     def _handle(self, signum: int, frame: object) -> None:
+        if self._terminating:
+            return
         if self._starting:
             self._pending = signum
             return
         child = self.child
-        if child is not None and _kill_if_unreaped(child):
-            try:
-                child.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
-        self._restore()
-        os.kill(os.getpid(), signum)
-        raise SystemExit(128 + signum)  # only if the signal did not end the process
+        if child is not None and child._waitpid_lock.locked():  # CPython's POSIX Popen: every reap takes it
+            self._pending = signum
+            _redeliver_later(signum)
+            return
+        self._terminating = True
+        raise _Terminate(signum)
 
 
-def _kill_if_unreaped(child: subprocess.Popen[bytes]) -> bool:
-    """From a signal handler: SIGKILL the child's group only while its pid is
-    certainly not reaped. `Popen` reaps under `_waitpid_lock` and sets `returncode`
-    only after `waitpid` returns, so a handler that lands between the two would see
-    `returncode is None` for a released pid. Holding the lock rules that out; if it
-    is already held, a reap is under way, the child has exited or been killed, and
-    its group id is left alone. Returns whether the group was signalled."""
-    lock = child._waitpid_lock  # CPython's POSIX Popen; every reap takes it
-    if not lock.acquire(False):
-        return False
-    try:
-        if child.returncode is not None:
-            return False
+def _redeliver_later(signum: int) -> None:
+    """Send `signum` to the main thread again in 50 ms (see `_KillChildOnSignal`)."""
+    timer = threading.Timer(0.05, signal.pthread_kill, (threading.main_thread().ident, signum))
+    timer.daemon = True
+    timer.start()
+
+
+def _kill_group(child: subprocess.Popen[bytes]) -> None:
+    """From ordinary code, never inside `Popen`'s reaping: SIGKILL the child's group
+    if the child is unreaped, then wait for it. No `communicate`: its pipes may be
+    mid-read from an interrupted one."""
+    if child.returncode is None:
         try:
             os.killpg(child.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        return True
-    finally:
-        lock.release()
+    try:
+        child.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def _kill(child: subprocess.Popen[bytes]) -> None:

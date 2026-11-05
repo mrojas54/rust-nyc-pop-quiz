@@ -11,7 +11,7 @@ reach the binary, for every test in every directory below this one:
 - starting a process (`subprocess.Popen`, which `subprocess.run` and the generator's
   own child go through) that is the real `claude` (as the command or `executable=`),
   or that is the generator with `--claude-bin` (or, without it, `claude` on the
-  child's PATH) resolving to it, whatever its backend or however it is spelled.
+  child's PATH) resolving to it, however `--backend claude-cli` is spelled.
 
 Either one fails the test before anything is spawned. This file starts no process
 itself: `_GuardedPopen` only checks a command, then hands it to `Popen` unchanged.
@@ -79,11 +79,13 @@ def _check_command(args: object, env: Mapping[str, str] | None, cwd: str | os.Pa
         return
     if is_real_claude(_resolve(argv[0], env, cwd)):
         _refuse(f"starting {argv[0]}")
-    # Any generator started as a process, whatever its backend or however `--backend`
-    # is spelled (`--backend=claude-cli`, an abbreviation): if the `claude` it would
-    # use is the real one, it is refused. A batches run needs no `claude`, so a test
-    # starting one has no reason to leave the real one on its child's PATH.
+    # A generator started as a process on the claude-cli backend, however `--backend`
+    # is spelled (`--backend claude-cli`, `--backend=claude-cli`, an abbreviation of
+    # the flag): if the `claude` it would use is the real one, it is refused. A
+    # batches run starts no `claude` and is left alone.
     if not any(arg.endswith("popquiz.generate") for arg in argv):
+        return
+    if not any(arg == "claude-cli" or arg.endswith("=claude-cli") for arg in argv):
         return
     given = None
     for i, arg in enumerate(argv):
