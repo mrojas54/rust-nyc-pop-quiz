@@ -43,7 +43,7 @@ The static fallbacks on the laptop still work.
 | Patch file (2026-10-11 layout) | Today | Verdict |
 |---|---|---|
 | `.dockerignore`, `Dockerfile` (bank into the image) | — | **drop**: no bank in the image under (b) |
-| `SPEC.md` *Organizer scheduling copy* | §8.4 + a §11 row | **drop**; replaced by the approved wording below |
+| `SPEC.md` *Organizer scheduling copy* | §8.5 + a §11 row | **drop**; replaced by the approved wording below |
 | `room/Cargo.toml`, `Cargo.lock` (`blake2`) | `popquiz/Cargo.toml` | **drop**: no new dependency (checked: nothing in (b) needs one) |
 | `room/src/answers.rs` (`load_record`, `pub mod catalog`) | `quiz_session/models/answers.rs` | **drop**; the only change there is §4's topic onto the public half at the split |
 | `room/src/answers/catalog.rs`, `room/build.rs` | — | **drop** (option a) |
@@ -143,9 +143,9 @@ The date cases (not a meetup date, past) are the laptop's, as today:
 
 ## 4. Contract amendment drafts (for the QUESTION, verbatim)
 
-**SPEC §8.4 (new, after §8.3; §8.3 untouched):**
+**SPEC §8.5 (new, after §8.3; §8.3 untouched):**
 
-> ### 8.4 Choosing the question on the host phone (PQ-80)
+> ### 8.5 Choosing the question on the host phone (PQ-80)
 >
 > A signed-in organizer can pick the night's question on the host phone instead
 > of naming it in the host link. `GET /organizer/questions?club=‹club›` takes the
@@ -164,12 +164,12 @@ The date cases (not a meetup date, past) are the laptop's, as today:
 
 **SPEC §11, one new row (after *Host, actions*):**
 
-> | Host, choosing the question (§8.4) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *Nothing is scheduled for this club. Schedule one on the laptop, then reload.* · **Reload** · *Couldn't load the questions.* |
+> | Host, choosing the question (§8.5) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *Nothing is scheduled for this club. Schedule one on the laptop, then reload.* · **Reload** · *Couldn't load the questions.* |
 
 **BUILDPLAN, a dated note under D-E and after the T-25 row:**
 
 > *2026-11-06 (PQ-80):* the host phone lists the questions scheduled for the
-> organizer's club and creates the room on the one picked (`SPEC.md` §8.4). This
+> organizer's club and creates the room on the one picked (`SPEC.md` §8.5). This
 > is not a third admin route or a second way in. The answer still enters only
 > through `PUT /admin/…` with the admin token, and the listing takes the
 > organizer session, which never opens `/admin`. The server may hold several
@@ -201,12 +201,12 @@ call.)
 | `host_pick_reload` / `HOST_PICK_RELOAD` | Reload |
 | `host_pick_load_failed` / `HOST_PICK_LOAD_FAILED` | Couldn't load the questions. |
 
-`COPY_ROWS` gets the row label "Host, choosing the question (§8.4)". No room
+`COPY_ROWS` gets the row label "Host, choosing the question (§8.5)". No room
 reason string is added.
 
 ## 6. Milestones (each `just test` green, then a checkpoint)
 
-0. The approved contract wording, verbatim, as its own commit (SPEC §8.4/§11,
+0. The approved contract wording, verbatim, as its own commit (SPEC §8.5/§11,
    BUILDPLAN, plus AC-106 only if she asks for it).
 1. RED: `organizer_questions.rs` and `host-pick.test.js` fail for the missing
    route and screen. (This one is committed red-then-green with M2/M3; the
@@ -268,7 +268,7 @@ malformed `club` returns `403 wrong_role` (`HOST_DENIED_WRONG_ROLE`, via
 `club_of`, the same answer as a missing role), never an empty list or a 404; an
 expired or revoked session returns 401; Discord unreachable returns 503, which is
 not a denial. Each row gets a route test, and the 401 and 403 rows get a host-page
-test. D1 stands and is stated in §8.4: the request names the club, and that
+test. D1 stands and is stated in §8.5: the request names the club, and that
 club's role authorizes it.
 
 **R3 (Minor, accepted): one eligibility predicate.** A read-only
@@ -281,7 +281,7 @@ wrong date (R1-a), and another organizer creating or releasing between the GET
 and the POST (409 with the existing reason, kept on screen across the reload).
 Any new file that returns a refusal joins `reason_copy.rs`'s scanned sources.
 
-**R4 (Minor, accepted): the bounded sealed-data promise.** In §8.4, the
+**R4 (Minor, accepted): the bounded sealed-data promise.** In §8.5, the
 sentence "no answer, option order or arrangement leaves the sealed module
 (AC-61)" is replaced by: "The listing returns `id` and `topic` only. It adds no
 reader of the sealed module and arranges nothing. The room's existing
@@ -302,11 +302,11 @@ Criteria · Depends on · Notes), as revised below.
 
 ### Revised drafts (supersede §4 and §5 where they differ)
 
-§8.4, as revised (R1-a assumed; under R1-b the sentence beginning "The record
+§8.5, as revised (R1-a assumed; under R1-b the sentence beginning "The record
 carries" becomes "When the club releases a room, the room forgets the club's
 other scheduled questions."):
 
-> ### 8.4 Choosing the question on the host phone (PQ-80)
+> ### 8.5 Choosing the question on the host phone (PQ-80)
 >
 > A signed-in organizer can pick the night's question on the host phone instead
 > of naming it in the host link. `GET /organizer/questions?club=‹club›` takes the
@@ -343,3 +343,5 @@ Copy keys, final (7 under R1-a, 6 under R1-b): `host_pick_legend` "Question" ·
 `host_pick_reload` "Reload" · `host_pick_load_failed` "Couldn't load the
 questions." · (R1-a) `ROOM_QUESTION_OTHER_DATE` "That question was scheduled for
 another date."
+
+*2026-11-06, orchestrator (SECTION CLASH): PQ-61 owns SPEC §8.4 (the deployed burst); this section is renumbered §8.5, words unchanged.*
