@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-06T05:39:13Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6QNWH6PMMMV6VXR70KV3CFJ",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6QNWH6PMMMV6VXR70KV3CFJ.md",
+    "size_bytes": 133
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via PR #133 (merge commit c810d0dc44955d69f3679b35f67523ec91c8423e) on the client's word; main CI and deploy green at that sha",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
