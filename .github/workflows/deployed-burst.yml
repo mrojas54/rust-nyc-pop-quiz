@@ -3,8 +3,8 @@ name: deployed-burst
 # T-21: burst and smoke against the deployed room. The client's to start, by
 # hand, never on a push: nothing unattended can create a room on the deployed
 # app (only a signed-in organizer can, SPEC §8), so this job runs on the
-# organizer's own session, set as a repository secret right before a run and
-# deleted right after (popquiz/README.md, Burst):
+# organizer's own session, set as a secret of the `deployed-burst` environment
+# right before a run and deleted right after (popquiz/README.md, Burst):
 #
 #   POPQUIZ_ORGANIZER_SESSION  the organizer session a signed-in /host page holds
 #                              (12 hours, one person's)
