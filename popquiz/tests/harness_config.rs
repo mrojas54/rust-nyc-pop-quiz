@@ -3,6 +3,7 @@
 //! checks on the files themselves — no YAML parser is in the lock — each
 //! aimed at the line that does the work, not at a comment that names it.
 
+use std::ops::Range;
 use std::path::PathBuf;
 
 fn read(rel: &str) -> String {
@@ -153,6 +154,225 @@ fn the_deployed_burst_runs_against_the_cap_fly_toml_states() {
         !before.contains("$ROOM_URL/") && after.contains("$ROOM_URL/admin/questions"),
         "something reaches the room before the cap check"
     );
+}
+
+// The deployed burst's two credentials (GAP-19, SPEC §8). They are secrets of
+// the `deployed-burst` environment, and this keeps every read of them where
+// the workflow's header says: one job, bound to that environment, run by hand,
+// reading them only through `env:`.
+
+const BURST_WORKFLOW: &str = "deployed-burst.yml";
+const BURST_SECRETS: [&str; 2] = ["POPQUIZ_ORGANIZER_SESSION", "POPQUIZ_ADMIN_TOKEN"];
+
+fn names_a_burst_secret(line: &str) -> bool {
+    BURST_SECRETS.iter().any(|s| line.contains(s))
+}
+
+fn indent(line: &str) -> usize {
+    line.len() - line.trim_start().len()
+}
+
+/// Every file in `.github/workflows/`, by file name.
+fn workflows() -> Vec<(String, String)> {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows");
+    let mut out: Vec<(String, String)> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{dir:?}: {e}"))
+        .map(|entry| {
+            let path = entry.unwrap().path();
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            (
+                path.file_name().unwrap().to_string_lossy().into_owned(),
+                text,
+            )
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// Each top-level job of a workflow: its name and the indexes of its lines
+/// in `lines` (the workflow's code lines).
+fn job_spans(lines: &[&str]) -> Vec<(String, Range<usize>)> {
+    let start = lines.iter().position(|l| *l == "jobs:").expect("no jobs:") + 1;
+    let end = lines[start..]
+        .iter()
+        .position(|l| !l.is_empty() && indent(l) == 0)
+        .map_or(lines.len(), |p| start + p);
+    let heads: Vec<usize> = (start..end)
+        .filter(|&i| indent(lines[i]) == 2 && lines[i].trim_end().ends_with(':'))
+        .collect();
+    heads
+        .iter()
+        .enumerate()
+        .map(|(k, &head)| {
+            let stop = heads.get(k + 1).copied().unwrap_or(end);
+            let name = lines[head].trim().trim_end_matches(':').to_string();
+            (name, head..stop)
+        })
+        .collect()
+}
+
+#[test]
+fn the_burst_secrets_are_named_by_no_other_workflow() {
+    let all = workflows();
+    assert!(
+        all.iter().any(|(name, _)| name == BURST_WORKFLOW) && all.len() >= 3,
+        "the scan found {:?}",
+        all.iter().map(|(name, _)| name).collect::<Vec<_>>()
+    );
+    for (name, text) in all.iter().filter(|(name, _)| name != BURST_WORKFLOW) {
+        let hits: Vec<&str> = code(text)
+            .into_iter()
+            .filter(|l| names_a_burst_secret(l) || l.contains("deployed-burst"))
+            .collect();
+        assert!(
+            hits.is_empty(),
+            "{name} names a deployed-burst secret or its environment; only {BURST_WORKFLOW} reads them: {hits:#?}"
+        );
+    }
+}
+
+#[test]
+fn the_burst_secrets_are_read_only_in_the_job_bound_to_the_environment() {
+    let w = read(".github/workflows/deployed-burst.yml");
+    let lines = code(&w);
+    let bound: Vec<Range<usize>> = job_spans(&lines)
+        .into_iter()
+        .filter(|(_, span)| {
+            lines[span.clone()]
+                .iter()
+                .any(|l| l.trim() == "environment: deployed-burst")
+        })
+        .map(|(_, span)| span)
+        .collect();
+    assert!(
+        !bound.is_empty(),
+        "no job declares environment: deployed-burst"
+    );
+    let stray: Vec<&str> = lines
+        .iter()
+        .enumerate()
+        .filter(|(i, l)| names_a_burst_secret(l) && !bound.iter().any(|span| span.contains(i)))
+        .map(|(_, l)| *l)
+        .collect();
+    assert!(
+        stray.is_empty(),
+        "read outside a job bound to the deployed-burst environment: {stray:#?}"
+    );
+    let wholesale: Vec<&str> = lines
+        .iter()
+        .filter(|l| {
+            let l = l.to_ascii_lowercase();
+            l.contains("tojson(secrets") || l.contains("secrets: inherit")
+        })
+        .copied()
+        .collect();
+    assert!(
+        wholesale.is_empty(),
+        "every secret, wholesale: {wholesale:#?}"
+    );
+}
+
+#[test]
+fn the_deployed_workflow_runs_only_by_hand() {
+    let w = read(".github/workflows/deployed-burst.yml");
+    let lines = code(&w);
+    // YAML also reads `"on"`, `'on'` and `true` as the trigger key.
+    let on_keys: Vec<&str> = lines
+        .iter()
+        .filter(|l| !l.is_empty() && indent(l) == 0)
+        .filter(|l| {
+            let key = l.split(':').next().unwrap().trim_matches(['"', '\'']);
+            key == "on" || key == "true"
+        })
+        .copied()
+        .collect();
+    assert_eq!(on_keys, ["on:"], "the trigger is not one block `on:`");
+    let at = lines.iter().position(|l| *l == "on:").unwrap();
+    let triggers: Vec<&str> = lines[at + 1..]
+        .iter()
+        .take_while(|l| l.is_empty() || indent(l) > 0)
+        .filter(|l| indent(l) == 2)
+        .map(|l| l.trim())
+        .collect();
+    assert_eq!(
+        triggers,
+        ["workflow_dispatch:"],
+        "deployed-burst runs on something other than workflow_dispatch"
+    );
+}
+
+#[test]
+fn the_burst_secrets_reach_a_step_only_through_env() {
+    let w = read(".github/workflows/deployed-burst.yml");
+    let lines = code(&w);
+    let mut bad: Vec<&str> = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        if !names_a_burst_secret(line) {
+            continue;
+        }
+        if line.contains("${{") {
+            // `NAME: ${{ secrets.NAME }}`, or a presence check, under `env:`.
+            let parent = lines[..i]
+                .iter()
+                .rev()
+                .find(|p| !p.trim().is_empty() && indent(p) < indent(line));
+            let in_env = parent.is_some_and(|p| matches!(p.trim(), "env:" | "- env:"));
+            let (key, value) = line.trim().split_once(": ").unwrap_or_default();
+            let mapped = BURST_SECRETS.iter().any(|s| {
+                (key == *s && value == format!("${{{{ secrets.{s} }}}}"))
+                    || value == format!("${{{{ secrets.{s} != '' }}}}")
+            });
+            if !(in_env && mapped) {
+                bad.push(*line);
+            }
+            continue;
+        }
+        // In a script: the session never (the binaries read it from their
+        // environment); the token only as printf's argument, piped to
+        // `curl --config -` so it is in no process's arguments.
+        let shell = |s: &str| line.contains(&format!("${s}")) || line.contains(&format!("${{{s}"));
+        if shell("POPQUIZ_ORGANIZER_SESSION") {
+            bad.push(*line);
+        }
+        if shell("POPQUIZ_ADMIN_TOKEN") {
+            let t = line.trim();
+            let piped = t
+                .split_once("printf ")
+                .is_some_and(|(_, rest)| rest.contains("$POPQUIZ_ADMIN_TOKEN"))
+                && t.ends_with('|')
+                && !t.contains('>')
+                && !t.contains("echo")
+                && lines.get(i + 1).is_some_and(|next| {
+                    next.trim().starts_with("curl ") && next.contains("--config -")
+                });
+            if !piped {
+                bad.push(*line);
+            }
+        }
+    }
+    assert!(
+        bad.is_empty(),
+        "a deployed-burst secret reaches a step other than through an env: mapping: {bad:#?}"
+    );
+    // Nothing traces a script or dumps its environment into the log.
+    let traced: Vec<&str> = lines
+        .iter()
+        .filter(|l| {
+            let t = l.trim();
+            let set_x = t.starts_with("set ")
+                && t.split_whitespace().skip(1).any(|w| {
+                    (w.starts_with('-') && !w.starts_with("--") && w.contains('x')) || w == "xtrace"
+                });
+            set_x
+                || t.contains("printenv")
+                || t == "env"
+                || t.starts_with("env |")
+                || t.starts_with("env >")
+        })
+        .copied()
+        .collect();
+    assert!(traced.is_empty(), "{traced:#?}");
 }
 
 #[test]
