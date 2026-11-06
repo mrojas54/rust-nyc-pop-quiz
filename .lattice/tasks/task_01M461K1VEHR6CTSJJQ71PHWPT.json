@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": null,
   "created_at": "2026-10-05T12:46:02Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K1VEHR6CTSJJQ71PHWPT",
-  "last_event_id": "ev_01M461K1VFBA9AP1XVS3W88VRM",
+  "last_event_id": "ev_01M6QV9JGR3NG2ECTTEFSNWGGV",
   "last_status_changed_at": "2026-10-05T12:46:02Z",
   "priority": "low",
   "relationships_out": [],
@@ -20,11 +20,10 @@
   "status": "backlog",
   "tags": [
     "audit-gap",
-    "held",
     "g-9"
   ],
   "title": "Deployed burst keeps an organizer session and the admin token as repo secrets",
   "type": "chore",
-  "updated_at": "2026-10-05T12:46:02Z",
+  "updated_at": "2026-11-06T07:13:43Z",
   "urgency": null
 }

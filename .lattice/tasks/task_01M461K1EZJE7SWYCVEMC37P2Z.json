@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K1EZJE7SWYCVEMC37P2Z",
-  "last_event_id": "ev_01M461K1F09EXJ9QAE04T42HC8",
+  "last_event_id": "ev_01M6QV9JCXBQ5BHHW6SFW1FN0P",
   "last_status_changed_at": "2026-10-05T12:46:01Z",
   "priority": "low",
   "relationships_out": [],
@@ -20,11 +20,10 @@
   "status": "backlog",
   "tags": [
     "audit-gap",
-    "held",
     "g-2"
   ],
   "title": "G-2 provenance follow-ups: stale pin, record digest, the MVP deck",
   "type": "chore",
-  "updated_at": "2026-10-05T12:46:01Z",
+  "updated_at": "2026-11-06T07:13:43Z",
   "urgency": null
 }
