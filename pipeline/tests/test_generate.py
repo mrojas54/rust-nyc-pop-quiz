@@ -14,8 +14,6 @@ import dataclasses
 import io
 import json
 import math
-import shutil
-import socket
 import sys
 from pathlib import Path
 
@@ -33,22 +31,9 @@ SRC = HERE.parent / "src" / "popquiz"
 TOPICS = ("ownership", "iterators", "integers")
 
 
-@pytest.fixture(autouse=True)
-def no_network_no_key(monkeypatch):
-    """Ruling 1: nothing in this file can reach a network or find a credential."""
-    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_PROFILE"):
-        monkeypatch.delenv(name, raising=False)
-    # PQ-69 ruling 7: no test here can reach the real `claude` either.
-    monkeypatch.setenv("PATH", "/usr/bin:/bin")
-    assert shutil.which("claude") is None, "a real claude is reachable on the test PATH"
-
-    def refuse(*args, **kwargs):
-        raise AssertionError("a test in test_generate.py tried to use the network")
-
-    monkeypatch.setattr(socket.socket, "connect", refuse)
-    monkeypatch.setattr(socket.socket, "connect_ex", refuse)
-    monkeypatch.setattr(socket, "create_connection", refuse)
-    monkeypatch.setattr(socket, "getaddrinfo", refuse)
+# Ruling 1: nothing in this file can reach a network or find a credential, and
+# (PQ-69 ruling 7) the real `claude` is out of reach: both from `tests/conftest.py`.
+pytestmark = pytest.mark.usefixtures("hermetic")
 
 
 class MeasuredReplay(ReplayBatchClient):
@@ -993,3 +978,21 @@ def test_trace_shape_breaks_are_reported(steps, reason):
     outcome = _classify(_candidate(trace={"steps": steps}))
     assert not outcome.emitted
     assert any(reason in r for r in outcome.reasons), outcome.reasons
+
+
+def test_a_batches_run_stopped_while_submitting_keeps_its_console_message(tmp_path):
+    """PQ-70 item 5: a batch may exist, so a batches run never resumes from a
+    submitting state, and its message is pinned character for character."""
+
+    class Interrupted(ReplayBatchClient):
+        def submit(self, requests):
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        go(tmp_path, Interrupted(FIXTURES / "clean.json"))
+    with pytest.raises(GenerateError) as err:
+        go(tmp_path, replay("clean"))
+    assert str(err.value) == (
+        "Run t1 stopped while submitting, so a batch may already exist for it; "
+        "check the Console before starting again under a new --run-id."
+    )
