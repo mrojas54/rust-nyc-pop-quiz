@@ -34,18 +34,23 @@ a schema-valid answer (`error_max_structured_output_retries`).
 **Re-runnable (AC-2).** Each finished child's result is written atomically to
 `<run>/_run/cli/<custom_id>.json`; a rerun with the same `--run-id` serves those
 and runs only the rest. A child that is running when the run is interrupted is
-killed with its process group. A SIGKILL of the generator itself cannot reach the
-child: that one candidate finishes on plan usage and the rerun asks for it again.
+killed with its process group, including by a SIGTERM or SIGHUP, after which the
+generator exits as that signal would have. A SIGKILL of the generator itself cannot
+reach the child: that one candidate finishes on plan usage and the rerun asks for it
+again.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
+import math
 import os
 import shutil
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
@@ -56,6 +61,10 @@ from popquiz.generate import API_EQUIVALENT, CLAUDE_CLI, GenerateError, write_at
 #: Seconds one candidate may run before its process group is killed and the run
 #: stops. Generous: one structured answer at high effort, with no tools.
 DEFAULT_TIMEOUT_S = 900.0
+
+#: Signals whose default action ends the generator without unwinding; while a child
+#: runs, each one kills the child's process group first (`_KillChildOnSignal`).
+FORWARDED_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
 
 #: The one `is_error` subtype that is a candidate's failure, not a reason to stop.
 PER_CANDIDATE_ERRORS = frozenset({"error_max_structured_output_retries"})
@@ -73,6 +82,12 @@ NO_CLAUDE = "Refusing to start: no claude executable was found; install Claude C
 
 def not_executable(path: str) -> str:
     return f"Refusing to start: {path} is not an executable file."
+
+
+def check_timeout(timeout_s: float) -> None:
+    """`--claude-timeout-s` is refused unless it is a positive, finite number of seconds."""
+    if not (math.isfinite(timeout_s) and timeout_s > 0):
+        raise GenerateError(f"Refusing to start: a claude timeout is a positive number of seconds, not {timeout_s}.")
 
 
 def is_billing_switch(name: str) -> bool:
@@ -122,6 +137,14 @@ def prompt(params: Mapping[str, Any]) -> str:
     return params["messages"][0]["content"]
 
 
+def stopped_at(cid: str, reason: str) -> str:
+    """The one sentence for a run that stopped at `cid`."""
+    return (
+        f"Stopped at {cid}: {reason}. Candidates finished before it are written; "
+        "rerun with the same --run-id to pick up the rest."
+    )
+
+
 def _one_line(text: str, limit: int = 240) -> str:
     line = " ".join(str(text).split())
     return line if len(line) <= limit else line[: limit - 1] + "…"
@@ -144,6 +167,7 @@ class ClaudeCliClient:
         timeout_s: float = DEFAULT_TIMEOUT_S,
         environ: Mapping[str, str] | None = None,
     ) -> None:
+        check_timeout(timeout_s)
         resolved = binary if binary is not None else shutil.which("claude")
         if resolved is None:
             raise GenerateError(NO_CLAUDE)
@@ -182,10 +206,7 @@ class ClaudeCliClient:
             try:
                 entry, keep = self._run_one(cid, request["params"])
             except Stop as stop:
-                self.stopped = (
-                    f"Stopped at {cid}: {stop}. Candidates finished before it are written; "
-                    "rerun with the same --run-id to pick up the rest."
-                )
+                self.stopped = stopped_at(cid, str(stop))
                 yield _errored(cid, "stopped", str(stop), {})
                 return
             if keep:
@@ -196,29 +217,44 @@ class ClaudeCliClient:
 
     def _run_one(self, cid: str, params: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         """One child, start to finish. Returns the entry and whether it is finished
-        (cached for a rerun). Raises `Stop` for anything that ends the run."""
+        (cached for a rerun). Raises `Stop` for anything that ends the run, and
+        `GenerateError` when the child cannot be started or read at all.
+
+        The child's pipes are bytes: its stdout is decoded here, after it has been
+        reaped, so a decode failure never interrupts `communicate` or reaches `_kill`.
+        """
         self.spawned.append(cid)
         started = time.monotonic()
-        with tempfile.TemporaryDirectory(prefix="popquiz-claude-") as cwd:
-            child = subprocess.Popen(
-                argv(self.binary, params),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=cwd,
-                env=child_env(self._environ),
-                text=True,
-                start_new_session=True,
-            )
+        with tempfile.TemporaryDirectory(prefix="popquiz-claude-") as cwd, _KillChildOnSignal() as guard:
             try:
-                out, err = child.communicate(prompt(params), timeout=self.timeout_s)
+                with guard.spawning():
+                    guard.child = child = subprocess.Popen(
+                        argv(self.binary, params),
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        cwd=cwd,
+                        env=child_env(self._environ),
+                        start_new_session=True,
+                    )
+            except OSError as exc:
+                raise GenerateError(stopped_at(cid, f"could not start {self.binary} ({exc.strerror or exc})")) from None
+            try:
+                raw_out, raw_err = child.communicate(prompt(params).encode("utf-8"), timeout=self.timeout_s)
             except subprocess.TimeoutExpired:
                 _kill(child)
                 raise Stop(f"claude ran past the {self.timeout_s:g} s timeout and was killed") from None
+            except _Terminate:
+                raise  # the guard's __exit__ kills the group, then re-sends the signal
             except BaseException:
                 _kill(child)
                 raise
         elapsed = time.monotonic() - started
+        try:
+            out = raw_out.decode("utf-8")
+        except UnicodeDecodeError:
+            raise GenerateError(stopped_at(cid, f"{self.binary} printed output that is not UTF-8")) from None
+        err = raw_err.decode("utf-8", errors="replace")
 
         try:
             data = json.loads(out)
@@ -281,8 +317,122 @@ def _seconds(duration_ms: Any, fallback_s: float) -> float:
     return round(duration_ms / 1000 if _is_number(duration_ms) else fallback_s, 3)
 
 
-def _kill(child: subprocess.Popen[str]) -> None:
-    """Kill the child's whole process group, then reap it."""
+class _Terminate(BaseException):
+    """A SIGTERM or SIGHUP, raised out of whatever the main thread was doing so the
+    child is killed from ordinary code, never from inside `Popen`'s own reaping."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
+
+
+class _KillChildOnSignal:
+    """For one child's lifetime: a SIGTERM or SIGHUP kills the child's process group,
+    then ends this process the way the signal would have (PQ-70).
+
+    The child runs in its own session, so a signal that ends the generator by its
+    default action would leave it running on plan usage. The handler goes in before
+    the child is started and comes out after it is reaped, in the main thread only,
+    and only for a signal still at its default action: one already ignored
+    (`nohup`'s SIGHUP) or handled by someone else is left as it is.
+
+    The handler never kills anything itself. It raises `_Terminate`, and `__exit__`
+    kills the group and re-sends the signal. Two moments are unsafe to raise in, and
+    there the signal is held instead: while `Popen` is still starting the child (the
+    child is not known yet; acted on as soon as it is), and while `Popen` holds
+    `_waitpid_lock` (it may have reaped the pid without yet setting `returncode`, so
+    the group id may already be someone else's). In the second case the signal is
+    re-sent to the main thread every 50 ms until it lands outside the lock, so a
+    child that is still running is not left to run on; `__exit__` acts on a held
+    signal too. After the first `_Terminate`, further signals are ignored so the kill
+    in `__exit__` cannot itself be interrupted.
+    """
+
+    def __init__(self) -> None:
+        self.child: subprocess.Popen[bytes] | None = None
+        self._starting = False
+        self._pending: int | None = None
+        self._terminating = False
+        self._previous: dict[int, Any] = {}
+
+    def __enter__(self) -> _KillChildOnSignal:
+        if threading.current_thread() is threading.main_thread():
+            for signum in FORWARDED_SIGNALS:
+                if signal.getsignal(signum) == signal.SIG_DFL:
+                    self._previous[signum] = signal.signal(signum, self._handle)
+        return self
+
+    def __exit__(self, exc_type: object, exc: BaseException | None, tb: object) -> None:
+        signum = exc.signum if isinstance(exc, _Terminate) else self._pending
+        if signum is None:
+            self._restore()
+            return
+        self._terminating = True
+        try:
+            if self.child is not None:
+                _kill_group(self.child)
+        finally:
+            self._restore()
+        os.kill(os.getpid(), signum)
+        raise SystemExit(128 + signum)  # only if the signal did not end the process
+
+    @contextlib.contextmanager
+    def spawning(self) -> Iterator[None]:
+        self._starting = True
+        try:
+            yield
+        finally:
+            self._starting = False
+            if self._pending is not None:
+                self._handle(self._pending, None)
+
+    def _restore(self) -> None:
+        while self._previous:
+            signum, previous = self._previous.popitem()
+            signal.signal(signum, previous)
+
+    def _handle(self, signum: int, frame: object) -> None:
+        if self._terminating:
+            return
+        if self._starting:
+            self._pending = signum
+            return
+        child = self.child
+        if child is not None and child._waitpid_lock.locked():  # CPython's POSIX Popen: every reap takes it
+            self._pending = signum
+            _redeliver_later(signum)
+            return
+        self._terminating = True
+        raise _Terminate(signum)
+
+
+def _redeliver_later(signum: int) -> None:
+    """Send `signum` to the main thread again in 50 ms (see `_KillChildOnSignal`)."""
+    timer = threading.Timer(0.05, signal.pthread_kill, (threading.main_thread().ident, signum))
+    timer.daemon = True
+    timer.start()
+
+
+def _kill_group(child: subprocess.Popen[bytes]) -> None:
+    """From ordinary code, never inside `Popen`'s reaping: SIGKILL the child's group
+    if the child is unreaped, then wait for it. No `communicate`: its pipes may be
+    mid-read from an interrupted one."""
+    if child.returncode is None:
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        child.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _kill(child: subprocess.Popen[bytes]) -> None:
+    """Kill the child's whole process group, then reap it. A child already reaped
+    is left alone: its pid, and so its group id, may belong to someone else now."""
+    if child.returncode is not None:
+        return
     try:
         os.killpg(child.pid, signal.SIGKILL)
     except ProcessLookupError:

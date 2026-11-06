@@ -164,6 +164,7 @@ CLI_NO_USD = (
 BATCHES_NO_MAX = "Refusing to submit: a batches run is capped by --cap-usd; --max-candidates is claude-cli's."
 CLI_NO_REPLAY = "Refusing to start: --replay replays a batch; a claude-cli run takes no --replay."
 BATCHES_NO_CLAUDE_BIN = "Refusing to submit: --claude-bin is claude-cli's; a batches run starts no claude."
+BATCHES_NO_CLAUDE_TIMEOUT = "Refusing to submit: --claude-timeout-s is claude-cli's; a batches run starts no claude."
 NOT_RUN = "not run: the run stopped before this candidate; rerun with the same --run-id to pick it up"
 
 
@@ -1142,7 +1143,8 @@ def run(
     Order matters and is the point: validate, build, check the backend's cap, *then*
     build the client, write the state, submit, write the batch id. A refusal
     therefore happens before a client exists, and a resumed run never reaches
-    `submit`. Each backend has its own cap and refuses the other's: dollars for
+    `submit`, except a claude-cli run stopped just before it, whose submit only
+    keeps its requests. Each backend has its own cap and refuses the other's: dollars for
     Batches, a candidate count for claude-cli, which is checked again on a resume
     because a resumed claude-cli run starts processes.
     """
@@ -1182,12 +1184,20 @@ def run(
             raise GenerateError(
                 f"Run {run_id} was started with a different request; use a new --run-id."
             )
-        if not state.get("batch_id"):
+        if not state.get("batch_id") and backend != CLAUDE_CLI:
             raise GenerateError(
                 f"Run {run_id} stopped while submitting, so a batch may already exist for it; "
                 "check the Console before starting again under a new --run-id."
             )
         client = client_factory()
+        if not state.get("batch_id"):
+            # claude-cli: stopped between the submitting state and submit. Its submit
+            # starts nothing and leaves nothing behind but the requests it keeps, so
+            # there is no batch to leak: finish the submit and carry on (PQ-70).
+            state["batch_id"] = client.submit(requests)
+            state["submitted_at"] = clock()
+            state["status"] = "submitted"
+            write_atomic(state_path, state)
         resumed = True
     else:
         if backend == BATCHES:
@@ -1321,6 +1331,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--max-candidates", type=int, default=None, help="claude-cli: the most candidates a run may ask for; no default"
     )
     parser.add_argument("--claude-bin", default=None, help="claude-cli: the claude executable; default: claude on PATH")
+    parser.add_argument(
+        "--claude-timeout-s", type=float, default=None,
+        help="claude-cli: seconds one candidate may run before its claude is killed and the run stops; default 900",
+    )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     parser.add_argument("--replay", type=Path, help="batches: a recorded batch fixture; no API, no key")
@@ -1357,13 +1371,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
         from popquiz import generate_cli
 
+        timeout_s = generate_cli.DEFAULT_TIMEOUT_S if args.claude_timeout_s is None else args.claude_timeout_s
+        try:
+            generate_cli.check_timeout(timeout_s)
+        except GenerateError as exc:
+            print(f"generate: {exc}", file=sys.stderr)
+            return 2
         cache_dir = Path(args.out) / run_id / RUN_SUBDIR / CLI_SUBDIR
         claude_bin = args.claude_bin
         factory = Factory(
-            generate_cli.ClaudeCliClient, lambda: generate_cli.ClaudeCliClient(claude_bin, cache_dir)
+            generate_cli.ClaudeCliClient,
+            lambda: generate_cli.ClaudeCliClient(claude_bin, cache_dir, timeout_s=timeout_s),
         )
     elif args.claude_bin is not None:
         print(f"generate: {BATCHES_NO_CLAUDE_BIN}", file=sys.stderr)
+        return 2
+    elif args.claude_timeout_s is not None:
+        print(f"generate: {BATCHES_NO_CLAUDE_TIMEOUT}", file=sys.stderr)
         return 2
     elif replay is not None:
         # `--replay` is the only way to a fixture client, and a fixture run never

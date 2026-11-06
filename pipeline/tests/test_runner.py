@@ -64,6 +64,7 @@ FORBIDDEN_IMPORTS = {"subprocess", "multiprocessing", "pty", "docker", "importli
 MAY_START_A_PROCESS = {
     "src/popquiz/sandbox.py",
     "src/popquiz/generate_cli.py",  # PQ-69 ruling 2: the claude-cli backend runs one `claude -p` per candidate
+    "tests/conftest.py",  # PQ-70: guards Popen against the real claude; starts nothing
 }
 
 # `os` is not forbidden — modules want `os.environ` and `os.fspath`. These are
