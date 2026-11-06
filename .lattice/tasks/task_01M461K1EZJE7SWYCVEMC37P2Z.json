@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 13,
+  "comment_count": 14,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
@@ -18,23 +18,28 @@
       "id": "art_01M6R5CR5524MHSGZTWAM067FY",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6RAT0EXDJFMR2CFQB2F56AY",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M461K1EZJE7SWYCVEMC37P2Z",
-  "last_event_id": "ev_01M6R5DGQ9Y7RFDV2C8A7P8SPP",
-  "last_status_changed_at": "2026-11-06T07:22:53Z",
+  "last_event_id": "ev_01M6RATE81XFS4WKYCPBYNZM8W",
+  "last_status_changed_at": "2026-11-06T11:44:50Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-58",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "audit-gap",
     "g-2"
   ],
   "title": "G-2 provenance follow-ups: stale pin, record digest, the MVP deck",
   "type": "chore",
-  "updated_at": "2026-11-06T10:10:38Z",
+  "updated_at": "2026-11-06T11:45:04Z",
   "urgency": null
 }
