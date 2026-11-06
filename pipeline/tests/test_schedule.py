@@ -12,6 +12,7 @@ was sent; nothing here reaches a network.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import io
 import json
 import re
@@ -22,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from popquiz import audit, fallback, schedule, verify
+from popquiz import audit, fallback, sandbox, schedule, verify
 from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, question_from_dict, question_to_dict
 from popquiz.slot import slot_for_day
 
@@ -422,6 +423,86 @@ def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_p
 def test_g12_the_gate_agrees_with_the_reserve(affirmed):
     for q in schedule.load_bank(affirmed):
         assert (schedule.refusal(q) is None) == audit.in_reserve(q)
+
+
+# --------------------------------------------------------------------------- #
+# AC-6, the stale pin (GAP-5)
+# --------------------------------------------------------------------------- #
+
+
+def _pin_matching(question) -> sandbox.Pin:
+    """A pin built here, from the record it is compared with, never from this
+    machine's `pin.toml`: what the record says it ran under, and nothing more."""
+    v = question.verified
+    vv = dict(line.split(": ", 1) for line in v.rustc.splitlines() if ": " in line)
+    return sandbox.Pin(
+        rust_version=vv["release"],
+        release=vv["release"],
+        commit_hash=vv["commit-hash"],
+        edition=v.edition,
+        nightly="2000-01-01",
+        miri_version=v.miri.version,
+        target_triples=(v.target_triple,),
+        flags={
+            "opt-level": v.flags.opt_level,
+            "overflow-checks": v.flags.overflow_checks,
+            "debug-assertions": v.flags.debug_assertions,
+        },
+        image_tag="fixture",
+        platform="linux/amd64",
+        limits=sandbox.Limits(memory="1g", memory_swap="1g", cpus="1", pids=64, timeout_seconds=10, tmpfs_size="64m"),
+    )
+
+
+def test_ac6_a_record_verified_under_another_rustc_release_is_refused(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    pin = _pin_matching(q4)
+    recorded = pin.release
+    why = schedule.refusal(q4, pin=dataclasses.replace(pin, release="0.0.0"))
+    assert why == (
+        f"q4 was verified under a toolchain that no longer matches the pin (rustc release "
+        f"{recorded}, the pin says 0.0.0) - re-verify it with `just verify` before it is "
+        "scheduled (AC-6)"
+    )
+
+
+def test_ac6_a_legacy_record_is_not_refused_for_its_pin(affirmed):
+    q3 = load_question(affirmed, "q3")
+    assert q3.verified.legacy
+    stale = dataclasses.replace(_pin_matching(load_question(affirmed, "q4")), release="0.0.0")
+    assert schedule.refusal(q3, pin=stale) is None
+
+
+def test_ac6_a_record_that_matches_the_pin_is_scheduled(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    assert schedule.refusal(q4, pin=_pin_matching(q4)) is None
+
+
+def test_ac6_a_record_whose_miri_version_differs_is_refused(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    assert q4.verified.miri is not None  # Miri ran, so its version is compared
+    pin = dataclasses.replace(_pin_matching(q4), miri_version="miri 0.0.0")
+    why = schedule.refusal(q4, pin=pin)
+    assert why is not None
+    assert f"Miri {q4.verified.miri.version}, the pin says miri 0.0.0" in why
+    assert "re-verify it with `just verify`" in why
+
+
+def _rustc_release_zero(data):
+    data["verified"]["rustc"] = re.sub(r"(?m)^release: .*$", "release: 0.0.0", data["verified"]["rustc"])
+
+
+def test_ac6_schedule_refuses_a_stale_record_and_sends_nothing(bank, room, tmp_path, capsys):
+    """Through the command, with the pin it reads itself: no pin's release is 0.0.0."""
+    _edit_record(bank, "q4", _rustc_release_zero)
+    affirm(bank, "q4")
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    code = run("schedule", "q4", "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
+    assert_refused(code, capsys, fake, out, "rustc release 0.0.0, the pin says")
 
 
 # --------------------------------------------------------------------------- #

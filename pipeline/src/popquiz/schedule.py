@@ -52,7 +52,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from popquiz import fallback
+from popquiz import fallback, sandbox
 from popquiz.audit import in_reserve, is_accepted
 from popquiz.bank import (
     CLUB_ALIASES,
@@ -73,7 +73,7 @@ from popquiz.bank import (
     save_question,
 )
 from popquiz.slot import slot_for_day
-from popquiz.verify import ProvenanceError, check_question
+from popquiz.verify import ProvenanceError, Verified, check_question, is_stale
 
 #: The one place the pipeline reads the admin token from (SPEC 8.3, H-11).
 TOKEN_ENV = "POPQUIZ_ADMIN_TOKEN"
@@ -133,12 +133,46 @@ class ScheduleError(Exception):
 # --------------------------------------------------------------------------- #
 
 
-def refusal(question: Question, club: str = DEFAULT_CLUB) -> str | None:
+def _pin_mismatch(verified: Verified, pin: sandbox.Pin) -> str:
+    """Which parts of a stale record differ from the pin, for the refusal to name.
+    It only describes: whether the record is stale is `verify.is_stale`'s call."""
+    vv = dict(line.split(": ", 1) for line in verified.rustc.splitlines() if ": " in line)
+    if "release" not in vv or "commit-hash" not in vv:
+        return "its rustc is not a -Vv report, so it cannot be compared"
+
+    def flag_words(opt_level: Any, overflow_checks: Any, debug_assertions: Any) -> str:
+        return (
+            f"opt-level={opt_level} overflow-checks={str(overflow_checks).lower()} "
+            f"debug-assertions={str(debug_assertions).lower()}"
+        )
+
+    f = verified.flags
+    parts = [
+        ("rustc release", vv["release"], pin.release),
+        ("rustc commit-hash", vv["commit-hash"], pin.commit_hash),
+        ("edition", verified.edition, pin.edition),
+        (
+            "flags",
+            "none" if f is None else flag_words(f.opt_level, f.overflow_checks, f.debug_assertions),
+            flag_words(pin.flags["opt-level"], pin.flags["overflow-checks"], pin.flags["debug-assertions"]),
+        ),
+    ]
+    if verified.miri is not None:  # Miri's version is compared only when Miri ran
+        parts.append(("Miri", verified.miri.version, pin.miri_version))
+    return "; ".join(f"{label} {was}, the pin says {now}" for label, was, now in parts if was != now)
+
+
+def refusal(
+    question: Question, club: str = DEFAULT_CLUB, *, pin: sandbox.Pin | None = None
+) -> str | None:
     """Why this question cannot be scheduled, or `None` when it can.
 
     A hard error, never a warning: scheduling takes a question from the reserve
     (SPEC 3.3, `audit.in_reserve`: accepted, affirmed, unused) and a verified
     record. This names *which* part is missing, so the organizer knows what to do.
+    A non-legacy record verified under a toolchain that no longer matches the pin
+    is refused as stale (SPEC 7.2, AC-6, `verify.is_stale`); `pin` defaults to
+    `pipeline/sandbox/pin.toml`, read only when a non-legacy record gets that far.
     The record must also pass the build's provenance check (AC-7,
     `verify.check_question`), which cannot see a self-consistent edit inside it.
 
@@ -178,6 +212,18 @@ def refusal(question: Question, club: str = DEFAULT_CLUB) -> str | None:
         return f"{qid} is affirmed but has not been accepted at review, so it cannot be scheduled"
     if not in_reserve(question, club):  # the checks above are in_reserve, spelled out
         return f"{qid} is not in the reserve, so it cannot be scheduled"
+    if not question.verified.legacy:  # a legacy record is exempt (SPEC 3.2) and needs no pin
+        if pin is None:
+            try:
+                pin = sandbox.read_pin()
+            except sandbox.PinError as e:
+                return str(e)
+        if is_stale(question.verified, pin):
+            return (
+                f"{qid} was verified under a toolchain that no longer matches the pin "
+                f"({_pin_mismatch(question.verified, pin)}) - re-verify it with `just verify` "
+                "before it is scheduled (AC-6)"
+            )
     try:
         check_question(question)  # AC-7: last, so the refusals above read as they did
     except ProvenanceError as e:
