@@ -346,6 +346,22 @@ def refusal(
         return f"{qid} is affirmed but has not been accepted at review, so it cannot be scheduled"
     if not in_reserve(question, club):  # the checks above are in_reserve, spelled out
         return f"{qid} is not in the reserve, so it cannot be scheduled"
+    return record_refusal(question, pin=pin, recordings=recordings)
+
+
+def record_refusal(
+    question: Question,
+    *,
+    pin: sandbox.Pin | None = None,
+    recordings: Path | None = None,
+) -> str | None:
+    """The part of `refusal` about the record itself, in its order: the pin (AC-6),
+    the provenance check (AC-7) and the recording (GAP-6). `refusal` runs it after
+    the reserve's checks; `verify --check` runs it alone for `just demo`, which
+    pushes a stored file rather than a question this module scheduled."""
+    qid = question.id
+    if question.verified is None:
+        return f"{qid} has no verified record, so it cannot be scheduled"
     if not question.verified.legacy:  # a legacy record is exempt (SPEC 3.2) and needs no pin
         if pin is None:
             try:

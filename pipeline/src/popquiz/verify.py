@@ -759,18 +759,25 @@ def write_recording(
 # --------------------------------------------------------------------------- #
 
 
-def _check_file(path: Path) -> int:
+def _check_file(path: Path, recordings: Path | None = None) -> int:
     """`--check`: the provenance check on a file, for `just demo`, which pushes the
-    stored file rather than a question `popquiz schedule` loaded. Runs nothing and
-    writes nothing."""
+    stored file rather than a question `popquiz schedule` loaded; then the record's
+    own checks scheduling makes, in its words (`schedule.record_refusal`: the pin,
+    AC-6, and the recording, GAP-6). Runs no program and writes nothing."""
+    from popquiz import schedule  # schedule imports this module
+
     try:
-        check_provenance(json.loads(path.read_text(encoding="utf-8")))
+        question = check_provenance(json.loads(path.read_text(encoding="utf-8")))
     except ProvenanceError as exc:
         print(f"verify: {exc}", file=sys.stderr)
         return 1
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"verify: cannot read {path}: {exc}", file=sys.stderr)
         return 2
+    why = schedule.record_refusal(question, recordings=recordings or recordings_dir(path))
+    if why is not None:
+        print(f"verify: {why}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -780,8 +787,9 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
     Exit 0: accepted, and the record was written into the candidate file.
     Exit 1: rejected; the file is untouched. Exit 2: refused, or unusable input.
 
-    `--check <file>` runs only the provenance check. Exit 0: it passes. Exit 1: it
-    refuses. Exit 2: unusable input. The file is never touched.
+    `--check <file>` runs only the checks on the stored record: provenance, the pin
+    and the recording. Exit 0: it passes. Exit 1: it refuses. Exit 2: unusable
+    input. The file is never touched.
     """
     parser = argparse.ArgumentParser(
         prog="verify",
@@ -796,17 +804,17 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
     parser.add_argument(
         "--check",
         action="store_true",
-        help="only run the provenance check on the file; runs no program and writes nothing",
+        help="only check the stored record (provenance, pin, recording); runs no program and writes nothing",
     )
     parser.add_argument(
         "--recordings",
         type=Path,
         default=None,
-        help="where the recording goes (default: recordings/ in the candidate's bank)",
+        help="where the recording goes, or with --check where it is read (default: recordings/ in the candidate's bank)",
     )
     args = parser.parse_args(argv)
     if args.check:
-        return _check_file(args.candidate)
+        return _check_file(args.candidate, args.recordings)
 
     try:
         data = json.loads(args.candidate.read_text(encoding="utf-8"))

@@ -150,7 +150,7 @@ check: it refuses a stored `correct` field, a record the verifier did not write,
 and options that no longer derive an answer from the record. `popquiz schedule`
 and the fallback apply it to the loaded question (`verify.check_question`), so a
 bank that was never committed gets it too, and `just demo` runs it on the file
-before its push. A hand-made `PUT` to the room's admin channel does not. It cannot see an
+before its push, with scheduling's pin and recording checks (`verify --check`). A hand-made `PUT` to the room's admin channel does not. It cannot see an
 edit *inside* the record that leaves it self-consistent — nothing in §3.2 binds a
 record to the run that produced it — and says so.
 

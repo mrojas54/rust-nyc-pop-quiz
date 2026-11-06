@@ -682,19 +682,68 @@ def test_a_loaded_question_verify_wrote_passes_and_comes_back() -> None:
     sorted((HERE.parent.parent / "bank" / "questions").glob("*.json")),
     ids=lambda p: p.stem,
 )
-def test_the_cli_check_passes_every_bank_question(path, capsys) -> None:
-    """What `just demo` runs on the file it is about to push."""
-    assert verify.main(["--check", str(path)]) == 0
-    assert capsys.readouterr().err == ""
+def test_the_cli_check_gives_every_bank_question_the_schedulers_answer(path, capsys) -> None:
+    """What `just demo` runs on the file it is about to push: the provenance check,
+    then the record's own checks in `schedule.refusal`'s words (pin, recording)."""
+    from popquiz import schedule
+
+    question = verify.check_provenance(json.loads(path.read_text(encoding="utf-8")))
+    why = schedule.record_refusal(question, recordings=verify.recordings_dir(path))
+    assert verify.main(["--check", str(path)]) == (0 if why is None else 1)
+    assert capsys.readouterr().err == ("" if why is None else f"verify: {why}\n")
+
+
+def _verified_in_bank(tmp_path: pathlib.Path, program: str, expect: str) -> pathlib.Path:
+    """A candidate `verify` wrote into a bank, with the recording it wrote beside it."""
+    (tmp_path / "b" / "questions").mkdir(parents=True)
+    path = _candidate(tmp_path / "b" / "questions", program)
+    assert verify.main([str(path), "--expect", expect], runner=StubRunner(RECORDINGS)) == 0
+    assert (tmp_path / "b" / verify.RECORDINGS / f"{program}.json").is_file()
+    return path
 
 
 def test_the_cli_check_passes_a_good_file_and_leaves_it(tmp_path, capsys) -> None:
-    path = tmp_path / "q3.json"
-    path.write_text(json.dumps(_file("q3", "ran")), encoding="utf-8")
+    path = _verified_in_bank(tmp_path, "q3", "ran")
+    capsys.readouterr()
     before = path.read_bytes()
     assert verify.main(["--check", str(path)]) == 0
     assert path.read_bytes() == before
     assert capsys.readouterr().err == ""
+
+
+def test_the_cli_check_refuses_a_file_with_no_recording(tmp_path, capsys) -> None:
+    """`just demo` pushes the stored file, so it is held to the recording too (GAP-6)."""
+    path = _verified_in_bank(tmp_path, "q3", "ran")
+    (tmp_path / "b" / verify.RECORDINGS / "q3.json").unlink()
+    capsys.readouterr()
+    assert verify.main(["--check", str(path)]) == 1
+    assert capsys.readouterr().err == (
+        "verify: q3 has no recording - re-verify it with `just verify` before it is scheduled (AC-7)\n"
+    )
+
+
+def test_the_cli_check_refuses_a_record_edited_after_its_recording(tmp_path, capsys) -> None:
+    path = _verified_in_bank(tmp_path, "q3", "ran")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["verified"]["target_triple"] = "edited-unknown-linux-gnu"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    capsys.readouterr()
+    assert verify.main(["--check", str(path)]) == 1
+    assert capsys.readouterr().err.startswith(
+        "verify: q3 does not match its recording (its verified record changed after `just verify` wrote it)"
+    )
+
+
+def test_the_cli_check_refuses_a_record_verified_under_another_pin(tmp_path, capsys, monkeypatch) -> None:
+    """AC-6 for `just demo`: a stale record is refused before it is pushed."""
+    path = _verified_in_bank(tmp_path, "q3", "ran")
+    stale = dataclasses.replace(_pin(), release="0.0.0")
+    monkeypatch.setattr(sandbox, "read_pin", lambda *a, **k: stale)
+    capsys.readouterr()
+    assert verify.main(["--check", str(path)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("verify: q3 was verified under a toolchain that no longer matches the pin (rustc release ")
+    assert err.endswith("the pin says 0.0.0) - re-verify it with `just verify` before it is scheduled (AC-6)\n")
 
 
 @pytest.mark.parametrize(
