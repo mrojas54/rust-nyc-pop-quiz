@@ -345,3 +345,5 @@ questions." · (R1-a) `ROOM_QUESTION_OTHER_DATE` "That question was scheduled fo
 another date."
 
 *2026-11-06, orchestrator (SECTION CLASH): PQ-61 owns SPEC §8.4 (the deployed burst); this section is renumbered §8.5, words unchanged.*
+
+## Reset 2026-11-06 by agent:delegator-pq80

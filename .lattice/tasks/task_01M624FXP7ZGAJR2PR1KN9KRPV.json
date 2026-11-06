@@ -21,14 +21,14 @@
     }
   ],
   "id": "task_01M624FXP7ZGAJR2PR1KN9KRPV",
-  "last_event_id": "ev_01M6REJD9546RGBPWV9N092BDQ",
-  "last_status_changed_at": "2026-11-06T12:27:16Z",
+  "last_event_id": "ev_01M6REMMHJK710XP2EN5QNFJ21",
+  "last_status_changed_at": "2026-11-06T12:51:48Z",
   "priority": "low",
   "relationships_out": [],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-80",
-  "status": "needs_human",
+  "status": "in_progress",
   "tags": [
     "feature",
     "room",
@@ -37,6 +37,6 @@
   ],
   "title": "Organizer schedules the question from the host page (browser scheduling)",
   "type": "task",
-  "updated_at": "2026-11-06T12:50:35Z",
+  "updated_at": "2026-11-06T12:51:48Z",
   "urgency": null
 }
