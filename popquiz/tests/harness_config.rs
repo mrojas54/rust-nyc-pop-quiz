@@ -159,55 +159,41 @@ fn the_deployed_burst_runs_against_the_cap_fly_toml_states() {
 // The deployed burst's two credentials (GAP-19, SPEC §8.4). They are secrets of
 // the `deployed-burst` environment, and this keeps every read of them where
 // the workflow's header says: one job, bound to that environment, run by hand,
-// reading them only through a step's `env:`, in steps whose scripts are the
-// ones below. GitHub reads secret and environment names in any case, and
+// reading them only through a step's `env:`, in a workflow that is the one
+// pinned below. GitHub reads secret and environment names in any case, and
 // substitutes `${{ }}` into a script before it runs, comment lines included,
 // so these checks read raw lines and match names in lowercase.
 
 const BURST_WORKFLOW: &str = "deployed-burst.yml";
 const BURST_SECRETS: [&str; 2] = ["POPQUIZ_ORGANIZER_SESSION", "POPQUIZ_ADMIN_TOKEN"];
 
-/// The steps that hold a secret, and their scripts, exactly. A change to one
-/// is a change to the credential path: check it against SPEC §8.4 (nothing
-/// echoed, on a command line or in a file), then change it here too.
-const HOLDING_STEPS: [(&str, &str); 3] = [
+/// `deployed-burst.yml` as checked against SPEC §8.4, byte for byte. Any step
+/// of the job that holds a secret can reach it without naming it: through its
+/// own environment (`BASH_FUNC_printf%%` replaces the shell's printf), a file
+/// an earlier step left (`~/.curlrc`), an action it runs, or the shell. So any
+/// change to the file is a change to the credential path.
+const BURST_PIN: &str = include_str!("fixtures/deployed-burst.pinned.yml");
+
+/// Every line, in every workflow, that reads the secrets context. GitHub
+/// substitutes `${{ }}` anywhere in a value, and `if:` is an expression
+/// without the braces.
+const SECRET_READS: [(&str, &str); 5] = [
+    ("deploy.yml", "FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}"),
     (
-        "Schedule q3's record as smoke-q3 and burst-q3",
-        r##"set -euo pipefail
-for id in smoke-q3 burst-q3; do
-  jq --arg id "$id" '.id = $id' bank/questions/q3.json > "$RUNNER_TEMP/$id.json"
-  # The header reaches curl on stdin (printf is a shell builtin), so the
-  # token is never in any process's arguments.
-  status=$(printf 'header = "Authorization: Bearer %s"\n' "$POPQUIZ_ADMIN_TOKEN" |
-    curl -sS --config - -o "$RUNNER_TEMP/$id.out" -w '%{http_code}' -X PUT \
-      -H 'Content-Type: application/json' --data-binary "@$RUNNER_TEMP/$id.json" \
-      "$ROOM_URL/admin/questions/$id")
-  echo "PUT /admin/questions/$id: $status $(cat "$RUNNER_TEMP/$id.out")"
-  case "$status" in
-    200|201) ;;
-    401) echo "401: POPQUIZ_ADMIN_TOKEN is not the app's secret" >&2; exit 2 ;;
-    409) echo "409: $id has run on this machine already; fly apps restart rustnyc-popquiz, then run again" >&2; exit 2 ;;
-    *) exit 2 ;;
-  esac
-done"##,
+        "deployed-burst.yml",
+        "HAS_SESSION: ${{ secrets.POPQUIZ_ORGANIZER_SESSION != '' }}",
     ),
     (
-        "burst",
-        r##"set -euo pipefail
-mkdir -p reports
-ulimit -n 4096 2>/dev/null || true
-# Short: one isolated burst per shape, a 10 s churn. Stdout is the report; --out keeps it.
-popquiz/target/release/burst --url "$ROOM_URL" --participants "$PARTICIPANTS" \
-  --question burst-q3 --connection-cap "$CAP" --cycles 1 --churn-secs 10 \
-  --seed "$GITHUB_RUN_ID" --out reports/burst.json > /dev/null"##,
+        "deployed-burst.yml",
+        "HAS_ADMIN: ${{ secrets.POPQUIZ_ADMIN_TOKEN != '' }}",
     ),
     (
-        "smoke",
-        r##"set -euo pipefail
-mkdir -p reports
-ulimit -n 4096 2>/dev/null || true
-popquiz/target/release/smoke --url "$ROOM_URL" --participants "$PARTICIPANTS" \
-  --question smoke-q3 --out reports/smoke.json"##,
+        "deployed-burst.yml",
+        "POPQUIZ_ADMIN_TOKEN: ${{ secrets.POPQUIZ_ADMIN_TOKEN }}",
+    ),
+    (
+        "deployed-burst.yml",
+        "POPQUIZ_ORGANIZER_SESSION: ${{ secrets.POPQUIZ_ORGANIZER_SESSION }}",
     ),
 ];
 
@@ -336,18 +322,81 @@ fn job_spans(lines: &[&str]) -> Vec<(String, Range<usize>)> {
         .collect()
 }
 
-/// Each step of a job: the indexes of its raw lines.
-fn step_spans(lines: &[&str], job: &Range<usize>) -> Vec<Range<usize>> {
-    let block = in_block(lines);
-    let heads: Vec<usize> = job
-        .clone()
-        .filter(|&i| !block[i] && indent(lines[i]) == 6 && lines[i].trim_start().starts_with("- "))
-        .collect();
-    heads
-        .iter()
-        .enumerate()
-        .map(|(k, &head)| head..heads.get(k + 1).copied().unwrap_or(job.end))
-        .collect()
+#[test]
+fn the_deployed_workflow_is_the_one_checked_against_the_contract() {
+    let now = read(".github/workflows/deployed-burst.yml");
+    let now: Vec<&str> = now.lines().collect();
+    let pin: Vec<&str> = BURST_PIN.lines().collect();
+    if let Some(i) = (0..now.len().max(pin.len())).find(|&i| now.get(i) != pin.get(i)) {
+        panic!(
+            "{BURST_WORKFLOW} differs from its pin at line {}:\n  now:    {:?}\n  pinned: {:?}\n\
+             Every step of the job that holds the two secrets can reach them. Check the change \
+             against SPEC §8.4 (nothing echoed, on a command line or in a file), then copy the \
+             file to popquiz/tests/fixtures/deployed-burst.pinned.yml",
+            i + 1,
+            now.get(i),
+            pin.get(i)
+        );
+    }
+    assert_eq!(
+        read(".github/workflows/deployed-burst.yml"),
+        BURST_PIN,
+        "{BURST_WORKFLOW} differs from its pin in line endings"
+    );
+}
+
+#[test]
+fn every_workflow_reads_secrets_only_on_the_listed_lines() {
+    for (name, text) in workflows() {
+        let lines: Vec<&str> = text.lines().collect();
+        let block = in_block(&lines);
+        let mut bad: Vec<String> = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            let at = format!("{name}:{}: {line}", i + 1);
+            // A read of the secrets context, wherever it sits, comments too.
+            let expression =
+                line.contains("${{") || line.contains("}}") || key(line).as_deref() == Some("if");
+            if expression
+                && squash(line).contains("secrets")
+                && !SECRET_READS.contains(&(name.as_str(), line.trim()))
+            {
+                bad.push(format!("an unlisted read of secrets: {at}"));
+            }
+            // Every expression opens and closes on one line, so the check
+            // above sees it whole.
+            if line.matches("${{").count() != line.matches("}}").count()
+                || line.split("${{").skip(1).any(|rest| !rest.contains("}}"))
+            {
+                bad.push(format!("an expression split across lines: {at}"));
+            }
+            if block[i] || yaml_comment(&lines, &block, i) {
+                continue;
+            }
+            // Outside a script, no escape: a double-quoted YAML string decodes
+            // `\x24` to `$` and `\` at a line's end joins two lines.
+            if line.contains('\\') {
+                bad.push(format!("a backslash outside a script: {at}"));
+            }
+            // No block scalar but a script or a path list: a folded value
+            // (`>-`) joins lines into one name or one expression.
+            let t = line.trim().trim_start_matches("- ");
+            let value = match key(line) {
+                Some(_) => t.split_once(':').unwrap().1.trim(),
+                None => t,
+            };
+            if value.starts_with(['|', '>'])
+                && !(value == "|" && matches!(key(line).as_deref(), Some("run" | "path")))
+            {
+                bad.push(format!(
+                    "a block scalar other than `run: |` or `path: |`: {at}"
+                ));
+            }
+        }
+        assert!(
+            bad.is_empty(),
+            "{name} (SPEC §8.4; a new secret read goes in SECRET_READS): {bad:#?}"
+        );
+    }
 }
 
 #[test]
@@ -525,82 +574,6 @@ fn the_burst_secrets_reach_a_step_only_through_env() {
         .map(|i| lines[i])
         .collect();
     assert!(rewired.is_empty(), "{rewired:#?}");
-    // A step that holds a secret runs exactly its script above.
-    let job = job_spans(&lines)
-        .into_iter()
-        .find(|(name, _)| name == "deployed-burst")
-        .expect("the deployed-burst job")
-        .1;
-    let mut seen: Vec<&str> = Vec::new();
-    for step in step_spans(&lines, &job) {
-        let holds = step.clone().any(|i| {
-            BURST_SECRETS
-                .iter()
-                .any(|s| lines[i].contains(&format!("${{{{ secrets.{s} }}}}")))
-        });
-        if !holds {
-            continue;
-        }
-        let keys: Vec<String> = step
-            .clone()
-            .filter(|&i| !block[i] && (indent(lines[i]) == 8 || i == step.start))
-            .filter_map(|i| key(lines[i]))
-            .collect();
-        let name = step
-            .clone()
-            .find_map(|i| {
-                (!block[i])
-                    .then(|| lines[i].trim().trim_start_matches("- "))
-                    .and_then(|t| t.strip_prefix("name: "))
-            })
-            .unwrap_or_else(|| {
-                panic!(
-                    "a step holds a secret and has no name: {:#?}",
-                    &lines[step.clone()]
-                )
-            });
-        assert!(
-            keys.iter()
-                .all(|k| ["name", "id", "continue-on-error", "env", "run"].contains(&k.as_str())),
-            "the step {name:?} holds a secret and has {keys:?}: only name, id, continue-on-error, env, run"
-        );
-        let expected = HOLDING_STEPS
-            .iter()
-            .find(|(n, _)| *n == name)
-            .unwrap_or_else(|| {
-                panic!("the step {name:?} holds a secret and is not one of HOLDING_STEPS")
-            })
-            .1;
-        let run = step
-            .clone()
-            .find(|&i| !block[i] && lines[i].trim() == "run: |")
-            .unwrap_or_else(|| panic!("the step {name:?} has no `run: |` script"));
-        let body: Vec<&str> = (run + 1..step.end)
-            .filter(|&i| block[i])
-            .map(|i| lines[i])
-            .collect();
-        let depth = body
-            .iter()
-            .filter(|l| !l.trim().is_empty())
-            .map(|l| indent(l))
-            .min()
-            .unwrap_or(0);
-        let script = body
-            .iter()
-            .map(|l| l.get(depth..).unwrap_or("").trim_end())
-            .collect::<Vec<_>>()
-            .join("\n");
-        assert_eq!(
-            script.trim_end(),
-            expected,
-            "the script of {name:?}, which holds a secret, changed: check it against SPEC §8.4, then HOLDING_STEPS"
-        );
-        seen.push(name);
-    }
-    seen.sort();
-    let mut want: Vec<&str> = HOLDING_STEPS.iter().map(|(n, _)| *n).collect();
-    want.sort();
-    assert_eq!(seen, want, "the steps that hold a secret");
 }
 
 #[test]
