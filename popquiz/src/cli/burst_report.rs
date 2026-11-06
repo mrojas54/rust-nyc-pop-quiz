@@ -288,14 +288,14 @@ pub fn verdict(v: &VerdictInput) -> (Exit, Vec<String>) {
         notes.push(note);
         missed = true;
     }
-    if !(v.burst_headline_p95 < WRITE_P95_MS) {
+    if v.burst_headline_p95.is_nan() || v.burst_headline_p95 >= WRITE_P95_MS {
         notes.push(format!(
             "AC-54 MISS: deadline-burst write p95 {:.1} ms, threshold < {:.0} ms",
             v.burst_headline_p95, WRITE_P95_MS
         ));
         missed = true;
     }
-    if !(v.segment_write_p95 < WRITE_P95_MS) {
+    if v.segment_write_p95.is_nan() || v.segment_write_p95 >= WRITE_P95_MS {
         notes.push(format!(
             "AC-53 MISS: segment write p95 {:.1} ms, threshold < {:.0} ms",
             v.segment_write_p95, WRITE_P95_MS

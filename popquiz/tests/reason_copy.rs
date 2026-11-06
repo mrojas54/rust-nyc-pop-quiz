@@ -5,11 +5,14 @@
 //! and volunteer one.* into the answer route's reason as a literal and every
 //! test passed; this scan is what fails it now.
 //!
-//! The rule, kept as narrow as M5b3 needs: under `src/server/` and
-//! `src/connections/`, a string literal containing a letter fails when it is
+//! The scan parses each file with `syn` and walks its syntax tree (PQ-85), so
+//! an attribute, a closure or a comment can neither hide one of the shapes
+//! below nor fake one. Under `src/server/` and `src/connections/`, a string
+//! literal containing a letter fails when it is
 //!
-//! - in the value of a `"reason"`, `"message"` or `"refusal"` JSON key, read
-//!   from the key's `:` to the next `,` or closing bracket at the same depth; or
+//! - in the value of a `"reason"`, `"message"` or `"refusal"` key in a macro
+//!   body (`json!`), read from the key's `:` to the next `,` at the same depth;
+//!   or
 //! - in the arguments of a call to a [`REASON_SINKS`] helper, which puts its
 //!   argument in a `reason` field (admin's `refused`).
 //!
@@ -17,24 +20,42 @@
 //! variable (`LoadError`, `RoomError::Refused`, `phase::Refused`,
 //! `Ended::host_reason`). In them, a literal containing a letter also fails
 //!
-//! - in the arguments of any [`SOURCE_SINKS`] call or macro, and, in the
-//!   [`FORMAT_SOURCES`], of any `format!`: every `format!` there builds a
+//! - in the arguments of any [`SOURCE_SINKS`] call, method call or macro, and,
+//!   in the [`FORMAT_SOURCES`], of any `format!`: every `format!` there builds a
 //!   refusal, so none may carry its own words (elsewhere one may build a
 //!   digest, and is read only inside one of these shapes);
-//! - in a struct literal's `reason:` field (`Refused { reason: … }`); or
-//! - anywhere in the body of a [`REASON_FNS`] function, which returns a
-//!   reason from a `match` or an `Err` rather than through a call.
+//! - in a struct literal's `reason` field (`Refused { reason: … }`, or the
+//!   shorthand `Refused { reason }`); or
+//! - anywhere in the body of a function named in [`REASON_FNS`], which returns
+//!   a reason from a `match` or an `Err` rather than through a call.
 //!
-//! A same-file `const` or `static` is read as its literal (PQ-84): where the
-//! scan reads a span, the name of one that holds a letter-bearing literal fails
-//! as that literal would. A constant used nowhere a reason is built passes.
+//! Where the scan reads an expression, a name stands for what it was bound to
+//! (PQ-84, PQ-85). A local binding (`let`, or a `match`, `if let` or `for`
+//! pattern) stands for the literals the expression it was bound from can
+//! evaluate to (a literal, a `format!`'s text, through `.into()`, `Some(…)`,
+//! a block's or branch's result), until its block ends or another binding
+//! shadows it; a parameter stands for nothing. Any other name is a same-file `const` or `static`, matched by its
+//! last path segment, so `WHY`, `Self::WHY` and `Phase::WHY` all read this
+//! file's `WHY`; a path through `copy` is copy's, even where this file has a
+//! constant of the same name. A binding or constant used nowhere a reason is
+//! built passes.
 //!
 //! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
 //! Those are the codes a client branches on, not sentences anyone reads; any
 //! other word there fails, so a new code is added to the list on purpose.
-//! Literals elsewhere (keys, slugs in `slug()`, headers) are not this scan's.
+//! Literals elsewhere (keys, slugs in `slug()`, headers, attributes) are not
+//! this scan's.
 
 mod common;
+
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+
+use proc_macro2::{Delimiter, Spacing, Span, TokenStream, TokenTree};
+use syn::parse::Parser;
+use syn::punctuated::Punctuated;
+use syn::visit::{self, Visit};
+use syn::{Expr, Lit, Member, Pat, Token};
 
 /// The JSON keys whose string a person may read.
 const KEYS: &[&str] = &["reason", "message", "refusal"];
@@ -72,7 +93,7 @@ const SOURCE_SINKS: &[&str] = &["refuse", "Refused", "LoadError"];
 
 /// The [`REASON_SOURCES`] where every `format!` builds a refusal (PQ-60's
 /// three). `affirmation.rs` formats its digest (`sha256:{hex}`), so there a
-/// `format!` is read only inside a sink, a `reason:` field or a [`REASON_FNS`]
+/// `format!` is read only inside a sink, a `reason` field or a [`REASON_FNS`]
 /// body.
 const FORMAT_SOURCES: &[&str] = &[
     "quiz_session/models/answers.rs",
@@ -83,293 +104,727 @@ const FORMAT_SOURCES: &[&str] = &[
 /// In [`FORMAT_SOURCES`], the macros that build a refusal.
 const FORMAT_SINKS: &[&str] = &["format", "format_args"];
 
-/// In [`REASON_SOURCES`], the functions that return a reason: every literal in
-/// their bodies is bound for a person (`Ended::host_reason`, the affirmation's
-/// `refusal`, `Review::check_shape`).
-const REASON_FNS: &[&str] = &["host_reason", "refusal", "check_shape"];
-
-#[derive(Debug, PartialEq)]
-enum Tok {
-    Str(String),
-    Word(String),
-    Punct(char),
-}
-
-/// The source as tokens with their line numbers. Comments are dropped; string,
-/// raw-string and char literals are read whole, so a quote inside one does not
-/// open a string; a lifetime is not a char literal.
-fn tokens(src: &str) -> Vec<(usize, Tok)> {
-    let c: Vec<char> = src.chars().collect();
-    let mut out = Vec::new();
-    let (mut i, mut line) = (0, 1);
-    let at = |i: usize| c.get(i).copied().unwrap_or('\0');
-    while i < c.len() {
-        let ch = c[i];
-        if ch == '\n' {
-            line += 1;
-            i += 1;
-        } else if ch.is_whitespace() {
-            i += 1;
-        } else if ch == '/' && at(i + 1) == '/' {
-            while i < c.len() && c[i] != '\n' {
-                i += 1;
-            }
-        } else if ch == '/' && at(i + 1) == '*' {
-            let mut depth = 0;
-            loop {
-                if i >= c.len() {
-                    break;
-                }
-                if c[i] == '/' && at(i + 1) == '*' {
-                    depth += 1;
-                    i += 2;
-                } else if c[i] == '*' && at(i + 1) == '/' {
-                    depth -= 1;
-                    i += 2;
-                    if depth == 0 {
-                        break;
-                    }
-                } else {
-                    line += usize::from(c[i] == '\n');
-                    i += 1;
-                }
-            }
-        } else if ch == '"' {
-            let start = line;
-            let (text, next) = string(&c, i + 1, &mut line);
-            out.push((start, Tok::Str(text)));
-            i = next;
-        } else if ch == '\'' {
-            if at(i + 1) == '\\' {
-                i += 2;
-                while i < c.len() && c[i] != '\'' {
-                    i += 1;
-                }
-                i += 1;
-            } else if at(i + 2) == '\'' {
-                i += 3;
-            } else {
-                i += 1; // a lifetime; its name follows as a word
-            }
-        } else if ch.is_alphanumeric() || ch == '_' {
-            let s = i;
-            while i < c.len() && (c[i].is_alphanumeric() || c[i] == '_') {
-                i += 1;
-            }
-            let word: String = c[s..i].iter().collect();
-            if matches!(word.as_str(), "r" | "br") && matches!(at(i), '"' | '#') {
-                let hashes = c[i..].iter().take_while(|&&h| h == '#').count();
-                let mut j = i + hashes + 1;
-                let start = line;
-                let body = j;
-                while j < c.len() && !(c[j] == '"' && (1..=hashes).all(|k| at(j + k) == '#')) {
-                    line += usize::from(c[j] == '\n');
-                    j += 1;
-                }
-                out.push((start, Tok::Str(c[body..j].iter().collect())));
-                i = j + 1 + hashes;
-            } else if word == "b" && at(i) == '"' {
-                let start = line;
-                let (text, next) = string(&c, i + 1, &mut line);
-                out.push((start, Tok::Str(text)));
-                i = next;
-            } else {
-                out.push((line, Tok::Word(word)));
-            }
-        } else {
-            out.push((line, Tok::Punct(ch)));
-            i += 1;
-        }
-    }
-    out
-}
-
-/// A `"…"` body from just after its opening quote: (text, index past the close).
-fn string(c: &[char], mut i: usize, line: &mut usize) -> (String, usize) {
-    let mut text = String::new();
-    while i < c.len() && c[i] != '"' {
-        if c[i] == '\\' {
-            text.push(c[i]);
-            i += 1;
-        }
-        if i < c.len() {
-            *line += usize::from(c[i] == '\n');
-            text.push(c[i]);
-            i += 1;
-        }
-    }
-    (text, i + 1)
-}
-
-/// The tokens from `from` to the first unmatched closer, or, when `field` is
-/// set, to the first `,` at depth 0 if that comes sooner: a JSON field's value,
-/// or (unset) a call's whole argument list.
-fn span(toks: &[(usize, Tok)], from: usize, field: bool) -> std::ops::Range<usize> {
-    let mut depth = 0usize;
-    for (j, (_, t)) in toks.iter().enumerate().skip(from) {
-        match t {
-            Tok::Punct('(' | '[' | '{') => depth += 1,
-            Tok::Punct(')' | ']' | '}') if depth == 0 => return from..j,
-            Tok::Punct(')' | ']' | '}') => depth -= 1,
-            Tok::Punct(',') if field && depth == 0 => return from..j,
-            _ => {}
-        }
-    }
-    from..toks.len()
-}
+/// In [`REASON_SOURCES`], the functions that return a reason, each pinned to
+/// the file it lives in (PQ-85): every literal in their bodies is bound for a
+/// person (`Ended::host_reason`, `Review::check_shape`, the affirmation's and
+/// the answers' `refusal`). A function of one of these names is read in every
+/// source; the pin is what fails when one is renamed, so a namesake elsewhere
+/// cannot stand in for it.
+const REASON_FNS: &[(&str, &str)] = &[
+    ("quiz_session/lifecycle.rs", "host_reason"),
+    ("quiz_session/models/affirmation.rs", "check_shape"),
+    ("quiz_session/models/affirmation.rs", "refusal"),
+    ("quiz_session/models/answers.rs", "refusal"),
+];
 
 /// A literal sentence bound for a person: (line, what it is in, the literal).
-/// Also counts the fields and sink calls it read, so a scan that reads nothing
-/// cannot pass by accident.
+/// Also counts the fields and sink calls it read, and names the reason
+/// functions it read, so a scan that reads nothing cannot pass by accident.
 #[derive(Default)]
 struct Scan {
     hits: Vec<(usize, String, String)>,
     fields: usize,
     sink_calls: usize,
-    reason_fns: usize,
+    reason_fns: Vec<String>,
 }
 
-/// `source` reads the file as a [`REASON_SOURCES`] file: its `reason:` struct
-/// fields and [`REASON_FNS`] bodies are read too.
+/// A string literal and where it is written.
+#[derive(Clone)]
+struct Found {
+    line: usize,
+    column: usize,
+    text: String,
+}
+
+/// An expression the scan is reading: what it is in, and whether a
+/// [`REFUSAL_CODES`] code may stand there.
+struct Reading {
+    what: String,
+    code_ok: bool,
+}
+
+/// `source` reads the file as a [`REASON_SOURCES`] file: its `reason` struct
+/// fields and [`REASON_FNS`] bodies are read too. A fragment that is not a
+/// whole file (a test's statement) is read as a function body.
 fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
-    let toks = tokens(src);
-    let mut out = Scan::default();
-    let consts = sentence_consts(&toks);
-    // The literal a token stands for: itself, or, for the name of a same-file
-    // `const`/`static` that holds a letter-bearing literal, that literal. So
-    // `const WHY: &str = "…"; refused(s, WHY)` fails as the literal would.
-    let lit = |j: usize| -> Option<(usize, &str)> {
-        match &toks[j].1 {
-            Tok::Str(s) => Some((j, s.as_str())),
-            Tok::Word(w) => consts.get(w.as_str()).map(|&l| match &toks[l].1 {
-                Tok::Str(s) => (l, s.as_str()),
-                _ => unreachable!("sentence_consts records string tokens only"),
-            }),
-            Tok::Punct(_) => None,
-        }
+    let file = syn::parse_file(src)
+        .or_else(|_| syn::parse_file(&format!("fn fragment() {{ {src} }}")))
+        .unwrap_or_else(|e| panic!("the scan cannot parse this as a file or a body: {e}"));
+    let mut consts = Consts::default();
+    consts.visit_file(&file);
+    let mut scanner = Scanner {
+        sinks,
+        source,
+        consts: Rc::new(consts.0),
+        scopes: vec![HashMap::new()],
+        reading: Vec::new(),
+        captures: Vec::new(),
+        in_const: 0,
+        seen: HashSet::new(),
+        out: Scan::default(),
     };
-    let letters = |s: &str| s.chars().any(char::is_alphabetic);
-    // A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
-    // hit, not one per enclosing call.
-    let mut seen = vec![false; toks.len()];
-    let mut hit = |l: usize, what: String, out: &mut Scan| {
-        if let Tok::Str(s) = &toks[l].1 {
-            if !std::mem::replace(&mut seen[l], true) {
-                out.hits.push((toks[l].0, what, s.clone()));
+    scanner.visit_file(&file);
+    scanner.out
+}
+
+/// A string, byte-string or C-string literal, read, with where it is written.
+fn found(lit: &Lit) -> Option<Found> {
+    let text = match lit {
+        Lit::Str(s) => s.value(),
+        Lit::ByteStr(b) => String::from_utf8_lossy(&b.value()).into_owned(),
+        Lit::CStr(c) => c.value().to_string_lossy().into_owned(),
+        _ => return None,
+    };
+    let at = lit.span().start();
+    Some(Found {
+        line: at.line,
+        column: at.column,
+        text,
+    })
+}
+
+/// Every `const` and `static` in the file, wherever it is declared: its name
+/// and initializer.
+#[derive(Default)]
+struct Consts(HashMap<String, Vec<Expr>>);
+
+impl Consts {
+    fn add(&mut self, name: &syn::Ident, init: &Expr) {
+        self.0
+            .entry(name.to_string())
+            .or_default()
+            .push(init.clone());
+    }
+
+    /// The constants a macro's tokens declare
+    /// (`macro_rules! m { () => { const WHY: &str = "…"; } }`): as items where
+    /// they parse, else `const NAME: … = init;` token by token, at any depth.
+    fn in_tokens(&mut self, ts: TokenStream) {
+        if let Ok(file) = syn::parse2::<syn::File>(ts.clone()) {
+            self.visit_file(&file);
+            return;
+        }
+        let toks: Vec<TokenTree> = ts.into_iter().collect();
+        let punct = |t: Option<&TokenTree>, c: char| matches!(t, Some(TokenTree::Punct(p)) if p.as_char() == c);
+        for (i, t) in toks.iter().enumerate() {
+            match t {
+                TokenTree::Group(g) => self.in_tokens(g.stream()),
+                TokenTree::Ident(kw) if kw == "const" || kw == "static" => {
+                    let mut k = i + 1;
+                    if matches!(toks.get(k), Some(TokenTree::Ident(m)) if m == "mut") {
+                        k += 1;
+                    }
+                    let Some(TokenTree::Ident(name)) = toks.get(k) else {
+                        continue;
+                    };
+                    if !punct(toks.get(k + 1), ':') {
+                        continue;
+                    }
+                    let Some(eq) = (k + 2..toks.len()).find(|&j| punct(toks.get(j), '=')) else {
+                        continue;
+                    };
+                    let end = (eq + 1..toks.len())
+                        .find(|&j| punct(toks.get(j), ';'))
+                        .unwrap_or(toks.len());
+                    self.add(
+                        name,
+                        &token_expr(toks[eq + 1..end].iter().cloned().collect()),
+                    );
+                }
+                _ => {}
             }
         }
-    };
-    for (i, (_, t)) in toks.iter().enumerate() {
-        let next = |k: usize| toks.get(i + k).map(|(_, t)| t);
-        // `name(` or the macro `name!(`: where the arguments open.
-        let args = match (next(1), next(2)) {
-            (Some(Tok::Punct('(')), _) => Some(i + 2),
-            (Some(Tok::Punct('!')), Some(Tok::Punct('('))) => Some(i + 3),
+    }
+}
+
+/// Tokens as an expression: parsed where they are Rust, else held as a macro
+/// call the scan reads token by token (a `$x` in a macro template).
+fn token_expr(ts: TokenStream) -> Expr {
+    syn::parse2(ts.clone()).unwrap_or_else(|_| {
+        Expr::Macro(syn::ExprMacro {
+            attrs: Vec::new(),
+            mac: syn::Macro {
+                path: syn::Ident::new("tokens", Span::call_site()).into(),
+                bang_token: Default::default(),
+                delimiter: syn::MacroDelimiter::Paren(Default::default()),
+                tokens: ts,
+            },
+        })
+    })
+}
+
+impl<'ast> Visit<'ast> for Consts {
+    fn visit_item_const(&mut self, c: &'ast syn::ItemConst) {
+        self.add(&c.ident, &c.expr);
+        visit::visit_item_const(self, c);
+    }
+    fn visit_impl_item_const(&mut self, c: &'ast syn::ImplItemConst) {
+        self.add(&c.ident, &c.expr);
+        visit::visit_impl_item_const(self, c);
+    }
+    fn visit_trait_item_const(&mut self, c: &'ast syn::TraitItemConst) {
+        if let Some((_, init)) = &c.default {
+            self.add(&c.ident, init);
+        }
+        visit::visit_trait_item_const(self, c);
+    }
+    fn visit_item_static(&mut self, s: &'ast syn::ItemStatic) {
+        self.add(&s.ident, &s.expr);
+        visit::visit_item_static(self, s);
+    }
+    fn visit_macro(&mut self, m: &'ast syn::Macro) {
+        self.in_tokens(m.tokens.clone());
+    }
+}
+
+struct Scanner<'s> {
+    sinks: &'s [&'s str],
+    source: bool,
+    consts: Rc<HashMap<String, Vec<Expr>>>,
+    /// The local bindings in scope, innermost last: each name and the literals
+    /// of the expression it was bound from.
+    scopes: Vec<HashMap<String, Vec<Found>>>,
+    /// The expressions being read, innermost last.
+    reading: Vec<Reading>,
+    /// The open [`literals_in`](Self::literals_in) collections, innermost
+    /// last: every literal met while one is open is added to each.
+    captures: Vec<Vec<Found>>,
+    /// How deep the scan is in constants' initializers: there nothing is
+    /// counted, since the file's own walk counts it, and a constant that names
+    /// itself stops.
+    in_const: usize,
+    /// A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
+    /// hit, not one per enclosing call.
+    seen: HashSet<(usize, usize)>,
+    out: Scan,
+}
+
+impl Scanner<'_> {
+    fn counting(&self) -> bool {
+        self.in_const == 0
+    }
+
+    fn read(&mut self, what: String, code_ok: bool, f: impl FnOnce(&mut Self)) {
+        self.reading.push(Reading { what, code_ok });
+        f(self);
+        self.reading.pop();
+    }
+
+    fn sink(&mut self, name: &str) -> bool {
+        let sink = self.sinks.contains(&name);
+        if sink && self.counting() {
+            self.out.sink_calls += 1;
+        }
+        sink
+    }
+
+    fn literal(&mut self, found: Found) {
+        for capture in &mut self.captures {
+            capture.push(found.clone());
+        }
+        let Some(r) = self.reading.last() else {
+            return;
+        };
+        let letters = found.text.chars().any(char::is_alphabetic);
+        let code = r.code_ok && REFUSAL_CODES.contains(&found.text.as_str());
+        if letters && !code && self.seen.insert((found.line, found.column)) {
+            let what = r.what.clone();
+            self.out.hits.push((found.line, what, found.text));
+        }
+    }
+
+    /// A name met where a reason is built or a binding is captured: `bare` is
+    /// a one-segment path, which a local binding may answer for.
+    fn name(&mut self, name: &str, bare: bool) {
+        if self.reading.is_empty() && self.captures.is_empty() {
+            return;
+        }
+        if bare {
+            if let Some(bound) = self.scopes.iter().rev().find_map(|s| s.get(name)) {
+                for found in bound.clone() {
+                    self.literal(found);
+                }
+                return;
+            }
+        }
+        let consts = Rc::clone(&self.consts);
+        let Some(inits) = consts.get(name) else {
+            return;
+        };
+        if self.in_const > 8 {
+            return;
+        }
+        self.in_const += 1;
+        // A constant's initializer sees no local binding.
+        let scopes = std::mem::replace(&mut self.scopes, vec![HashMap::new()]);
+        for init in inits {
+            self.visit_expr(init);
+        }
+        self.scopes = scopes;
+        self.in_const -= 1;
+    }
+
+    /// Binds every name in `pat` to `found`; `_` binds nothing, and a bare
+    /// name that is one of this file's constants is that constant, not a new
+    /// binding.
+    fn bind(&mut self, pat: &Pat, found: &[Found]) {
+        match pat {
+            Pat::Ident(p) => {
+                let name = p.ident.to_string();
+                let constant = p.by_ref.is_none()
+                    && p.mutability.is_none()
+                    && p.subpat.is_none()
+                    && self.consts.contains_key(&name);
+                if !constant {
+                    let scope = self
+                        .scopes
+                        .last_mut()
+                        .expect("the scan is always in a scope");
+                    scope.insert(name, found.to_vec());
+                }
+                if let Some((_, sub)) = &p.subpat {
+                    self.bind(sub, found);
+                }
+            }
+            Pat::Or(p) => p.cases.iter().for_each(|c| self.bind(c, found)),
+            Pat::Paren(p) => self.bind(&p.pat, found),
+            Pat::Reference(p) => self.bind(&p.pat, found),
+            Pat::Slice(p) => p.elems.iter().for_each(|e| self.bind(e, found)),
+            Pat::Struct(p) => p.fields.iter().for_each(|f| self.bind(&f.pat, found)),
+            Pat::Tuple(p) => p.elems.iter().for_each(|e| self.bind(e, found)),
+            Pat::TupleStruct(p) => p.elems.iter().for_each(|e| self.bind(e, found)),
+            Pat::Type(p) => self.bind(&p.pat, found),
+            _ => {}
+        }
+    }
+
+    /// Every literal `f` meets, counting nothing and reporting nothing.
+    fn literals_in(&mut self, f: impl FnOnce(&mut Self)) -> Vec<Found> {
+        let reading = std::mem::take(&mut self.reading);
+        self.in_const += 1;
+        self.captures.push(Vec::new());
+        f(self);
+        let got = self.captures.pop().unwrap_or_default();
+        self.in_const -= 1;
+        self.reading = reading;
+        got
+    }
+
+    /// The literals `e`'s value can be, which is what a binding of it stands
+    /// for: a literal; every literal of a macro (`format!`'s text); what a
+    /// name stands for; and through a conversion's receiver (`.into()`), a
+    /// call's arguments (`Some(…)`), a block's or branch's result, `+`, an
+    /// array or tuple, `&`, `?` and casts. Not a method's arguments
+    /// (`map.remove("key")`), a closure, or a `match` scrutinee, which pick a
+    /// value rather than become one.
+    fn value(&mut self, e: &Expr) -> Vec<Found> {
+        match e {
+            Expr::Lit(l) => found(&l.lit).into_iter().collect(),
+            Expr::Macro(m) => self.literals_in(|s| s.tokens(m.mac.tokens.clone())),
+            Expr::Path(_) => self.literals_in(|s| s.visit_expr(e)),
+            Expr::MethodCall(m) => self.value(&m.receiver),
+            Expr::Call(c) => c.args.iter().flat_map(|a| self.value(a)).collect(),
+            Expr::Block(b) => self.block_value(&b.block),
+            Expr::Unsafe(b) => self.block_value(&b.block),
+            Expr::Const(b) => self.block_value(&b.block),
+            Expr::If(i) => {
+                let mut out = self.block_value(&i.then_branch);
+                if let Some((_, other)) = &i.else_branch {
+                    out.extend(self.value(other));
+                }
+                out
+            }
+            Expr::Match(m) => {
+                let scrutinee = self.value(&m.expr);
+                let mut out = Vec::new();
+                for arm in &m.arms {
+                    self.scopes.push(HashMap::new());
+                    self.bind(&arm.pat, &scrutinee);
+                    out.extend(self.value(&arm.body));
+                    self.scopes.pop();
+                }
+                out
+            }
+            Expr::Binary(b) if matches!(b.op, syn::BinOp::Add(_)) => {
+                let mut out = self.value(&b.left);
+                out.extend(self.value(&b.right));
+                out
+            }
+            Expr::Array(a) => a.elems.iter().flat_map(|x| self.value(x)).collect(),
+            Expr::Tuple(t) => t.elems.iter().flat_map(|x| self.value(x)).collect(),
+            Expr::Paren(p) => self.value(&p.expr),
+            Expr::Group(g) => self.value(&g.expr),
+            Expr::Reference(r) => self.value(&r.expr),
+            Expr::Cast(c) => self.value(&c.expr),
+            Expr::Try(t) => self.value(&t.expr),
+            Expr::Await(a) => self.value(&a.base),
+            Expr::Unary(u) => self.value(&u.expr),
+            _ => Vec::new(),
+        }
+    }
+
+    /// A block's [`value`](Self::value): its last expression's, with the
+    /// block's own `let`s bound.
+    fn block_value(&mut self, b: &syn::Block) -> Vec<Found> {
+        self.scopes.push(HashMap::new());
+        let mut out = Vec::new();
+        for stmt in &b.stmts {
+            match stmt {
+                syn::Stmt::Local(l) => {
+                    let bound = match &l.init {
+                        Some(init) => self.value(&init.expr),
+                        None => Vec::new(),
+                    };
+                    self.bind(&l.pat, &bound);
+                }
+                syn::Stmt::Expr(e, None) => out = self.value(e),
+                _ => {}
+            }
+        }
+        self.scopes.pop();
+        out
+    }
+
+    fn function(&mut self, sig: &syn::Signature, body: &syn::Block) {
+        // A function sees no local binding of the body it is declared in.
+        let scopes = std::mem::replace(&mut self.scopes, vec![HashMap::new()]);
+        for input in &sig.inputs {
+            if let syn::FnArg::Typed(t) = input {
+                self.bind(&t.pat, &[]);
+            }
+        }
+        let name = sig.ident.to_string();
+        if self.source && REASON_FNS.iter().any(|(_, f)| *f == name) {
+            if self.counting() {
+                self.out.reason_fns.push(name.clone());
+            }
+            self.read(format!("fn {name}"), false, |s| s.visit_block(body));
+        } else {
+            self.visit_block(body);
+        }
+        self.scopes = scopes;
+    }
+
+    /// A macro's tokens: as comma-separated expressions where they parse
+    /// (`format!`, `vec!`, `assert!`), else as statements and items (a macro
+    /// body's `let`s and `fn`s), else piece by piece between commas.
+    fn tokens(&mut self, ts: TokenStream) {
+        if let Ok(args) = Punctuated::<Expr, Token![,]>::parse_terminated.parse2(ts.clone()) {
+            for arg in &args {
+                self.visit_expr(arg);
+            }
+            return;
+        }
+        if let Ok(stmts) = syn::Block::parse_within.parse2(ts.clone()) {
+            self.scopes.push(HashMap::new());
+            for stmt in &stmts {
+                self.visit_stmt(stmt);
+            }
+            self.scopes.pop();
+            return;
+        }
+        let toks: Vec<TokenTree> = ts.into_iter().collect();
+        for piece in toks.split(|t| matches!(t, TokenTree::Punct(p) if p.as_char() == ',')) {
+            self.piece(piece);
+        }
+    }
+
+    /// A `json!` key the scan reads (`"reason": value`), if `key` is one and
+    /// a `:` follows it.
+    fn key(key: &proc_macro2::Literal, colon: Option<&TokenTree>) -> Option<String> {
+        let colon = matches!(colon, Some(TokenTree::Punct(p)) if p.as_char() == ':' && p.spacing() == Spacing::Alone);
+        match syn::parse2::<Lit>(TokenTree::Literal(key.clone()).into()) {
+            Ok(Lit::Str(k)) if colon && KEYS.contains(&k.value().as_str()) => Some(k.value()),
+            _ => None,
+        }
+    }
+
+    /// Tokens that may be one expression; otherwise their groups, literals
+    /// and names one by one.
+    fn piece(&mut self, toks: &[TokenTree]) {
+        if let Ok(e) = syn::parse2::<Expr>(toks.iter().cloned().collect()) {
+            self.visit_expr(&e);
+            return;
+        }
+        let punct = |k: Option<usize>, c: char| matches!(k.and_then(|k| toks.get(k)), Some(TokenTree::Punct(p)) if p.as_char() == c);
+        let mut skip = 0;
+        for (i, t) in toks.iter().enumerate() {
+            if i < skip {
+                continue;
+            }
+            // Where the tokens are not Rust (a `$x` in a macro template, a
+            // `select!` arm, `vec![x; n]`), a sink call (`refuse(…)`,
+            // `.refuse(…)`, `format!(…)`) and a `reason:` field are still read.
+            if let TokenTree::Ident(id) = t {
+                let name = id.to_string();
+                // A [`REASON_FNS`] function a macro template defines, whose
+                // body (`if $ready { "…" } …`) is not Rust: its body is read.
+                if let (true, "fn", Some(TokenTree::Ident(f))) =
+                    (self.source, name.as_str(), toks.get(i + 1))
+                {
+                    let f = f.to_string();
+                    let body = toks
+                        .iter()
+                        .enumerate()
+                        .skip(i + 2)
+                        .find_map(|(j, t)| match t {
+                            TokenTree::Group(g) if g.delimiter() == Delimiter::Brace => {
+                                Some((j, g))
+                            }
+                            _ => None,
+                        });
+                    if let (true, Some((j, body))) = (REASON_FNS.iter().any(|(_, n)| *n == f), body)
+                    {
+                        if self.counting() {
+                            self.out.reason_fns.push(f.clone());
+                        }
+                        self.read(format!("fn {f}"), false, |s| s.tokens(body.stream()));
+                        skip = j + 1;
+                        continue;
+                    }
+                }
+                let member = punct(i.checked_sub(1), '.');
+                let bang = punct(Some(i + 1), '!');
+                if let Some(TokenTree::Group(g)) = toks.get(i + 1 + usize::from(bang)) {
+                    let called = bang || g.delimiter() == Delimiter::Parenthesis;
+                    if called && self.sink(&name) {
+                        let what = if member {
+                            format!(".{name}(…)")
+                        } else if bang {
+                            format!("{name}!(…)")
+                        } else {
+                            format!("{name}(…)")
+                        };
+                        self.read(what, false, |s| s.tokens(g.stream()));
+                        skip = i + 2 + usize::from(bang);
+                        continue;
+                    }
+                }
+                let field = matches!(toks.get(i + 1), Some(TokenTree::Punct(p)) if p.as_char() == ':' && p.spacing() == Spacing::Alone);
+                let metavariable = punct(i.checked_sub(1), '$');
+                if self.source && name == "reason" && field && !member && !metavariable {
+                    if self.counting() {
+                        self.out.fields += 1;
+                    }
+                    let value = &toks[i + 2..];
+                    self.read("reason:".into(), false, |s| s.piece(value));
+                    return;
+                }
+            }
+            match t {
+                TokenTree::Group(g) => self.tokens(g.stream()),
+                TokenTree::Literal(l) => {
+                    if let Ok(lit) = syn::parse2::<Lit>(TokenTree::Literal(l.clone()).into()) {
+                        self.visit_lit(&lit);
+                    }
+                    // A `json!` body's `"reason": value`, wherever it sits in
+                    // the piece (after a `$(…)*` repetition, say).
+                    if let Some(k) = Self::key(l, toks.get(i + 1)) {
+                        if self.counting() {
+                            self.out.fields += 1;
+                        }
+                        let code_ok = k == "refusal";
+                        let value = &toks[i + 2..];
+                        self.read(format!("\"{k}\""), code_ok, |s| s.piece(value));
+                        return;
+                    }
+                }
+                TokenTree::Ident(id) => {
+                    // A member (`x.why`) or a path's head (`Phase::`) is not a name.
+                    let member = punct(i.checked_sub(1), '.');
+                    let head = punct(Some(i + 1), ':') && punct(Some(i + 2), ':');
+                    if member || head {
+                        continue;
+                    }
+                    let mut path = vec![id.to_string()];
+                    let mut k = i;
+                    while k >= 3 && punct(Some(k - 1), ':') && punct(Some(k - 2), ':') {
+                        let TokenTree::Ident(seg) = &toks[k - 3] else {
+                            break;
+                        };
+                        path.push(seg.to_string());
+                        k -= 3;
+                    }
+                    if !path.iter().any(|s| s == "copy") {
+                        self.name(&id.to_string(), path.len() == 1);
+                    }
+                }
+                TokenTree::Punct(_) => {}
+            }
+        }
+    }
+}
+
+impl<'ast> Visit<'ast> for Scanner<'_> {
+    // Doc comments and `#[allow(…)]` are not sentences anyone is sent.
+    fn visit_attribute(&mut self, _: &'ast syn::Attribute) {}
+
+    fn visit_lit(&mut self, lit: &'ast Lit) {
+        if let Some(f) = found(lit) {
+            self.literal(f);
+        }
+    }
+
+    fn visit_expr_path(&mut self, p: &'ast syn::ExprPath) {
+        let segments = &p.path.segments;
+        if !segments.iter().any(|s| s.ident == "copy") {
+            if let Some(last) = segments.last() {
+                let bare =
+                    segments.len() == 1 && p.path.leading_colon.is_none() && p.qself.is_none();
+                self.name(&last.ident.to_string(), bare);
+            }
+        }
+        visit::visit_expr_path(self, p);
+    }
+
+    fn visit_block(&mut self, b: &'ast syn::Block) {
+        self.scopes.push(HashMap::new());
+        visit::visit_block(self, b);
+        self.scopes.pop();
+    }
+
+    fn visit_local(&mut self, l: &'ast syn::Local) {
+        let mut found = Vec::new();
+        if let Some(init) = &l.init {
+            self.visit_expr(&init.expr);
+            found = self.value(&init.expr);
+            if let Some((_, diverge)) = &init.diverge {
+                self.visit_expr(diverge);
+            }
+        }
+        self.bind(&l.pat, &found);
+    }
+
+    fn visit_item_fn(&mut self, f: &'ast syn::ItemFn) {
+        self.function(&f.sig, &f.block);
+    }
+
+    fn visit_impl_item_fn(&mut self, f: &'ast syn::ImplItemFn) {
+        self.function(&f.sig, &f.block);
+    }
+
+    fn visit_trait_item_fn(&mut self, f: &'ast syn::TraitItemFn) {
+        if let Some(body) = &f.default {
+            self.function(&f.sig, body);
+        }
+    }
+
+    fn visit_expr_closure(&mut self, c: &'ast syn::ExprClosure) {
+        self.scopes.push(HashMap::new());
+        for input in &c.inputs {
+            self.bind(input, &[]);
+        }
+        self.visit_expr(&c.body);
+        self.scopes.pop();
+    }
+
+    fn visit_expr_match(&mut self, m: &'ast syn::ExprMatch) {
+        self.visit_expr(&m.expr);
+        let found = self.value(&m.expr);
+        for arm in &m.arms {
+            self.scopes.push(HashMap::new());
+            self.bind(&arm.pat, &found);
+            self.visit_pat(&arm.pat);
+            if let Some((_, guard)) = &arm.guard {
+                self.visit_expr(guard);
+            }
+            self.visit_expr(&arm.body);
+            self.scopes.pop();
+        }
+    }
+
+    fn visit_expr_if(&mut self, i: &'ast syn::ExprIf) {
+        // An `if let` binds for the condition's rest and the `then` block.
+        self.scopes.push(HashMap::new());
+        self.visit_expr(&i.cond);
+        self.visit_block(&i.then_branch);
+        self.scopes.pop();
+        if let Some((_, other)) = &i.else_branch {
+            self.visit_expr(other);
+        }
+    }
+
+    fn visit_expr_while(&mut self, w: &'ast syn::ExprWhile) {
+        self.scopes.push(HashMap::new());
+        self.visit_expr(&w.cond);
+        self.visit_block(&w.body);
+        self.scopes.pop();
+    }
+
+    fn visit_expr_let(&mut self, l: &'ast syn::ExprLet) {
+        self.visit_expr(&l.expr);
+        let found = self.value(&l.expr);
+        self.bind(&l.pat, &found);
+        self.visit_pat(&l.pat);
+    }
+
+    fn visit_expr_for_loop(&mut self, f: &'ast syn::ExprForLoop) {
+        self.visit_expr(&f.expr);
+        let found = self.value(&f.expr);
+        self.scopes.push(HashMap::new());
+        self.bind(&f.pat, &found);
+        self.visit_block(&f.body);
+        self.scopes.pop();
+    }
+
+    fn visit_expr_call(&mut self, c: &'ast syn::ExprCall) {
+        self.visit_expr(&c.func);
+        let name = match &*c.func {
+            Expr::Path(p) => p.path.segments.last().map(|s| s.ident.to_string()),
             _ => None,
         };
-        let (what, read) = match t {
-            Tok::Str(key)
-                if KEYS.contains(&key.as_str())
-                    && next(1) == Some(&Tok::Punct(':'))
-                    && next(2) != Some(&Tok::Punct(':')) =>
-            {
-                out.fields += 1;
-                (format!("\"{key}\""), span(&toks, i + 2, true))
-            }
-            Tok::Word(name)
-                if sinks.contains(&name.as_str())
-                    && args.is_some()
-                    && !(i > 0 && toks[i - 1].1 == Tok::Word("fn".into())) =>
-            {
-                out.sink_calls += 1;
-                (format!("{name}(…)"), span(&toks, args.unwrap_or(i), false))
-            }
-            // `Refused { reason: "…".into() }`: a struct literal's field, so
-            // the word follows `{` or `,` (not a closure's `|reason: String|`).
-            Tok::Word(w)
-                if source
-                    && w == "reason"
-                    && next(1) == Some(&Tok::Punct(':'))
-                    && next(2) != Some(&Tok::Punct(':'))
-                    && i > 0
-                    && matches!(toks[i - 1].1, Tok::Punct('{' | ',')) =>
-            {
-                out.fields += 1;
-                ("reason:".into(), span(&toks, i + 2, true))
-            }
-            // `fn host_reason(…) -> … { … }`: the whole body.
-            Tok::Word(f) if source && f == "fn" => {
-                let Some(Tok::Word(name)) = next(1) else {
-                    continue;
-                };
-                if !REASON_FNS.contains(&name.as_str()) {
-                    continue;
-                }
-                let Some(open) = (i + 2..toks.len()).find(|&k| toks[k].1 == Tok::Punct('{')) else {
-                    continue;
-                };
-                out.reason_fns += 1;
-                (format!("fn {name}"), span(&toks, open + 1, false))
-            }
-            _ => continue,
-        };
-        // A `refusal` key's value may be one of the codes; nothing else may.
-        let code_ok = matches!(t, Tok::Str(key) if key == "refusal");
-        for j in read {
-            if let Some((l, s)) = lit(j) {
-                if letters(s) && !(code_ok && REFUSAL_CODES.contains(&s)) {
-                    hit(l, what.clone(), &mut out);
-                }
-            }
+        match name {
+            Some(name) if self.sink(&name) => self.read(format!("{name}(…)"), false, |s| {
+                c.args.iter().for_each(|a| s.visit_expr(a));
+            }),
+            _ => c.args.iter().for_each(|a| self.visit_expr(a)),
         }
     }
-    out
-}
 
-/// Each same-file `const` or `static` whose initializer holds a literal with a
-/// letter in it: its name, and the token of the first such literal.
-fn sentence_consts(toks: &[(usize, Tok)]) -> std::collections::HashMap<&str, usize> {
-    let mut out = std::collections::HashMap::new();
-    for (i, (_, t)) in toks.iter().enumerate() {
-        if !matches!(t, Tok::Word(w) if w == "const" || w == "static") {
-            continue;
-        }
-        let mut k = i + 1;
-        if matches!(toks.get(k), Some((_, Tok::Word(w))) if w == "mut") {
-            k += 1;
-        }
-        // `const NAME:` — not `*const T` or `const fn`.
-        let (Some((_, Tok::Word(name))), Some((_, Tok::Punct(':')))) =
-            (toks.get(k), toks.get(k + 1))
-        else {
-            continue;
-        };
-        let Some(eq) = (k..toks.len()).find(|&m| toks[m].1 == Tok::Punct('=')) else {
-            continue;
-        };
-        // The `;` that ends the item, not one inside a block initializer.
-        let mut depth = 0i32;
-        let end = (eq..toks.len())
-            .find(|&m| match toks[m].1 {
-                Tok::Punct('(' | '[' | '{') => {
-                    depth += 1;
-                    false
-                }
-                Tok::Punct(')' | ']' | '}') => {
-                    depth -= 1;
-                    false
-                }
-                Tok::Punct(';') => depth <= 0,
-                _ => false,
-            })
-            .unwrap_or(toks.len());
-        let literal = (eq..end)
-            .find(|&m| matches!(&toks[m].1, Tok::Str(s) if s.chars().any(char::is_alphabetic)));
-        if let Some(l) = literal {
-            out.insert(name.as_str(), l);
+    fn visit_expr_method_call(&mut self, m: &'ast syn::ExprMethodCall) {
+        self.visit_expr(&m.receiver);
+        let name = m.method.to_string();
+        if self.sink(&name) {
+            self.read(format!(".{name}(…)"), false, |s| {
+                m.args.iter().for_each(|a| s.visit_expr(a));
+            });
+        } else {
+            m.args.iter().for_each(|a| self.visit_expr(a));
         }
     }
-    out
+
+    fn visit_expr_struct(&mut self, s: &'ast syn::ExprStruct) {
+        for field in &s.fields {
+            let reason = matches!(&field.member, Member::Named(n) if n == "reason");
+            if self.source && reason {
+                if self.counting() {
+                    self.out.fields += 1;
+                }
+                self.read("reason:".into(), false, |sc| sc.visit_expr(&field.expr));
+            } else {
+                self.visit_expr(&field.expr);
+            }
+        }
+        if let Some(rest) = &s.rest {
+            self.visit_expr(rest);
+        }
+    }
+
+    fn visit_macro(&mut self, m: &'ast syn::Macro) {
+        let name = m
+            .path
+            .segments
+            .last()
+            .map(|s| s.ident.to_string())
+            .unwrap_or_default();
+        if self.sink(&name) {
+            self.read(format!("{name}!(…)"), false, |s| {
+                s.tokens(m.tokens.clone())
+            });
+        } else {
+            self.tokens(m.tokens.clone());
+        }
+    }
 }
 
 /// The files the rule covers: every `.rs` under `src/server/` and `src/connections/`.
@@ -429,7 +884,7 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
     for ((name, text), is_source) in read {
         let s = scan(text, &sinks_for(name, is_source), is_source);
         fields += s.fields;
-        reason_fns += s.reason_fns;
+        reason_fns += s.reason_fns.len();
         if is_source {
             source_calls += s.sink_calls;
         } else {
@@ -441,7 +896,7 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
                 .map(|(line, what, lit)| format!("src/{name}:{line} {what}: {lit:?}")),
         );
     }
-    // Floors against a tokenizer that silently matches nothing: PQ-60 left 14
+    // Floors against a scan that silently matches nothing: PQ-60 left 14
     // such fields and 8 `refused` calls in server/ and connections/, and over
     // 20 refusal calls in the three sources.
     assert!(
@@ -459,7 +914,7 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
     // PQ-84: five such bodies (host_reason, check_shape, and three `refusal`s).
     assert!(
         reason_fns >= 4,
-        "read only {reason_fns} bodies of {REASON_FNS:?} in {REASON_SOURCES:?}"
+        "read only {reason_fns} bodies of {REASON_FNS:?}"
     );
     assert!(
         hits.is_empty(),
@@ -484,15 +939,52 @@ fn every_reason_sink_is_still_a_function_the_scan_can_see() {
 
 #[test]
 fn every_reason_fn_is_still_a_function_the_scan_can_see() {
-    // A renamed reason function would take its body out of the scan.
+    // A renamed reason function would take its body out of the scan, and a
+    // namesake in another file must not stand in for it (PQ-85).
     let srcs = sources();
-    for f in REASON_FNS {
-        let decl = format!("fn {f}(");
-        assert!(
-            srcs.iter().any(|(_, t)| t.contains(&decl)),
-            "{decl} is gone from {REASON_SOURCES:?}; update REASON_FNS"
-        );
+    for (file, f) in REASON_FNS {
+        let read = srcs.iter().filter(|(n, _)| n == file).any(|(n, t)| {
+            scan(t, &sinks_for(n, true), true)
+                .reason_fns
+                .iter()
+                .any(|g| g == f)
+        });
+        assert!(read, "fn {f} is gone from src/{file}; update REASON_FNS");
     }
+}
+
+/// Inside a `macro_rules!` template (`$x` placeholders) the scan reads only as
+/// far as the tokens allow, and four review passes on the syn rewrite (PQ-85)
+/// each found another shape it misses there. No file it reads defines one, so
+/// none of those shapes can occur; this keeps it so.
+#[test]
+fn no_scanned_file_defines_a_macro() {
+    #[derive(Default)]
+    struct Macros(usize);
+    impl<'ast> Visit<'ast> for Macros {
+        fn visit_item_macro(&mut self, m: &'ast syn::ItemMacro) {
+            if m.mac.path.is_ident("macro_rules") {
+                self.0 += 1;
+            }
+            visit::visit_item_macro(self, m);
+        }
+    }
+    let mut files = covered();
+    files.extend(sources());
+    assert!(files.len() > REASON_SOURCES.len(), "the scan read no files");
+    let defining: Vec<String> = files
+        .into_iter()
+        .filter(|(_, src)| {
+            let mut macros = Macros::default();
+            macros.visit_file(&syn::parse_file(src).expect("a room source parses"));
+            macros.0 > 0
+        })
+        .map(|(name, _)| name)
+        .collect();
+    assert!(
+        defining.is_empty(),
+        "{defining:?} define a macro_rules! macro; the reason scan cannot read its templates in full: write the code without one, or teach the scan the shape first"
+    );
 }
 
 #[test]
@@ -528,6 +1020,16 @@ fn source_flags(src: &str) -> Vec<String> {
         .collect()
 }
 
+/// [`flags`] as the scan reads `phase.rs`: a source, but not a
+/// [`FORMAT_SOURCES`] file, so a bare `format!` there is not a sink.
+fn phase_flags(src: &str) -> Vec<String> {
+    scan(src, &sinks_for("quiz_session/models/phase.rs", true), true)
+        .hits
+        .into_iter()
+        .map(|(_, _, lit)| lit)
+        .collect()
+}
+
 #[test]
 fn the_scan_fails_a_sentence_written_in_a_reason_source() {
     // The shapes the three sources had before PQ-60 moved their words.
@@ -540,7 +1042,7 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
         ["has {dnc} options; it needs one"]
     );
     assert_eq!(
-        source_flags(r#".ok_or_else(|| RoomError::Refused("No question.".into()))?;"#),
+        source_flags(r#"q.ok_or_else(|| RoomError::Refused("No question.".into()))?;"#),
         ["No question."]
     );
     assert_eq!(
@@ -594,10 +1096,13 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
         }
         return refuse(&id, copy::LOAD_NO_VERIFIED);
         return Err(RoomError::Refused(copy::ROOM_NOTHING_SCHEDULED.into()));
-        Err(RoomError::Refused(why)) => refused(StatusCode::CONFLICT, why),
+        match r { Err(RoomError::Refused(why)) => refused(StatusCode::CONFLICT, why), _ => todo!() };
         pub struct Refused { pub from: Option<Phase>, pub command: Command, pub reason: String }
         let refuse = |reason: String| Refused { from: Some(phase), command, reason };
-        Command::Host(_) => Err(Refused { from: None, command, reason: copy::HOST_REFUSED_NO_ROOM_YET.into() }),
+        match command {
+            Command::Host(_) => Err(Refused { from: None, command, reason: copy::HOST_REFUSED_NO_ROOM_YET.into() }),
+            _ => todo!(),
+        };
         pub fn host_reason(self) -> &'static str {
             match self { Ended::Expired => copy::HOST_ENDED_EXPIRED, Ended::Inactive => copy::HOST_ENDED_INACTIVE }
         }
@@ -707,6 +1212,193 @@ fn the_scan_passes_constants_slugs_comments_and_the_helper_itself() {
     let s = scan(clean, REASON_SINKS, false);
     assert_eq!(s.hits, Vec::<(usize, String, String)>::new());
     assert_eq!((s.fields, s.sink_calls), (5, 1));
+}
+
+#[test]
+fn the_scan_reads_the_shapes_the_pq84_review_found() {
+    // Gap 1: an attribute on a `reason` field does not hide it.
+    assert_eq!(
+        source_flags(
+            r#"Err(Refused { from: None, command, #[allow(unused)] reason: "No room yet.".into() })"#
+        ),
+        ["No room yet."]
+    );
+    assert_eq!(
+        source_flags(r#"Refused { #[cfg(all())] #[allow(x::y)] reason: "No.".into(), command }"#),
+        ["No."]
+    );
+    // Gap 2: a closure's parameter named `reason` is not a field, and its body
+    // is not a field's value, however it is written or wherever it sits; a
+    // field whose value holds a closure is still read, whatever the fields
+    // before it hold. Every shape here is one a token scan got wrong
+    // (PQ-85's review passes 1 to 5).
+    for field in [
+        r#"Refused { from: None, reason: why.map_or_else(|| "No room yet.".into(), |w| w), command }"#,
+        r#"Refused { from: None, reason: if a || b { "No room yet.".into() } else { copy::X.into() }, command }"#,
+        r#"Refused { from: None, reason: if a | b { "No room yet.".into() } else { copy::X.into() }, command }"#,
+        r#"Refused { from: None, reason: match flags | mask { 0 => "No room yet.".into(), _ => copy::X.into() } }"#,
+        r#"Refused { from: a | b, command: x || y, reason: "No room yet.".into() }"#,
+        r#"Refused { from: f.map(|x| x), note: |x| x, reason: "No room yet.".into() }"#,
+        r#"Refused { from: |x: u8,| x, reason: "No room yet.".into(), note: |x: u8| x }"#,
+        r#"Refused { from: |x: u8,| x, reason: if a | b { "No room yet.".into() } else { c || d } }"#,
+        r#"Refused { from: x? | y, note: f() | g, reason: "No room yet.".into() }"#,
+        r#"Refused { from: || x, note: |a| |b| a, reason: "No room yet.".into() }"#,
+        r#"Refused { from: 'x' | Mask, reason: "No room yet.".into() }"#,
+        r#"Refused { from: '\'' | Mask, note: b'x' | m, reason: "No room yet.".into() }"#,
+        r#"Refused { from: 1. | Mask, note: v[0] | m, reason: "No room yet.".into() }"#,
+        r#"Refused { from: &mut |x: u8,| x, reason: "No room yet.".into() }"#,
+        r#"Refused { from: match (|x: u8,| x) { _ => 0 }, reason: "No room yet.".into() }"#,
+    ] {
+        assert_eq!(phase_flags(field), ["No room yet."], "{field}");
+    }
+    for closure in [
+        r#"let note = |from: Phase, reason: &str| format!("{from:?}: {reason}");"#,
+        r#"let n = f(|from: Phase, reason: &str| format!("{from:?}: {reason}"));"#,
+        r#"Holder { f: |from: Phase, reason: &str| format!("{from:?}: {reason}") }"#,
+        r#"let n = move |from: Phase, reason: &str| format!("{from:?}: {reason}");"#,
+        r#"let n = &|from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}");"#,
+        r#"let n = &mut |from: u8, reason: &str| format!("{from}: {reason}");"#,
+        r#"let n = async move |from: u8, reason: &str| format!("{from}: {reason}");"#,
+        r#"let n = |a: u8| |from: u8, reason: &str| format!("{a}{from}: {reason}");"#,
+        r#"let n = f(|x: u8,| x, |from: u8, reason: &str| format!("{from}: {reason}"));"#,
+        r#"let n = 'l: { break 'l |from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}"); };"#,
+    ] {
+        assert_eq!(phase_flags(closure), Vec::<String>::new(), "{closure}");
+    }
+    // Gap 3: `copy::NAME` is copy's, even where this file has its own `NAME`;
+    // a bare name or any other path (`self::`, `Self::`, `Phase::`) is still
+    // this file's.
+    let shadow = r#"const HOST_ENDED_EXPIRED: &str = "expired";
+        pub fn host_reason(self) -> &'static str {
+            match self { Ended::Expired => copy::HOST_ENDED_EXPIRED, _ => crate::copy::X }
+        }"#;
+    assert_eq!(source_flags(shadow), Vec::<String>::new());
+    assert_eq!(
+        flags(r#"const WHY: &str = "No."; refused(a, self::WHY)"#),
+        ["No."]
+    );
+    assert_eq!(
+        source_flags(
+            r#"impl Ended { const WHY: &str = "Ended."; pub fn host_reason(self) -> &'static str { Self::WHY } }"#
+        ),
+        ["Ended."]
+    );
+    assert_eq!(
+        phase_flags(
+            r#"impl Phase { const WHY: &str = "No room yet."; } Refused { from: None, command, reason: Phase::WHY.into() }"#
+        ),
+        ["No room yet."]
+    );
+    // A range bound is the name, not a member: `..WHY` is this file's `WHY`.
+    for range in [
+        r#"const WHY: &str = "No room yet."; Refused { reason: (..WHY).end.into() }"#,
+        r#"const WHY: &str = "No room yet."; Refused { reason: (""..WHY).end.into() }"#,
+    ] {
+        assert_eq!(phase_flags(range), ["No room yet."], "{range}");
+    }
+    // Gap 5: a local binding is read as the literals it was bound from, where
+    // the scan reads it: a `let`, or a pattern that destructures a literal.
+    assert_eq!(
+        phase_flags(
+            r#"let why = format!("{phase:?} does not step the trace."); return Err(refuse(why));"#
+        ),
+        ["{phase:?} does not step the trace."]
+    );
+    assert_eq!(
+        flags(r#"let mut why: &str = "No."; refused(s, why)"#),
+        ["No."]
+    );
+    assert_eq!(
+        phase_flags(r#"let why = "No room yet."; Refused { from: None, command, reason: why }"#),
+        ["No room yet."]
+    );
+    assert_eq!(
+        phase_flags(
+            r#"let reason = "No room yet.".to_string(); Refused { from: None, command, reason }"#
+        ),
+        ["No room yet."]
+    );
+    assert_eq!(flags(r#"for why in ["No."] { refused(s, why); }"#), ["No."]);
+    // Inside a macro whose tokens are not Rust, a sink call, a `reason:` field
+    // and a constant the macro declares are still read; so is a C string. Each
+    // shape is one the syn rewrite first missed (its review pass 1).
+    for (src, want) in [
+        (
+            r#"macro_rules! m { ($prefix:expr) => { refuse($prefix.to_owned() + "No trace.") } }"#,
+            "No trace.",
+        ),
+        (
+            r#"macro_rules! m { ($c:expr) => { Refused { from: None, command: $c, reason: "No room yet.".into() } } }"#,
+            "No room yet.",
+        ),
+        (
+            r#"tokio::select! { _ = task() => refused(s, "No."), }"#,
+            "No.",
+        ),
+        (r#"let v = vec![refused(s, "No."); 2];"#, "No."),
+        (
+            r#"macro_rules! define_reason { () => { const WHY: &str = "No trace."; }; }
+            define_reason!(); fn f() { refused(s, WHY); }"#,
+            "No trace.",
+        ),
+        (
+            r#"macro_rules! d { ($p:expr) => { const WHY: &str = concat!($p, "No trace."); }; }
+            fn f() { refused(s, WHY); }"#,
+            "No trace.",
+        ),
+        (
+            r#"refused(s, c"No trace.".to_string_lossy().into_owned())"#,
+            "No trace.",
+        ),
+        // Its review pass 2: a `json!` key after a repetition, a reason
+        // function a macro defines, and a macro body's `let`.
+        (
+            r#"macro_rules! m { ($($key:tt: $val:expr,)*) => { json!({ $($key: $val,)* "reason": "No room." }) } }"#,
+            "No room.",
+        ),
+        (
+            r#"macro_rules! m { () => { fn refusal() -> &'static str { "No room." } } }"#,
+            "No room.",
+        ),
+        (
+            r#"macro_rules! m { () => {{ let why = format!("No trace."); refuse(why) }} }"#,
+            "No trace.",
+        ),
+        // Its review pass 3: a reason function in a template that is not Rust.
+        (
+            r#"macro_rules! m { ($ready:expr) => { fn refusal() -> &'static str { if $ready { "No room." } else { copy::HOST_ENDED_EXPIRED } } } }"#,
+            "No room.",
+        ),
+        (
+            r#"macro_rules! m { ($($i:item)*) => { $($i)* fn refusal() -> &'static str { "No room." } } }"#,
+            "No room.",
+        ),
+    ] {
+        assert_eq!(phase_flags(src), [want], "{src}");
+    }
+    assert_eq!(
+        phase_flags(r#"macro_rules! m { ($reason:expr) => { refuse($reason) } }"#),
+        Vec::<String>::new()
+    );
+    // Only in its block and until another binding shadows it, whether a
+    // `let` or a pattern's; a field, member or label of that name is not the
+    // binding; `_` binds nothing; one with no letter, or used nowhere a reason
+    // is built, passes.
+    let clean = r#"
+        { let why = "No."; }
+        refused(s, why);
+        let why = "No."; let why = copy::NO; refused(s, why);
+        let why = "No."; for why in [copy::A] { refused(s, why); }
+        let why = "No."; match r { Err(why) => refused(s, why), _ => todo!() };
+        let why = "No."; if let Some(why) = opt { refused(s, why); }
+        let why = "No."; let f = |why: &str| refused(s, why);
+        let why = "No."; refused(s, Note { why: copy::A });
+        let label = "Reveal"; refused(s, copy::not_next(x.label));
+        let _ = "No."; refused(s, match x { Some(_) => copy::A, _ => copy::B });
+        let n = format!("{}", 3); refused(s, n);
+        let hex = format!("sha256:{hex}"); digest(hex);
+    "#;
+    assert_eq!(flags(clean), Vec::<String>::new());
 }
 
 #[test]

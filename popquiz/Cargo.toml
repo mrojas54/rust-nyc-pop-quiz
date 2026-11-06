@@ -141,3 +141,8 @@ tower = { version = "0.5", features = ["util"] }
 # The WebSocket client the transport tests attach with (T-04c): the same 0.29
 # that axum's `ws` feature already locks. No TLS — the tests are loopback.
 tokio-tungstenite = "0.29"
+# The parser the reason-copy lint (tests/reason_copy.rs) reads the room's
+# sources with (PQ-85). Both already locked; span-locations gives line numbers
+# outside a proc macro.
+syn ={ version = "2.0.119", features = ["full", "visit"] }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }

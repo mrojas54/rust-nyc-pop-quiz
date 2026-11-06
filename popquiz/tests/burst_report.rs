@@ -136,10 +136,13 @@ fn passing() -> VerdictInput {
     }
 }
 
+/// A note the verdict must write, and the change to a passing run that makes it.
+type Case = (&'static str, fn(&mut VerdictInput));
+
 #[test]
 fn every_criterion_can_miss_on_its_own() {
     assert_eq!(verdict(&passing()).0, Exit::Pass);
-    let cases: [(&str, fn(&mut VerdictInput)); 7] = [
+    let cases: [Case; 7] = [
         ("AC-54 MISS", |v| v.burst_headline_p95 = 500.0),
         ("AC-53 MISS", |v| v.segment_write_p95 = 612.0),
         ("AC-41 MISS", |v| v.reveal_p95 = 2000.5),
@@ -170,7 +173,7 @@ fn every_criterion_can_miss_on_its_own() {
 
 #[test]
 fn an_invalid_run_is_not_judged_even_when_a_criterion_also_missed() {
-    let cases: [(&str, fn(&mut VerdictInput)); 6] = [
+    let cases: [Case; 6] = [
         ("of 200 participants", |v| v.clients_connected = 199),
         ("ulimit", |v| v.ulimit_nofile = 256),
         ("harness errors", |v| v.errors = 1),
