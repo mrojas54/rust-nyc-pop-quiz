@@ -142,7 +142,10 @@ In order, each step only if the one before passed:
 Every field of the record is read off a step or the pin, never typed. A
 re-verified legacy record is replaced whole. `verify.is_stale(record, pin)` is
 what scheduling asks: a record made under a different pin re-verifies first; a
-legacy record is exempt. `verify.check_provenance(file)` is the build's AC-7
+legacy record is exempt. `verify` also writes `recordings/<id>.json` here, every step
+the sandbox returned with the sha256 of the `source` and of the record; only
+`verify` writes it, and scheduling refuses a record, legacy included, with no
+recording or one that does not match it. `verify.check_provenance(file)` is the build's AC-7
 check: it refuses a stored `correct` field, a record the verifier did not write,
 and options that no longer derive an answer from the record. `popquiz schedule`
 and the fallback apply it to the loaded question (`verify.check_question`), so a
