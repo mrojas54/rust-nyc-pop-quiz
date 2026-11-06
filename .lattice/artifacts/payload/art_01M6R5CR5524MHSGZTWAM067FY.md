@@ -1,0 +1,1 @@
+just test rc 0 at HEAD 0fa57735a3f62d6307c270d32227b6b4d1b91d04 (sandbox off, warm real 49.3 s): pipeline 1284 passed 1 skipped, web 306 pass 0 fail, cargo 37 'test result: ok' blocks, 0 FAILED. NOT run locally: just test-full (needs Docker; the q8 real --replay test runs in CI's test-full job). No real just verify / just schedule against the bank or room.
