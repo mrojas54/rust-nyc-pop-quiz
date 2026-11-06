@@ -200,7 +200,9 @@ just schedule <id> --date <YYYY-MM-DD> --room https://rustnyc-popquiz.fly.dev --
   command: the recipe runs under `op run`, and `.env.op` names the item
   (*Secrets*, above). It goes in no file, no URL, no page and no note
   (`SPEC.md` §8.3).
-- **`--date`** is the meetup's date. It decides where the answer sits.
+- **`--date`** is the meetup's date. It decides where the answer sits, and it
+  goes to the room with the record: the room offers the question, and creates
+  a room on it, only on that date in the club's time zone (`SPEC.md` §8.5).
 - **`--out`** is a directory outside the repository, written as an absolute
   path. The two files it gets hold the answer, and `just schedule` refuses a
   directory inside the repository.
@@ -220,6 +222,12 @@ room is down, `--no-push` in place of `--room` writes the two files and sends
 nothing, with no token needed.
 
 The flags come from `just schedule --help` and `just sync --help`.
+
+You may push more than one question for the same date, one `just schedule`
+each, each with its own `--out` files. The host phone lists every one the
+club can run that day and the organizer picks on the night (*Creating the
+room*, below). Pushing a question uses nothing; only releasing its room does
+(G-10). Keep the fallback files of each one you pushed.
 
 ## At the venue
 
@@ -251,15 +259,24 @@ Do this in the last ten to fifteen minutes of the last talk, with the wall not
 yet on the projector. Not earlier: a room nobody acts on closes after 30
 minutes in `idle` (`SPEC.md` §4.6).
 
-1. On the host phone, open `https://rustnyc-popquiz.fly.dev/host?question=<id>`.
+1. On the host phone, open `https://rustnyc-popquiz.fly.dev/host`. For
+   another club, add `?club=<club>`. `/host?question=<id>` still works and
+   starts with that question chosen.
 2. Tap *Sign in with Discord*. Discord asks once for your identity and server
    membership.
-3. Tap *Create a room*. The room asks Discord whether your account holds the
-   organizer role, then moves the phone to the room's host screen.
-4. **Save that address privately.** The host screen's address is the resume
+3. Under **Question**, the phone lists the club's questions for tonight, each
+   as `‹id› · ‹topic›`: pushed for today's date, affirmed, not run by the
+   club, and held by no room. Choose one; **Reload** fetches the list again.
+   *No question is ready for this club today.* means nothing pushed for today
+   is left: run `just schedule` (*Scheduling*, above), then tap **Reload**.
+4. Tap *Create a room*. The room asks Discord whether your account holds the
+   organizer role, checks the question again, then moves the phone to the
+   room's host screen. If it refuses, the phone says why and shows the list as
+   it is now.
+5. **Save that address privately.** The host screen's address is the resume
    link: open it on another phone and that phone controls the same room
    (AC-50). It is host access; never put it on the screen.
-5. On the projector laptop, open `/wall/<room_id>` on the same host, with the
+6. On the projector laptop, open `/wall/<room_id>` on the same host, with the
    room id from the host screen's address. The wall shows the title card and
    the join strip, `join @ ‹link›` · `Joined: ‹n›`.
 
@@ -419,9 +436,12 @@ File the sheets:
 | `… is inside the repository …` | Give `--out` a directory outside it, such as `~/popquiz-<YYYY-MM-DD>`. |
 | `… has already been run; a question is never run twice.` | That machine released this question. Pick another. |
 | `A room is running … it can be replaced once that room is gone.` | A room already holds the question. Do not re-push during a night. |
-| *Sign in with Discord* answers `400` | The question id in the link is empty or not an id. An id is 1 to 64 letters, digits, `-` or `_`. Open `/host?question=<id>` with the real id. |
-| Coming back from Discord answers `400` | The sign-in was replayed, expired or lost its cookie. Open `/host?question=<id>` again and tap *Sign in with Discord* once. |
+| *Sign in with Discord* answers `400` | The question id in the link is not an id. An id is 1 to 64 letters, digits, `-` or `_`. Open `/host`, or `/host?question=<id>` with the real id. |
+| Coming back from Discord answers `400` | The sign-in was replayed, expired or lost its cookie. Open `/host` again and tap *Sign in with Discord* once. |
 | `No question is scheduled with that id.` | The push did not land, or the machine restarted since. Run `just schedule` again with the same id and date, and check it prints `scheduled: new`. |
+| *No question is ready for this club today.* | Nothing pushed for today's date is left for the club: none was pushed, the machine restarted since, each was pushed for another date, or each is run or held by a room. Run `just schedule` with today's `--date`, then tap **Reload**. |
+| *Couldn't load the questions.* | The phone did not reach the room, or the room or Discord did not answer. Tap **Reload**. If it keeps failing, the room cannot be reached (below). |
+| `That question was scheduled for another date.` | It was pushed with another `--date`. Pick another, or run `just schedule` again with today's date (a re-push replaces it). |
 | `That question has already been run. Pick another.` | This machine has released that question. Pick another. |
 | `smoke` or `burst` says `create: 409 "That question is open in another room. Pick another."` | A room on the machine still holds that harness id (often a run that stopped partway). Wait for it to go quiet (below), or schedule q3's record under another harness id and pass it with `--question`. Never restart for this during a night. |
 | `That question is open in another room. Pick another.` | Another room on this machine has that question and has not been released. Open that room's saved host-screen address instead, or pick another question. The other room stops holding the question once it goes quiet: 30 minutes with no host action while it waits to start, 20 minutes once started, and 4 hours after it was created at most. Only host actions reset the clock; phones joining or answering do not. If the saved host-screen address is lost, wait for that room to go quiet and create the room again, or pick another question. |
@@ -429,7 +449,7 @@ File the sheets:
 | `That Discord account doesn't have the organizer role.` | Sign in with an account that holds the organizer role. |
 | *Create a room* fails with `503` | Discord did not answer. Try again in a minute. A room already open does not need Discord. |
 | The host phone dies or is lost | Open the saved host-screen address on another phone. It controls the same room. |
-| Phones show *That room went quiet and closed.* | Nobody acted on the room for 30 minutes (20 after *Start*). Create a new room from `/host?question=<id>`; the question is still unused. |
+| Phones show *That room went quiet and closed.* | Nobody acted on the room for 30 minutes (20 after *Start*). Create a new room from `/host`; the question is still unused and is listed again. |
 | The room cannot be reached | Open `<id>.html` on the laptop and step it with `Space`, `←` `→` and `Esc`. Read from the host sheet. Votes are hands. At the reveal the sheet lists every other option by letter with why it tempts; read the one for the option most hands chose. |
 | Code is clipped on the wall | The wall shows a visible edge on the side that lost content. Keep going and write it on the sheet; `just sync` reports the fit afterwards. |
 | The answer, a ✓ or *How we know* shows before *Reveal* | A defect. Write down the phase it appeared in. |

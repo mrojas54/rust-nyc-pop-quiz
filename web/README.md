@@ -14,7 +14,7 @@ no build step — the prototype *is* the design, and it is already plain JS
 | `shared/` | Tokens, fonts, the source well, syntax colour, the trace renderer, the type model | T-02 |
 | `wall/` | Seven phases on the 1120×630 canvas | T-05, and T-26's static fallback |
 | `buzzer/` | Join, answer, the private hint, the released line | T-06 |
-| `host/` | One screen per phase, one primary action | T-07 |
+| `host/` | One screen per phase, one primary action; before the room, the signed-in organizer's question picker (SPEC §8.5) | T-07, PQ-80 |
 | `home/` | Take it home, rebuilt at each release | T-12 |
 | `landing/` | The front door at `GET /`: a headline and two links, no room state | — |
 
@@ -84,8 +84,8 @@ It renders every surface at every phase from fixtures: the wall at every phase
 and step (and the unanimous reveal), the static fallback at every `{phase,
 step}` its keys reach, every screen the buzzer's reducer reaches (join, the five
 refusals, each phase, saving / saved / failed, the hint, paused), the host's
-seven phases plus sign-in and create, and take-it-home at every step of three
-snapshots. `web/test/a11y/dom.js` builds the markup into a tree and runs the
+seven phases plus sign-in, create and the picker (loading, ready, chosen,
+empty, failed, refused), and take-it-home at every step of three snapshots. `web/test/a11y/dom.js` builds the markup into a tree and runs the
 real stylesheets' cascade over it, so each colour, size and outline is the one
 the CSS gives that element; `a11y/wcag.js` is WCAG 2.1's relative luminance and
 contrast ratio, written out.
