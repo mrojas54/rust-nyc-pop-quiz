@@ -489,6 +489,79 @@ async fn ac101_past_the_check_other_paths_and_methods_are_not_found_or_not_allow
 }
 
 // --------------------------------------------------------------------------
+// R1-a (SPEC §8.5): every caller of the PUT sends the date the record is for.
+// The pipeline's `push` is tested in `pipeline/tests/test_schedule.py`; these
+// are the other two, read from their scripts, as `just test` runs neither.
+// --------------------------------------------------------------------------
+
+/// A file at the repository's root, by its path there.
+fn repo_file(path: &str) -> String {
+    std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(path)).unwrap()
+}
+
+/// Each script outside the pipeline that PUTs a record: `just demo`, and the
+/// deployed burst's step, decoded from its YAML rather than read as lines.
+fn put_scripts() -> Vec<(&'static str, String)> {
+    let justfile = repo_file("justfile");
+    let demo = &justfile[justfile.find("\ndemo ").unwrap()..justfile.find("\nsync ").unwrap()];
+    let burst: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&repo_file(".github/workflows/deployed-burst.yml")).unwrap();
+    let steps = burst["jobs"]["deployed-burst"]["steps"]
+        .as_sequence()
+        .unwrap();
+    let put: Vec<&str> = steps
+        .iter()
+        .filter_map(|step| step["run"].as_str())
+        .filter(|run| run.contains("/admin/questions/"))
+        .collect();
+    assert_eq!(put.len(), 1, "one burst step PUTs a record: {put:?}");
+    vec![
+        ("just demo", demo.to_string()),
+        ("deployed-burst.yml", put[0].to_string()),
+    ]
+}
+
+#[test]
+fn r1a_every_other_caller_of_the_put_sends_tonights_date_in_the_clubs_zone() {
+    // Tonight in the club's zone is the date the room opens a room on; a
+    // runner's or a laptop's own zone can be a day ahead in the evening.
+    let tonight = format!("tonight=\"$(TZ={} date +%F)\"", room::used::MEETUP_ZONE);
+    for (name, script) in put_scripts() {
+        let lines: Vec<&str> = script.lines().map(str::trim).collect();
+        let named: Vec<usize> = (0..lines.len()).filter(|&i| lines[i] == tonight).collect();
+        assert_eq!(named.len(), 1, "{name}: says {tonight} once");
+        let dated: Vec<usize> = (0..lines.len())
+            .filter(|&i| {
+                lines[i].contains("--arg meetup_date \"$tonight\"")
+                    && lines[i].contains(".meetup_date = $meetup_date")
+            })
+            .collect();
+        assert_eq!(dated.len(), 1, "{name}: one jq dates the record");
+        assert!(
+            named[0] < dated[0],
+            "{name}: names tonight before dating the record"
+        );
+        let line = lines[dated[0]];
+        let file = line
+            .rsplit_once("> ")
+            .map(|(_, f)| f.trim_matches('"'))
+            .unwrap_or_else(|| panic!("{name}: the dated record goes to a file: {line}"));
+        let puts: Vec<&str> = lines
+            .iter()
+            .copied()
+            .filter(|l| l.contains("--data-binary"))
+            .collect();
+        assert!(!puts.is_empty(), "{name}: PUTs a body");
+        for put in puts {
+            assert!(
+                put.contains(&format!("\"@{file}\"")),
+                "{name}: PUTs the dated record, {file}, not another: {put}"
+            );
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
 // AC-101: the route table. The prefix is served to the check alone.
 // --------------------------------------------------------------------------
 
