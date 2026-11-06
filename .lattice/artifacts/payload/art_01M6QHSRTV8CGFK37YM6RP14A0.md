@@ -1,0 +1,1 @@
+HEAD 43430e5: just test green (cargo all ok incl. reason_copy 11/11; web ok; pipeline 1252 passed 1 skipped), warm 42 s on a loaded machine (28 s earlier this session, 28.4 s before the ticket). Guard RED/GREEN shown with a reverted macro_rules! plant in phase.rs. Not run: just test-full (CI runs it).
