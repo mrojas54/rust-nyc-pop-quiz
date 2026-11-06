@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from fixtures.verify.verify_cases import verify_bank
 from popquiz import audit, bank, review, schedule
 from popquiz.runner import StubRunner
 
@@ -51,6 +52,7 @@ def the_real_bank_is_untouched():
 @pytest.fixture
 def bank_dir(tmp_path: Path) -> Path:
     shutil.copytree(FIXTURES / "questions", tmp_path / "bank" / "questions")
+    verify_bank(tmp_path / "bank")  # each record and its recording are the verifier's (GAP-6)
     return tmp_path / "bank"
 
 
@@ -190,7 +192,7 @@ def test_ac72_affirm_records_who_when_and_what_and_the_question_schedules(bank_d
     assert q.review.affirmed_at.endswith("+00:00")
     assert q.review.affirmed_digest == bank.affirmation_digest(q)
     assert bank.affirmation_state(q) == "bound"
-    assert schedule.refusal(q) is None and audit.in_reserve(q)
+    assert schedule.refusal(q, recordings=bank_dir / "recordings") is None and audit.in_reserve(q)
 
 
 @pytest.mark.parametrize("status", [None, "rejected"])
@@ -247,7 +249,7 @@ def test_f15_a_question_that_does_not_compile_affirms_when_its_last_step_names_t
     assert run("affirm", "q8", "--by", NAME, "--bank", bank_dir) == 0
     q8 = load(bank_dir, "q8")
     assert bank.affirmation_state(q8) == "bound" and q8.review.affirmed_by == NAME
-    assert schedule.refusal(q8) is None and audit.in_reserve(q8)
+    assert schedule.refusal(q8, recordings=bank_dir / "recordings") is None and audit.in_reserve(q8)
 
 
 def test_f15_a_last_step_that_names_no_error_cannot_be_affirmed(bank_dir, capsys):
@@ -294,7 +296,7 @@ def test_q3s_hand_affirmation_is_unbound_and_can_be_affirmed_again(bank_dir, cap
     assert run("affirm", "q3", "--by", NAME, "--bank", bank_dir) == 0
     q3 = load(bank_dir, "q3")
     assert bank.affirmation_state(q3) == "bound" and q3.review.affirmed_by == NAME
-    assert schedule.refusal(q3) is None and audit.in_reserve(q3)
+    assert schedule.refusal(q3, recordings=bank_dir / "recordings") is None and audit.in_reserve(q3)
 
 
 def test_a_bound_affirmation_is_kept_and_not_overwritten(bank_dir, capsys):
@@ -383,7 +385,7 @@ def test_gap24_an_identical_edit_of_an_affirmed_question_keeps_it_affirmed(bank_
     assert q.review.status == "accepted"
     assert q.review.affirmed_by == NAME and q.review.affirmed_digest == before.review.affirmed_digest
     assert bank.affirmation_state(q) == "bound"
-    assert schedule.refusal(q) is None
+    assert schedule.refusal(q, recordings=bank_dir / "recordings") is None
 
 
 def option_edit(bank_dir: Path, tmp_path: Path, qid: str = "q4") -> Path:

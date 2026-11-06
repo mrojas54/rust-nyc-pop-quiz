@@ -72,6 +72,8 @@ from popquiz.bank import (
     question_to_dict,
     save_question,
 )
+from popquiz import verify
+from popquiz.runner import FixtureError, RealRunner, Runner, StubRunner
 from popquiz.slot import slot_for_day
 from popquiz.verify import ProvenanceError, Verified, check_question, is_stale
 
@@ -162,8 +164,130 @@ def _pin_mismatch(verified: Verified, pin: sandbox.Pin) -> str:
     return "; ".join(f"{label} {was}, the pin says {now}" for label, was, now in parts if was != now)
 
 
+#: Every field of a record a replay must give back. When and by which build of the
+#: verifier it ran are not facts about the program.
+_NOT_REPLAYED = frozenset({"verified_at", "verifier_version"})
+
+_REVERIFY = " - re-verify it with `just verify` before it is scheduled (AC-7)"
+
+
+def _without_host(rustc: str) -> str:
+    return "\n".join(line for line in rustc.splitlines() if not line.startswith("host: "))
+
+
+def _differences(stored: Verified, replayed: Verified, *, any_host: bool = False) -> list[str]:
+    """The fields a replay gave back differently. With `any_host`, which of the
+    pin's supported triples the run happened on is not compared (`target_triple`,
+    and the `host:` line of `rustc`): the platform is not pinned (`pin.toml`), and
+    the new run checks its host against the pin's triples itself."""
+
+    def same(name: str) -> bool:
+        a, b = getattr(stored, name), getattr(replayed, name)
+        if any_host and name == "rustc":
+            return _without_host(a) == _without_host(b)
+        return a == b
+
+    skip = _NOT_REPLAYED | ({"target_triple"} if any_host else set())
+    return [f.name for f in dataclasses.fields(Verified) if f.name not in skip and not same(f.name)]
+
+
+def _replayed(question: Question, runner: Runner, pin: sandbox.Pin) -> verify.Verdict:
+    expect = verify.expect_from_record(question.verified)  # type: ignore[arg-type]
+    if expect is None:  # check_question has already refused such a record
+        raise ProvenanceError(f"{question.id}: the record does not say what the program does")
+    return verify.verify(question, runner, expect=expect, pin=pin)
+
+
+def _recording_refusal(question: Question, recordings: Path, pin: sandbox.Pin | None) -> str | None:
+    """The record against `<recordings>/<id>.json`, the file `verify` wrote beside
+    it (SPEC 3.2, 7.2). Refuses a record with no recording, legacy included; one
+    whose recording's digests do not match the record and its `source`; and one
+    whose recording, replayed through `StubRunner`, gives a different answer.
+
+    It proves that record and recording agree, so an edit to only one of them is
+    caught. It does not prove a toolchain produced either: an edit to both, with
+    both digests recomputed, passes. Only `replay` catches that (G-2)."""
+    qid = question.id
+    path = recordings / f"{qid}.json"
+    if not path.is_file():
+        return f"{qid} has no recording{_REVERIFY}"
+    try:
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+        digests = (recorded["_source_sha256"], recorded["_record_sha256"])
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        return f"{qid}'s recording cannot be read ({type(e).__name__}){_REVERIFY}"
+    changed = [
+        what
+        for what, ok in (
+            ("its source", digests[0] == verify.source_sha256(question.source)),
+            ("its verified record", digests[1] == verify.record_sha256(question)),
+        )
+        if not ok
+    ]
+    if changed:
+        return f"{qid} does not match its recording ({' and '.join(changed)} changed after `just verify` wrote it){_REVERIFY}"
+    if pin is None:
+        try:
+            pin = sandbox.read_pin()
+        except sandbox.PinError as e:
+            return str(e)
+    try:
+        verdict = _replayed(question, StubRunner(recordings), pin)
+    except (verify.VerifyError, FixtureError, ProvenanceError) as e:
+        return f"{qid}'s recording does not replay ({e}){_REVERIFY}"
+    if not verdict.accepted:
+        return f"{qid} does not match its recording (replayed through the stub runner, it is rejected: {verdict.reason}){_REVERIFY}"
+    assert verdict.verified is not None and question.verified is not None
+    differ = _differences(question.verified, verdict.verified)
+    if differ:
+        return (
+            f"{qid} does not match its recording (replayed through the stub runner, it gives a "
+            f"different {', '.join(differ)}){_REVERIFY}"
+        )
+    return None
+
+
+def _sandbox_runner(question: Question, pin: sandbox.Pin) -> Runner:
+    """The runner `replay` uses: the real sandbox. The seam the tests replace."""
+    return RealRunner({question.id: question.source}, pin=pin)
+
+
+def replay(question: Question, *, pin: sandbox.Pin | None = None) -> str | None:
+    """`schedule --replay`: run the question's source again in the sandbox under
+    the current pin and refuse it if the new record differs from the stored one on
+    anything but when it ran and on which supported host, or if the sandbox cannot
+    run. Called after `refusal`
+    has passed, before anything is sent. Needs Docker and the pinned image."""
+    qid = question.id
+    if pin is None:
+        try:
+            pin = sandbox.read_pin()
+        except sandbox.PinError as e:
+            return str(e)
+    try:
+        verdict = _replayed(question, _sandbox_runner(question, pin), pin)
+    except (OSError, verify.ToolchainUnreadable) as e:
+        return (
+            f"{qid} was not replayed: `--replay` needs the sandbox ({e}); run "
+            "`just sandbox-build`, or schedule without `--replay`"
+        )
+    except (verify.VerifyError, ProvenanceError) as e:
+        return f"{qid} was not replayed: {e}"
+    if not verdict.accepted:
+        return f"{qid} does not match a new run in the sandbox (it is rejected: {verdict.reason}){_REVERIFY}"
+    assert verdict.verified is not None and question.verified is not None
+    differ = _differences(question.verified, verdict.verified, any_host=True)
+    if differ:
+        return f"{qid} does not match a new run in the sandbox (a different {', '.join(differ)}){_REVERIFY}"
+    return None
+
+
 def refusal(
-    question: Question, club: str = DEFAULT_CLUB, *, pin: sandbox.Pin | None = None
+    question: Question,
+    club: str = DEFAULT_CLUB,
+    *,
+    pin: sandbox.Pin | None = None,
+    recordings: Path | None = None,
 ) -> str | None:
     """Why this question cannot be scheduled, or `None` when it can.
 
@@ -174,7 +298,10 @@ def refusal(
     is refused as stale (SPEC 7.2, AC-6, `verify.is_stale`); `pin` defaults to
     `pipeline/sandbox/pin.toml`, read only when a non-legacy record gets that far.
     The record must also pass the build's provenance check (AC-7,
-    `verify.check_question`), which cannot see a self-consistent edit inside it.
+    `verify.check_question`), which cannot see a self-consistent edit inside it,
+    and then agree with its recording in `recordings` (default `bank/recordings/`;
+    `_recording_refusal`), which sees an edit to the record alone. That check goes
+    after the provenance check, so every refusal before it reads as it did.
 
     The rule that a question needs two trace steps to be affirmed is the affirm
     step's (SPEC 7.4, T-18), not this gate's; `fallback.bake` refuses a trace too
@@ -225,10 +352,10 @@ def refusal(
                 "before it is scheduled (AC-6)"
             )
     try:
-        check_question(question)  # AC-7: last, so the refusals above read as they did
+        check_question(question)  # AC-7: after the gate's own refusals, so they read as they did
     except ProvenanceError as e:
         return str(e)
-    return None
+    return _recording_refusal(question, recordings or DEFAULT_BANK / verify.RECORDINGS, pin)
 
 
 # --------------------------------------------------------------------------- #
@@ -654,7 +781,9 @@ def _schedule(args: argparse.Namespace) -> int:
         raise ScheduleError(f"{args.club!r} is not a club name (a-z, 0-9 and -, 1 to 24)")
     home_link = home_link_for(args.club, args.home_link)
     question = load_question(args.bank, args.question_id)
-    why = refusal(question, args.club)
+    why = refusal(question, args.club, recordings=args.bank / verify.RECORDINGS)
+    if not why and args.replay:
+        why = replay(question)
     if why:
         raise ScheduleError(why)
     out = Path(args.out).resolve()
@@ -862,6 +991,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     s.add_argument("--out", type=Path, required=True, help="the directory the fallback and sheet go in")
     s.add_argument("--home-link", default=None,
                    help="the take-it-home link (default: the club's own page, /last for rustnyc, /last/<club> otherwise)")
+    s.add_argument("--replay", action="store_true",
+                   help="also run the question again in the sandbox under the current pin, and refuse it "
+                   "if the run disagrees with the record (needs Docker and the pinned image)")
     common(s)
 
     y = sub.add_parser("sync", help="pull the room's used ledger into the bank")

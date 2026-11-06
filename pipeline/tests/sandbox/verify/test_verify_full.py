@@ -75,3 +75,12 @@ def test_a_record_the_real_toolchain_writes_is_not_stale(pin) -> None:
     )
     assert verdict.verified is not None
     assert not verify.is_stale(verdict.verified, pin)
+
+
+def test_schedule_replay_runs_the_bank_q8_again_on_the_image_and_agrees(pin) -> None:
+    """`just schedule --replay` (GAP-6) on the committed q8, read and never written:
+    the real sandbox under the pin gives back the record the bank holds."""
+    from popquiz import bank, schedule
+
+    q8 = bank.load_question(schedule.DEFAULT_BANK, "q8")
+    assert schedule.replay(q8, pin=pin) is None

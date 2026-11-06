@@ -83,3 +83,29 @@ def question_for(program: str) -> Question:
         hint="placeholder",
         explains=Explains(what="placeholder", takeaway="placeholder"),
     )
+
+
+def verify_bank(bank_dir: Path) -> None:
+    """Re-verify every question in a copied bank through the verifier, over these
+    recordings, so each record and its `<bank>/recordings/` file are the verifier's
+    and never typed (GAP-6). It does what `verify.main` does - `verify` through a
+    `RecordingRunner`, `with_record`, `write_recording` - with one fixed, earlier
+    `verified_at`, so a test that re-verifies later sees the time move. A test that
+    schedules needs both files: scheduling refuses a record with no recording, or
+    one that does not match it. A question with no fixture recording is left as it
+    is, so it has no recording either."""
+    from popquiz import verify
+    from popquiz.runner import RecordingRunner, StubRunner
+
+    pin = verify._load_pin(None)
+    for path in sorted((bank_dir / "questions").glob("*.json")):
+        if not (RECORDINGS / path.name).is_file():
+            continue
+        question = bank.load_question(bank_dir, path.stem)
+        expect = verify.expect_from_record(question.verified)
+        recorder = RecordingRunner(StubRunner(RECORDINGS))
+        verdict = verify.verify(question, recorder, expect=expect, pin=pin, now=lambda: "2026-10-01T00:00:00Z")
+        assert verdict.accepted, f"{path.name}: {verdict.reason}"
+        verified = verify.with_record(question, verdict)
+        bank.save_question(bank_dir, verified)
+        verify.write_recording(bank_dir / verify.RECORDINGS, verified, recorder.steps, pin)
