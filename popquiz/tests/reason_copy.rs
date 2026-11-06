@@ -557,6 +557,32 @@ impl Scanner<'_> {
             // `.refuse(…)`, `format!(…)`) and a `reason:` field are still read.
             if let TokenTree::Ident(id) = t {
                 let name = id.to_string();
+                // A [`REASON_FNS`] function a macro template defines, whose
+                // body (`if $ready { "…" } …`) is not Rust: its body is read.
+                if let (true, "fn", Some(TokenTree::Ident(f))) =
+                    (self.source, name.as_str(), toks.get(i + 1))
+                {
+                    let f = f.to_string();
+                    let body = toks
+                        .iter()
+                        .enumerate()
+                        .skip(i + 2)
+                        .find_map(|(j, t)| match t {
+                            TokenTree::Group(g) if g.delimiter() == Delimiter::Brace => {
+                                Some((j, g))
+                            }
+                            _ => None,
+                        });
+                    if let (true, Some((j, body))) = (REASON_FNS.iter().any(|(_, n)| *n == f), body)
+                    {
+                        if self.counting() {
+                            self.out.reason_fns.push(f.clone());
+                        }
+                        self.read(format!("fn {f}"), false, |s| s.tokens(body.stream()));
+                        skip = j + 1;
+                        continue;
+                    }
+                }
                 let member = punct(i.checked_sub(1), '.');
                 let bang = punct(Some(i + 1), '!');
                 if let Some(TokenTree::Group(g)) = toks.get(i + 1 + usize::from(bang)) {
@@ -1303,6 +1329,15 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         (
             r#"macro_rules! m { () => {{ let why = format!("No trace."); refuse(why) }} }"#,
             "No trace.",
+        ),
+        // Its review pass 3: a reason function in a template that is not Rust.
+        (
+            r#"macro_rules! m { ($ready:expr) => { fn refusal() -> &'static str { if $ready { "No room." } else { copy::HOST_ENDED_EXPIRED } } } }"#,
+            "No room.",
+        ),
+        (
+            r#"macro_rules! m { ($($i:item)*) => { $($i)* fn refusal() -> &'static str { "No room." } } }"#,
+            "No room.",
         ),
     ] {
         assert_eq!(phase_flags(src), [want], "{src}");
