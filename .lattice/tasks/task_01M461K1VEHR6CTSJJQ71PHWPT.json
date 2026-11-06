@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 12,
+  "comment_count": 13,
   "complexity": null,
   "created_at": "2026-10-05T12:46:02Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From the guardrail audit (PQ-28, PR #49, docs/audit/2026-10-guardrail-audit.md), audit tree 0c7d60a.\n\n**GAP-19** (G-9, Minor, new): Deployed burst keeps an organizer session and the admin token as repo secrets\n- Evidence: .github/workflows/deployed-burst.yml:7-11,58-67,100\n- What would close it: Name it in SPEC 8 as a credential path, or pass them as one-run inputs\n\nHeld: an audit's findings are the client's to release. Read the gap's section in the audit report before planning; re-verify on the current main.",
-  "done_at": null,
+  "done_at": "2026-11-06T11:43:38Z",
   "evidence_refs": [
     {
       "id": "art_01M6QZ11KEA37DSVE70F2KTXW2",
@@ -28,23 +28,38 @@
       "id": "art_01M6R6M02X76NDV6ENEZB7CCZG",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6R6WWYP03EWVRFRXH0Q650B",
+      "role": null,
+      "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M6RAQSTYB81NPHAXM2GVWHEZ",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M6RAQSTYB81NPHAXM2GVWHEY",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M461K1VEHR6CTSJJQ71PHWPT",
-  "last_event_id": "ev_01M6R6M34ARXW14WPC4BKXGPJ3",
-  "last_status_changed_at": "2026-11-06T10:31:42Z",
+  "last_event_id": "ev_01M6RAQSTYB81NPHAXM2GVWHF1",
+  "last_status_changed_at": "2026-11-06T11:43:38Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 4,
   "schema_version": 1,
   "short_id": "PQ-61",
-  "status": "review",
+  "status": "done",
   "tags": [
     "audit-gap",
     "g-9"
   ],
   "title": "Deployed burst keeps an organizer session and the admin token as repo secrets",
   "type": "chore",
-  "updated_at": "2026-11-06T10:31:42Z",
+  "updated_at": "2026-11-06T11:43:38Z",
   "urgency": null
 }
