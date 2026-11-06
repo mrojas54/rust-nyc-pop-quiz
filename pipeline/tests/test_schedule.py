@@ -851,7 +851,7 @@ def test_ac101_the_token_appears_in_no_output_and_no_error(affirmed, room, tmp_p
         assert PLANT not in captured.out + captured.err
     room((500, b""))
     with pytest.raises(schedule.ScheduleError) as caught:
-        schedule.push(schedule.arrange(load_question(affirmed, "q3"), NIGHT), "https://room.test", PLANT)
+        schedule.push(schedule.arrange(load_question(affirmed, "q3"), NIGHT), "https://room.test", PLANT, NIGHT)
     assert PLANT not in str(caught.value) and PLANT not in repr(caught.value)
 
 

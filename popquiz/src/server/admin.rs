@@ -25,11 +25,10 @@
 //! - **Nothing here logs**, and [`AdminToken`] has no `Debug`, `Display` or
 //!   `Clone`, so the token cannot be formatted by accident.
 //! - **The answer enters the sealed module and nowhere else** (AC-61): the
-//!   body goes to [`answers::load_arranged`] whole, less the one key the
-//!   pipeline adds (`bank_order` and `meetup_date`, which are not record
-//!   fields), and what comes
-//!   back is a `Scheduled`, which this module hands to [`AppState::schedule`]
-//!   unopened.
+//!   body goes to [`answers::load_arranged`] whole, less the two keys the
+//!   pipeline adds beside the record (`bank_order` and `meetup_date`), and
+//!   what comes back is a `Scheduled`, which this module hands to
+//!   [`AppState::schedule_dated`] unopened.
 //! - **Only an affirmed question is scheduled** (G-12, GAP-24). The room
 //!   checks the affirmation's digest itself, against the bank's option order
 //!   that `bank_order` gives; an unaffirmed, stale or unbound record is `409`
