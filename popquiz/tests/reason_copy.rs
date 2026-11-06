@@ -51,7 +51,7 @@ mod common;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use proc_macro2::{Spacing, TokenStream, TokenTree};
+use proc_macro2::{Delimiter, Spacing, Span, TokenStream, TokenTree};
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::visit::{self, Visit};
@@ -167,11 +167,12 @@ fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
     scanner.out
 }
 
-/// A string or byte-string literal, read, with where it is written.
+/// A string, byte-string or C-string literal, read, with where it is written.
 fn found(lit: &Lit) -> Option<Found> {
     let text = match lit {
         Lit::Str(s) => s.value(),
         Lit::ByteStr(b) => String::from_utf8_lossy(&b.value()).into_owned(),
+        Lit::CStr(c) => c.value().to_string_lossy().into_owned(),
         _ => return None,
     };
     let at = lit.span().start();
@@ -194,6 +195,62 @@ impl Consts {
             .or_default()
             .push(init.clone());
     }
+
+    /// The constants a macro's tokens declare
+    /// (`macro_rules! m { () => { const WHY: &str = "…"; } }`): as items where
+    /// they parse, else `const NAME: … = init;` token by token, at any depth.
+    fn in_tokens(&mut self, ts: TokenStream) {
+        if let Ok(file) = syn::parse2::<syn::File>(ts.clone()) {
+            self.visit_file(&file);
+            return;
+        }
+        let toks: Vec<TokenTree> = ts.into_iter().collect();
+        let punct = |t: Option<&TokenTree>, c: char| matches!(t, Some(TokenTree::Punct(p)) if p.as_char() == c);
+        for (i, t) in toks.iter().enumerate() {
+            match t {
+                TokenTree::Group(g) => self.in_tokens(g.stream()),
+                TokenTree::Ident(kw) if kw == "const" || kw == "static" => {
+                    let mut k = i + 1;
+                    if matches!(toks.get(k), Some(TokenTree::Ident(m)) if m == "mut") {
+                        k += 1;
+                    }
+                    let Some(TokenTree::Ident(name)) = toks.get(k) else {
+                        continue;
+                    };
+                    if !punct(toks.get(k + 1), ':') {
+                        continue;
+                    }
+                    let Some(eq) = (k + 2..toks.len()).find(|&j| punct(toks.get(j), '=')) else {
+                        continue;
+                    };
+                    let end = (eq + 1..toks.len())
+                        .find(|&j| punct(toks.get(j), ';'))
+                        .unwrap_or(toks.len());
+                    self.add(
+                        name,
+                        &token_expr(toks[eq + 1..end].iter().cloned().collect()),
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Tokens as an expression: parsed where they are Rust, else held as a macro
+/// call the scan reads token by token (a `$x` in a macro template).
+fn token_expr(ts: TokenStream) -> Expr {
+    syn::parse2(ts.clone()).unwrap_or_else(|_| {
+        Expr::Macro(syn::ExprMacro {
+            attrs: Vec::new(),
+            mac: syn::Macro {
+                path: syn::Ident::new("tokens", Span::call_site()).into(),
+                bang_token: Default::default(),
+                delimiter: syn::MacroDelimiter::Paren(Default::default()),
+                tokens: ts,
+            },
+        })
+    })
 }
 
 impl<'ast> Visit<'ast> for Consts {
@@ -214,6 +271,9 @@ impl<'ast> Visit<'ast> for Consts {
     fn visit_item_static(&mut self, s: &'ast syn::ItemStatic) {
         self.add(&s.ident, &s.expr);
         visit::visit_item_static(self, s);
+    }
+    fn visit_macro(&mut self, m: &'ast syn::Macro) {
+        self.in_tokens(m.tokens.clone());
     }
 }
 
@@ -487,7 +547,44 @@ impl Scanner<'_> {
             return;
         }
         let punct = |k: Option<usize>, c: char| matches!(k.and_then(|k| toks.get(k)), Some(TokenTree::Punct(p)) if p.as_char() == c);
+        let mut skip = 0;
         for (i, t) in toks.iter().enumerate() {
+            if i < skip {
+                continue;
+            }
+            // Where the tokens are not Rust (a `$x` in a macro template, a
+            // `select!` arm, `vec![x; n]`), a sink call (`refuse(…)`,
+            // `.refuse(…)`, `format!(…)`) and a `reason:` field are still read.
+            if let TokenTree::Ident(id) = t {
+                let name = id.to_string();
+                let member = punct(i.checked_sub(1), '.');
+                let bang = punct(Some(i + 1), '!');
+                if let Some(TokenTree::Group(g)) = toks.get(i + 1 + usize::from(bang)) {
+                    let called = bang || g.delimiter() == Delimiter::Parenthesis;
+                    if called && self.sink(&name) {
+                        let what = if member {
+                            format!(".{name}(…)")
+                        } else if bang {
+                            format!("{name}!(…)")
+                        } else {
+                            format!("{name}(…)")
+                        };
+                        self.read(what, false, |s| s.tokens(g.stream()));
+                        skip = i + 2 + usize::from(bang);
+                        continue;
+                    }
+                }
+                let field = matches!(toks.get(i + 1), Some(TokenTree::Punct(p)) if p.as_char() == ':' && p.spacing() == Spacing::Alone);
+                let metavariable = punct(i.checked_sub(1), '$');
+                if self.source && name == "reason" && field && !member && !metavariable {
+                    if self.counting() {
+                        self.out.fields += 1;
+                    }
+                    let value = &toks[i + 2..];
+                    self.read("reason:".into(), false, |s| s.piece(value));
+                    return;
+                }
+            }
             match t {
                 TokenTree::Group(g) => self.tokens(g.stream()),
                 TokenTree::Literal(l) => {
@@ -1151,6 +1248,44 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         ["No room yet."]
     );
     assert_eq!(flags(r#"for why in ["No."] { refused(s, why); }"#), ["No."]);
+    // Inside a macro whose tokens are not Rust, a sink call, a `reason:` field
+    // and a constant the macro declares are still read; so is a C string. Each
+    // shape is one the syn rewrite first missed (its review pass 1).
+    for (src, want) in [
+        (
+            r#"macro_rules! m { ($prefix:expr) => { refuse($prefix.to_owned() + "No trace.") } }"#,
+            "No trace.",
+        ),
+        (
+            r#"macro_rules! m { ($c:expr) => { Refused { from: None, command: $c, reason: "No room yet.".into() } } }"#,
+            "No room yet.",
+        ),
+        (
+            r#"tokio::select! { _ = task() => refused(s, "No."), }"#,
+            "No.",
+        ),
+        (r#"let v = vec![refused(s, "No."); 2];"#, "No."),
+        (
+            r#"macro_rules! define_reason { () => { const WHY: &str = "No trace."; }; }
+            define_reason!(); fn f() { refused(s, WHY); }"#,
+            "No trace.",
+        ),
+        (
+            r#"macro_rules! d { ($p:expr) => { const WHY: &str = concat!($p, "No trace."); }; }
+            fn f() { refused(s, WHY); }"#,
+            "No trace.",
+        ),
+        (
+            r#"refused(s, c"No trace.".to_string_lossy().into_owned())"#,
+            "No trace.",
+        ),
+    ] {
+        assert_eq!(phase_flags(src), [want], "{src}");
+    }
+    assert_eq!(
+        phase_flags(r#"macro_rules! m { ($reason:expr) => { refuse($reason) } }"#),
+        Vec::<String>::new()
+    );
     // Only in its block and until another binding shadows it, whether a
     // `let` or a pattern's; a field, member or label of that name is not the
     // binding; `_` binds nothing; one with no letter, or used nowhere a reason
