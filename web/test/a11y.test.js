@@ -206,11 +206,24 @@ function hostPayload(phase, extra = {}) {
   return Object.assign(p, extra);
 }
 
+// The picker's list (SPEC §8.5): placeholder topics, one long enough to wrap
+// at phone width (AC-33).
+const PICK = [
+  { id: 'q3', topic: 'FIXTURE-TOPIC-A' },
+  { id: 'q7', topic: 'FIXTURE-TOPIC-B, long enough to wrap on a phone and never push the page sideways' },
+];
+
 function hostScreens() {
   return [
     { name: 'sign in', phase: null, html: H.renderSignIn({ status: null, busy: false }, 'q3') },
     { name: 'create', phase: null, html: H.renderCreate({ status: null, busy: false }) },
     { name: 'create, refused', phase: null, html: H.renderCreate({ status: 'FIXTURE-REASON', busy: false }) },
+    { name: 'pick, loading', phase: null, html: H.renderPick({}, { state: 'loading' }) },
+    { name: 'pick', phase: null, html: H.renderPick({}, { state: 'ready', questions: PICK, chosen: null }) },
+    { name: 'pick, chosen', phase: null, html: H.renderPick({}, { state: 'ready', questions: PICK, chosen: 'q7' }) },
+    { name: 'pick, refused', phase: null, html: H.renderPick({ status: 'FIXTURE-REASON' }, { state: 'ready', questions: PICK.slice(1), chosen: 'q7' }) },
+    { name: 'pick, empty', phase: null, html: H.renderPick({}, { state: 'empty' }) },
+    { name: 'pick, failed', phase: null, html: H.renderPick({}, { state: 'failed' }) },
     ...PHASES.map((ph) => ({ name: ph, phase: ph, html: H.render(hostPayload(ph), { status: null, busy: false }) })),
     { name: 'work, in flight', phase: 'work', html: H.render(hostPayload('work'), { status: null, busy: true }) },
     { name: 'reveal, first step', phase: 'reveal', html: H.render(hostPayload('reveal', { step: { at: 0, m: 6, note: 'N', can_back: false, can_forward: true } }), {}) },
@@ -734,15 +747,27 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
 });
 
 // The screens before a room exists, booted for real: nothing is said on them.
-test('ac83_host: sign in, create and a refused create say nothing', async () => {
-  const cases = [['sign in', '', false], ['create', '#FIXTURE-SESSION', false], ['create, refused', '#FIXTURE-SESSION', true]];
+// Signed in, the first screen is the club's list (SPEC §8.5); the scripted
+// room lists the picker's two questions, the link names q7, and *Create a
+// room* is answered 200, which is no room, so it is refused.
+test('ac83_host: sign in, the pick and a refused create say nothing', async () => {
+  const cases = [['sign in', '', false], ['pick, chosen', '#FIXTURE-SESSION', false], ['pick, refused', '#FIXTURE-SESSION', true]];
   for (const [name, hash, press] of cases) {
     const { win, el } = hostWindow('/host');
     win.location.hash = hash;
+    win.location.search = '?question=q7';
+    const fetch = win.fetch;
+    win.fetch = (url, init) => (url === '/organizer/questions'
+      ? Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: name === 'pick, refused' ? PICK.slice(1) : PICK })) })
+      : fetch(url, init));
     const said = [];
     hostEnv.PQ.announce = (t) => said.push(t);
     H.boot(win);
-    if (press) { click(el, el.querySelector('[data-primary]')); await settle(); await settle(); }
+    await settle(); await settle();
+    if (press) {
+      click(el, el.querySelector('[data-primary]'));
+      for (let i = 0; i < 4; i++) await settle();
+    }
     const screen = hostScreens().find((s) => s.name === name);
     assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
     if (press) assert.match(el.textContent, /200/, `${name}: the refusal is on screen`);
@@ -1065,7 +1090,14 @@ test('ac86_host: each phase is a different primary action; nothing moves', () =>
   assert.equal(new Set(PHASES.map((p) => H.actionLabel(NEXT[p]))).size, PHASES.length, 'seven different actions');
   for (const sc of SCREENS.host) {
     const doc = D.page(sc.html, SURFACES.host.chain);
-    const primary = doc.root.querySelector('[data-primary],[data-sign-in]');
+    // The list's empty and failed screens act through Reload; while it loads
+    // there is nothing to act on yet (SPEC §8.5).
+    const primary = doc.root.querySelector('[data-primary],[data-sign-in],[data-reload]');
+    if (sc.name === 'pick, loading') {
+      assert.equal(primary, null, `${sc.name}: no action until the list arrives`);
+      mark('host', sc.name, 'AC-86', `no action yet, ${still('host', sc)}`);
+      continue;
+    }
     assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
     mark('host', sc.name, 'AC-86', `"${primary.textContent.trim().slice(0, 9)}", ${still('host', sc)}`);
   }

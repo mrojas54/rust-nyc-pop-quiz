@@ -144,6 +144,14 @@
     host_denied_wrong_server: "That Discord account isn't in the Rust NYC server.",
     host_denied_wrong_role: "That Discord account doesn't have the organizer role.",
 
+    /* --- Host, choosing the question (§8.5, PQ-80) --------------------- */
+    host_pick_legend: "Question",
+    host_pick_choice: "‹id› · ‹topic›",
+    host_pick_loading: "Loading questions…",
+    host_pick_empty: "No question is ready for this club today.",
+    host_pick_reload: "Reload",
+    host_pick_load_failed: "Couldn't load the questions.",
+
     /* --- Wall + host, reveal, no incorrect votes ------------------------ */
     wall_reveal_nobody_else: "Nobody read it another way.",
     host_reveal_nobody_else: "Why nobody said anything else",
@@ -291,6 +299,8 @@
                        "host_action_release", "host_action_run_again"],
     "Host, sign-in and denials (T-10, F-33)": ["host_action_sign_in", "host_denied_wrong_server",
                        "host_denied_wrong_role"],
+    "Host, choosing the question (§8.5)": ["host_pick_legend", "host_pick_choice", "host_pick_loading",
+                       "host_pick_empty", "host_pick_reload", "host_pick_load_failed"],
     "Wall + host, reveal, no incorrect votes": ["wall_reveal_nobody_else", "host_reveal_nobody_else"],
     "Host, reveal": ["host_reveal_read_aloud", "host_reveal_beat_what", "host_reveal_beat_why",
                        "host_reveal_beat_remember", "host_reveal_provenance"],

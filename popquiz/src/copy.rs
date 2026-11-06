@@ -85,6 +85,12 @@ pub const HOST_ACTION_RUN_AGAIN: &str = "Run it again";
 pub const HOST_ACTION_SIGN_IN: &str = "Sign in with Discord";
 pub const HOST_DENIED_WRONG_SERVER: &str = "That Discord account isn't in the Rust NYC server.";
 pub const HOST_DENIED_WRONG_ROLE: &str = "That Discord account doesn't have the organizer role.";
+pub const HOST_PICK_LEGEND: &str = "Question";
+pub const HOST_PICK_CHOICE: &str = "‹id› · ‹topic›";
+pub const HOST_PICK_LOADING: &str = "Loading questions…";
+pub const HOST_PICK_EMPTY: &str = "No question is ready for this club today.";
+pub const HOST_PICK_RELOAD: &str = "Reload";
+pub const HOST_PICK_LOAD_FAILED: &str = "Couldn't load the questions.";
 pub const WALL_REVEAL_NOBODY_ELSE: &str = "Nobody read it another way.";
 pub const HOST_REVEAL_NOBODY_ELSE: &str = "Why nobody said anything else";
 pub const HOST_REVEAL_READ_ALOUD: &str = "Read it aloud";
@@ -211,6 +217,12 @@ pub const ALL: &[(&str, &str)] = &[
     ("host_action_sign_in", HOST_ACTION_SIGN_IN),
     ("host_denied_wrong_server", HOST_DENIED_WRONG_SERVER),
     ("host_denied_wrong_role", HOST_DENIED_WRONG_ROLE),
+    ("host_pick_legend", HOST_PICK_LEGEND),
+    ("host_pick_choice", HOST_PICK_CHOICE),
+    ("host_pick_loading", HOST_PICK_LOADING),
+    ("host_pick_empty", HOST_PICK_EMPTY),
+    ("host_pick_reload", HOST_PICK_RELOAD),
+    ("host_pick_load_failed", HOST_PICK_LOAD_FAILED),
     ("wall_reveal_nobody_else", WALL_REVEAL_NOBODY_ELSE),
     ("host_reveal_nobody_else", HOST_REVEAL_NOBODY_ELSE),
     ("host_reveal_read_aloud", HOST_REVEAL_READ_ALOUD),
