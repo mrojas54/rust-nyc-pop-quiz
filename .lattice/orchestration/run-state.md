@@ -3,7 +3,17 @@
 Opened 2026-09-20. Phase 0 approved by the client the same day. Phase 0 record:
 `phase0-trail.md` in the orchestrator's scratchpad (copied below where it matters).
 
-## ▶ RESUME NOTE — 2026-11-06 ~07:1xZ — PQ-58, PQ-61, PQ-80 released and dispatched on the client's word; board pushed; three delegators at their first manual-mode prompts
+## ▶ RESUME NOTE — 2026-11-06 ~08:4xZ — fresh seat; all three tickets ruled in their panels; one SPEC section clash routed
+
+**Fresh seat** (`/clear` → "resume the run"; `panel:3`, mailbox `pq-orchestrator` + stdin re-set). Mail drained: empty (the delegators' rulings mail went to the previous seat). The client ruled directly in each panel; the tickets carry the RULING comments:
+
+- **PQ-61** `in_progress` @ `7001097` (5 commits). Ruled A + line-6 fix; then '9a0' = (a) one fix pass past the two-review cap; then 'a' (08:35Z) = rerun Codex pass 3 once with neutral wording (pass 3 was refused by the service as "possible cybersecurity risk"); **if refused again, open the PR with pass 3 recorded as not run.** Pass 3 rerun running in its panel. Next: `DONE PQ-61` + PR → verify at exact head, report ready to merge.
+- **PQ-58** `in_progress` @ `bde3d25` (GAP-5 committed). Ruled GAP-6 **B** (recording file `bank/recordings/<id>.json` + `just schedule --replay`), GAP-7 **A**; session 2 (08:29Z): **q3, q4, q7, q8 all refused until re-verified** (reserve empty until then, accepted); SPEC §3.2/§7.2 + EVALUATION AC-7 wording approved verbatim in its `.claude/checkpoint-pq58.md`. **Its panel waits on the client's "go"** for the GAP-6 implementation session.
+- **PQ-80** `in_progress` @ `dbb3db9`. Ruled 08:35Z 'RESUME PQ-80 R1-a as proposed' (SPEC section + §11 row + BUILDPLAN note and T-27; no new AC). Implementing.
+- **Decision (Moderate, decide-and-log, 08:4xZ): SPEC §8.4 clash.** PQ-61 and PQ-80 each added a new `### 8.4` right after §8.3; PQ-61 lands first and its guard test cites "SPEC §8.4". PQ-80 renumbers to **§8.5**, words unchanged (SPEC.md:583, :660 §11 row, BUILDPLAN.md:77, plan). Mailed `pq80-delegator` (`01M6R0341DG43H04EP7DTGHNKT`) and commented on PQ-80. `c11 mailbox send` needs the sandbox off (the `_outbox` write is denied inside it).
+- Board unpushed (push on her word). Loop: one fallback wake at a time; stop when only her answer moves things.
+
+## (older) RESUME NOTE — 2026-11-06 ~07:1xZ — PQ-58, PQ-61, PQ-80 released and dispatched on the client's word; board pushed; three delegators at their first manual-mode prompts
 
 **Fresh seat** (`/clear` → `/lattice-orchestrator` "resume the run"; same `panel:3` / `160D05F3-…`, `workspace:1`, mailbox `pq-orchestrator`, delivery stdin). Read the 02:5xZ note, the decision log through 06:0xZ, agents.md, `templates/checkpoint-PQ-85.md`, the board, GitHub, worktrees, `c11 tree` and the mailbox. Reported the run idle at 06:4xZ with three options; **the client ruled 06:5xZ: "push, 2 PQ-58 PQ-61 pq-80"** (PQ-64 stays held; the closeout audit waits).
 

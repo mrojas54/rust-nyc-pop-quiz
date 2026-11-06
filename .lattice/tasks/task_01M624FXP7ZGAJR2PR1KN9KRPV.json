@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 6,
   "complexity": null,
   "created_at": "2026-10-28T20:51:11Z",
   "created_by": "agent:claude",
@@ -13,17 +13,22 @@
       "id": "art_01M624G4GR3MVGJZSG5N5FXKEY",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6QZT01J23EVMSA1YCK3CR1Q",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M624FXP7ZGAJR2PR1KN9KRPV",
-  "last_event_id": "ev_01M6QV9JN5AYMCT31PBBT7NQ97",
-  "last_status_changed_at": "2026-10-28T20:51:11Z",
+  "last_event_id": "ev_01M6R02X3GGBV9T6DFSKE3VC9M",
+  "last_status_changed_at": "2026-11-06T08:35:39Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-80",
-  "status": "backlog",
+  "status": "in_progress",
   "tags": [
     "feature",
     "room",
@@ -32,6 +37,6 @@
   ],
   "title": "Organizer schedules the question from the host page (browser scheduling)",
   "type": "task",
-  "updated_at": "2026-11-06T07:13:43Z",
+  "updated_at": "2026-11-06T08:37:27Z",
   "urgency": null
 }
