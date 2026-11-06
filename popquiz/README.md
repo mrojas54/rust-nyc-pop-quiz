@@ -1197,7 +1197,7 @@ if 2n + 3 is over it the job stops there, before anything reaches the room —
 so the `participants` default of 200 (403) fits under today's 500. Otherwise it builds both clients, schedules the two ids, runs burst (one isolated burst per
 shape, a 10 s churn) and smoke back to back, and uploads both JSON reports as
 an artifact; the job summary lists `n`, the connections against the cap, the
-exit code and each criterion. There is no Fly token in CI.
+exit code and each criterion. There is no Fly token in this workflow.
 
 **The environment, once (the client, in the repository's settings).** The
 secrets live in an Environment, not the repository, so a workflow edited on a
