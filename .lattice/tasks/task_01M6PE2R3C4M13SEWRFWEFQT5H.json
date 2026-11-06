@@ -1,13 +1,13 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 24,
+  "comment_count": 25,
   "complexity": null,
   "created_at": "2026-11-05T18:03:33Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "Follow-ups the PQ-84 delegator and its Codex review left not-done at PR #130 (merged 2026-11-05 at 7dda474). Held until the client releases it. Not-done: 1. A let-bound format! in a reason path still evades the reason_copy lint (popquiz/tests/reason_copy.rs); the const rule landed in #130, let bindings did not. 2. The Python twin of the moved host/organizer copy at pipeline/src/popquiz/bank.py:736 was not touched. 3. Pre-existing cargo clippy --all-targets -D warnings failures in popquiz (wiring.rs:234/285, src/cli/burst_report.rs:291/298, tests/burst_report.rs:142/173, canary.rs:741); neither CI nor just runs clippy on popquiz. Five Minors Codex deferred, listed in the #130 body: an attributed reason: field escapes the scan; a closure parameter named reason is read as a field; unqualified const-name collisions can false-positive; REASON_FNS pinned by name, not by file; a let-bound format! in phase.rs escapes. Scope when released: close the lint gaps with planted RED cases first (AC-98, copy stays verbatim), decide whether clippy joins just test or stays out, touch the Python twin only if its copy diverged. Source artifacts: art_01M6MYX25HFEEXN0Q7DNE9G2NX (Codex), art_01M6MYX29WBMPPGCHEB7Q8HSFP (Validation).",
-  "done_at": null,
+  "done_at": "2026-11-06T05:39:13Z",
   "evidence_refs": [
     {
       "id": "art_01M6QHSRP5JEJ45EHXTV4229T4",
@@ -23,17 +23,27 @@
       "id": "art_01M6QKZJZPGW4S3MKYYG4GV7BW",
       "role": null,
       "source_type": "artifact"
+    },
+    {
+      "id": "ev_01M6QNWH6PMMMV6VXR70KV3CFK",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01M6QNWH6PMMMV6VXR70KV3CFJ",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M6PE2R3C4M13SEWRFWEFQT5H",
-  "last_event_id": "ev_01M6QNKX8YPQCDM9CK4K9T7RR1",
-  "last_status_changed_at": "2026-11-06T05:05:56Z",
+  "last_event_id": "ev_01M6QNWH6PMMMV6VXR70KV3CFN",
+  "last_status_changed_at": "2026-11-06T05:39:13Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 4,
   "schema_version": 1,
   "short_id": "PQ-85",
-  "status": "review",
+  "status": "done",
   "tags": [
     "follow-up",
     "room",
@@ -42,6 +52,6 @@
   ],
   "title": "Reason-copy lint follow-ups from the PQ-84 review",
   "type": "chore",
-  "updated_at": "2026-11-06T05:34:30Z",
+  "updated_at": "2026-11-06T05:39:13Z",
   "urgency": null
 }
