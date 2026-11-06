@@ -74,7 +74,7 @@ record into the bank. Both ride one authenticated admin channel — two routes, 
 Decide-and-log.
 
 *2026-11-06 (PQ-80):* the host phone lists the questions scheduled for the
-organizer's club and creates the room on the one picked (`SPEC.md` §8.4). This
+organizer's club and creates the room on the one picked (`SPEC.md` §8.5). This
 is not a third admin route or a second way in. The answer still enters only
 through `PUT /admin/…` with the admin token, and the listing takes the
 organizer session, which never opens `/admin`. The server may hold several

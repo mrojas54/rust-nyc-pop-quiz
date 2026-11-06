@@ -694,7 +694,7 @@ same homes.
 | Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
 | Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · End Pop Quiz · Run it again |
-| Host, choosing the question (§8.4) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *No question is ready for this club today.* · **Reload** · *Couldn't load the questions.* · refusal *That question was scheduled for another date.* |
+| Host, choosing the question (§8.5) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *No question is ready for this club today.* · **Reload** · *Couldn't load the questions.* · refusal *That question was scheduled for another date.* |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
