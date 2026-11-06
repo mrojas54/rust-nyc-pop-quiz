@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 23,
+  "comment_count": 24,
   "complexity": null,
   "created_at": "2026-11-05T18:03:33Z",
   "created_by": "agent:orchestrator",
@@ -26,7 +26,7 @@
     }
   ],
   "id": "task_01M6PE2R3C4M13SEWRFWEFQT5H",
-  "last_event_id": "ev_01M6QMF8PREX3HW2X18AWW9C9X",
+  "last_event_id": "ev_01M6QNKX8YPQCDM9CK4K9T7RR1",
   "last_status_changed_at": "2026-11-06T05:05:56Z",
   "priority": "low",
   "relationships_out": [],
@@ -42,6 +42,6 @@
   ],
   "title": "Reason-copy lint follow-ups from the PQ-84 review",
   "type": "chore",
-  "updated_at": "2026-11-06T05:14:29Z",
+  "updated_at": "2026-11-06T05:34:30Z",
   "urgency": null
 }
