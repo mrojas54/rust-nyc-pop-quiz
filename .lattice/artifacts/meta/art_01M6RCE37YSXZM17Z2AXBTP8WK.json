@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-06T12:13:17Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6RCE37YSXZM17Z2AXBTP8WK",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6RCE37YSXZM17Z2AXBTP8WK.md",
+    "size_bytes": 254
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #135 merged at ccc9037 on the client's word; CI and deploy green on main. Codex pass 2 of 2 PASS-WITH-NITS at 0fa5773 (art_01M6R5CHFH81NPF3VNWYVFPGCJ); reserve-count Minor deferred and listed in th",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
