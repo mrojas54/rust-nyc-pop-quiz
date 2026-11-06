@@ -233,6 +233,23 @@ fn the_fly_exception_requires_the_exact_structural_location() {
 }
 
 #[test]
+fn inserting_a_step_does_not_move_a_secret_out_of_its_env_mapping() {
+    let deploy = include_str!("../../.github/workflows/deploy.yml");
+    let with_step = deploy.replace("    steps:\n", "    steps:\n      - run: echo ready\n");
+    validate("deploy.yml", &with_step).expect("step positions are not credential policy");
+}
+
+#[test]
+fn burst_yaml_formatting_preserves_the_reviewed_execution() {
+    // Serialization removes YAML comments and changes scalar presentation;
+    // decoded scripts, expressions and job configuration must stay the same.
+    let parsed: serde_yaml_ng::Value = serde_yaml_ng::from_str(PIN).unwrap();
+    let reformatted = serde_yaml_ng::to_string(&parsed).unwrap();
+    assert_ne!(PIN, reformatted);
+    validate(BURST, &reformatted).expect("equivalent YAML needs no new baseline");
+}
+
+#[test]
 fn harmless_yaml_forms_are_accepted() {
     for text in [
         "jobs: {test: {environment: staging, steps: [{run: 'true'}]}}",
@@ -270,6 +287,23 @@ fn aliases_are_checked_at_every_use() {
         "other.yml",
         "name: &protected deployed-burst\njobs: {probe: {environment: *protected}}",
     );
+    // The anchor itself is permitted. Only the alias destination can reject it.
+    let deploy = include_str!("../../.github/workflows/deploy.yml");
+    let aliased = format!(
+        "{}\n      - run: *fly_token\n",
+        deploy.replace("FLY_API_TOKEN: ${{", "FLY_API_TOKEN: &fly_token ${{")
+    );
+    serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&aliased).unwrap();
+    let error = validate("deploy.yml", &aliased).unwrap_err();
+    assert!(error.contains("jobs.deploy.steps.3.run"), "{error}");
+}
+
+#[test]
+fn secret_mentions_in_expression_bearing_scalars_require_review() {
+    let text = "jobs:\n  test:\n    steps:\n      - run: |\n          echo 'No secrets are printed'\n          echo '${{ github.sha }}'\n";
+    rejects("ci.yml", text);
+    validate("ci.yml", &text.replace("${{ github.sha }}", "literal")).unwrap();
+    validate("ci.yml", &text.replace("secrets", "credentials")).unwrap();
 }
 
 #[test]
