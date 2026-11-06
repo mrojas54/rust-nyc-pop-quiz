@@ -411,8 +411,9 @@ def _without_stdout_row(trace: bank.Trace) -> bank.Trace:
 def _verify_into_bank(bank_dir: Path, candidate: Question, expect: str, runner: Runner | None) -> tuple[bool, str]:
     """Verify `candidate` in a scratch bank; copy it into the real one only if accepted.
 
-    `verify.main` is the writer of `verified` and of the trace's `stdout` row. It
-    writes into the scratch file; this function never touches either field.
+    `verify.main` is the writer of `verified`, of the trace's `stdout` row and of the
+    recording (GAP-6). It writes into the scratch bank; this function never touches
+    any of them, and copies the scratch recording in with the question it names.
     """
     with tempfile.TemporaryDirectory(prefix="popquiz-review-") as scratch:
         path = bank.save_question(Path(scratch), candidate)
@@ -423,7 +424,11 @@ def _verify_into_bank(bank_dir: Path, candidate: Question, expect: str, runner: 
         if code != 0:
             return False, said.strip()
         verified = bank.question_from_dict(json.loads(path.read_text(encoding="utf-8")))
+        recording = verify.recordings_dir(path) / f"{candidate.id}.json"
+        recorded = recording.read_bytes()
     bank.save_question(bank_dir, verified)
+    (bank_dir / verify.RECORDINGS).mkdir(parents=True, exist_ok=True)
+    (bank_dir / verify.RECORDINGS / f"{candidate.id}.json").write_bytes(recorded)
     return True, said.strip()
 
 

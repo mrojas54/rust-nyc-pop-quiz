@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 from fixtures.verify.verify_cases import verify_bank
-from popquiz import audit, bank, review, schedule
+from popquiz import audit, bank, review, schedule, verify
 from popquiz.runner import StubRunner
 
 HERE = Path(__file__).parent
@@ -671,6 +671,39 @@ def test_an_option_edit_re_verifies_through_the_verifier(bank_dir, tmp_path, cap
     # Written by the verifier, from the recorded run - not carried over from before.
     assert edited.verified is not None and edited.verified.verified_at != q.verified.verified_at
     assert bank.correct_index(edited) == correct
+
+
+def the_recording_matches(bank_dir: Path, qid: str = "q4") -> None:
+    """The bank holds the recording of the run that wrote this record, so `schedule`
+    does not refuse the question for its recording (GAP-6)."""
+    q = load(bank_dir, qid)
+    rec = json.loads((bank_dir / "recordings" / f"{qid}.json").read_text(encoding="utf-8"))
+    assert rec["_record_sha256"] == verify.record_sha256(q)
+    assert rec["_recorded"]["verified_at"] == q.verified.verified_at
+    accepted_and_affirmed(bank_dir, qid)
+    assert schedule.refusal(load(bank_dir, qid), recordings=bank_dir / "recordings") is None
+
+
+def test_gap6_a_re_verifying_edit_brings_its_recording_into_the_bank(bank_dir, tmp_path, capsys):
+    accepted_and_affirmed(bank_dir)
+    re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
+    the_recording_matches(bank_dir)
+
+
+def test_gap6_a_reverify_brings_its_recording_into_the_bank(bank_dir, capsys):
+    before = load(bank_dir, "q4")
+    assert run("reverify", "q4", "--bank", bank_dir, runner=stub()) == 0
+    assert load(bank_dir, "q4").verified.verified_at != before.verified.verified_at
+    the_recording_matches(bank_dir)
+
+
+def test_gap6_a_refused_re_verify_leaves_the_recording_as_it_was(bank_dir, tmp_path, capsys):
+    path = bank_dir / "recordings" / "q4.json"
+    before = path.read_bytes()
+    edit = edit_file(bank_dir, tmp_path, "q4", lambda d: d.update(source=d["source"] + "// edited\n"))
+    code = run("edit", "q4", "--from", edit, "--expect", "does_not_compile", "--bank", bank_dir, runner=stub())
+    refused(code, capsys, "did not accept the edited q4, so nothing was written")
+    assert path.read_bytes() == before
 
 
 def test_a_rejected_re_verify_leaves_the_bank_file_byte_identical(bank_dir, tmp_path, capsys):
