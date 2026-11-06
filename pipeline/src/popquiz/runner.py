@@ -153,6 +153,25 @@ class StubRunner:
         )
 
 
+class RecordingRunner:
+    """Passes every step to another runner and keeps what came back (GAP-6).
+
+    `verify` runs through one of these and writes what it kept to
+    `bank/recordings/<id>.json`, the file scheduling replays through `StubRunner`
+    to check a record against the run that wrote it (SPEC 3.2, 7.2). It changes
+    nothing it passes on. A step asked twice is kept as it first came back.
+    """
+
+    def __init__(self, inner: Runner) -> None:
+        self._inner = inner
+        self.steps: dict[str, RunStep] = {}
+
+    def run(self, kind: str, program_id: str) -> RunStep:
+        step = self._inner.run(kind, program_id)
+        self.steps.setdefault(kind, step)
+        return step
+
+
 class RealRunner:
     """Executes against the pinned toolchain inside the sandbox image (AC-12).
 

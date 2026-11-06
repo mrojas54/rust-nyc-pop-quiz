@@ -12,6 +12,7 @@ was sent; nothing here reaches a network.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import io
 import json
 import re
@@ -22,8 +23,10 @@ from pathlib import Path
 
 import pytest
 
-from popquiz import audit, fallback, schedule, verify
-from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, question_from_dict, question_to_dict
+from fixtures.verify.verify_cases import RECORDINGS, verify_bank
+from popquiz import audit, fallback, sandbox, schedule, verify
+from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, normalized_output, question_from_dict, question_to_dict
+from popquiz.runner import StubRunner
 from popquiz.slot import slot_for_day
 
 REPO = Path(__file__).resolve().parents[2]
@@ -67,11 +70,18 @@ def as_drafted(bank_dir: Path, qid: str) -> None:
 @pytest.fixture
 def bank(tmp_path) -> Path:
     """The real questions, every one back to a draft, so a test affirms what it counts
-    and an organizer's review in the bank changes no test's arithmetic."""
+    and an organizer's review in the bank changes no test's arithmetic. Each is then
+    re-verified through `verify` over the recorded fixtures, which writes its record
+    and its `recordings/` file, so scheduling has a recording to check (GAP-6)."""
     shutil.copytree(BANK / "questions", tmp_path / "bank" / "questions")
     for path in sorted((tmp_path / "bank" / "questions").glob("*.json")):
         as_drafted(tmp_path / "bank", path.stem)
+    verify_bank(tmp_path / "bank")
     return tmp_path / "bank"
+
+
+def recordings(bank_dir: Path) -> Path:
+    return bank_dir / verify.RECORDINGS
 
 
 @pytest.fixture
@@ -421,7 +431,334 @@ def test_ac72_every_committed_record_is_refused_iff_unaffirmed(bank, room, tmp_p
 
 def test_g12_the_gate_agrees_with_the_reserve(affirmed):
     for q in schedule.load_bank(affirmed):
-        assert (schedule.refusal(q) is None) == audit.in_reserve(q)
+        assert (schedule.refusal(q, recordings=recordings(affirmed)) is None) == audit.in_reserve(q)
+
+
+# --------------------------------------------------------------------------- #
+# AC-6, the stale pin (GAP-5)
+# --------------------------------------------------------------------------- #
+
+
+def _pin_matching(question) -> sandbox.Pin:
+    """A pin built here, from the record it is compared with, never from this
+    machine's `pin.toml`: what the record says it ran under, and nothing more."""
+    v = question.verified
+    vv = dict(line.split(": ", 1) for line in v.rustc.splitlines() if ": " in line)
+    return sandbox.Pin(
+        rust_version=vv["release"],
+        release=vv["release"],
+        commit_hash=vv["commit-hash"],
+        edition=v.edition,
+        nightly="2000-01-01",
+        miri_version=v.miri.version,
+        target_triples=(v.target_triple,),
+        flags={
+            "opt-level": v.flags.opt_level,
+            "overflow-checks": v.flags.overflow_checks,
+            "debug-assertions": v.flags.debug_assertions,
+        },
+        image_tag="fixture",
+        platform="linux/amd64",
+        limits=sandbox.Limits(memory="1g", memory_swap="1g", cpus="1", pids=64, timeout_seconds=10, tmpfs_size="64m"),
+    )
+
+
+def test_ac6_a_record_verified_under_another_rustc_release_is_refused(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    pin = _pin_matching(q4)
+    recorded = pin.release
+    why = schedule.refusal(q4, pin=dataclasses.replace(pin, release="0.0.0"))
+    assert why == (
+        f"q4 was verified under a toolchain that no longer matches the pin (rustc release "
+        f"{recorded}, the pin says 0.0.0) - re-verify it with `just verify` before it is "
+        "scheduled (AC-6)"
+    )
+
+
+def legacy_bank(tmp_path) -> Path:
+    """The committed q3 as it is, legacy record and all, never re-verified, affirmed."""
+    (tmp_path / "legacy" / "questions").mkdir(parents=True)
+    shutil.copy(BANK / "questions" / "q3.json", tmp_path / "legacy" / "questions" / "q3.json")
+    as_drafted(tmp_path / "legacy", "q3")
+    affirm(tmp_path / "legacy", "q3")
+    return tmp_path / "legacy"
+
+
+def test_ac6_a_legacy_record_is_not_refused_for_its_pin(bank, tmp_path):
+    """Exempt from the stale-pin check, it is still refused for having no recording."""
+    legacy = legacy_bank(tmp_path)
+    q3 = load_question(legacy, "q3")
+    assert q3.verified.legacy
+    stale = dataclasses.replace(_pin_matching(load_question(bank, "q4")), release="0.0.0")
+    why = schedule.refusal(q3, pin=stale, recordings=recordings(legacy))
+    assert "no longer matches the pin" not in why
+    assert why == NO_RECORDING.format(qid="q3")
+
+
+def test_ac6_a_record_that_matches_the_pin_is_scheduled(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    assert schedule.refusal(q4, pin=_pin_matching(q4), recordings=recordings(bank)) is None
+
+
+def test_ac6_a_record_whose_miri_version_differs_is_refused(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    assert q4.verified.miri is not None  # Miri ran, so its version is compared
+    pin = dataclasses.replace(_pin_matching(q4), miri_version="miri 0.0.0")
+    why = schedule.refusal(q4, pin=pin)
+    assert why is not None
+    assert f"Miri {q4.verified.miri.version}, the pin says miri 0.0.0" in why
+    assert "re-verify it with `just verify`" in why
+
+
+# --------------------------------------------------------------------------- #
+# AC-7, the record and its recording (GAP-6)
+# --------------------------------------------------------------------------- #
+
+NO_RECORDING = "{qid} has no recording - re-verify it with `just verify` before it is scheduled (AC-7)"
+
+
+def _json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write(path: Path, data: dict) -> None:
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _hand_edit_answer(bank_dir: Path, qid: str) -> None:
+    """`stdout` and the option that names it, edited together, and the affirmation
+    bound again: a record `check_question` cannot tell from a genuine one."""
+    path = bank_dir / "questions" / f"{qid}.json"
+    data = _json(path)
+    old = normalized_output(data["verified"]["stdout"])
+    data["verified"]["stdout"] = "hand edited\n"
+    named = [o for o in data["options"] if o["text"] == old]
+    assert len(named) == 1
+    named[0]["text"] = "hand edited"
+    _write(path, data)
+    affirm(bank_dir, qid)
+    verify.check_question(load_question(bank_dir, qid))  # self-consistent: the old check passes it
+
+
+def _gate(bank_dir: Path, qid: str = "q3") -> str | None:
+    q = load_question(bank_dir, qid)
+    return schedule.refusal(q, pin=_pin_matching(q), recordings=recordings(bank_dir))
+
+
+def test_gap6_verify_writes_the_recording_beside_the_record(bank):
+    rec = _json(recordings(bank) / "q3.json")
+    q3 = load_question(bank, "q3")
+    assert rec["_record_sha256"] == verify.record_sha256(q3)
+    assert rec["_source_sha256"] == verify.source_sha256(q3.source)
+    assert {"toolchain", "compile", "run:1"} <= rec.keys()
+
+
+def test_gap6_just_verify_writes_the_recording_after_the_record(tmp_path, capsys):
+    (tmp_path / "b" / "questions").mkdir(parents=True)
+    shutil.copy(BANK / "questions" / "q4.json", tmp_path / "b" / "questions" / "q4.json")
+    assert verify.main([str(tmp_path / "b" / "questions" / "q4.json")], runner=StubRunner(RECORDINGS)) == 0
+    assert "q4: recording written to" in capsys.readouterr().out
+    q4 = load_question(tmp_path / "b", "q4")
+    rec = _json(tmp_path / "b" / "recordings" / "q4.json")
+    assert rec["_record_sha256"] == verify.record_sha256(q4)
+    assert rec["_source_sha256"] == verify.source_sha256(q4.source)
+    assert rec["_recorded"]["verified_at"] == q4.verified.verified_at
+    q4 = dataclasses.replace(q4, review=dataclasses.replace(q4.review, status="accepted"))
+    assert schedule._recording_refusal(q4, tmp_path / "b" / "recordings", None) is None
+
+
+def test_gap6_a_record_that_agrees_with_its_recording_is_scheduled(bank):
+    affirm(bank, "q3")
+    assert _gate(bank) is None
+
+
+def test_gap6_a_record_with_no_recording_is_refused(bank):
+    affirm(bank, "q3")
+    (recordings(bank) / "q3.json").unlink()
+    assert _gate(bank) == NO_RECORDING.format(qid="q3")
+
+
+def test_gap6_a_legacy_record_with_no_recording_is_refused(tmp_path):
+    legacy = legacy_bank(tmp_path)
+    q3 = load_question(legacy, "q3")
+    assert q3.verified.legacy
+    assert schedule.refusal(q3, recordings=recordings(legacy)) == NO_RECORDING.format(qid="q3")
+
+
+def test_gap6_an_answer_edited_with_its_option_is_refused_when_it_has_a_recording(bank):
+    _hand_edit_answer(bank, "q3")
+    why = _gate(bank)
+    assert why == (
+        "q3 does not match its recording (its verified record changed after `just verify` "
+        "wrote it) - re-verify it with `just verify` before it is scheduled (AC-7)"
+    )
+
+
+def test_gap6_an_edit_that_also_recomputes_the_record_digest_is_caught_by_the_replay(bank):
+    _hand_edit_answer(bank, "q3")
+    path = recordings(bank) / "q3.json"
+    rec = _json(path)
+    rec["_record_sha256"] = verify.record_sha256(load_question(bank, "q3"))
+    _write(path, rec)
+    why = _gate(bank)
+    assert why.startswith("q3 does not match its recording (replayed through the stub runner, it gives a different stdout)")
+
+
+@pytest.mark.parametrize("field, words", [("_source_sha256", "its source"), ("_record_sha256", "its verified record")])
+def test_gap6_a_recording_whose_digest_does_not_match_is_refused(bank, field, words):
+    affirm(bank, "q3")
+    path = recordings(bank) / "q3.json"
+    rec = _json(path)
+    rec[field] = "0" * 64
+    _write(path, rec)
+    assert f"q3 does not match its recording ({words} changed after `just verify` wrote it)" in _gate(bank)
+
+
+def test_gap6_a_recording_whose_miri_replays_differently_is_refused(bank):
+    affirm(bank, "q3")
+    path = recordings(bank) / "q3.json"
+    rec = _json(path)
+    rec["miri:stacked_borrows:0"]["stderr"] += "\nerror: Undefined Behavior: planted\n"
+    _write(path, rec)
+    why = _gate(bank)
+    assert why.startswith("q3 does not match its recording (replayed through the stub runner, it is rejected:")
+    assert "undefined behavior" in why
+
+
+def test_gap6_an_unreadable_recording_is_refused(bank):
+    affirm(bank, "q3")
+    (recordings(bank) / "q3.json").write_text("not json", encoding="utf-8")
+    assert _gate(bank).startswith("q3's recording cannot be read")
+
+
+def test_gap6_a_recording_with_a_malformed_step_is_refused_not_raised(bank):
+    """A step missing a field the stub runner reads is a refusal, never a traceback."""
+    affirm(bank, "q3")
+    path = recordings(bank) / "q3.json"
+    rec = _json(path)
+    del rec["compile"]["exit_code"]
+    _write(path, rec)
+    why = _gate(bank)
+    assert why.startswith("q3's recording does not replay (")
+    assert why.endswith(" - re-verify it with `just verify` before it is scheduled (AC-7)")
+
+
+def test_gap6_a_record_miri_never_ran_for_survives_a_miri_only_pin_change(bank):
+    """Miri's version is part of a record only when Miri ran (`verify.is_stale`), so
+    the replay must not hold a does-not-compile record to the pin's new Miri."""
+    affirm(bank, "q8")
+    q8 = load_question(bank, "q8")
+    assert q8.verified.miri is None  # it never compiled, so Miri never ran
+    pin = dataclasses.replace(_pin_matching(load_question(bank, "q4")), miri_version="miri 0.0.0")
+    assert not verify.is_stale(q8.verified, pin)
+    assert schedule.refusal(q8, pin=pin, recordings=recordings(bank)) is None
+
+
+def test_gap6_a_record_miri_ran_for_is_still_refused_after_a_miri_only_pin_change(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    pin = dataclasses.replace(_pin_matching(q4), miri_version="miri 0.0.0")
+    why = schedule.refusal(q4, pin=pin, recordings=recordings(bank))
+    assert why is not None and "no longer matches the pin" in why
+
+
+def _sandbox(monkeypatch, runner_for):
+    calls = []
+
+    def fake(question, pin):
+        calls.append(question.id)
+        return runner_for(question, pin)
+
+    monkeypatch.setattr(schedule, "_sandbox_runner", fake)
+    return calls
+
+
+def test_gap6_replay_that_agrees_schedules(bank, room, tmp_path, monkeypatch, capsys):
+    affirm(bank, "q3")
+    calls = _sandbox(monkeypatch, lambda q, pin: StubRunner(RECORDINGS))
+    fake = room((201, {"id": "q3", "scheduled": "new"}))
+    assert schedule_q3(bank, tmp_path / "out", NIGHT, "--replay") == 0, capsys.readouterr().err
+    assert calls == ["q3"] and len(fake.requests) == 1
+
+
+def test_gap6_replay_refuses_a_record_a_new_run_disagrees_with(bank, room, tmp_path, monkeypatch, capsys):
+    """Record, recording and both digests edited together pass the recording check;
+    only a new run catches them. Here the new run is what the toolchain recorded."""
+    affirm(bank, "q3")
+    _hand_edit_answer(bank, "q3")
+    path = recordings(bank) / "q3.json"
+    rec = _json(path)
+    for kind in [k for k in rec if k.startswith("run:")]:
+        rec[kind]["stdout"] = "hand edited\n"
+    for kind in [k for k in rec if k.startswith("miri:")]:
+        rec[kind]["stdout"] = "hand edited\n"
+    rec["_record_sha256"] = verify.record_sha256(load_question(bank, "q3"))
+    _write(path, rec)
+    assert _gate(bank) is None  # the limit, stated plainly: the recording check passes it
+    _sandbox(monkeypatch, lambda q, pin: StubRunner(RECORDINGS))
+    fake = room((201, {"id": "q3", "scheduled": "new"}))
+    code = schedule_q3(bank, tmp_path / "out", NIGHT, "--replay")
+    assert_refused(code, capsys, fake, tmp_path / "out", "q3 does not match a new run in the sandbox (a different stdout)")
+
+
+def test_gap6_replay_on_the_other_supported_host_agrees(bank, tmp_path, monkeypatch):
+    """The platform is not pinned: a new run on the pin's other triple is the same run."""
+    affirm(bank, "q3")
+    q3 = load_question(bank, "q3")
+    other = next(t for t in ("x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu") if t != q3.verified.target_triple)
+    rec = _json(RECORDINGS / "q3.json")
+    rec["toolchain"]["stdout"] = rec["toolchain"]["stdout"].replace(f"host: {q3.verified.target_triple}", f"host: {other}")
+    (tmp_path / "elsewhere").mkdir()
+    _write(tmp_path / "elsewhere" / "q3.json", rec)
+    pin = dataclasses.replace(_pin_matching(q3), target_triples=(q3.verified.target_triple, other))
+    _sandbox(monkeypatch, lambda q, p: StubRunner(tmp_path / "elsewhere"))
+    assert schedule.replay(q3, pin=pin) is None
+
+
+class NoDocker:
+    def run(self, kind, program_id):
+        raise FileNotFoundError(2, "No such file or directory", "docker")
+
+
+class NoImage:
+    def run(self, kind, program_id):
+        return verify.RunStep(kind=kind, exit_code=125, stdout="", stderr="Unable to find image", recorded_from="none")
+
+
+@pytest.mark.parametrize("runner", [NoDocker(), NoImage()], ids=["no-docker", "no-image"])
+def test_gap6_replay_with_no_sandbox_refuses_and_sends_nothing(bank, room, tmp_path, monkeypatch, capsys, runner):
+    affirm(bank, "q3")
+    _sandbox(monkeypatch, lambda q, pin: runner)
+    fake = room((201, {"id": "q3", "scheduled": "new"}))
+    code = schedule_q3(bank, tmp_path / "out", NIGHT, "--replay")
+    assert_refused(code, capsys, fake, tmp_path / "out", "`--replay` needs the sandbox")
+    err_again = schedule.replay(load_question(bank, "q3"), pin=_pin_matching(load_question(bank, "q3")))
+    assert err_again.endswith("; run `just sandbox-build`, or schedule without `--replay`")
+
+
+def test_gap6_without_the_flag_nothing_new_runs(bank, room, tmp_path, monkeypatch, capsys):
+    affirm(bank, "q3")
+    calls = _sandbox(monkeypatch, lambda q, pin: NoDocker())
+    fake = room((201, {"id": "q3", "scheduled": "new"}))
+    assert schedule_q3(bank, tmp_path / "out", NIGHT) == 0, capsys.readouterr().err
+    assert calls == [] and len(fake.requests) == 1
+
+
+def _rustc_release_zero(data):
+    data["verified"]["rustc"] = re.sub(r"(?m)^release: .*$", "release: 0.0.0", data["verified"]["rustc"])
+
+
+def test_ac6_schedule_refuses_a_stale_record_and_sends_nothing(bank, room, tmp_path, capsys):
+    """Through the command, with the pin it reads itself: no pin's release is 0.0.0."""
+    _edit_record(bank, "q4", _rustc_release_zero)
+    affirm(bank, "q4")
+    fake = room((201, {"scheduled": "new"}))
+    out = tmp_path / "out"
+    code = run("schedule", "q4", "--date", NIGHT.isoformat(), "--room", "https://room.test", "--out", out, "--bank", bank)
+    assert_refused(code, capsys, fake, out, "rustc release 0.0.0, the pin says")
 
 
 # --------------------------------------------------------------------------- #
@@ -619,7 +956,7 @@ def test_ac105_the_gate_and_the_reserve_are_per_club(affirmed, room, tmp_path, c
     assert sync(affirmed) == 0
     question = load_question(affirmed, "q3")
     assert "never run twice for a club" in schedule.refusal(question, "nyc")
-    assert schedule.refusal(question, "la") is None
+    assert schedule.refusal(question, "la", recordings=recordings(affirmed)) is None
     assert audit.in_reserve(question, "la") and not audit.in_reserve(question, "nyc")
     lines = schedule.reserve_lines(schedule.load_bank(affirmed), today=NIGHT, club="la")
     assert lines[0].startswith("reserve (la):")
@@ -1061,7 +1398,7 @@ def test_a_question_used_under_nyc_is_used_under_rustnyc(affirmed, tmp_path, sto
     for club in ("rustnyc", "nyc"):
         assert "never run twice for a club" in schedule.refusal(question, club), (stored, club)
         assert not audit.in_reserve(question, club)
-    assert schedule.refusal(question, "la") is None
+    assert schedule.refusal(question, "la", recordings=recordings(affirmed)) is None
     lines = schedule.reserve_lines(schedule.load_bank(affirmed), today=NIGHT)
     assert lines[0].startswith("reserve (rustnyc): 0 ready"), lines[0]
     for extra in ([], ["--club", "nyc"], ["--club", "rustnyc"]):

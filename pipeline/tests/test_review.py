@@ -23,7 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from popquiz import audit, bank, review, schedule
+from fixtures.verify.verify_cases import verify_bank
+from popquiz import audit, bank, review, schedule, verify
 from popquiz.runner import StubRunner
 
 HERE = Path(__file__).parent
@@ -51,6 +52,7 @@ def the_real_bank_is_untouched():
 @pytest.fixture
 def bank_dir(tmp_path: Path) -> Path:
     shutil.copytree(FIXTURES / "questions", tmp_path / "bank" / "questions")
+    verify_bank(tmp_path / "bank")  # each record and its recording are the verifier's (GAP-6)
     return tmp_path / "bank"
 
 
@@ -190,7 +192,7 @@ def test_ac72_affirm_records_who_when_and_what_and_the_question_schedules(bank_d
     assert q.review.affirmed_at.endswith("+00:00")
     assert q.review.affirmed_digest == bank.affirmation_digest(q)
     assert bank.affirmation_state(q) == "bound"
-    assert schedule.refusal(q) is None and audit.in_reserve(q)
+    assert schedule.refusal(q, recordings=bank_dir / "recordings") is None and audit.in_reserve(q)
 
 
 @pytest.mark.parametrize("status", [None, "rejected"])
@@ -247,7 +249,7 @@ def test_f15_a_question_that_does_not_compile_affirms_when_its_last_step_names_t
     assert run("affirm", "q8", "--by", NAME, "--bank", bank_dir) == 0
     q8 = load(bank_dir, "q8")
     assert bank.affirmation_state(q8) == "bound" and q8.review.affirmed_by == NAME
-    assert schedule.refusal(q8) is None and audit.in_reserve(q8)
+    assert schedule.refusal(q8, recordings=bank_dir / "recordings") is None and audit.in_reserve(q8)
 
 
 def test_f15_a_last_step_that_names_no_error_cannot_be_affirmed(bank_dir, capsys):
@@ -294,7 +296,7 @@ def test_q3s_hand_affirmation_is_unbound_and_can_be_affirmed_again(bank_dir, cap
     assert run("affirm", "q3", "--by", NAME, "--bank", bank_dir) == 0
     q3 = load(bank_dir, "q3")
     assert bank.affirmation_state(q3) == "bound" and q3.review.affirmed_by == NAME
-    assert schedule.refusal(q3) is None and audit.in_reserve(q3)
+    assert schedule.refusal(q3, recordings=bank_dir / "recordings") is None and audit.in_reserve(q3)
 
 
 def test_a_bound_affirmation_is_kept_and_not_overwritten(bank_dir, capsys):
@@ -383,7 +385,7 @@ def test_gap24_an_identical_edit_of_an_affirmed_question_keeps_it_affirmed(bank_
     assert q.review.status == "accepted"
     assert q.review.affirmed_by == NAME and q.review.affirmed_digest == before.review.affirmed_digest
     assert bank.affirmation_state(q) == "bound"
-    assert schedule.refusal(q) is None
+    assert schedule.refusal(q, recordings=bank_dir / "recordings") is None
 
 
 def option_edit(bank_dir: Path, tmp_path: Path, qid: str = "q4") -> Path:
@@ -669,6 +671,49 @@ def test_an_option_edit_re_verifies_through_the_verifier(bank_dir, tmp_path, cap
     # Written by the verifier, from the recorded run - not carried over from before.
     assert edited.verified is not None and edited.verified.verified_at != q.verified.verified_at
     assert bank.correct_index(edited) == correct
+
+
+def the_recording_matches(bank_dir: Path, qid: str = "q4") -> None:
+    """The bank holds the recording of the run that wrote this record, so `schedule`
+    does not refuse the question for its recording (GAP-6)."""
+    q = load(bank_dir, qid)
+    rec = json.loads((bank_dir / "recordings" / f"{qid}.json").read_text(encoding="utf-8"))
+    assert rec["_record_sha256"] == verify.record_sha256(q)
+    assert rec["_recorded"]["verified_at"] == q.verified.verified_at
+    accepted_and_affirmed(bank_dir, qid)
+    assert schedule.refusal(load(bank_dir, qid), recordings=bank_dir / "recordings") is None
+
+
+def test_gap6_a_re_verifying_edit_brings_its_recording_into_the_bank(bank_dir, tmp_path, capsys):
+    accepted_and_affirmed(bank_dir)
+    re_verified(bank_dir, option_edit(bank_dir, tmp_path), capsys)
+    the_recording_matches(bank_dir)
+
+
+def test_gap6_a_reverify_brings_its_recording_into_the_bank(bank_dir, capsys):
+    before = load(bank_dir, "q4")
+    assert run("reverify", "q4", "--bank", bank_dir, runner=stub()) == 0
+    assert load(bank_dir, "q4").verified.verified_at != before.verified.verified_at
+    the_recording_matches(bank_dir)
+
+
+def test_gap6_a_reverify_names_the_recording_where_the_bank_keeps_it(bank_dir, capsys):
+    """The verifier wrote it in a scratch bank that is gone; the organizer is told
+    where it now is."""
+    assert run("reverify", "q4", "--bank", bank_dir, runner=stub()) == 0
+    said = capsys.readouterr()
+    lines = [line for line in (said.out + said.err).splitlines() if "recording written to" in line]
+    assert lines and all(str(bank_dir / "recordings" / "q4.json") in line for line in lines)
+    assert "popquiz-review-" not in said.out + said.err
+
+
+def test_gap6_a_refused_re_verify_leaves_the_recording_as_it_was(bank_dir, tmp_path, capsys):
+    path = bank_dir / "recordings" / "q4.json"
+    before = path.read_bytes()
+    edit = edit_file(bank_dir, tmp_path, "q4", lambda d: d.update(source=d["source"] + "// edited\n"))
+    code = run("edit", "q4", "--from", edit, "--expect", "does_not_compile", "--bank", bank_dir, runner=stub())
+    refused(code, capsys, "did not accept the edited q4, so nothing was written")
+    assert path.read_bytes() == before
 
 
 def test_a_rejected_re_verify_leaves_the_bank_file_byte_identical(bank_dir, tmp_path, capsys):

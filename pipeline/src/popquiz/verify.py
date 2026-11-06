@@ -69,7 +69,16 @@ from popquiz.bank import (
     Runs,
     Verified,
 )
-from popquiz.runner import COMPILE, TOOLCHAIN, RealRunner, Runner, RunStep, miri_kind, run_kind
+from popquiz.runner import (
+    COMPILE,
+    TOOLCHAIN,
+    RealRunner,
+    RecordingRunner,
+    Runner,
+    RunStep,
+    miri_kind,
+    run_kind,
+)
 
 #: What a candidate declares its answer to be. Not stored: the answer derives from
 #: the record (G-2). The generator (T-16) passes it; `expect_from_record` recovers
@@ -694,22 +703,81 @@ def check_question(question: Question) -> Question:
 
 
 # --------------------------------------------------------------------------- #
+# The recording (GAP-6, SPEC 3.2)
+# --------------------------------------------------------------------------- #
+
+#: The folder beside a bank's `questions/` that holds one recording per question.
+RECORDINGS = "recordings"
+
+
+def source_sha256(source: str) -> str:
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+def record_sha256(question: Question) -> str:
+    """The sha256 of the question's `verified` block as the bank stores it, in
+    canonical JSON (sorted keys, no whitespace), so key order in the file does
+    not matter and any change to a value does."""
+    block = bank.question_to_dict(question)["verified"]
+    canonical = json.dumps(block, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def recordings_dir(candidate: Path) -> Path:
+    """Where `verify` writes a candidate's recording: `recordings/` in the bank
+    whose folder holds the candidate (`bank/questions/q4.json` -> `bank/recordings/`)."""
+    return candidate.resolve().parent.parent / RECORDINGS
+
+
+def write_recording(
+    directory: Path, question: Question, steps: Mapping[str, RunStep], pin: sandbox.Pin
+) -> Path:
+    """Write every step the run returned to `<directory>/<id>.json`, with the
+    sha256 of the question's `source` and of the record that run wrote. The record
+    does not name the file; the file names the record. `StubRunner` replays it."""
+    v = question.verified
+    assert v is not None
+    payload: dict[str, object] = {
+        "_recorded": {
+            "by": "popquiz.verify",
+            "image": pin.image,
+            "verified_at": v.verified_at,
+            "verifier_version": v.verifier_version,
+        },
+        "_source_sha256": source_sha256(question.source),
+        "_record_sha256": record_sha256(question),
+    }
+    payload.update({kind: step.to_dict() for kind, step in steps.items()})
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{question.id}.json"
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
+
+
+# --------------------------------------------------------------------------- #
 # `verify <program>`
 # --------------------------------------------------------------------------- #
 
 
-def _check_file(path: Path) -> int:
+def _check_file(path: Path, recordings: Path | None = None) -> int:
     """`--check`: the provenance check on a file, for `just demo`, which pushes the
-    stored file rather than a question `popquiz schedule` loaded. Runs nothing and
-    writes nothing."""
+    stored file rather than a question `popquiz schedule` loaded; then the record's
+    own checks scheduling makes, in its words (`schedule.record_refusal`: the pin,
+    AC-6, and the recording, GAP-6). Runs no program and writes nothing."""
+    from popquiz import schedule  # schedule imports this module
+
     try:
-        check_provenance(json.loads(path.read_text(encoding="utf-8")))
+        question = check_provenance(json.loads(path.read_text(encoding="utf-8")))
     except ProvenanceError as exc:
         print(f"verify: {exc}", file=sys.stderr)
         return 1
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"verify: cannot read {path}: {exc}", file=sys.stderr)
         return 2
+    why = schedule.record_refusal(question, recordings=recordings or recordings_dir(path))
+    if why is not None:
+        print(f"verify: {why}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -719,8 +787,9 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
     Exit 0: accepted, and the record was written into the candidate file.
     Exit 1: rejected; the file is untouched. Exit 2: refused, or unusable input.
 
-    `--check <file>` runs only the provenance check. Exit 0: it passes. Exit 1: it
-    refuses. Exit 2: unusable input. The file is never touched.
+    `--check <file>` runs only the checks on the stored record: provenance, the pin
+    and the recording. Exit 0: it passes. Exit 1: it refuses. Exit 2: unusable
+    input. The file is never touched.
     """
     parser = argparse.ArgumentParser(
         prog="verify",
@@ -735,11 +804,17 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
     parser.add_argument(
         "--check",
         action="store_true",
-        help="only run the provenance check on the file; runs no program and writes nothing",
+        help="only check the stored record (provenance, pin, recording); runs no program and writes nothing",
+    )
+    parser.add_argument(
+        "--recordings",
+        type=Path,
+        default=None,
+        help="where the recording goes, or with --check where it is read (default: recordings/ in the candidate's bank)",
     )
     args = parser.parse_args(argv)
     if args.check:
-        return _check_file(args.candidate)
+        return _check_file(args.candidate, args.recordings)
 
     try:
         data = json.loads(args.candidate.read_text(encoding="utf-8"))
@@ -761,12 +836,8 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
 
     try:
         pin = _load_pin(None)
-        verdict = verify(
-            question,
-            runner or RealRunner({question.id: question.source}, pin=pin),
-            expect=expect,
-            pin=pin,
-        )
+        recorder = RecordingRunner(runner or RealRunner({question.id: question.source}, pin=pin))
+        verdict = verify(question, recorder, expect=expect, pin=pin)
     except VerifyError as exc:
         print(f"verify: refused. {exc}", file=sys.stderr)
         return 2
@@ -780,8 +851,15 @@ def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> 
         print(f"{question.id}: REJECTED ({verdict.code}): {verdict.reason}.{timing}")
         return 1
 
-    bank._write_json(args.candidate, bank.question_to_dict(with_record(question, verdict)))
+    verified = with_record(question, verdict)
+    bank._write_json(args.candidate, bank.question_to_dict(verified))
+    # After the record: a record left without its recording is refused by
+    # scheduling, never the other way round.
+    recording = write_recording(
+        args.recordings or recordings_dir(args.candidate), verified, recorder.steps, pin
+    )
     print(f"{question.id}: ACCEPTED: {verdict.reason}.{timing} Record written to {args.candidate}.")
+    print(f"{question.id}: recording written to {recording}.")
     return 0
 
 

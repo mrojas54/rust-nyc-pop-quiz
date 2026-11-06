@@ -54,6 +54,7 @@ to its text (AC-72, G-12, GAP-24). An organizer affirms through
 organizer TUI's review screen (`v`); `pipeline/README.md`, *Reviewing*, has
 every command. Never by hand. The affirmation records `affirmed_by`,
 `affirmed_at` and `affirmed_digest`, and any later edit to the text clears it.
+It also refuses a question with no recording, which only `just verify` writes: run it on the question once (Docker), and add `--replay` to run it again in the sandbox before anything is sent.
 
 q3 is affirmed and bound: the organizer affirmed it again through
 `popquiz.review` on 2026-10-13 (RULING PQ-23), replacing the hand edit of

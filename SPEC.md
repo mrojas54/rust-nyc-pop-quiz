@@ -115,12 +115,17 @@ result an out-of-repo pass recorded (`clean`, `output_matched` — no version,
 configs or seeds). `target_triple`, `flags`, `exit_code`, `verified_at`,
 `verifier_version` and the full `-Vv` are **absent, and never back-filled or
 inferred** (G-2 — nothing may be written that no code observed). A legacy record
-renders the same list as a complete record (§7.5, D-25), says on take-it-home what it lacks (§13), is exempt from the stale-pin check (§7.2), and
+renders the same list as a complete record (§7.5, D-25), says on take-it-home what it lacks (§13), is exempt from the stale-pin check but, having no recording, is refused by scheduling until it is re-verified (§7.2), and
 is replaced whole — never merged — when T-15b re-verifies its question, so the
 bank never holds both. A legacy record whose answer is *does not compile* (q8)
 carries `rustc`, `edition` and `compile_error_code` (T-14 renames the MVP's
 `error_codes` field to it; the codes are the compiler's, unchanged) and none of
 `runs`, `stdout` or `miri`; it renders the does-not-compile receipt (D-22).
+
+**Recording.** Each `verify` run writes `bank/recordings/<id>.json`: every step
+the sandbox returned, the sha256 of the question's `source`, and the sha256 of
+the `verified` block the run wrote. The record is unchanged and does not name
+the file; the recording names the record. Only `verify` writes recordings.
 
 ### 3.3 Bank
 
@@ -403,7 +408,23 @@ value — the full `rustc -Vv` `release` and `commit-hash`, plus the nightly's d
 for Miri — defined once where the sandbox image is built (T-15a) and read by
 `verify`. `verify` refuses to run under a compiler that does not match it, and
 scheduling refuses a non-legacy record whose recorded `rustc` does not match the
-configured pin (*stale*, AC-6). The verifier reaches `rustc`, the compiled
+configured pin (*stale*, AC-6).
+
+**Scheduling checks a record against its recording (§3.2).** When the organizer
+runs `just schedule` on a question with no recording, the command stops. The
+recording is how scheduling notices a hand-edited answer: without one, an edited
+record and a genuine one look the same. Running `just verify` on the question
+makes its recording, and then it can be scheduled. The same happens to a record
+whose recording's digests do not match the record and its `source`, or whose
+recording, replayed through the stub runner, gives a different answer. `just
+schedule --replay` also runs the source again in the sandbox under the current
+pin, and stops the same way if the new run disagrees with the record or the
+sandbox cannot run. Without `--replay`, the check proves that record and
+recording agree, so an edit to only one of them is caught. It does not prove
+that a toolchain produced either, and an edit to both with both digests
+recomputed gets through. Only `--replay` catches that (G-2: never overstate).
+
+The verifier reaches `rustc`, the compiled
 binary and Miri only through a `Runner` interface (D-18): the real runner
 executes inside the sandbox (T-15a); a stub runner replays recorded outputs, so
 the decision logic is proven in `test` without a toolchain and the same cases
