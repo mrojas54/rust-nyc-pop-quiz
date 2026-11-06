@@ -481,10 +481,7 @@ fn sentence_lets(toks: &[(usize, Tok)]) -> Vec<Binding<'_>> {
 /// Whether the `reason` at `i` is a struct literal's field
 /// (`Refused { from: None, command, reason: … }`): it follows `{` or `,`, past
 /// any attributes on it (`#[allow(…)] reason: …`), and it is not inside a
-/// closure's parameter list (`|from: Phase, reason: &str| …`). A `|` or `||`
-/// that is an operator (`reason: if a | b { … }`, `from: a || b, reason: …`)
-/// opens no list, and a closure that has already closed
-/// (`f: |x| x, reason: …`) does not hold it.
+/// closure's parameter list (`|from: Phase, reason: &str| …`).
 fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
     let mut p = i;
     while p > 0 && toks[p - 1].1 == Tok::Punct(']') {
@@ -508,58 +505,63 @@ fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
     if p == 0 || !matches!(toks[p - 1].1, Tok::Punct('{' | ',')) {
         return false;
     }
-    // Walk back at `reason`'s own depth to the `{` that opens its braces. A
-    // `|` met on the way opens a closure's parameters only where an operand
-    // cannot stand before it; and `reason` is one of them only if that list's
-    // closing `|` comes after it.
+    // The bracket that holds `reason`: back at its own depth to the opener.
     let mut depth = 0usize;
-    for k in (0..p).rev() {
-        match toks[k].1 {
-            Tok::Punct(')' | ']' | '}') => depth += 1,
-            Tok::Punct('(' | '[' | '{') if depth > 0 => depth -= 1,
-            // Its braces' `{`, or a bracket no closure list was found inside.
-            Tok::Punct('(' | '[' | '{') => return true,
-            Tok::Punct('|')
-                if depth == 0
-                    && closure_opens(toks, k)
-                    && closure_closes(toks, k).is_some_and(|c| c > i) =>
-            {
-                return false;
-            }
-            _ => {}
+    let holder = (0..p).rev().find(|&k| match toks[k].1 {
+        Tok::Punct(')' | ']' | '}') => {
+            depth += 1;
+            false
         }
-    }
-    true
-}
-
-/// Whether the `|` at `k` can open a closure: what comes before it is no
-/// operand (`= ( [ { , ; :`, `=>`, `move`, `return`, or nothing).
-fn closure_opens(toks: &[(usize, Tok)], k: usize) -> bool {
-    if k == 0 {
-        return true;
-    }
-    match &toks[k - 1].1 {
-        Tok::Punct('=' | '(' | '[' | '{' | ',' | ';' | ':') => true,
-        Tok::Punct('>') => k >= 2 && toks[k - 2].1 == Tok::Punct('='),
-        Tok::Word(w) => w == "move" || w == "return",
+        Tok::Punct('(' | '[' | '{') if depth > 0 => {
+            depth -= 1;
+            false
+        }
+        Tok::Punct('(' | '[' | '{') => true,
         _ => false,
-    }
+    });
+    !closure_list_open(toks, holder.map_or(0, |h| h + 1), p)
 }
 
-/// The `|` that closes the closure parameter list opened at `k`: the next `|`
-/// at its depth.
-fn closure_closes(toks: &[(usize, Tok)], k: usize) -> Option<usize> {
-    let mut depth = 0usize;
-    for (m, (_, t)) in toks.iter().enumerate().skip(k + 1) {
-        match t {
+/// Whether a closure's parameter list is still open at `to`, reading `from..to`
+/// at its own depth from left to right. A `|` where no operand stands before
+/// it opens a list (`= |x|`, `(|x|`, `: |x|`, `&|x|`, `move |x|`, `|a| |b|`)
+/// and the next `|` closes it (`|x: u8,|`); `||` is the operator or an empty
+/// list and opens none; a `|` after an operand (`a | b`, `f() | g`, `x? | y`)
+/// is the operator. Where it cannot tell, it says closed, so the field is read.
+fn closure_list_open(toks: &[(usize, Tok)], from: usize, to: usize) -> bool {
+    let (mut depth, mut open, mut k) = (0usize, false, from);
+    while k < to {
+        match toks[k].1 {
             Tok::Punct('(' | '[' | '{') => depth += 1,
-            Tok::Punct(')' | ']' | '}') if depth == 0 => return None,
-            Tok::Punct(')' | ']' | '}') => depth -= 1,
-            Tok::Punct('|') if depth == 0 => return Some(m),
+            Tok::Punct(')' | ']' | '}') => depth = depth.saturating_sub(1),
+            Tok::Punct('|') if depth == 0 && open => open = false,
+            Tok::Punct('|')
+                if depth == 0 && toks.get(k + 1).map(|(_, t)| t) == Some(&Tok::Punct('|')) =>
+            {
+                k += 1;
+            }
+            Tok::Punct('|') if depth == 0 => open = !operand_before(toks, k),
             _ => {}
         }
+        k += 1;
     }
-    None
+    open
+}
+
+/// Whether the token before `k` ends an operand: a name or value that is not a
+/// keyword a closure can follow, a literal, a closing bracket, `?`, or a `>`
+/// that is not `=>`.
+fn operand_before(toks: &[(usize, Tok)], k: usize) -> bool {
+    let Some(k) = k.checked_sub(1) else {
+        return false;
+    };
+    match &toks[k].1 {
+        Tok::Str(_) => true,
+        Tok::Word(w) => !matches!(w.as_str(), "move" | "async" | "return" | "break"),
+        Tok::Punct(')' | ']' | '}' | '?') => true,
+        Tok::Punct('>') => !(k > 0 && toks[k - 1].1 == Tok::Punct('=')),
+        Tok::Punct(_) => false,
+    }
 }
 
 /// The files the rule covers: every `.rs` under `src/server/` and `src/connections/`.
@@ -961,6 +963,10 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         r#"Refused { from: None, reason: match flags | mask { 0 => "No room yet.".into(), _ => copy::X.into() } }"#,
         r#"Refused { from: a | b, command: x || y, reason: "No room yet.".into() }"#,
         r#"Refused { from: f.map(|x| x), note: |x| x, reason: "No room yet.".into() }"#,
+        r#"Refused { from: |x: u8,| x, reason: "No room yet.".into(), note: |x: u8| x }"#,
+        r#"Refused { from: |x: u8,| x, reason: if a | b { "No room yet.".into() } else { c || d } }"#,
+        r#"Refused { from: x? | y, note: f() | g, reason: "No room yet.".into() }"#,
+        r#"Refused { from: || x, note: |a| |b| a, reason: "No room yet.".into() }"#,
     ] {
         assert_eq!(phase_flags(field), ["No room yet."], "{field}");
     }
@@ -968,6 +974,10 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         r#"let n = f(|from: Phase, reason: &str| format!("{from:?}: {reason}"));"#,
         r#"Holder { f: |from: Phase, reason: &str| format!("{from:?}: {reason}") }"#,
         r#"let n = move |from: Phase, reason: &str| format!("{from:?}: {reason}");"#,
+        r#"let n = &|from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}");"#,
+        r#"let n = async move |from: u8, reason: &str| format!("{from}: {reason}");"#,
+        r#"let n = |a: u8| |from: u8, reason: &str| format!("{a}{from}: {reason}");"#,
+        r#"let n = f(|x: u8,| x, |from: u8, reason: &str| format!("{from}: {reason}"));"#,
     ] {
         assert_eq!(phase_flags(closure), Vec::<String>::new(), "{closure}");
     }
