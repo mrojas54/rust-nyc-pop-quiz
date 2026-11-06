@@ -383,7 +383,13 @@ demo question="q3" room="https://rustnyc-popquiz.fly.dev":
         echo "Then run just demo {{ question }} again." >&2
         exit 1
     fi
-    put="$(auth -w '\n%{http_code}' -X PUT --data-binary "@$record" "{{ room }}/admin/questions/{{ question }}")"
+    # The room schedules a record only with the date it is for (SPEC §8.5), and opens a
+    # room for it only on that date in the club's zone, not this machine's: a demo is tonight.
+    tonight="$(TZ=America/New_York date +%F)"
+    dated="$(mktemp)"
+    trap 'rm -f "$dated"' EXIT
+    jq --arg meetup_date "$tonight" '.meetup_date = $meetup_date' "$record" > "$dated"
+    put="$(auth -w '\n%{http_code}' -X PUT --data-binary "@$dated" "{{ room }}/admin/questions/{{ question }}")"
     code="${put##*$'\n'}"
     case "$code" in
         201) echo "{{ question }} scheduled." ;;

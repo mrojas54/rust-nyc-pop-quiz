@@ -133,8 +133,11 @@ jobs:
           POPQUIZ_ADMIN_TOKEN: ${{ secrets.POPQUIZ_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
+          # The room schedules a record only with the date it is for (SPEC §8.5), and
+          # opens a room for it only on that date in the club's zone, not the runner's.
+          tonight="$(TZ=America/New_York date +%F)"
           for id in smoke-q3 burst-q3; do
-            jq --arg id "$id" '.id = $id' bank/questions/q3.json > "$RUNNER_TEMP/$id.json"
+            jq --arg id "$id" --arg meetup_date "$tonight" '.id = $id | .meetup_date = $meetup_date' bank/questions/q3.json > "$RUNNER_TEMP/$id.json"
             # The header reaches curl on stdin (printf is a shell builtin), so the
             # token is never in any process's arguments.
             status=$(printf 'header = "Authorization: Bearer %s"\n' "$POPQUIZ_ADMIN_TOKEN" |
