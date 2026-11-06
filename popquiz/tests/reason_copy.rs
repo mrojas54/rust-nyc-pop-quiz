@@ -5,11 +5,14 @@
 //! and volunteer one.* into the answer route's reason as a literal and every
 //! test passed; this scan is what fails it now.
 //!
-//! The rule, kept as narrow as M5b3 needs: under `src/server/` and
-//! `src/connections/`, a string literal containing a letter fails when it is
+//! The scan parses each file with `syn` and walks its syntax tree (PQ-85), so
+//! an attribute, a closure or a comment can neither hide one of the shapes
+//! below nor fake one. Under `src/server/` and `src/connections/`, a string
+//! literal containing a letter fails when it is
 //!
-//! - in the value of a `"reason"`, `"message"` or `"refusal"` JSON key, read
-//!   from the key's `:` to the next `,` or closing bracket at the same depth; or
+//! - in the value of a `"reason"`, `"message"` or `"refusal"` key in a macro
+//!   body (`json!`), read from the key's `:` to the next `,` at the same depth;
+//!   or
 //! - in the arguments of a call to a [`REASON_SINKS`] helper, which puts its
 //!   argument in a `reason` field (admin's `refused`).
 //!
@@ -17,29 +20,42 @@
 //! variable (`LoadError`, `RoomError::Refused`, `phase::Refused`,
 //! `Ended::host_reason`). In them, a literal containing a letter also fails
 //!
-//! - in the arguments of any [`SOURCE_SINKS`] call or macro, and, in the
-//!   [`FORMAT_SOURCES`], of any `format!`: every `format!` there builds a
+//! - in the arguments of any [`SOURCE_SINKS`] call, method call or macro, and,
+//!   in the [`FORMAT_SOURCES`], of any `format!`: every `format!` there builds a
 //!   refusal, so none may carry its own words (elsewhere one may build a
 //!   digest, and is read only inside one of these shapes);
-//! - in a struct literal's `reason:` field (`Refused { reason: … }`), with or
-//!   without an attribute on it; a closure's parameter named `reason` is not
-//!   a field (PQ-85); or
-//! - anywhere in the body of a [`REASON_FNS`] function, which returns a
-//!   reason from a `match` or an `Err` rather than through a call. Each is
-//!   pinned to its own file (PQ-85).
+//! - in a struct literal's `reason` field (`Refused { reason: … }`, or the
+//!   shorthand `Refused { reason }`); or
+//! - anywhere in the body of a function named in [`REASON_FNS`], which returns
+//!   a reason from a `match` or an `Err` rather than through a call.
 //!
-//! A same-file `const` or `static` is read as its literal (PQ-84), and so is a
-//! `let` binding in its block (PQ-85): where the scan reads a span, the name of
-//! one that holds a letter-bearing literal fails as that literal would. A name
-//! under another module's path (`copy::NAME`) is that module's, not this
-//! file's. A constant or binding used nowhere a reason is built passes.
+//! Where the scan reads an expression, a name stands for what it was bound to
+//! (PQ-84, PQ-85). A local binding (`let`, or a `match`, `if let` or `for`
+//! pattern) stands for the literals the expression it was bound from can
+//! evaluate to (a literal, a `format!`'s text, through `.into()`, `Some(…)`,
+//! a block's or branch's result), until its block ends or another binding
+//! shadows it; a parameter stands for nothing. Any other name is a same-file `const` or `static`, matched by its
+//! last path segment, so `WHY`, `Self::WHY` and `Phase::WHY` all read this
+//! file's `WHY`; a path through `copy` is copy's, even where this file has a
+//! constant of the same name. A binding or constant used nowhere a reason is
+//! built passes.
 //!
 //! One carve-out: a `refusal` value that is one of [`REFUSAL_CODES`] passes.
 //! Those are the codes a client branches on, not sentences anyone reads; any
 //! other word there fails, so a new code is added to the list on purpose.
-//! Literals elsewhere (keys, slugs in `slug()`, headers) are not this scan's.
+//! Literals elsewhere (keys, slugs in `slug()`, headers, attributes) are not
+//! this scan's.
 
 mod common;
+
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+
+use proc_macro2::{Spacing, TokenStream, TokenTree};
+use syn::parse::Parser;
+use syn::punctuated::Punctuated;
+use syn::visit::{self, Visit};
+use syn::{Expr, Lit, Member, Pat, Token};
 
 /// The JSON keys whose string a person may read.
 const KEYS: &[&str] = &["reason", "message", "refusal"];
@@ -77,7 +93,7 @@ const SOURCE_SINKS: &[&str] = &["refuse", "Refused", "LoadError"];
 
 /// The [`REASON_SOURCES`] where every `format!` builds a refusal (PQ-60's
 /// three). `affirmation.rs` formats its digest (`sha256:{hex}`), so there a
-/// `format!` is read only inside a sink, a `reason:` field or a [`REASON_FNS`]
+/// `format!` is read only inside a sink, a `reason` field or a [`REASON_FNS`]
 /// body.
 const FORMAT_SOURCES: &[&str] = &[
     "quiz_session/models/answers.rs",
@@ -88,507 +104,592 @@ const FORMAT_SOURCES: &[&str] = &[
 /// In [`FORMAT_SOURCES`], the macros that build a refusal.
 const FORMAT_SINKS: &[&str] = &["format", "format_args"];
 
-/// In [`REASON_SOURCES`], the functions that return a reason, each in its own
-/// file: every literal in their bodies is bound for a person. Pinned by file,
-/// so renaming one is not hidden by a namesake elsewhere (PQ-85). `Ended::refusal`
-/// (`lifecycle.rs`) returns a `JoinRefusal`, not a sentence, so it is not one.
+/// In [`REASON_SOURCES`], the functions that return a reason, each pinned to
+/// the file it lives in (PQ-85): every literal in their bodies is bound for a
+/// person (`Ended::host_reason`, `Review::check_shape`, the affirmation's and
+/// the answers' `refusal`). A function of one of these names is read in every
+/// source; the pin is what fails when one is renamed, so a namesake elsewhere
+/// cannot stand in for it.
 const REASON_FNS: &[(&str, &str)] = &[
     ("quiz_session/lifecycle.rs", "host_reason"),
-    ("quiz_session/models/affirmation.rs", "refusal"),
     ("quiz_session/models/affirmation.rs", "check_shape"),
+    ("quiz_session/models/affirmation.rs", "refusal"),
     ("quiz_session/models/answers.rs", "refusal"),
 ];
 
-/// The [`REASON_FNS`] in file `name`.
-fn fns_for(name: &str) -> Vec<&'static str> {
-    REASON_FNS
-        .iter()
-        .filter(|(file, _)| *file == name)
-        .map(|(_, f)| *f)
-        .collect()
-}
-
-#[derive(Debug, PartialEq)]
-enum Tok {
-    Str(String),
-    Word(String),
-    Punct(char),
-}
-
-/// The source as tokens with their line numbers. Comments are dropped; string,
-/// raw-string and char literals are read whole, so a quote inside one does not
-/// open a string. A char literal is the word `'c'` (an operand, never a
-/// sentence); a lifetime or label is `'` and then its name as a word.
-fn tokens(src: &str) -> Vec<(usize, Tok)> {
-    let c: Vec<char> = src.chars().collect();
-    let mut out = Vec::new();
-    let (mut i, mut line) = (0, 1);
-    let at = |i: usize| c.get(i).copied().unwrap_or('\0');
-    while i < c.len() {
-        let ch = c[i];
-        if ch == '\n' {
-            line += 1;
-            i += 1;
-        } else if ch.is_whitespace() {
-            i += 1;
-        } else if ch == '/' && at(i + 1) == '/' {
-            while i < c.len() && c[i] != '\n' {
-                i += 1;
-            }
-        } else if ch == '/' && at(i + 1) == '*' {
-            let mut depth = 0;
-            loop {
-                if i >= c.len() {
-                    break;
-                }
-                if c[i] == '/' && at(i + 1) == '*' {
-                    depth += 1;
-                    i += 2;
-                } else if c[i] == '*' && at(i + 1) == '/' {
-                    depth -= 1;
-                    i += 2;
-                    if depth == 0 {
-                        break;
-                    }
-                } else {
-                    line += usize::from(c[i] == '\n');
-                    i += 1;
-                }
-            }
-        } else if ch == '"' {
-            let start = line;
-            let (text, next) = string(&c, i + 1, &mut line);
-            out.push((start, Tok::Str(text)));
-            i = next;
-        } else if ch == '\'' {
-            if at(i + 1) == '\\' {
-                // Past the escaped character, so `'\''` ends at its own quote.
-                i += 3;
-                while i < c.len() && c[i] != '\'' {
-                    i += 1;
-                }
-                i += 1;
-                out.push((line, Tok::Word("'c'".into())));
-            } else if at(i + 2) == '\'' {
-                i += 3;
-                out.push((line, Tok::Word("'c'".into())));
-            } else {
-                out.push((line, Tok::Punct('\'')));
-                i += 1; // a lifetime or label; its name follows as a word
-            }
-        } else if ch.is_alphanumeric() || ch == '_' {
-            let s = i;
-            while i < c.len() && (c[i].is_alphanumeric() || c[i] == '_') {
-                i += 1;
-            }
-            let word: String = c[s..i].iter().collect();
-            if matches!(word.as_str(), "r" | "br") && matches!(at(i), '"' | '#') {
-                let hashes = c[i..].iter().take_while(|&&h| h == '#').count();
-                let mut j = i + hashes + 1;
-                let start = line;
-                let body = j;
-                while j < c.len() && !(c[j] == '"' && (1..=hashes).all(|k| at(j + k) == '#')) {
-                    line += usize::from(c[j] == '\n');
-                    j += 1;
-                }
-                out.push((start, Tok::Str(c[body..j].iter().collect())));
-                i = j + 1 + hashes;
-            } else if word == "b" && at(i) == '"' {
-                let start = line;
-                let (text, next) = string(&c, i + 1, &mut line);
-                out.push((start, Tok::Str(text)));
-                i = next;
-            } else {
-                out.push((line, Tok::Word(word)));
-            }
-        } else {
-            out.push((line, Tok::Punct(ch)));
-            i += 1;
-        }
-    }
-    out
-}
-
-/// A `"…"` body from just after its opening quote: (text, index past the close).
-fn string(c: &[char], mut i: usize, line: &mut usize) -> (String, usize) {
-    let mut text = String::new();
-    while i < c.len() && c[i] != '"' {
-        if c[i] == '\\' {
-            text.push(c[i]);
-            i += 1;
-        }
-        if i < c.len() {
-            *line += usize::from(c[i] == '\n');
-            text.push(c[i]);
-            i += 1;
-        }
-    }
-    (text, i + 1)
-}
-
-/// The tokens from `from` to the first unmatched closer, or, when `field` is
-/// set, to the first `,` at depth 0 if that comes sooner: a JSON field's value,
-/// or (unset) a call's whole argument list.
-fn span(toks: &[(usize, Tok)], from: usize, field: bool) -> std::ops::Range<usize> {
-    let mut depth = 0usize;
-    for (j, (_, t)) in toks.iter().enumerate().skip(from) {
-        match t {
-            Tok::Punct('(' | '[' | '{') => depth += 1,
-            Tok::Punct(')' | ']' | '}') if depth == 0 => return from..j,
-            Tok::Punct(')' | ']' | '}') => depth -= 1,
-            Tok::Punct(',') if field && depth == 0 => return from..j,
-            _ => {}
-        }
-    }
-    from..toks.len()
-}
-
 /// A literal sentence bound for a person: (line, what it is in, the literal).
-/// Also counts the fields and sink calls it read, so a scan that reads nothing
-/// cannot pass by accident.
+/// Also counts the fields and sink calls it read, and names the reason
+/// functions it read, so a scan that reads nothing cannot pass by accident.
 #[derive(Default)]
 struct Scan {
     hits: Vec<(usize, String, String)>,
     fields: usize,
     sink_calls: usize,
-    reason_fns: usize,
+    reason_fns: Vec<String>,
 }
 
-/// `source` reads the file as a [`REASON_SOURCES`] file: its `reason:` struct
-/// fields and the bodies of its reason functions `fns` are read too.
-fn scan(src: &str, sinks: &[&str], source: bool, fns: &[&str]) -> Scan {
-    let toks = tokens(src);
-    let mut out = Scan::default();
-    let consts = sentence_consts(&toks);
-    let lets = sentence_lets(&toks);
-    let text = |l: usize| match &toks[l].1 {
-        Tok::Str(s) => (l, s.as_str()),
-        _ => unreachable!("sentence_consts and sentence_lets record string tokens only"),
+/// A string literal and where it is written.
+#[derive(Clone)]
+struct Found {
+    line: usize,
+    column: usize,
+    text: String,
+}
+
+/// An expression the scan is reading: what it is in, and whether a
+/// [`REFUSAL_CODES`] code may stand there.
+struct Reading {
+    what: String,
+    code_ok: bool,
+}
+
+/// `source` reads the file as a [`REASON_SOURCES`] file: its `reason` struct
+/// fields and [`REASON_FNS`] bodies are read too. A fragment that is not a
+/// whole file (a test's statement) is read as a function body.
+fn scan(src: &str, sinks: &[&str], source: bool) -> Scan {
+    let file = syn::parse_file(src)
+        .or_else(|_| syn::parse_file(&format!("fn fragment() {{ {src} }}")))
+        .unwrap_or_else(|e| panic!("the scan cannot parse this as a file or a body: {e}"));
+    let mut consts = Consts::default();
+    consts.visit_file(&file);
+    let mut scanner = Scanner {
+        sinks,
+        source,
+        consts: Rc::new(consts.0),
+        scopes: vec![HashMap::new()],
+        reading: Vec::new(),
+        captures: Vec::new(),
+        in_const: 0,
+        seen: HashSet::new(),
+        out: Scan::default(),
     };
-    // The literal a token stands for: itself, or, for the name of a `let`
-    // binding in scope or a same-file `const`/`static` that holds a
-    // letter-bearing literal, that literal. So `const WHY: &str = "…";
-    // refused(s, WHY)` and `let why = format!("…"); refuse(why)` fail as the
-    // literal would.
-    let lit = |j: usize| -> Option<(usize, &str)> {
-        let w = match &toks[j].1 {
-            Tok::Str(s) => return Some((j, s.as_str())),
-            Tok::Word(w) => w.as_str(),
-            Tok::Punct(_) => return None,
-        };
-        let before = |k: usize| j.checked_sub(k).map(|k| &toks[k].1);
-        // `x.why` is a field or method, and `copy::WHY` is copy's: neither is
-        // this file's. A range bound (`..WHY`) is. Any other path (`Self::WHY`,
-        // `Phase::WHY`, `self::WHY`) may name this file's `const`, but never a
-        // `let`.
-        let member = before(1) == Some(&Tok::Punct('.')) && before(2) != Some(&Tok::Punct('.'));
-        let path = before(1) == Some(&Tok::Punct(':')) && before(2) == Some(&Tok::Punct(':'));
-        let copy_path = path && matches!(before(3), Some(Tok::Word(q)) if q == "copy");
-        if member || copy_path {
-            return None;
-        }
-        // The nearest binding of that name whose scope holds `j` wins, so a
-        // clean `let` shadows a dirty one.
-        let binding = lets
-            .iter()
-            .filter(|b| !path && b.name == w && b.from < j && j < b.to)
-            .max_by_key(|b| b.from);
-        match binding {
-            Some(b) => b.literal.map(text),
-            None => consts.get(w).map(|&l| text(l)),
-        }
+    scanner.visit_file(&file);
+    scanner.out
+}
+
+/// A string or byte-string literal, read, with where it is written.
+fn found(lit: &Lit) -> Option<Found> {
+    let text = match lit {
+        Lit::Str(s) => s.value(),
+        Lit::ByteStr(b) => String::from_utf8_lossy(&b.value()).into_owned(),
+        _ => return None,
     };
-    let letters = |s: &str| s.chars().any(char::is_alphabetic);
-    // A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
-    // hit, not one per enclosing call.
-    let mut seen = vec![false; toks.len()];
-    let mut hit = |l: usize, what: String, out: &mut Scan| {
-        if let Tok::Str(s) = &toks[l].1 {
-            if !std::mem::replace(&mut seen[l], true) {
-                out.hits.push((toks[l].0, what, s.clone()));
-            }
+    let at = lit.span().start();
+    Some(Found {
+        line: at.line,
+        column: at.column,
+        text,
+    })
+}
+
+/// Every `const` and `static` in the file, wherever it is declared: its name
+/// and initializer.
+#[derive(Default)]
+struct Consts(HashMap<String, Vec<Expr>>);
+
+impl Consts {
+    fn add(&mut self, name: &syn::Ident, init: &Expr) {
+        self.0
+            .entry(name.to_string())
+            .or_default()
+            .push(init.clone());
+    }
+}
+
+impl<'ast> Visit<'ast> for Consts {
+    fn visit_item_const(&mut self, c: &'ast syn::ItemConst) {
+        self.add(&c.ident, &c.expr);
+        visit::visit_item_const(self, c);
+    }
+    fn visit_impl_item_const(&mut self, c: &'ast syn::ImplItemConst) {
+        self.add(&c.ident, &c.expr);
+        visit::visit_impl_item_const(self, c);
+    }
+    fn visit_trait_item_const(&mut self, c: &'ast syn::TraitItemConst) {
+        if let Some((_, init)) = &c.default {
+            self.add(&c.ident, init);
         }
-    };
-    for (i, (_, t)) in toks.iter().enumerate() {
-        let next = |k: usize| toks.get(i + k).map(|(_, t)| t);
-        // `name(` or the macro `name!(`: where the arguments open.
-        let args = match (next(1), next(2)) {
-            (Some(Tok::Punct('(')), _) => Some(i + 2),
-            (Some(Tok::Punct('!')), Some(Tok::Punct('('))) => Some(i + 3),
-            _ => None,
+        visit::visit_trait_item_const(self, c);
+    }
+    fn visit_item_static(&mut self, s: &'ast syn::ItemStatic) {
+        self.add(&s.ident, &s.expr);
+        visit::visit_item_static(self, s);
+    }
+}
+
+struct Scanner<'s> {
+    sinks: &'s [&'s str],
+    source: bool,
+    consts: Rc<HashMap<String, Vec<Expr>>>,
+    /// The local bindings in scope, innermost last: each name and the literals
+    /// of the expression it was bound from.
+    scopes: Vec<HashMap<String, Vec<Found>>>,
+    /// The expressions being read, innermost last.
+    reading: Vec<Reading>,
+    /// The open [`literals_in`](Self::literals_in) collections, innermost
+    /// last: every literal met while one is open is added to each.
+    captures: Vec<Vec<Found>>,
+    /// How deep the scan is in constants' initializers: there nothing is
+    /// counted, since the file's own walk counts it, and a constant that names
+    /// itself stops.
+    in_const: usize,
+    /// A literal inside nested sinks (`refuse(&id, format_args!("…"))`) is one
+    /// hit, not one per enclosing call.
+    seen: HashSet<(usize, usize)>,
+    out: Scan,
+}
+
+impl Scanner<'_> {
+    fn counting(&self) -> bool {
+        self.in_const == 0
+    }
+
+    fn read(&mut self, what: String, code_ok: bool, f: impl FnOnce(&mut Self)) {
+        self.reading.push(Reading { what, code_ok });
+        f(self);
+        self.reading.pop();
+    }
+
+    fn sink(&mut self, name: &str) -> bool {
+        let sink = self.sinks.contains(&name);
+        if sink && self.counting() {
+            self.out.sink_calls += 1;
+        }
+        sink
+    }
+
+    fn literal(&mut self, found: Found) {
+        for capture in &mut self.captures {
+            capture.push(found.clone());
+        }
+        let Some(r) = self.reading.last() else {
+            return;
         };
-        let (what, read) = match t {
-            Tok::Str(key)
-                if KEYS.contains(&key.as_str())
-                    && next(1) == Some(&Tok::Punct(':'))
-                    && next(2) != Some(&Tok::Punct(':')) =>
-            {
-                out.fields += 1;
-                (format!("\"{key}\""), span(&toks, i + 2, true))
-            }
-            Tok::Word(name)
-                if sinks.contains(&name.as_str())
-                    && args.is_some()
-                    && !(i > 0 && toks[i - 1].1 == Tok::Word("fn".into())) =>
-            {
-                out.sink_calls += 1;
-                (format!("{name}(…)"), span(&toks, args.unwrap_or(i), false))
-            }
-            // `Refused { reason: "…".into() }`: a struct literal's field.
-            Tok::Word(w)
-                if source
-                    && w == "reason"
-                    && next(1) == Some(&Tok::Punct(':'))
-                    && next(2) != Some(&Tok::Punct(':'))
-                    && struct_field(&toks, i) =>
-            {
-                out.fields += 1;
-                ("reason:".into(), span(&toks, i + 2, true))
-            }
-            // `fn host_reason(…) -> … { … }`: the whole body.
-            Tok::Word(f) if source && f == "fn" => {
-                let Some(Tok::Word(name)) = next(1) else {
-                    continue;
-                };
-                if !fns.contains(&name.as_str()) {
-                    continue;
+        let letters = found.text.chars().any(char::is_alphabetic);
+        let code = r.code_ok && REFUSAL_CODES.contains(&found.text.as_str());
+        if letters && !code && self.seen.insert((found.line, found.column)) {
+            let what = r.what.clone();
+            self.out.hits.push((found.line, what, found.text));
+        }
+    }
+
+    /// A name met where a reason is built or a binding is captured: `bare` is
+    /// a one-segment path, which a local binding may answer for.
+    fn name(&mut self, name: &str, bare: bool) {
+        if self.reading.is_empty() && self.captures.is_empty() {
+            return;
+        }
+        if bare {
+            if let Some(bound) = self.scopes.iter().rev().find_map(|s| s.get(name)) {
+                for found in bound.clone() {
+                    self.literal(found);
                 }
-                let Some(open) = (i + 2..toks.len()).find(|&k| toks[k].1 == Tok::Punct('{')) else {
-                    continue;
-                };
-                out.reason_fns += 1;
-                (format!("fn {name}"), span(&toks, open + 1, false))
+                return;
             }
-            _ => continue,
+        }
+        let consts = Rc::clone(&self.consts);
+        let Some(inits) = consts.get(name) else {
+            return;
         };
-        // A `refusal` key's value may be one of the codes; nothing else may.
-        let code_ok = matches!(t, Tok::Str(key) if key == "refusal");
-        for j in read {
-            if let Some((l, s)) = lit(j) {
-                if letters(s) && !(code_ok && REFUSAL_CODES.contains(&s)) {
-                    hit(l, what.clone(), &mut out);
+        if self.in_const > 8 {
+            return;
+        }
+        self.in_const += 1;
+        // A constant's initializer sees no local binding.
+        let scopes = std::mem::replace(&mut self.scopes, vec![HashMap::new()]);
+        for init in inits {
+            self.visit_expr(init);
+        }
+        self.scopes = scopes;
+        self.in_const -= 1;
+    }
+
+    /// Binds every name in `pat` to `found`; `_` binds nothing, and a bare
+    /// name that is one of this file's constants is that constant, not a new
+    /// binding.
+    fn bind(&mut self, pat: &Pat, found: &[Found]) {
+        match pat {
+            Pat::Ident(p) => {
+                let name = p.ident.to_string();
+                let constant = p.by_ref.is_none()
+                    && p.mutability.is_none()
+                    && p.subpat.is_none()
+                    && self.consts.contains_key(&name);
+                if !constant {
+                    let scope = self
+                        .scopes
+                        .last_mut()
+                        .expect("the scan is always in a scope");
+                    scope.insert(name, found.to_vec());
+                }
+                if let Some((_, sub)) = &p.subpat {
+                    self.bind(sub, found);
                 }
             }
-        }
-    }
-    out
-}
-
-/// Each same-file `const` or `static` whose initializer holds a literal with a
-/// letter in it: its name, and the token of the first such literal.
-fn sentence_consts(toks: &[(usize, Tok)]) -> std::collections::HashMap<&str, usize> {
-    let mut out = std::collections::HashMap::new();
-    for (i, (_, t)) in toks.iter().enumerate() {
-        if !matches!(t, Tok::Word(w) if w == "const" || w == "static") {
-            continue;
-        }
-        let mut k = i + 1;
-        if matches!(toks.get(k), Some((_, Tok::Word(w))) if w == "mut") {
-            k += 1;
-        }
-        // `const NAME:` — not `*const T` or `const fn`.
-        let (Some((_, Tok::Word(name))), Some((_, Tok::Punct(':')))) =
-            (toks.get(k), toks.get(k + 1))
-        else {
-            continue;
-        };
-        let Some(eq) = (k..toks.len()).find(|&m| toks[m].1 == Tok::Punct('=')) else {
-            continue;
-        };
-        if let Some(l) = sentence_in(toks, eq..statement_end(toks, eq)) {
-            out.insert(name.as_str(), l);
-        }
-    }
-    out
-}
-
-/// The `;` that ends the item or statement running from `from`, not one inside
-/// a block initializer; the end of the tokens if there is none.
-fn statement_end(toks: &[(usize, Tok)], from: usize) -> usize {
-    let mut depth = 0i32;
-    (from..toks.len())
-        .find(|&m| match toks[m].1 {
-            Tok::Punct('(' | '[' | '{') => {
-                depth += 1;
-                false
-            }
-            Tok::Punct(')' | ']' | '}') => {
-                depth -= 1;
-                false
-            }
-            Tok::Punct(';') => depth <= 0,
-            _ => false,
-        })
-        .unwrap_or(toks.len())
-}
-
-/// The first literal with a letter in it among `range`.
-fn sentence_in(toks: &[(usize, Tok)], range: std::ops::Range<usize>) -> Option<usize> {
-    range
-        .into_iter()
-        .find(|&m| matches!(&toks[m].1, Tok::Str(s) if s.chars().any(char::is_alphabetic)))
-}
-
-/// A `let` binding of one name (`let why = …;`, `let mut why: String = …;`):
-/// it is in scope from its `;` (`from`) to the `}` that closes its block
-/// (`to`), and `literal` is its initializer's first letter-bearing literal.
-struct Binding<'a> {
-    name: &'a str,
-    from: usize,
-    to: usize,
-    literal: Option<usize>,
-}
-
-/// Every single-name `let` binding with an initializer. Patterns
-/// (`let Some(why) = …`, `let (a, b) = …`) bind nothing this scan reads.
-fn sentence_lets(toks: &[(usize, Tok)]) -> Vec<Binding<'_>> {
-    let mut out = Vec::new();
-    for (i, (_, t)) in toks.iter().enumerate() {
-        if *t != Tok::Word("let".into()) {
-            continue;
-        }
-        let mut k = i + 1;
-        if matches!(toks.get(k), Some((_, Tok::Word(w))) if w == "mut") {
-            k += 1;
-        }
-        let (Some((_, Tok::Word(name))), Some((_, Tok::Punct(':' | '=')))) =
-            (toks.get(k), toks.get(k + 1))
-        else {
-            continue;
-        };
-        let end = statement_end(toks, k);
-        let Some(eq) = (k..end).find(|&m| toks[m].1 == Tok::Punct('=')) else {
-            continue;
-        };
-        let mut depth = 0usize;
-        let to = (end..toks.len())
-            .find(|&m| match toks[m].1 {
-                Tok::Punct('(' | '[' | '{') => {
-                    depth += 1;
-                    false
-                }
-                Tok::Punct(')' | ']' | '}') if depth == 0 => true,
-                Tok::Punct(')' | ']' | '}') => {
-                    depth -= 1;
-                    false
-                }
-                _ => false,
-            })
-            .unwrap_or(toks.len());
-        out.push(Binding {
-            name: name.as_str(),
-            from: end,
-            to,
-            literal: sentence_in(toks, eq..end),
-        });
-    }
-    out
-}
-
-/// Whether the `reason` at `i` is a struct literal's field
-/// (`Refused { from: None, command, reason: … }`): it follows `{` or `,`, past
-/// any attributes on it (`#[allow(…)] reason: …`), and it is not inside a
-/// closure's parameter list (`|from: Phase, reason: &str| …`).
-fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
-    let mut p = i;
-    while p > 0 && toks[p - 1].1 == Tok::Punct(']') {
-        let mut depth = 0usize;
-        let open = (0..p).rev().find(|&q| match toks[q].1 {
-            Tok::Punct(']') => {
-                depth += 1;
-                false
-            }
-            Tok::Punct('[') => {
-                depth -= 1;
-                depth == 0
-            }
-            _ => false,
-        });
-        match open {
-            Some(o) if o > 0 && toks[o - 1].1 == Tok::Punct('#') => p = o - 1,
-            _ => return false,
-        }
-    }
-    if p == 0 || !matches!(toks[p - 1].1, Tok::Punct('{' | ',')) {
-        return false;
-    }
-    // The bracket that holds `reason`: back at its own depth to the opener.
-    let mut depth = 0usize;
-    let holder = (0..p).rev().find(|&k| match toks[k].1 {
-        Tok::Punct(')' | ']' | '}') => {
-            depth += 1;
-            false
-        }
-        Tok::Punct('(' | '[' | '{') if depth > 0 => {
-            depth -= 1;
-            false
-        }
-        Tok::Punct('(' | '[' | '{') => true,
-        _ => false,
-    });
-    !closure_list_open(toks, holder.map_or(0, |h| h + 1), p)
-}
-
-/// Whether a closure's parameter list is still open at `to`, reading `from..to`
-/// at its own depth from left to right. A `|` after a token a closure can
-/// follow opens a list ([`closure_opens`]) and the next `|` closes it
-/// (`|x: u8,|`); `||` is the operator or an empty list and opens none; any
-/// other `|` (`a | b`, `'x' | m`, `1. | m`, `f() | g`) is the operator. So
-/// where it cannot tell, the list stays closed and the field is read.
-fn closure_list_open(toks: &[(usize, Tok)], from: usize, to: usize) -> bool {
-    let (mut depth, mut open, mut k) = (0usize, false, from);
-    while k < to {
-        match toks[k].1 {
-            Tok::Punct('(' | '[' | '{') => depth += 1,
-            Tok::Punct(')' | ']' | '}') => depth = depth.saturating_sub(1),
-            Tok::Punct('|') if depth == 0 && open => open = false,
-            Tok::Punct('|')
-                if depth == 0 && toks.get(k + 1).map(|(_, t)| t) == Some(&Tok::Punct('|')) =>
-            {
-                k += 1;
-            }
-            Tok::Punct('|') if depth == 0 => open = closure_opens(toks, k),
+            Pat::Or(p) => p.cases.iter().for_each(|c| self.bind(c, found)),
+            Pat::Paren(p) => self.bind(&p.pat, found),
+            Pat::Reference(p) => self.bind(&p.pat, found),
+            Pat::Slice(p) => p.elems.iter().for_each(|e| self.bind(e, found)),
+            Pat::Struct(p) => p.fields.iter().for_each(|f| self.bind(&f.pat, found)),
+            Pat::Tuple(p) => p.elems.iter().for_each(|e| self.bind(e, found)),
+            Pat::TupleStruct(p) => p.elems.iter().for_each(|e| self.bind(e, found)),
+            Pat::Type(p) => self.bind(&p.pat, found),
             _ => {}
         }
-        k += 1;
     }
-    open
+
+    /// Every literal `f` meets, counting nothing and reporting nothing.
+    fn literals_in(&mut self, f: impl FnOnce(&mut Self)) -> Vec<Found> {
+        let reading = std::mem::take(&mut self.reading);
+        self.in_const += 1;
+        self.captures.push(Vec::new());
+        f(self);
+        let got = self.captures.pop().unwrap_or_default();
+        self.in_const -= 1;
+        self.reading = reading;
+        got
+    }
+
+    /// The literals `e`'s value can be, which is what a binding of it stands
+    /// for: a literal; every literal of a macro (`format!`'s text); what a
+    /// name stands for; and through a conversion's receiver (`.into()`), a
+    /// call's arguments (`Some(…)`), a block's or branch's result, `+`, an
+    /// array or tuple, `&`, `?` and casts. Not a method's arguments
+    /// (`map.remove("key")`), a closure, or a `match` scrutinee, which pick a
+    /// value rather than become one.
+    fn value(&mut self, e: &Expr) -> Vec<Found> {
+        match e {
+            Expr::Lit(l) => found(&l.lit).into_iter().collect(),
+            Expr::Macro(m) => self.literals_in(|s| s.tokens(m.mac.tokens.clone())),
+            Expr::Path(_) => self.literals_in(|s| s.visit_expr(e)),
+            Expr::MethodCall(m) => self.value(&m.receiver),
+            Expr::Call(c) => c.args.iter().flat_map(|a| self.value(a)).collect(),
+            Expr::Block(b) => self.block_value(&b.block),
+            Expr::Unsafe(b) => self.block_value(&b.block),
+            Expr::Const(b) => self.block_value(&b.block),
+            Expr::If(i) => {
+                let mut out = self.block_value(&i.then_branch);
+                if let Some((_, other)) = &i.else_branch {
+                    out.extend(self.value(other));
+                }
+                out
+            }
+            Expr::Match(m) => {
+                let scrutinee = self.value(&m.expr);
+                let mut out = Vec::new();
+                for arm in &m.arms {
+                    self.scopes.push(HashMap::new());
+                    self.bind(&arm.pat, &scrutinee);
+                    out.extend(self.value(&arm.body));
+                    self.scopes.pop();
+                }
+                out
+            }
+            Expr::Binary(b) if matches!(b.op, syn::BinOp::Add(_)) => {
+                let mut out = self.value(&b.left);
+                out.extend(self.value(&b.right));
+                out
+            }
+            Expr::Array(a) => a.elems.iter().flat_map(|x| self.value(x)).collect(),
+            Expr::Tuple(t) => t.elems.iter().flat_map(|x| self.value(x)).collect(),
+            Expr::Paren(p) => self.value(&p.expr),
+            Expr::Group(g) => self.value(&g.expr),
+            Expr::Reference(r) => self.value(&r.expr),
+            Expr::Cast(c) => self.value(&c.expr),
+            Expr::Try(t) => self.value(&t.expr),
+            Expr::Await(a) => self.value(&a.base),
+            Expr::Unary(u) => self.value(&u.expr),
+            _ => Vec::new(),
+        }
+    }
+
+    /// A block's [`value`](Self::value): its last expression's, with the
+    /// block's own `let`s bound.
+    fn block_value(&mut self, b: &syn::Block) -> Vec<Found> {
+        self.scopes.push(HashMap::new());
+        let mut out = Vec::new();
+        for stmt in &b.stmts {
+            match stmt {
+                syn::Stmt::Local(l) => {
+                    let bound = match &l.init {
+                        Some(init) => self.value(&init.expr),
+                        None => Vec::new(),
+                    };
+                    self.bind(&l.pat, &bound);
+                }
+                syn::Stmt::Expr(e, None) => out = self.value(e),
+                _ => {}
+            }
+        }
+        self.scopes.pop();
+        out
+    }
+
+    fn function(&mut self, sig: &syn::Signature, body: &syn::Block) {
+        // A function sees no local binding of the body it is declared in.
+        let scopes = std::mem::replace(&mut self.scopes, vec![HashMap::new()]);
+        for input in &sig.inputs {
+            if let syn::FnArg::Typed(t) = input {
+                self.bind(&t.pat, &[]);
+            }
+        }
+        let name = sig.ident.to_string();
+        if self.source && REASON_FNS.iter().any(|(_, f)| *f == name) {
+            if self.counting() {
+                self.out.reason_fns.push(name.clone());
+            }
+            self.read(format!("fn {name}"), false, |s| s.visit_block(body));
+        } else {
+            self.visit_block(body);
+        }
+        self.scopes = scopes;
+    }
+
+    /// A macro's tokens: as comma-separated expressions where they parse
+    /// (`format!`, `vec!`, `assert!`), else piece by piece between commas, a
+    /// `"reason": value` piece (a `json!` body) read as a key field.
+    fn tokens(&mut self, ts: TokenStream) {
+        if let Ok(args) = Punctuated::<Expr, Token![,]>::parse_terminated.parse2(ts.clone()) {
+            for arg in &args {
+                self.visit_expr(arg);
+            }
+            return;
+        }
+        let toks: Vec<TokenTree> = ts.into_iter().collect();
+        for piece in toks.split(|t| matches!(t, TokenTree::Punct(p) if p.as_char() == ',')) {
+            if let [TokenTree::Literal(key), TokenTree::Punct(colon), value @ ..] = piece {
+                if colon.as_char() == ':' && colon.spacing() == Spacing::Alone {
+                    if let Ok(Lit::Str(k)) =
+                        syn::parse2::<Lit>(TokenTree::Literal(key.clone()).into())
+                    {
+                        let k = k.value();
+                        if KEYS.contains(&k.as_str()) {
+                            self.piece(&piece[..1]);
+                            if self.counting() {
+                                self.out.fields += 1;
+                            }
+                            let code_ok = k == "refusal";
+                            self.read(format!("\"{k}\""), code_ok, |s| s.piece(value));
+                            continue;
+                        }
+                    }
+                }
+            }
+            self.piece(piece);
+        }
+    }
+
+    /// Tokens that may be one expression; otherwise their groups, literals
+    /// and names one by one.
+    fn piece(&mut self, toks: &[TokenTree]) {
+        if let Ok(e) = syn::parse2::<Expr>(toks.iter().cloned().collect()) {
+            self.visit_expr(&e);
+            return;
+        }
+        let punct = |k: Option<usize>, c: char| matches!(k.and_then(|k| toks.get(k)), Some(TokenTree::Punct(p)) if p.as_char() == c);
+        for (i, t) in toks.iter().enumerate() {
+            match t {
+                TokenTree::Group(g) => self.tokens(g.stream()),
+                TokenTree::Literal(l) => {
+                    if let Ok(lit) = syn::parse2::<Lit>(TokenTree::Literal(l.clone()).into()) {
+                        self.visit_lit(&lit);
+                    }
+                }
+                TokenTree::Ident(id) => {
+                    // A member (`x.why`) or a path's head (`Phase::`) is not a name.
+                    let member = punct(i.checked_sub(1), '.');
+                    let head = punct(Some(i + 1), ':') && punct(Some(i + 2), ':');
+                    if member || head {
+                        continue;
+                    }
+                    let mut path = vec![id.to_string()];
+                    let mut k = i;
+                    while k >= 3 && punct(Some(k - 1), ':') && punct(Some(k - 2), ':') {
+                        let TokenTree::Ident(seg) = &toks[k - 3] else {
+                            break;
+                        };
+                        path.push(seg.to_string());
+                        k -= 3;
+                    }
+                    if !path.iter().any(|s| s == "copy") {
+                        self.name(&id.to_string(), path.len() == 1);
+                    }
+                }
+                TokenTree::Punct(_) => {}
+            }
+        }
+    }
 }
 
-/// Whether the `|` at `k` comes after a token a closure can follow, and so
-/// opens its parameter list: `= ( [ { , ; : & |` or `=>` (`f(|x| …)`,
-/// `&|x| …`, `|a| |b| …`), `move`, `async`, `return` or `break`, a label
-/// (`break 'l |x| …`), or an attribute (`#[allow(…)] |x| …`). Nothing else
-/// does, so an operand this cannot name leaves the `|` an operator.
-fn closure_opens(toks: &[(usize, Tok)], k: usize) -> bool {
-    let Some(b) = k.checked_sub(1) else {
-        return true;
-    };
-    let at = |m: Option<usize>| m.map(|m| &toks[m].1);
-    match &toks[b].1 {
-        Tok::Punct('=' | '(' | '[' | '{' | ',' | ';' | ':' | '&' | '|') => true,
-        Tok::Punct('>') => at(b.checked_sub(1)) == Some(&Tok::Punct('=')),
-        Tok::Word(w) if matches!(w.as_str(), "move" | "async" | "return" | "break") => true,
-        Tok::Word(_) => {
-            at(b.checked_sub(1)) == Some(&Tok::Punct('\''))
-                && at(b.checked_sub(2)) == Some(&Tok::Word("break".into()))
+impl<'ast> Visit<'ast> for Scanner<'_> {
+    // Doc comments and `#[allow(…)]` are not sentences anyone is sent.
+    fn visit_attribute(&mut self, _: &'ast syn::Attribute) {}
+
+    fn visit_lit(&mut self, lit: &'ast Lit) {
+        if let Some(f) = found(lit) {
+            self.literal(f);
         }
-        Tok::Punct(']') => {
-            let mut depth = 0usize;
-            let open = (0..=b).rev().find(|&q| match toks[q].1 {
-                Tok::Punct(']') => {
-                    depth += 1;
-                    false
-                }
-                Tok::Punct('[') => {
-                    depth -= 1;
-                    depth == 0
-                }
-                _ => false,
+    }
+
+    fn visit_expr_path(&mut self, p: &'ast syn::ExprPath) {
+        let segments = &p.path.segments;
+        if !segments.iter().any(|s| s.ident == "copy") {
+            if let Some(last) = segments.last() {
+                let bare =
+                    segments.len() == 1 && p.path.leading_colon.is_none() && p.qself.is_none();
+                self.name(&last.ident.to_string(), bare);
+            }
+        }
+        visit::visit_expr_path(self, p);
+    }
+
+    fn visit_block(&mut self, b: &'ast syn::Block) {
+        self.scopes.push(HashMap::new());
+        visit::visit_block(self, b);
+        self.scopes.pop();
+    }
+
+    fn visit_local(&mut self, l: &'ast syn::Local) {
+        let mut found = Vec::new();
+        if let Some(init) = &l.init {
+            self.visit_expr(&init.expr);
+            found = self.value(&init.expr);
+            if let Some((_, diverge)) = &init.diverge {
+                self.visit_expr(diverge);
+            }
+        }
+        self.bind(&l.pat, &found);
+    }
+
+    fn visit_item_fn(&mut self, f: &'ast syn::ItemFn) {
+        self.function(&f.sig, &f.block);
+    }
+
+    fn visit_impl_item_fn(&mut self, f: &'ast syn::ImplItemFn) {
+        self.function(&f.sig, &f.block);
+    }
+
+    fn visit_trait_item_fn(&mut self, f: &'ast syn::TraitItemFn) {
+        if let Some(body) = &f.default {
+            self.function(&f.sig, body);
+        }
+    }
+
+    fn visit_expr_closure(&mut self, c: &'ast syn::ExprClosure) {
+        self.scopes.push(HashMap::new());
+        for input in &c.inputs {
+            self.bind(input, &[]);
+        }
+        self.visit_expr(&c.body);
+        self.scopes.pop();
+    }
+
+    fn visit_expr_match(&mut self, m: &'ast syn::ExprMatch) {
+        self.visit_expr(&m.expr);
+        let found = self.value(&m.expr);
+        for arm in &m.arms {
+            self.scopes.push(HashMap::new());
+            self.bind(&arm.pat, &found);
+            self.visit_pat(&arm.pat);
+            if let Some((_, guard)) = &arm.guard {
+                self.visit_expr(guard);
+            }
+            self.visit_expr(&arm.body);
+            self.scopes.pop();
+        }
+    }
+
+    fn visit_expr_if(&mut self, i: &'ast syn::ExprIf) {
+        // An `if let` binds for the condition's rest and the `then` block.
+        self.scopes.push(HashMap::new());
+        self.visit_expr(&i.cond);
+        self.visit_block(&i.then_branch);
+        self.scopes.pop();
+        if let Some((_, other)) = &i.else_branch {
+            self.visit_expr(other);
+        }
+    }
+
+    fn visit_expr_while(&mut self, w: &'ast syn::ExprWhile) {
+        self.scopes.push(HashMap::new());
+        self.visit_expr(&w.cond);
+        self.visit_block(&w.body);
+        self.scopes.pop();
+    }
+
+    fn visit_expr_let(&mut self, l: &'ast syn::ExprLet) {
+        self.visit_expr(&l.expr);
+        let found = self.value(&l.expr);
+        self.bind(&l.pat, &found);
+        self.visit_pat(&l.pat);
+    }
+
+    fn visit_expr_for_loop(&mut self, f: &'ast syn::ExprForLoop) {
+        self.visit_expr(&f.expr);
+        let found = self.value(&f.expr);
+        self.scopes.push(HashMap::new());
+        self.bind(&f.pat, &found);
+        self.visit_block(&f.body);
+        self.scopes.pop();
+    }
+
+    fn visit_expr_call(&mut self, c: &'ast syn::ExprCall) {
+        self.visit_expr(&c.func);
+        let name = match &*c.func {
+            Expr::Path(p) => p.path.segments.last().map(|s| s.ident.to_string()),
+            _ => None,
+        };
+        match name {
+            Some(name) if self.sink(&name) => self.read(format!("{name}(…)"), false, |s| {
+                c.args.iter().for_each(|a| s.visit_expr(a));
+            }),
+            _ => c.args.iter().for_each(|a| self.visit_expr(a)),
+        }
+    }
+
+    fn visit_expr_method_call(&mut self, m: &'ast syn::ExprMethodCall) {
+        self.visit_expr(&m.receiver);
+        let name = m.method.to_string();
+        if self.sink(&name) {
+            self.read(format!(".{name}(…)"), false, |s| {
+                m.args.iter().for_each(|a| s.visit_expr(a));
             });
-            matches!(open, Some(o) if at(o.checked_sub(1)) == Some(&Tok::Punct('#')))
+        } else {
+            m.args.iter().for_each(|a| self.visit_expr(a));
         }
-        _ => false,
+    }
+
+    fn visit_expr_struct(&mut self, s: &'ast syn::ExprStruct) {
+        for field in &s.fields {
+            let reason = matches!(&field.member, Member::Named(n) if n == "reason");
+            if self.source && reason {
+                if self.counting() {
+                    self.out.fields += 1;
+                }
+                self.read("reason:".into(), false, |sc| sc.visit_expr(&field.expr));
+            } else {
+                self.visit_expr(&field.expr);
+            }
+        }
+        if let Some(rest) = &s.rest {
+            self.visit_expr(rest);
+        }
+    }
+
+    fn visit_macro(&mut self, m: &'ast syn::Macro) {
+        let name = m
+            .path
+            .segments
+            .last()
+            .map(|s| s.ident.to_string())
+            .unwrap_or_default();
+        if self.sink(&name) {
+            self.read(format!("{name}!(…)"), false, |s| {
+                s.tokens(m.tokens.clone())
+            });
+        } else {
+            self.tokens(m.tokens.clone());
+        }
     }
 }
 
@@ -647,9 +748,9 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
         .map(|f| (f, false))
         .chain(srcs.iter().map(|f| (f, true)));
     for ((name, text), is_source) in read {
-        let s = scan(text, &sinks_for(name, is_source), is_source, &fns_for(name));
+        let s = scan(text, &sinks_for(name, is_source), is_source);
         fields += s.fields;
-        reason_fns += s.reason_fns;
+        reason_fns += s.reason_fns.len();
         if is_source {
             source_calls += s.sink_calls;
         } else {
@@ -661,7 +762,7 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
                 .map(|(line, what, lit)| format!("src/{name}:{line} {what}: {lit:?}")),
         );
     }
-    // Floors against a tokenizer that silently matches nothing: PQ-60 left 14
+    // Floors against a scan that silently matches nothing: PQ-60 left 14
     // such fields and 8 `refused` calls in server/ and connections/, and over
     // 20 refusal calls in the three sources.
     assert!(
@@ -676,9 +777,9 @@ fn no_route_sends_a_sentence_that_is_not_in_the_copy_module() {
         source_calls >= 15,
         "read only {source_calls} calls to {SOURCE_SINKS:?} or {FORMAT_SINKS:?} in {REASON_SOURCES:?}"
     );
-    // PQ-85: every pinned body, each in its own file.
+    // PQ-84: five such bodies (host_reason, check_shape, and three `refusal`s).
     assert!(
-        reason_fns >= REASON_FNS.len(),
+        reason_fns >= 4,
         "read only {reason_fns} bodies of {REASON_FNS:?}"
     );
     assert!(
@@ -708,11 +809,13 @@ fn every_reason_fn_is_still_a_function_the_scan_can_see() {
     // namesake in another file must not stand in for it (PQ-85).
     let srcs = sources();
     for (file, f) in REASON_FNS {
-        let decl = format!("fn {f}(");
-        assert!(
-            srcs.iter().any(|(n, t)| n == file && t.contains(&decl)),
-            "{decl} is gone from src/{file}; update REASON_FNS"
-        );
+        let read = srcs.iter().filter(|(n, _)| n == file).any(|(n, t)| {
+            scan(t, &sinks_for(n, true), true)
+                .reason_fns
+                .iter()
+                .any(|g| g == f)
+        });
+        assert!(read, "fn {f} is gone from src/{file}; update REASON_FNS");
     }
 }
 
@@ -733,21 +836,16 @@ fn every_refusal_code_is_still_sent() {
 // the rule's reach is pinned here and not only in a reverted edit.
 
 fn flags(src: &str) -> Vec<String> {
-    scan(src, REASON_SINKS, false, &[])
+    scan(src, REASON_SINKS, false)
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
         .collect()
 }
 
-/// Every [`REASON_FNS`] name, for text read as though it were each file.
-fn all_fns() -> Vec<&'static str> {
-    REASON_FNS.iter().map(|(_, f)| *f).collect()
-}
-
 /// [`flags`] as the scan reads a [`FORMAT_SOURCES`] file, the strictest.
 fn source_flags(src: &str) -> Vec<String> {
-    scan(src, &sinks_for(FORMAT_SOURCES[0], true), true, &all_fns())
+    scan(src, &sinks_for(FORMAT_SOURCES[0], true), true)
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
@@ -757,8 +855,7 @@ fn source_flags(src: &str) -> Vec<String> {
 /// [`flags`] as the scan reads `phase.rs`: a source, but not a
 /// [`FORMAT_SOURCES`] file, so a bare `format!` there is not a sink.
 fn phase_flags(src: &str) -> Vec<String> {
-    let name = "quiz_session/models/phase.rs";
-    scan(src, &sinks_for(name, true), true, &fns_for(name))
+    scan(src, &sinks_for("quiz_session/models/phase.rs", true), true)
         .hits
         .into_iter()
         .map(|(_, _, lit)| lit)
@@ -777,7 +874,7 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
         ["has {dnc} options; it needs one"]
     );
     assert_eq!(
-        source_flags(r#".ok_or_else(|| RoomError::Refused("No question.".into()))?;"#),
+        source_flags(r#"q.ok_or_else(|| RoomError::Refused("No question.".into()))?;"#),
         ["No question."]
     );
     assert_eq!(
@@ -831,10 +928,13 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
         }
         return refuse(&id, copy::LOAD_NO_VERIFIED);
         return Err(RoomError::Refused(copy::ROOM_NOTHING_SCHEDULED.into()));
-        Err(RoomError::Refused(why)) => refused(StatusCode::CONFLICT, why),
+        match r { Err(RoomError::Refused(why)) => refused(StatusCode::CONFLICT, why), _ => todo!() };
         pub struct Refused { pub from: Option<Phase>, pub command: Command, pub reason: String }
         let refuse = |reason: String| Refused { from: Some(phase), command, reason };
-        Command::Host(_) => Err(Refused { from: None, command, reason: copy::HOST_REFUSED_NO_ROOM_YET.into() }),
+        match command {
+            Command::Host(_) => Err(Refused { from: None, command, reason: copy::HOST_REFUSED_NO_ROOM_YET.into() }),
+            _ => todo!(),
+        };
         pub fn host_reason(self) -> &'static str {
             match self { Ended::Expired => copy::HOST_ENDED_EXPIRED, Ended::Inactive => copy::HOST_ENDED_INACTIVE }
         }
@@ -845,22 +945,11 @@ fn the_scan_fails_a_sentence_written_in_a_reason_source() {
     // affirmation.rs's digest is not a reason: outside the FORMAT_SOURCES a
     // bare `format!` passes, and one inside `refuse(…)` still fails.
     let affirmation = sinks_for("quiz_session/models/affirmation.rs", true);
-    let affirmation_fns = fns_for("quiz_session/models/affirmation.rs");
     let digest =
         r#"let hex: String = bytes.map(|b| format!("{b:02x}")).collect(); format!("sha256:{hex}")"#;
-    assert_eq!(
-        scan(digest, &affirmation, true, &affirmation_fns)
-            .hits
-            .len(),
-        0
-    );
+    assert_eq!(scan(digest, &affirmation, true).hits.len(), 0);
     let inside = r#"Err(refuse(format!("{} is not ready.", id)))"#;
-    assert_eq!(
-        scan(inside, &affirmation, true, &affirmation_fns)
-            .hits
-            .len(),
-        1
-    );
+    assert_eq!(scan(inside, &affirmation, true).hits.len(), 1);
 }
 
 #[test]
@@ -952,14 +1041,14 @@ fn the_scan_passes_constants_slugs_comments_and_the_helper_itself() {
         refused(StatusCode::BAD_REQUEST, copy::admin_bank_order_not_indexes(id));
         Json(serde_json::json!({ "id": id, "scheduled": "new" }));
     "#;
-    let s = scan(clean, REASON_SINKS, false, &[]);
+    let s = scan(clean, REASON_SINKS, false);
     assert_eq!(s.hits, Vec::<(usize, String, String)>::new());
     assert_eq!((s.fields, s.sink_calls), (5, 1));
 }
 
 #[test]
 fn the_scan_reads_the_shapes_the_pq84_review_found() {
-    // Gap 1: an attribute on a `reason:` field does not hide it.
+    // Gap 1: an attribute on a `reason` field does not hide it.
     assert_eq!(
         source_flags(
             r#"Err(Refused { from: None, command, #[allow(unused)] reason: "No room yet.".into() })"#
@@ -971,21 +1060,12 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         ["No."]
     );
     // Gap 2: a closure's parameter named `reason` is not a field, and its body
-    // is not a field's value; a field whose value holds a closure still is.
-    assert_eq!(
-        phase_flags(r#"let note = |from: Phase, reason: &str| format!("{from:?}: {reason}");"#),
-        Vec::<String>::new()
-    );
-    assert_eq!(
-        phase_flags(
-            r#"Refused { from: None, reason: why.map_or_else(|| "No room yet.".into(), |w| w), command }"#
-        ),
-        ["No room yet."]
-    );
-    // `|` and `||` as operators, in its value or an earlier field's, and a
-    // closure that has closed before it, open no parameter list; a closure
-    // passed to a call or held in a field still does.
+    // is not a field's value, however it is written or wherever it sits; a
+    // field whose value holds a closure is still read, whatever the fields
+    // before it hold. Every shape here is one a token scan got wrong
+    // (PQ-85's review passes 1 to 5).
     for field in [
+        r#"Refused { from: None, reason: why.map_or_else(|| "No room yet.".into(), |w| w), command }"#,
         r#"Refused { from: None, reason: if a || b { "No room yet.".into() } else { copy::X.into() }, command }"#,
         r#"Refused { from: None, reason: if a | b { "No room yet.".into() } else { copy::X.into() }, command }"#,
         r#"Refused { from: None, reason: match flags | mask { 0 => "No room yet.".into(), _ => copy::X.into() } }"#,
@@ -998,18 +1078,21 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         r#"Refused { from: 'x' | Mask, reason: "No room yet.".into() }"#,
         r#"Refused { from: '\'' | Mask, note: b'x' | m, reason: "No room yet.".into() }"#,
         r#"Refused { from: 1. | Mask, note: v[0] | m, reason: "No room yet.".into() }"#,
+        r#"Refused { from: &mut |x: u8,| x, reason: "No room yet.".into() }"#,
+        r#"Refused { from: match (|x: u8,| x) { _ => 0 }, reason: "No room yet.".into() }"#,
     ] {
         assert_eq!(phase_flags(field), ["No room yet."], "{field}");
     }
     for closure in [
+        r#"let note = |from: Phase, reason: &str| format!("{from:?}: {reason}");"#,
         r#"let n = f(|from: Phase, reason: &str| format!("{from:?}: {reason}"));"#,
         r#"Holder { f: |from: Phase, reason: &str| format!("{from:?}: {reason}") }"#,
         r#"let n = move |from: Phase, reason: &str| format!("{from:?}: {reason}");"#,
         r#"let n = &|from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}");"#,
+        r#"let n = &mut |from: u8, reason: &str| format!("{from}: {reason}");"#,
         r#"let n = async move |from: u8, reason: &str| format!("{from}: {reason}");"#,
         r#"let n = |a: u8| |from: u8, reason: &str| format!("{a}{from}: {reason}");"#,
         r#"let n = f(|x: u8,| x, |from: u8, reason: &str| format!("{from}: {reason}"));"#,
-        r#"let n = f(#[allow(unused)] |from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}"));"#,
         r#"let n = 'l: { break 'l |from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}"); };"#,
     ] {
         assert_eq!(phase_flags(closure), Vec::<String>::new(), "{closure}");
@@ -1045,7 +1128,8 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
     ] {
         assert_eq!(phase_flags(range), ["No room yet."], "{range}");
     }
-    // Gap 5: a `let` binding is read as its literal where the scan reads it.
+    // Gap 5: a local binding is read as the literals it was bound from, where
+    // the scan reads it: a `let`, or a pattern that destructures a literal.
     assert_eq!(
         phase_flags(
             r#"let why = format!("{phase:?} does not step the trace."); return Err(refuse(why));"#
@@ -1056,14 +1140,32 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         flags(r#"let mut why: &str = "No."; refused(s, why)"#),
         ["No."]
     );
-    // Only in its block and until a clean binding shadows it; a field or
-    // method of that name is not the binding; one with no letter, or used
-    // nowhere a reason is built, passes.
+    assert_eq!(
+        phase_flags(r#"let why = "No room yet."; Refused { from: None, command, reason: why }"#),
+        ["No room yet."]
+    );
+    assert_eq!(
+        phase_flags(
+            r#"let reason = "No room yet.".to_string(); Refused { from: None, command, reason }"#
+        ),
+        ["No room yet."]
+    );
+    assert_eq!(flags(r#"for why in ["No."] { refused(s, why); }"#), ["No."]);
+    // Only in its block and until another binding shadows it, whether a
+    // `let` or a pattern's; a field, member or label of that name is not the
+    // binding; `_` binds nothing; one with no letter, or used nowhere a reason
+    // is built, passes.
     let clean = r#"
         { let why = "No."; }
         refused(s, why);
         let why = "No."; let why = copy::NO; refused(s, why);
+        let why = "No."; for why in [copy::A] { refused(s, why); }
+        let why = "No."; match r { Err(why) => refused(s, why), _ => todo!() };
+        let why = "No."; if let Some(why) = opt { refused(s, why); }
+        let why = "No."; let f = |why: &str| refused(s, why);
+        let why = "No."; refused(s, Note { why: copy::A });
         let label = "Reveal"; refused(s, copy::not_next(x.label));
+        let _ = "No."; refused(s, match x { Some(_) => copy::A, _ => copy::B });
         let n = format!("{}", 3); refused(s, n);
         let hex = format!("sha256:{hex}"); digest(hex);
     "#;
