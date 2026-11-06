@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 7,
+  "comment_count": 9,
   "complexity": null,
   "created_at": "2026-10-28T20:51:11Z",
   "created_by": "agent:claude",
@@ -21,14 +21,14 @@
     }
   ],
   "id": "task_01M624FXP7ZGAJR2PR1KN9KRPV",
-  "last_event_id": "ev_01M6R51Z3XTNPFJRDMXXZ6Y8FZ",
-  "last_status_changed_at": "2026-11-06T08:35:39Z",
+  "last_event_id": "ev_01M6REJD9546RGBPWV9N092BDQ",
+  "last_status_changed_at": "2026-11-06T12:27:16Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-80",
-  "status": "in_progress",
+  "status": "needs_human",
   "tags": [
     "feature",
     "room",
@@ -37,6 +37,6 @@
   ],
   "title": "Organizer schedules the question from the host page (browser scheduling)",
   "type": "task",
-  "updated_at": "2026-11-06T10:04:19Z",
+  "updated_at": "2026-11-06T12:50:35Z",
   "urgency": null
 }
