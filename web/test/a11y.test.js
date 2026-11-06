@@ -776,6 +776,41 @@ test('ac83_host: sign in, the pick and a refused create say nothing', async () =
   }
 });
 
+// AC-82 on the picker: *Create a room* refused, the list is asked for again,
+// and it comes back with nothing to pick, or not at all. *Create a room* and
+// the radios are gone then, so the focus they had goes to Reload, the one
+// control left, never to <body> (Codex review P2).
+test('ac82_host: a refused create whose list comes back empty or failed hands the focus to Reload', async () => {
+  const after = {
+    empty: () => ({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: [] })) }),
+    failed: () => ({ ok: false, status: 503, statusText: 'Service Unavailable', text: () => Promise.resolve('') }),
+  };
+  for (const [name, second] of Object.entries(after)) {
+    const { win, doc, el } = hostWindow('/host');
+    win.location.search = '?question=q7';
+    const fetch = win.fetch;
+    let lists = 0;
+    win.fetch = (url, init) => (url === '/organizer/questions'
+      ? Promise.resolve(lists++ === 0
+        ? { ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: PICK })) }
+        : second())
+      : fetch(url, init));
+    H.boot(win);
+    await settle(); await settle();
+    const create = el.querySelector('[data-primary]');
+    assert.ok(create && !create.disabled, `${name}: q7 is preselected and Create a room is enabled`);
+    userFocus(create);
+    click(el, create);
+    for (let i = 0; i < 6; i++) await settle();
+    assert.equal(lists, 2, `${name}: the list was asked for again after the refusal`);
+    assert.equal(el.querySelector('[data-primary]'), null, `${name}: nothing to create`);
+    const reload = el.querySelector('[data-reload]');
+    assert.ok(reload, `${name}: Reload is on screen`);
+    assert.equal(doc.activeElement, reload, `${name}: Reload has the focus`);
+    restoredWithoutScroll(doc, `host, refused then ${name}`);
+  }
+});
+
 test('ac83_home: a trace step is said in words; opening the page and a step past the end say nothing', () => {
   const said = [];
   homeEnv.PQ.announce = (t) => said.push(t);
