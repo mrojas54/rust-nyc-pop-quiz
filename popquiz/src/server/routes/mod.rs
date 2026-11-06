@@ -3,6 +3,7 @@
 //! | Route | What |
 //! |---|---|
 //! | `POST /rooms` `{question_id}` | *Create a room*; `HostAuth::authorize_create` (Discord, T-10) |
+//! | `GET /organizer/questions?club=` | the club's questions a create would accept today, `id` and `topic` only (§8.5); `authorize_create` |
 //! | `POST /rooms/{id}/<action>` | one per host action and `←`/`→`; the host session |
 //! | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; `authorize_create`, same organizer |
 //! | `GET /rooms/{id}/wall`, `/buzzer` | the public state query |
@@ -25,7 +26,7 @@ mod wall;
 
 use connections::session_routes;
 pub use host::host_routes;
-use host::{act, create, discord_routes, run_again};
+use host::{act, create, discord_routes, organizer_questions, run_again};
 pub(crate) use pipeline::admin_routes;
 use wall::wall_pages;
 
@@ -94,7 +95,10 @@ async fn show(state: Arc<AppState>, id: String, headers: HeaderMap, viewer: View
 }
 
 pub(crate) fn routes(state: Arc<AppState>) -> Router {
-    let mut router = Router::new().route("/rooms", post(create));
+    let mut router = Router::new()
+        .route("/rooms", post(create))
+        // SPEC §8.5: the host phone's picker.
+        .route("/organizer/questions", get(organizer_questions));
     router = session_routes(router); // T-04b
     for (command, path) in host_routes() {
         router = match command {

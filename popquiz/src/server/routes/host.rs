@@ -1,5 +1,6 @@
-//! The organizer's routes: create a room, drive it, run it again, sign in with
-//! Discord, and the host phone's page.
+//! The organizer's routes: create a room, drive it, run it again, list the
+//! club's questions for the picker, sign in with Discord, and the host
+//! phone's page.
 
 use std::sync::Arc;
 
@@ -62,6 +63,35 @@ pub(super) async fn create(
     }
 }
 
+/// `GET /organizer/questions?club=<slug>` (SPEC §8.5): the questions the
+/// club can run today, as `id` and `topic` only. The organizer session and
+/// the club's role, exactly as *Create a room* checks them; `no-store` and
+/// `no-referrer` as the host page is served.
+pub(super) async fn organizer_questions(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let club = match club_of(q.get("club").map(String::as_str)) {
+        Ok(club) => club,
+        Err(e) => return failure(e),
+    };
+    match state
+        .shortlist_checked(bearer(&headers), &club, state.now())
+        .await
+    {
+        Ok(questions) => (
+            [
+                (header::CACHE_CONTROL, "no-store"),
+                (header::REFERRER_POLICY, "no-referrer"),
+            ],
+            Json(serde_json::json!({ "questions": questions })),
+        )
+            .into_response(),
+        Err(e) => failure(e),
+    }
+}
+
 pub(super) async fn run_again(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -96,7 +126,7 @@ pub(super) async fn act(
 // T-10 routes --------------------------------------------------------------
 //
 // | `GET /auth/discord?question=<id>` | `303` to Discord's consent screen, scopes `identify guilds.members.read`; sets the `pq_oauth` state cookie |
-// | `GET /auth/discord/callback?code&state` | `303 /host?question=<id>#<organizer session>`; a wrong, replayed or cookieless `state` is `400` with no body |
+// | `GET /auth/discord/callback?code&state` | `303 /host?question=<id>#<organizer session>` (`/host#…` when the link named no question); a wrong, replayed or cookieless `state` is `400` with no body |
 //
 // The `state` is bound twice: a one-time record in the Discord backend and a
 // cookie in the browser that started the sign-in (`HttpOnly`, `SameSite=Lax`
@@ -168,13 +198,22 @@ async fn sign_in(
     }
 }
 
-/// `&club=<slug>` for a club that is not the default; nothing for the default,
-/// so every pre-D-26 link keeps its shape (D-26).
-fn club_param(club: &ClubSlug) -> String {
-    if club.as_str() == crate::club::DEFAULT_CLUB {
-        String::new()
+/// Where a sign-in lands: `/host`, with `question=<id>` when the host link
+/// named one, and `club=<slug>` for a club that is not the default, so every
+/// pre-D-26 link keeps its shape (D-26). No question is the bare host page,
+/// which offers the club's scheduled questions (SPEC §8.5).
+fn host_landing(question: &str, club: &ClubSlug) -> String {
+    let mut params = Vec::new();
+    if !question.is_empty() {
+        params.push(format!("question={question}"));
+    }
+    if club.as_str() != crate::club::DEFAULT_CLUB {
+        params.push(format!("club={club}"));
+    }
+    if params.is_empty() {
+        "/host".to_string()
     } else {
-        format!("&club={club}")
+        format!("/host?{}", params.join("&"))
     }
 }
 
@@ -204,16 +243,13 @@ async fn signed_in(
     match finish {
         Finish::Refused => StatusCode::BAD_REQUEST.into_response(),
         Finish::Unavailable => StatusCode::SERVICE_UNAVAILABLE.into_response(),
-        Finish::Declined { question, club } => see_other(
-            &format!("/host?question={question}{}", club_param(&club)),
-            spent,
-        ),
+        Finish::Declined { question, club } => see_other(&host_landing(&question, &club), spent),
         Finish::SignedIn {
             question,
             club,
             session,
         } => see_other(
-            &format!("/host?question={question}{}#{session}", club_param(&club)),
+            &format!("{}#{session}", host_landing(&question, &club)),
             spent,
         ),
     }

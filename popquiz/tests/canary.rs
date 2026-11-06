@@ -996,7 +996,7 @@ async fn the_binary_logs_no_admin_token() {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
 
-    let record = canary_question();
+    let record = dated(canary_question());
     let pushed = tcp_request(
         addr,
         "PUT",

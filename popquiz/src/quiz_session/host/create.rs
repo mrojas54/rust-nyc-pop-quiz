@@ -12,7 +12,9 @@ use crate::auth::OrganizerId;
 use crate::club::ClubSlug;
 use crate::copy;
 use crate::phase::{Command, HostAction, Phase};
+use crate::used::meetup_date_in;
 
+use super::shortlist::refusal;
 use crate::quiz_session::state_manager::{lock, Entry};
 use crate::quiz_session::{random_bytes, Acted, AppState, Room, RoomError, CODE_ALPHABET};
 
@@ -98,12 +100,20 @@ impl AppState {
         question_id: &str,
         now: SystemTime,
     ) -> Result<Created, RoomError> {
+        let today = meetup_date_in(now, self.clubs.zone_of(club));
         let questions = lock(&self.questions);
         let mut rooms = lock(&self.rooms);
-        if rooms.values().any(|e| e.room.holds(club, question_id, now)) {
-            return Err(RoomError::Refused(
-                copy::ROOM_QUESTION_OPEN_ELSEWHERE.into(),
-            ));
+        // The one check, shared with the host phone's list (SPEC §8.5).
+        if let Some(why) = refusal(
+            &questions,
+            &rooms,
+            &self.used,
+            club,
+            question_id,
+            &today,
+            now,
+        ) {
+            return Err(RoomError::Refused(why));
         }
         // The rooms on this question that ended without release stay ended:
         // the new room is let in on the strength of it.
@@ -115,17 +125,10 @@ impl AppState {
                 entry.room.latched_end = entry.room.ended(now);
             }
         }
-        if self.used.contains(club, question_id) {
-            return Err(RoomError::Refused(copy::ROOM_QUESTION_ALREADY_RUN.into()));
-        }
-        // No fallback to another club's record: it was arranged for another date.
         let question = questions
             .get(&(club.clone(), question_id.to_string()))
-            .cloned()
+            .map(|entry| entry.question.clone())
             .ok_or_else(|| RoomError::Refused(copy::ROOM_NOTHING_SCHEDULED.into()))?;
-        if let Some(why) = question.refusal(question_id) {
-            return Err(RoomError::Refused(why));
-        }
         let ended = lock(&self.ended);
         let code = loop {
             let code = new_code();

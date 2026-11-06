@@ -213,8 +213,9 @@ impl Discord {
 
     /// Start a sign-in for `question`: the `state` (for the cookie) and the
     /// URL of Discord's consent screen. `None` if `question` is not an id.
+    /// An empty `question` is the bare host page's sign-in (SPEC §8.5).
     pub fn begin(&self, question: &str, club: &ClubSlug) -> Option<(String, String)> {
-        if !is_question_id(question) {
+        if !question.is_empty() && !is_question_id(question) {
             return None;
         }
         let inner = &self.inner;

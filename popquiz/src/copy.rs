@@ -395,6 +395,8 @@ pub const ROOM_QUESTION_OPEN_ELSEWHERE: &str =
     "That question is open in another room. Pick another.";
 pub const ROOM_QUESTION_ALREADY_RUN: &str = "That question has already been run. Pick another.";
 pub const ROOM_NOTHING_SCHEDULED: &str = "No question is scheduled with that id.";
+/// SPEC §8.5, R1-a: the record was arranged for another meetup date.
+pub const ROOM_QUESTION_OTHER_DATE: &str = "That question was scheduled for another date.";
 
 /// [`ROOM_RUNNING_CANNOT_REPLACE`] for question `id`.
 pub fn room_running_cannot_replace(id: &str) -> String {

@@ -24,6 +24,16 @@ pub(super) struct Entry {
     pub(super) sessions: Box<dyn Sessions>,
 }
 
+/// A scheduled record and the meetup date the laptop arranged it for (SPEC
+/// §8.5, R1-a). The date is plain metadata beside the sealed record: it is not
+/// the answer slot, and the room arranges nothing with it. `None` for a record
+/// that came in without the admin channel ([`AppState::new`]'s list,
+/// [`AppState::schedule_for`]), which no date gates.
+pub(super) struct ScheduledEntry {
+    pub(super) question: Arc<Scheduled>,
+    pub(super) meetup_date: Option<String>,
+}
+
 pub(super) type SessionFactory = Box<dyn Fn() -> Box<dyn Sessions> + Send + Sync>;
 
 /// Every room on this machine, the questions scheduled into it, and the seams.
@@ -36,7 +46,7 @@ pub struct AppState {
     // D-26: a scheduled record is the question *arranged for one club's
     // meetup date* (the pipeline moves the answer slot by date), so it is kept
     // per club. One club's push never replaces another's.
-    pub(super) questions: Mutex<HashMap<(ClubSlug, String), Arc<Scheduled>>>,
+    pub(super) questions: Mutex<HashMap<(ClubSlug, String), ScheduledEntry>>,
     // T-11: what outlives a room — the used ledger, whose only writer is the
     // release transition (G-10), and the take-it-home snapshot, replaced at
     // every release (§13).
@@ -83,7 +93,10 @@ impl AppState {
                     .map(|q| {
                         (
                             (ClubSlug::default_club(), q.public().id().to_string()),
-                            Arc::new(q),
+                            ScheduledEntry {
+                                question: Arc::new(q),
+                                meetup_date: None,
+                            },
                         )
                     })
                     .collect(),
@@ -244,6 +257,28 @@ impl AppState {
         club: &ClubSlug,
         question: Scheduled,
     ) -> Result<Scheduling, RoomError> {
+        self.schedule_entry(club, question, None)
+    }
+
+    /// [`AppState::schedule_for`] for a record arranged for `meetup_date`
+    /// (YYYY-MM-DD), as the admin channel delivers it (SPEC §8.5, R1-a). The
+    /// room offers it, and makes a room from it, on that date in the club's
+    /// zone only.
+    pub fn schedule_dated(
+        &self,
+        club: &ClubSlug,
+        question: Scheduled,
+        meetup_date: String,
+    ) -> Result<Scheduling, RoomError> {
+        self.schedule_entry(club, question, Some(meetup_date))
+    }
+
+    fn schedule_entry(
+        &self,
+        club: &ClubSlug,
+        question: Scheduled,
+        meetup_date: Option<String>,
+    ) -> Result<Scheduling, RoomError> {
         let id = question.public().id().to_string();
         if let Some(why) = question.refusal(&id) {
             return Err(RoomError::Refused(why));
@@ -263,7 +298,13 @@ impl AppState {
         }
         drop(rooms);
         Ok(
-            match questions.insert((club.clone(), id), Arc::new(question)) {
+            match questions.insert(
+                (club.clone(), id),
+                ScheduledEntry {
+                    question: Arc::new(question),
+                    meetup_date,
+                },
+            ) {
                 None => Scheduling::New,
                 Some(_) => Scheduling::Replaced,
             },

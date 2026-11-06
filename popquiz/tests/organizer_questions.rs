@@ -118,7 +118,12 @@ fn body(record: &Value, date: Option<&str>) -> Value {
 }
 
 /// `PUT /admin/clubs/{club}/questions/{id}`, as `popquiz schedule` sends it.
-async fn push_dated(p: &Pushed, club: &str, record: &Value, date: Option<&str>) -> (StatusCode, Value) {
+async fn push_dated(
+    p: &Pushed,
+    club: &str,
+    record: &Value,
+    date: Option<&str>,
+) -> (StatusCode, Value) {
     let id = record["id"].as_str().unwrap();
     http(
         &p.app,
@@ -133,7 +138,11 @@ async fn push_dated(p: &Pushed, club: &str, record: &Value, date: Option<&str>) 
 /// A push for today's meetup, which must be accepted.
 async fn push(p: &Pushed, club: &str, record: &Value) {
     let (status, body) = push_dated(p, club, record, Some(MEETUP_DATE)).await;
-    assert!(status.is_success(), "push {}: {status} {body}", record["id"]);
+    assert!(
+        status.is_success(),
+        "push {}: {status} {body}",
+        record["id"]
+    );
 }
 
 fn list_uri(club: Option<&str>) -> String {
@@ -144,7 +153,11 @@ fn list_uri(club: Option<&str>) -> String {
 }
 
 /// The listing, raw: status, headers, JSON body (or `Null`).
-async fn list_raw(app: &Router, bearer: Option<&str>, club: Option<&str>) -> (StatusCode, HeaderMap, Value) {
+async fn list_raw(
+    app: &Router,
+    bearer: Option<&str>,
+    club: Option<&str>,
+) -> (StatusCode, HeaderMap, Value) {
     let mut req = Request::builder().method(Method::GET).uri(list_uri(club));
     if let Some(b) = bearer {
         req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
@@ -156,8 +169,14 @@ async fn list_raw(app: &Router, bearer: Option<&str>, club: Option<&str>) -> (St
         .unwrap();
     let status = res.status();
     let headers = res.headers().clone();
-    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20).await.unwrap();
-    (status, headers, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    (
+        status,
+        headers,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 /// The ids [`ORGANIZER`] is offered for `club`; the listing must answer 200.
@@ -313,7 +332,11 @@ async fn auth_discord_down_is_503_not_a_denial() {
         (StatusCode::SERVICE_UNAVAILABLE, Value::Null),
         "an outage is not a denial"
     );
-    assert_eq!(rig.discord.organizer_count(), 1, "an outage signs nobody out");
+    assert_eq!(
+        rig.discord.organizer_count(),
+        1,
+        "an outage signs nobody out"
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -336,7 +359,15 @@ async fn list_is_id_and_topic_only_and_never_cached() {
     assert_eq!(get(header::REFERRER_POLICY), Some("no-referrer"));
     // Belt and braces for the keys check: nothing of the record but the two.
     let text = body.to_string();
-    for absent in ["options", "correct", "stdout", "hint", "why_tempting", "meetup_date", MEETUP_DATE] {
+    for absent in [
+        "options",
+        "correct",
+        "stdout",
+        "hint",
+        "why_tempting",
+        "meetup_date",
+        MEETUP_DATE,
+    ] {
         assert!(!text.contains(absent), "{absent} in {text}");
     }
 }
@@ -348,10 +379,18 @@ async fn list_is_sorted_by_id_and_scoped_to_the_named_club() {
     push(&p, "rustnyc", &q3_json()).await;
     push(&p, "la", &record("q3-la")).await;
     assert_eq!(offered(&p, "rustnyc").await, ["q3", "q3-zeta"]);
-    assert_eq!(offered(&p, "nyc").await, ["q3", "q3-zeta"], "nyc is rustnyc");
+    assert_eq!(
+        offered(&p, "nyc").await,
+        ["q3", "q3-zeta"],
+        "nyc is rustnyc"
+    );
     assert_eq!(offered(&p, "la").await, ["q3-la"]);
     let (status, _, body) = list_raw(&p.app, Some(ORGANIZER), None).await;
-    assert_eq!((status, ids(&body)), (StatusCode::OK, vec!["q3".into(), "q3-zeta".into()]), "no club is the default club");
+    assert_eq!(
+        (status, ids(&body)),
+        (StatusCode::OK, vec!["q3".into(), "q3-zeta".into()]),
+        "no club is the default club"
+    );
 }
 
 #[tokio::test]
@@ -372,13 +411,22 @@ async fn ready_a_question_a_live_room_holds_drops_out_until_the_room_ends() {
     let p = pushed();
     push(&p, "rustnyc", &q3_json()).await;
     let _room = open(&p.app, ORGANIZER, "rustnyc", "q3").await;
-    assert_eq!(offered(&p, "rustnyc").await, Vec::<String>::new(), "held only: empty");
+    assert_eq!(
+        offered(&p, "rustnyc").await,
+        Vec::<String>::new(),
+        "held only: empty"
+    );
     // Another club's list is its own.
     push(&p, "la", &q3_json()).await;
     assert_eq!(offered(&p, "la").await, ["q3"]);
     // The room goes quiet and ends unreleased: q3 is not used, so it is back.
-    p.clock.advance(room::lifecycle::IDLE_QUIET + Duration::from_secs(60));
-    assert_eq!(offered(&p, "rustnyc").await, ["q3"], "an ended room holds nothing");
+    p.clock
+        .advance(room::lifecycle::IDLE_QUIET + Duration::from_secs(60));
+    assert_eq!(
+        offered(&p, "rustnyc").await,
+        ["q3"],
+        "an ended room holds nothing"
+    );
 }
 
 #[tokio::test]
@@ -388,7 +436,11 @@ async fn ready_a_released_question_drops_out_for_that_club_only() {
     push(&p, "la", &q3_json()).await;
     let (room, host) = open(&p.app, ORGANIZER, "rustnyc", "q3").await;
     release(&p.app, &room, &host).await;
-    assert_eq!(offered(&p, "rustnyc").await, Vec::<String>::new(), "used only: empty");
+    assert_eq!(
+        offered(&p, "rustnyc").await,
+        Vec::<String>::new(),
+        "used only: empty"
+    );
     assert_eq!(offered(&p, "la").await, ["q3"], "never twice is per club");
 }
 
@@ -401,7 +453,9 @@ async fn ready_an_unaffirmed_or_stale_record_is_not_offered() {
     let stale = answers::load(&v.to_string()).expect("a stale record still loads");
     assert!(stale.refusal("q3-stale").is_some(), "the fixture is stale");
     let p = pushed_with(vec![stale]);
-    assert!(!offered(&p, "rustnyc").await.contains(&"q3-stale".to_string()));
+    assert!(!offered(&p, "rustnyc")
+        .await
+        .contains(&"q3-stale".to_string()));
     let (status, _) = create(&p.app, ORGANIZER, "rustnyc", "q3-stale").await;
     assert_eq!(status, StatusCode::CONFLICT, "and create still refuses it");
 }
@@ -424,7 +478,11 @@ async fn date_a_record_for_another_date_is_neither_offered_nor_created() {
     assert!(status.is_success(), "next week's push is accepted: {body}");
     let (status, body) = push_dated(&p, "rustnyc", &record("q3-old"), Some(LAST_WEEK)).await;
     assert!(status.is_success(), "an old push is accepted: {body}");
-    assert_eq!(offered(&p, "rustnyc").await, Vec::<String>::new(), "other dates only: empty");
+    assert_eq!(
+        offered(&p, "rustnyc").await,
+        Vec::<String>::new(),
+        "other dates only: empty"
+    );
     for id in ["q3", "q3-old"] {
         assert_eq!(
             create(&p.app, ORGANIZER, "rustnyc", id).await,
@@ -441,13 +499,22 @@ async fn date_a_record_for_another_date_is_neither_offered_nor_created() {
 #[tokio::test]
 async fn date_a_push_without_a_well_formed_meetup_date_is_refused() {
     let p = pushed();
-    for date in [None, Some(""), Some("2026-1-14"), Some("2026-10-14T00:00:00"), Some("14 October")] {
+    for date in [
+        None,
+        Some(""),
+        Some("2026-1-14"),
+        Some("2026-10-14T00:00:00"),
+        Some("14 October"),
+    ] {
         let (status, body) = push_dated(&p, "rustnyc", &q3_json(), date).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{date:?}: {body}");
     }
     assert_eq!(
         create(&p.app, ORGANIZER, "rustnyc", "q3").await,
-        (StatusCode::CONFLICT, json!({ "reason": room::copy::ROOM_NOTHING_SCHEDULED })),
+        (
+            StatusCode::CONFLICT,
+            json!({ "reason": room::copy::ROOM_NOTHING_SCHEDULED })
+        ),
         "nothing was scheduled"
     );
 }
@@ -463,7 +530,11 @@ async fn date_the_club_s_own_zone_decides_today() {
     let (status, body) = push_dated(&p, "rustnyc", &q3_json(), Some(MEETUP_DATE)).await;
     assert!(status.is_success(), "{body}");
     assert_eq!(offered(&p, "la").await, ["q3"], "still the 14th in LA");
-    assert_eq!(offered(&p, "rustnyc").await, Vec::<String>::new(), "the 15th in New York");
+    assert_eq!(
+        offered(&p, "rustnyc").await,
+        Vec::<String>::new(),
+        "the 15th in New York"
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -479,7 +550,10 @@ async fn race_another_organizer_opened_it_first() {
     open(&p.app, OTHER_ORGANIZER, "rustnyc", "q3").await;
     assert_eq!(
         create(&p.app, ORGANIZER, "rustnyc", "q3").await,
-        (StatusCode::CONFLICT, json!({ "reason": room::copy::ROOM_QUESTION_OPEN_ELSEWHERE }))
+        (
+            StatusCode::CONFLICT,
+            json!({ "reason": room::copy::ROOM_QUESTION_OPEN_ELSEWHERE })
+        )
     );
     assert_eq!(offered(&p, "rustnyc").await, Vec::<String>::new());
 }
@@ -493,7 +567,10 @@ async fn race_another_organizer_ran_it_first() {
     release(&p.app, &room, &host).await;
     assert_eq!(
         create(&p.app, ORGANIZER, "rustnyc", "q3").await,
-        (StatusCode::CONFLICT, json!({ "reason": room::copy::ROOM_QUESTION_ALREADY_RUN }))
+        (
+            StatusCode::CONFLICT,
+            json!({ "reason": room::copy::ROOM_QUESTION_ALREADY_RUN })
+        )
     );
     assert_eq!(offered(&p, "rustnyc").await, Vec::<String>::new());
 }
@@ -505,7 +582,14 @@ async fn race_another_organizer_ran_it_first() {
 
 /// The host projection with this room's random values taken out.
 async fn host_view(app: &Router, room: &str, host: &str) -> String {
-    let (status, view) = http(app, Method::GET, &format!("/rooms/{room}/host"), Some(host), None).await;
+    let (status, view) = http(
+        app,
+        Method::GET,
+        &format!("/rooms/{room}/host"),
+        Some(host),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{view}");
     let code = view["code"].as_str().map(str::to_string);
     let mut text = view.to_string().replace(room, "ROOM").replace(host, "HOST");
@@ -540,7 +624,15 @@ async fn picker_lists_exactly_what_the_admin_channel_scheduled() {
     release(&phone.app, &a, &a_host).await;
     assert_eq!(offered(&phone, "rustnyc").await, Vec::<String>::new());
     assert_eq!(offered(&phone, "la").await, ["q3-la"]);
-    let used = http(&phone.app, Method::GET, "/admin/used", Some(&phone.token), None).await.1;
+    let used = http(
+        &phone.app,
+        Method::GET,
+        "/admin/used",
+        Some(&phone.token),
+        None,
+    )
+    .await
+    .1;
     assert_eq!(used.as_array().map(Vec::len), Some(1), "{used}");
 }
 
@@ -579,6 +671,8 @@ async fn sign_in_without_a_question_lands_on_the_bare_host_page() {
         assert!(!session.is_empty());
     }
     // A malformed question is still refused.
-    let r = rig.raw(Method::GET, "/auth/discord?question=..%2Fq3", &[], None).await;
+    let r = rig
+        .raw(Method::GET, "/auth/discord?question=..%2Fq3", &[], None)
+        .await;
     assert_eq!(r.status, StatusCode::BAD_REQUEST);
 }

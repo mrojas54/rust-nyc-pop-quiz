@@ -885,7 +885,9 @@ async fn sign_in_redirects_with_both_scopes_and_the_public_redirect_uri() {
         assert!(set_cookie.contains(attr), "{set_cookie}");
     }
     assert_eq!(r.header("cache-control"), Some("no-store"));
-    for bad in ["", "q3%23x", "..%2Fq", "q3%26state%3D1"] {
+    // An empty question is the bare host page's sign-in (SPEC §8.5,
+    // `organizer_questions.rs`).
+    for bad in ["q3%23x", "..%2Fq", "q3%26state%3D1"] {
         let r = rig
             .raw(
                 Method::GET,

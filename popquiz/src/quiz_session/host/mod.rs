@@ -31,3 +31,4 @@
 pub mod auth;
 pub(super) mod create;
 pub mod discord;
+pub mod shortlist;

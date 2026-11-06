@@ -104,13 +104,30 @@ async fn raw(
     (status, headers, body)
 }
 
+/// `record` as `popquiz schedule` sends it: with the meetup date it was
+/// arranged for, today's in `club`'s zone (SPEC §8.5, R1-a). A body that is
+/// not an object goes as it is.
+fn dated(a: &Admin, club: &str, record: &Value) -> Value {
+    let mut v = record.clone();
+    if let Some(o) = v.as_object_mut() {
+        let slug =
+            room::club::ClubSlug::parse(club).unwrap_or_else(room::club::ClubSlug::default_club);
+        let zone = a.state.clubs().zone_of(&slug);
+        o.insert(
+            "meetup_date".into(),
+            room::used::meetup_date_in(a.state.now(), zone).into(),
+        );
+    }
+    v
+}
+
 async fn push(a: &Admin, id: &str, record: &Value) -> (StatusCode, Value) {
     http(
         &a.app,
         Method::PUT,
         &format!("/admin/questions/{id}"),
         Some(&a.token),
-        Some(record.clone()),
+        Some(dated(a, room::club::DEFAULT_CLUB, record)),
     )
     .await
 }
@@ -122,7 +139,7 @@ async fn push_club(a: &Admin, club: &str, id: &str, record: &Value) -> (StatusCo
         Method::PUT,
         &format!("/admin/clubs/{club}/questions/{id}"),
         Some(&a.token),
-        Some(record.clone()),
+        Some(dated(a, club, record)),
     )
     .await
 }
