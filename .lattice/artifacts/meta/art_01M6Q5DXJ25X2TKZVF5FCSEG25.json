@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-06T00:51:37Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6Q5DXJ25X2TKZVF5FCSEG25",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6Q5DXJ25X2TKZVF5FCSEG25.md",
+    "size_bytes": 680
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged as PR #132 at d1b0cdec986347c1e9bc508b6bbb2a3221db4037 (head d847fe1, merge-base 7dda474, main then 2b4b26d) on the client's word 00:46Z 11-06; main CI + Fly deploy success. Codex pass 3 PASS-W",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
