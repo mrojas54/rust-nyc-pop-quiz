@@ -117,7 +117,8 @@ enum Tok {
 
 /// The source as tokens with their line numbers. Comments are dropped; string,
 /// raw-string and char literals are read whole, so a quote inside one does not
-/// open a string; a lifetime is not a char literal.
+/// open a string. A char literal is the word `'c'` (an operand, never a
+/// sentence); a lifetime or label is `'` and then its name as a word.
 fn tokens(src: &str) -> Vec<(usize, Tok)> {
     let c: Vec<char> = src.chars().collect();
     let mut out = Vec::new();
@@ -161,15 +162,19 @@ fn tokens(src: &str) -> Vec<(usize, Tok)> {
             i = next;
         } else if ch == '\'' {
             if at(i + 1) == '\\' {
-                i += 2;
+                // Past the escaped character, so `'\''` ends at its own quote.
+                i += 3;
                 while i < c.len() && c[i] != '\'' {
                     i += 1;
                 }
                 i += 1;
+                out.push((line, Tok::Word("'c'".into())));
             } else if at(i + 2) == '\'' {
                 i += 3;
+                out.push((line, Tok::Word("'c'".into())));
             } else {
-                i += 1; // a lifetime; its name follows as a word
+                out.push((line, Tok::Punct('\'')));
+                i += 1; // a lifetime or label; its name follows as a word
             }
         } else if ch.is_alphanumeric() || ch == '_' {
             let s = i;
@@ -273,11 +278,13 @@ fn scan(src: &str, sinks: &[&str], source: bool, fns: &[&str]) -> Scan {
         };
         let before = |k: usize| j.checked_sub(k).map(|k| &toks[k].1);
         // `x.why` is a field or method, and `copy::WHY` is copy's: neither is
-        // this file's. Any other path (`Self::WHY`, `Phase::WHY`, `self::WHY`)
-        // may name this file's `const`, but never a `let`.
+        // this file's. A range bound (`..WHY`) is. Any other path (`Self::WHY`,
+        // `Phase::WHY`, `self::WHY`) may name this file's `const`, but never a
+        // `let`.
+        let member = before(1) == Some(&Tok::Punct('.')) && before(2) != Some(&Tok::Punct('.'));
         let path = before(1) == Some(&Tok::Punct(':')) && before(2) == Some(&Tok::Punct(':'));
         let copy_path = path && matches!(before(3), Some(Tok::Word(q)) if q == "copy");
-        if before(1) == Some(&Tok::Punct('.')) || copy_path {
+        if member || copy_path {
             return None;
         }
         // The nearest binding of that name whose scope holds `j` wins, so a
@@ -523,11 +530,11 @@ fn struct_field(toks: &[(usize, Tok)], i: usize) -> bool {
 }
 
 /// Whether a closure's parameter list is still open at `to`, reading `from..to`
-/// at its own depth from left to right. A `|` where no operand stands before
-/// it opens a list (`= |x|`, `(|x|`, `: |x|`, `&|x|`, `move |x|`, `|a| |b|`)
-/// and the next `|` closes it (`|x: u8,|`); `||` is the operator or an empty
-/// list and opens none; a `|` after an operand (`a | b`, `f() | g`, `x? | y`)
-/// is the operator. Where it cannot tell, it says closed, so the field is read.
+/// at its own depth from left to right. A `|` after a token a closure can
+/// follow opens a list ([`closure_opens`]) and the next `|` closes it
+/// (`|x: u8,|`); `||` is the operator or an empty list and opens none; any
+/// other `|` (`a | b`, `'x' | m`, `1. | m`, `f() | g`) is the operator. So
+/// where it cannot tell, the list stays closed and the field is read.
 fn closure_list_open(toks: &[(usize, Tok)], from: usize, to: usize) -> bool {
     let (mut depth, mut open, mut k) = (0usize, false, from);
     while k < to {
@@ -540,7 +547,7 @@ fn closure_list_open(toks: &[(usize, Tok)], from: usize, to: usize) -> bool {
             {
                 k += 1;
             }
-            Tok::Punct('|') if depth == 0 => open = !operand_before(toks, k),
+            Tok::Punct('|') if depth == 0 => open = closure_opens(toks, k),
             _ => {}
         }
         k += 1;
@@ -548,19 +555,40 @@ fn closure_list_open(toks: &[(usize, Tok)], from: usize, to: usize) -> bool {
     open
 }
 
-/// Whether the token before `k` ends an operand: a name or value that is not a
-/// keyword a closure can follow, a literal, a closing bracket, `?`, or a `>`
-/// that is not `=>`.
-fn operand_before(toks: &[(usize, Tok)], k: usize) -> bool {
-    let Some(k) = k.checked_sub(1) else {
-        return false;
+/// Whether the `|` at `k` comes after a token a closure can follow, and so
+/// opens its parameter list: `= ( [ { , ; : & |` or `=>` (`f(|x| …)`,
+/// `&|x| …`, `|a| |b| …`), `move`, `async`, `return` or `break`, a label
+/// (`break 'l |x| …`), or an attribute (`#[allow(…)] |x| …`). Nothing else
+/// does, so an operand this cannot name leaves the `|` an operator.
+fn closure_opens(toks: &[(usize, Tok)], k: usize) -> bool {
+    let Some(b) = k.checked_sub(1) else {
+        return true;
     };
-    match &toks[k].1 {
-        Tok::Str(_) => true,
-        Tok::Word(w) => !matches!(w.as_str(), "move" | "async" | "return" | "break"),
-        Tok::Punct(')' | ']' | '}' | '?') => true,
-        Tok::Punct('>') => !(k > 0 && toks[k - 1].1 == Tok::Punct('=')),
-        Tok::Punct(_) => false,
+    let at = |m: Option<usize>| m.map(|m| &toks[m].1);
+    match &toks[b].1 {
+        Tok::Punct('=' | '(' | '[' | '{' | ',' | ';' | ':' | '&' | '|') => true,
+        Tok::Punct('>') => at(b.checked_sub(1)) == Some(&Tok::Punct('=')),
+        Tok::Word(w) if matches!(w.as_str(), "move" | "async" | "return" | "break") => true,
+        Tok::Word(_) => {
+            at(b.checked_sub(1)) == Some(&Tok::Punct('\''))
+                && at(b.checked_sub(2)) == Some(&Tok::Word("break".into()))
+        }
+        Tok::Punct(']') => {
+            let mut depth = 0usize;
+            let open = (0..=b).rev().find(|&q| match toks[q].1 {
+                Tok::Punct(']') => {
+                    depth += 1;
+                    false
+                }
+                Tok::Punct('[') => {
+                    depth -= 1;
+                    depth == 0
+                }
+                _ => false,
+            });
+            matches!(open, Some(o) if at(o.checked_sub(1)) == Some(&Tok::Punct('#')))
+        }
+        _ => false,
     }
 }
 
@@ -967,6 +995,9 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         r#"Refused { from: |x: u8,| x, reason: if a | b { "No room yet.".into() } else { c || d } }"#,
         r#"Refused { from: x? | y, note: f() | g, reason: "No room yet.".into() }"#,
         r#"Refused { from: || x, note: |a| |b| a, reason: "No room yet.".into() }"#,
+        r#"Refused { from: 'x' | Mask, reason: "No room yet.".into() }"#,
+        r#"Refused { from: '\'' | Mask, note: b'x' | m, reason: "No room yet.".into() }"#,
+        r#"Refused { from: 1. | Mask, note: v[0] | m, reason: "No room yet.".into() }"#,
     ] {
         assert_eq!(phase_flags(field), ["No room yet."], "{field}");
     }
@@ -978,6 +1009,8 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         r#"let n = async move |from: u8, reason: &str| format!("{from}: {reason}");"#,
         r#"let n = |a: u8| |from: u8, reason: &str| format!("{a}{from}: {reason}");"#,
         r#"let n = f(|x: u8,| x, |from: u8, reason: &str| format!("{from}: {reason}"));"#,
+        r#"let n = f(#[allow(unused)] |from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}"));"#,
+        r#"let n = 'l: { break 'l |from: u8, #[allow(unused)] reason: &str| format!("{from}: {reason}"); };"#,
     ] {
         assert_eq!(phase_flags(closure), Vec::<String>::new(), "{closure}");
     }
@@ -1005,6 +1038,13 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         ),
         ["No room yet."]
     );
+    // A range bound is the name, not a member: `..WHY` is this file's `WHY`.
+    for range in [
+        r#"const WHY: &str = "No room yet."; Refused { reason: (..WHY).end.into() }"#,
+        r#"const WHY: &str = "No room yet."; Refused { reason: (""..WHY).end.into() }"#,
+    ] {
+        assert_eq!(phase_flags(range), ["No room yet."], "{range}");
+    }
     // Gap 5: a `let` binding is read as its literal where the scan reads it.
     assert_eq!(
         phase_flags(
