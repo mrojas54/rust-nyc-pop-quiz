@@ -953,6 +953,40 @@ fn every_reason_fn_is_still_a_function_the_scan_can_see() {
     }
 }
 
+/// Inside a `macro_rules!` template (`$x` placeholders) the scan reads only as
+/// far as the tokens allow, and four review passes on the syn rewrite (PQ-85)
+/// each found another shape it misses there. No file it reads defines one, so
+/// none of those shapes can occur; this keeps it so.
+#[test]
+fn no_scanned_file_defines_a_macro() {
+    #[derive(Default)]
+    struct Macros(usize);
+    impl<'ast> Visit<'ast> for Macros {
+        fn visit_item_macro(&mut self, m: &'ast syn::ItemMacro) {
+            if m.mac.path.is_ident("macro_rules") {
+                self.0 += 1;
+            }
+            visit::visit_item_macro(self, m);
+        }
+    }
+    let mut files = covered();
+    files.extend(sources());
+    assert!(files.len() > REASON_SOURCES.len(), "the scan read no files");
+    let defining: Vec<String> = files
+        .into_iter()
+        .filter(|(_, src)| {
+            let mut macros = Macros::default();
+            macros.visit_file(&syn::parse_file(src).expect("a room source parses"));
+            macros.0 > 0
+        })
+        .map(|(name, _)| name)
+        .collect();
+    assert!(
+        defining.is_empty(),
+        "{defining:?} define a macro_rules! macro; the reason scan cannot read its templates in full: write the code without one, or teach the scan the shape first"
+    );
+}
+
 #[test]
 fn every_refusal_code_is_still_sent() {
     // A code no route sends any more is a hole in the carve-out; drop it.
