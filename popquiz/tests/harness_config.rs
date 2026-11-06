@@ -1,6 +1,6 @@
 //! The harness's own wiring (PQ-41): the justfile and the two workflows say
 //! what the review of PR #39 asked them to, and keep saying it. Line-shaped
-//! checks on the files themselves — no YAML parser is in the lock — each
+//! checks on the files themselves, each
 //! aimed at the line that does the work, not at a comment that names it.
 
 use std::path::PathBuf;

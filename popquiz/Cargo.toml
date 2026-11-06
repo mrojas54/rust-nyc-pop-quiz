@@ -146,3 +146,4 @@ tokio-tungstenite = "0.29"
 # outside a proc macro.
 syn ={ version = "2.0.119", features = ["full", "visit"] }
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+serde_yaml_ng = "0.10.0"

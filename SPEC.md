@@ -571,6 +571,7 @@ so one club's push never replaces another's)  and `GET /admin/used`
 (`popquiz sync` — the used-question record). Both require
 `Authorization: Bearer ‹POPQUIZ_ADMIN_TOKEN›`, a Fly secret that the organizer's
 local pipeline configuration also holds and that is **never in the repository**
+(its one other holder is the deployed burst's environment, §8.4)
 (T-25 adds its name, never a value, to `.env.example`; `.env` and `.env.*` are already ignored). The check is one constant-time
 function; a missing or wrong token is refused with no information about what is
 stored; the token appears in no payload, page or log line. The admin prefix is
@@ -579,6 +580,21 @@ reads it, and a route-table test asserts so (AC-101). Transport is Fly's TLS;
 retries are bounded and backed off. Rotation is `fly secrets set` plus one local
 edit. T-25 builds the server side, T-20 the laptop side, and the client holds
 the secret (H-11).
+
+### 8.4 The deployed burst (T-21, AC-53)
+
+AC-53's run against the deployed substrate,
+`.github/workflows/deployed-burst.yml`, carries two credentials: the organizer
+session of a signed-in `/host` page (`POPQUIZ_ORGANIZER_SESSION`, one person's,
+12 hours) and the admin token (`POPQUIZ_ADMIN_TOKEN`, §8.3). Both are secrets of
+the `deployed-burst` GitHub **environment**, never repository secrets: the
+client sets them right before a run and deletes them right after. The
+environment's required reviewer and its main-only branch rule keep a workflow
+edited on a branch from reading them. The workflow runs only on
+`workflow_dispatch`; only the job that declares that environment reads them, and
+only into an `env:` mapping; neither is echoed, put on a command line or written
+to a file. The functions that already check them still do: the burst adds a
+holder, not a path. A `test` keeps the workflow to this paragraph.
 
 ---
 
