@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-11-06T10:31:39Z",
+  "created_by": "agent:codex-pq61",
+  "custom_fields": {
+    "url": "https://github.com/mrojas54/rust-nyc-pop-quiz/pull/134"
+  },
+  "id": "art_01M6R6M02X76NDV6ENEZB7CCZG",
+  "model": null,
+  "payload": {
+    "content_type": null,
+    "file": null,
+    "size_bytes": null
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "PR: parsed workflow credential policy",
+  "token_usage": null,
+  "type": "reference"
+}
