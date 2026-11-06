@@ -156,7 +156,7 @@ fn the_deployed_burst_runs_against_the_cap_fly_toml_states() {
     );
 }
 
-// The deployed burst's two credentials (GAP-19, SPEC §8). They are secrets of
+// The deployed burst's two credentials (GAP-19, SPEC §8.4). They are secrets of
 // the `deployed-burst` environment, and this keeps every read of them where
 // the workflow's header says: one job, bound to that environment, run by hand,
 // reading them only through `env:`.
