@@ -327,15 +327,18 @@
       return step ? "step:" + step : null;
     }
 
-    /* The picker's landing place: the chosen question, or the first. */
+    /* The picker's landing place: the chosen question, or the first, or
+       Reload when the list has nothing to pick or did not load. */
     function pickTarget() {
-      return el.querySelector('input[name="question"]:checked') || el.querySelector('input[name="question"]');
+      return el.querySelector('input[name="question"]:checked') || el.querySelector('input[name="question"]') ||
+        el.querySelector("[data-reload]");
     }
 
     /* A key whose control is gone hands over to the list once one is there:
        Reload to the list it loaded, and *Create a room* to the list reloaded
-       after a refusal, when nothing is chosen. Never while a request is in
-       flight; the key waits for the control to come back. */
+       after a refusal, when nothing is chosen, or to Reload when that list is
+       empty or failed. Never while a request is in flight; the key waits for
+       the control to come back. */
     function focusTarget(key) {
       if (!key || !el.querySelector) return null;
       if (key === "pick") return pickTarget();
