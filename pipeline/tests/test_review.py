@@ -697,6 +697,16 @@ def test_gap6_a_reverify_brings_its_recording_into_the_bank(bank_dir, capsys):
     the_recording_matches(bank_dir)
 
 
+def test_gap6_a_reverify_names_the_recording_where_the_bank_keeps_it(bank_dir, capsys):
+    """The verifier wrote it in a scratch bank that is gone; the organizer is told
+    where it now is."""
+    assert run("reverify", "q4", "--bank", bank_dir, runner=stub()) == 0
+    said = capsys.readouterr()
+    lines = [line for line in (said.out + said.err).splitlines() if "recording written to" in line]
+    assert lines and all(str(bank_dir / "recordings" / "q4.json") in line for line in lines)
+    assert "popquiz-review-" not in said.out + said.err
+
+
 def test_gap6_a_refused_re_verify_leaves_the_recording_as_it_was(bank_dir, tmp_path, capsys):
     path = bank_dir / "recordings" / "q4.json"
     before = path.read_bytes()

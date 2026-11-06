@@ -420,15 +420,20 @@ def _verify_into_bank(bank_dir: Path, candidate: Question, expect: str, runner: 
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = verify.main([str(path), "--expect", expect], runner=runner)
-        said = (out.getvalue() + err.getvalue()).replace(str(path), str(bank.question_path(bank_dir, candidate.id)))
+        recording = verify.recordings_dir(path) / f"{candidate.id}.json"
+        kept = bank_dir / verify.RECORDINGS / f"{candidate.id}.json"
+        said = (
+            (out.getvalue() + err.getvalue())
+            .replace(str(recording), str(kept))
+            .replace(str(path), str(bank.question_path(bank_dir, candidate.id)))
+        )
         if code != 0:
             return False, said.strip()
         verified = bank.question_from_dict(json.loads(path.read_text(encoding="utf-8")))
-        recording = verify.recordings_dir(path) / f"{candidate.id}.json"
         recorded = recording.read_bytes()
     bank.save_question(bank_dir, verified)
-    (bank_dir / verify.RECORDINGS).mkdir(parents=True, exist_ok=True)
-    (bank_dir / verify.RECORDINGS / f"{candidate.id}.json").write_bytes(recorded)
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    kept.write_bytes(recorded)
     return True, said.strip()
 
 
