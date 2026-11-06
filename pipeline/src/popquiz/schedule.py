@@ -73,7 +73,7 @@ from popquiz.bank import (
     save_question,
 )
 from popquiz import verify
-from popquiz.runner import FixtureError, RealRunner, Runner, StubRunner
+from popquiz.runner import TOOLCHAIN, FixtureError, RealRunner, Runner, StubRunner
 from popquiz.slot import slot_for_day
 from popquiz.verify import ProvenanceError, Verified, check_question, is_stale
 
@@ -232,9 +232,16 @@ def _recording_refusal(question: Question, recordings: Path, pin: sandbox.Pin | 
         except sandbox.PinError as e:
             return str(e)
     try:
+        if question.verified.miri is None:  # type: ignore[union-attr]
+            # Miri never ran, so its version is not part of this record (`is_stale`):
+            # replay under the Miri the recording reports, not the pin's.
+            recorded_miri = verify.parse_toolchain(recorded[TOOLCHAIN]["stdout"]).miri_version
+            pin = dataclasses.replace(pin, miri_version=recorded_miri)
         verdict = _replayed(question, StubRunner(recordings), pin)
     except (verify.VerifyError, FixtureError, ProvenanceError) as e:
         return f"{qid}'s recording does not replay ({e}){_REVERIFY}"
+    except (KeyError, TypeError, AttributeError) as e:  # a step missing a field it must have
+        return f"{qid}'s recording does not replay (a step is malformed: {type(e).__name__} {e}){_REVERIFY}"
     if not verdict.accepted:
         return f"{qid} does not match its recording (replayed through the stub runner, it is rejected: {verdict.reason}){_REVERIFY}"
     assert verdict.verified is not None and question.verified is not None

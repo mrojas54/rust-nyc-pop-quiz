@@ -634,6 +634,37 @@ def test_gap6_an_unreadable_recording_is_refused(bank):
     assert _gate(bank).startswith("q3's recording cannot be read")
 
 
+def test_gap6_a_recording_with_a_malformed_step_is_refused_not_raised(bank):
+    """A step missing a field the stub runner reads is a refusal, never a traceback."""
+    affirm(bank, "q3")
+    path = recordings(bank) / "q3.json"
+    rec = _json(path)
+    del rec["compile"]["exit_code"]
+    _write(path, rec)
+    why = _gate(bank)
+    assert why.startswith("q3's recording does not replay (")
+    assert why.endswith(" - re-verify it with `just verify` before it is scheduled (AC-7)")
+
+
+def test_gap6_a_record_miri_never_ran_for_survives_a_miri_only_pin_change(bank):
+    """Miri's version is part of a record only when Miri ran (`verify.is_stale`), so
+    the replay must not hold a does-not-compile record to the pin's new Miri."""
+    affirm(bank, "q8")
+    q8 = load_question(bank, "q8")
+    assert q8.verified.miri is None  # it never compiled, so Miri never ran
+    pin = dataclasses.replace(_pin_matching(load_question(bank, "q4")), miri_version="miri 0.0.0")
+    assert not verify.is_stale(q8.verified, pin)
+    assert schedule.refusal(q8, pin=pin, recordings=recordings(bank)) is None
+
+
+def test_gap6_a_record_miri_ran_for_is_still_refused_after_a_miri_only_pin_change(bank):
+    affirm(bank, "q4")
+    q4 = load_question(bank, "q4")
+    pin = dataclasses.replace(_pin_matching(q4), miri_version="miri 0.0.0")
+    why = schedule.refusal(q4, pin=pin, recordings=recordings(bank))
+    assert why is not None and "no longer matches the pin" in why
+
+
 def _sandbox(monkeypatch, runner_for):
     calls = []
 
