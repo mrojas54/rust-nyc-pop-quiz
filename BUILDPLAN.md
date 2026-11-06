@@ -73,6 +73,13 @@ writes `used` and rebuilds take-it-home; `popquiz sync` pulls the `used`
 record into the bank. Both ride one authenticated admin channel — two routes, one bearer token, built by T-25 (`SPEC.md` §8.3, D-20). Every field in `SPEC.md` §3 keeps one writer.
 Decide-and-log.
 
+*2026-11-06 (PQ-80):* the host phone lists the questions scheduled for the
+organizer's club and creates the room on the one picked (`SPEC.md` §8.4). This
+is not a third admin route or a second way in. The answer still enters only
+through `PUT /admin/…` with the admin token, and the listing takes the
+organizer session, which never opens `/admin`. The server may hold several
+scheduled questions per club; the organizer chooses among them on the night.
+
 ### D-F · Domain and the short link (AC-28)
 
 **`popquiz.rustnyc.org`**, with `join @ popquiz.rustnyc.org/‹code›` on the wall.
@@ -208,6 +215,7 @@ stopwatch running, reads each explanation aloud, affirms what passes.
 | **T-22** | The copy freeze: every participant-facing string from `SPEC.md` §11 in one module; the forbidden-copy lint and the §11.1 trope check in `test`, the trope check failing the build on any match in the copy module (D-23) | AC-98, AC-59, AC-42, G-5 | T-05–07, T-12 | |
 | **T-23** | **Guardrail audit** — an adversarial read of all merged code against G-1…G-12 and the phase invariants; files gap tickets | G-1…G-12 | everything above | The Phase-4 pass, re-run on the built tree |
 | **T-24** | The organizer runbook: successor to `mvp/README.md`'s run-of-show for the built room; host script per phase; the statements that option text is public and that a Rust-expert host can infer the answer; the rehearsal and field-notes sheets pointed at the build | AC-51, AC-62, AC-63, AC-90 | T-09, T-20 | |
+| **T-27** | Choosing the question on the host phone (PQ-80): `GET /organizer/questions` (organizer session, the club's role, `id` and `topic` only), the host page's picker, the scheduled record's meetup date, and the runbook's shortlist push | AC-101, AC-103, AC-72, AC-92, AC-61 | T-07, T-10, T-25 | `organizer_questions.rs`, `host-pick.test.js`, the canary walk, `just a11y` |
 
 **Settled at a checkpoint, no ticket, by design:** AC-20, AC-21, AC-43, AC-44, AC-80, AC-91, AC-96 are `felt` or operator-measured and land at HC-1, HC-2, and HC-4 (`EVALUATION.md`). Their absence from the ticket tables is a decision, not an omission.
 
