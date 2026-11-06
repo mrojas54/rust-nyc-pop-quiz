@@ -1034,8 +1034,9 @@ from 1Password at `$POPQUIZ_OP_REF`, checks `GET /admin/used`, pushes the bank
 record and prints the host link. If the question is already in the ledger it stops
 and says so; only a restart clears that, and the recipe never restarts anything.
 It pushes the record in its stored order, so it is for demos, not a meetup
-(`just schedule` arranges the options for the meetup's date). Run it again after
-any restart or deploy.
+(`just schedule` arranges the options for the meetup's date). It dates the record
+tonight in New York, the club's zone, so host it the same night: on another date
+the room refuses it. Run it again after any restart or deploy.
 
 **A restart loses every room.** The room runs on a paid Fly org, a card with
 a spending cap. The machine runs until something stops or redeploys it. Rooms
