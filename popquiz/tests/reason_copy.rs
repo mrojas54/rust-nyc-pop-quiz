@@ -506,8 +506,8 @@ impl Scanner<'_> {
     }
 
     /// A macro's tokens: as comma-separated expressions where they parse
-    /// (`format!`, `vec!`, `assert!`), else piece by piece between commas, a
-    /// `"reason": value` piece (a `json!` body) read as a key field.
+    /// (`format!`, `vec!`, `assert!`), else as statements and items (a macro
+    /// body's `let`s and `fn`s), else piece by piece between commas.
     fn tokens(&mut self, ts: TokenStream) {
         if let Ok(args) = Punctuated::<Expr, Token![,]>::parse_terminated.parse2(ts.clone()) {
             for arg in &args {
@@ -515,27 +515,27 @@ impl Scanner<'_> {
             }
             return;
         }
+        if let Ok(stmts) = syn::Block::parse_within.parse2(ts.clone()) {
+            self.scopes.push(HashMap::new());
+            for stmt in &stmts {
+                self.visit_stmt(stmt);
+            }
+            self.scopes.pop();
+            return;
+        }
         let toks: Vec<TokenTree> = ts.into_iter().collect();
         for piece in toks.split(|t| matches!(t, TokenTree::Punct(p) if p.as_char() == ',')) {
-            if let [TokenTree::Literal(key), TokenTree::Punct(colon), value @ ..] = piece {
-                if colon.as_char() == ':' && colon.spacing() == Spacing::Alone {
-                    if let Ok(Lit::Str(k)) =
-                        syn::parse2::<Lit>(TokenTree::Literal(key.clone()).into())
-                    {
-                        let k = k.value();
-                        if KEYS.contains(&k.as_str()) {
-                            self.piece(&piece[..1]);
-                            if self.counting() {
-                                self.out.fields += 1;
-                            }
-                            let code_ok = k == "refusal";
-                            self.read(format!("\"{k}\""), code_ok, |s| s.piece(value));
-                            continue;
-                        }
-                    }
-                }
-            }
             self.piece(piece);
+        }
+    }
+
+    /// A `json!` key the scan reads (`"reason": value`), if `key` is one and
+    /// a `:` follows it.
+    fn key(key: &proc_macro2::Literal, colon: Option<&TokenTree>) -> Option<String> {
+        let colon = matches!(colon, Some(TokenTree::Punct(p)) if p.as_char() == ':' && p.spacing() == Spacing::Alone);
+        match syn::parse2::<Lit>(TokenTree::Literal(key.clone()).into()) {
+            Ok(Lit::Str(k)) if colon && KEYS.contains(&k.value().as_str()) => Some(k.value()),
+            _ => None,
         }
     }
 
@@ -590,6 +590,17 @@ impl Scanner<'_> {
                 TokenTree::Literal(l) => {
                     if let Ok(lit) = syn::parse2::<Lit>(TokenTree::Literal(l.clone()).into()) {
                         self.visit_lit(&lit);
+                    }
+                    // A `json!` body's `"reason": value`, wherever it sits in
+                    // the piece (after a `$(…)*` repetition, say).
+                    if let Some(k) = Self::key(l, toks.get(i + 1)) {
+                        if self.counting() {
+                            self.out.fields += 1;
+                        }
+                        let code_ok = k == "refusal";
+                        let value = &toks[i + 2..];
+                        self.read(format!("\"{k}\""), code_ok, |s| s.piece(value));
+                        return;
                     }
                 }
                 TokenTree::Ident(id) => {
@@ -1277,6 +1288,20 @@ fn the_scan_reads_the_shapes_the_pq84_review_found() {
         ),
         (
             r#"refused(s, c"No trace.".to_string_lossy().into_owned())"#,
+            "No trace.",
+        ),
+        // Its review pass 2: a `json!` key after a repetition, a reason
+        // function a macro defines, and a macro body's `let`.
+        (
+            r#"macro_rules! m { ($($key:tt: $val:expr,)*) => { json!({ $($key: $val,)* "reason": "No room." }) } }"#,
+            "No room.",
+        ),
+        (
+            r#"macro_rules! m { () => { fn refusal() -> &'static str { "No room." } } }"#,
+            "No room.",
+        ),
+        (
+            r#"macro_rules! m { () => {{ let why = format!("No trace."); refuse(why) }} }"#,
             "No trace.",
         ),
     ] {
