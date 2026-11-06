@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 9,
+  "comment_count": 10,
   "complexity": null,
   "created_at": "2026-10-05T12:46:01Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K1EZJE7SWYCVEMC37P2Z",
-  "last_event_id": "ev_01M6R16140QPD9VP0VAGF3TH7A",
+  "last_event_id": "ev_01M6R1VXPF70AWA361C78GEBNH",
   "last_status_changed_at": "2026-11-06T07:22:53Z",
   "priority": "low",
   "relationships_out": [],
@@ -24,6 +24,6 @@
   ],
   "title": "G-2 provenance follow-ups: stale pin, record digest, the MVP deck",
   "type": "chore",
-  "updated_at": "2026-11-06T08:56:38Z",
+  "updated_at": "2026-11-06T09:08:36Z",
   "urgency": null
 }
