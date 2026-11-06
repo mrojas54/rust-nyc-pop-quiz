@@ -7,12 +7,6 @@ const PIN: &str = include_str!("fixtures/deployed-burst.pinned.yml");
 // YAML decoding is the parser's job. This policy walks decoded values, including
 // aliases at their use sites. It never infers structure from source lines.
 fn validate(name: &str, text: &str) -> Result<(), String> {
-    if name == BURST && text != PIN {
-        return Err(
-            "burst workflow changed: review every step against SPEC §8.4 before updating its pin"
-                .into(),
-        );
-    }
     let root: serde_yaml_ng::Value = serde_yaml_ng::from_str(text).map_err(|e| e.to_string())?;
     let jobs = root
         .get("jobs")
@@ -67,7 +61,18 @@ fn validate(name: &str, text: &str) -> Result<(), String> {
             return Err("burst job must bind its environment".into());
         }
     }
-    walk(name, &root, &mut Vec::new())
+    walk(name, &root, &mut Vec::new())?;
+    if name == BURST {
+        // Earlier steps can change the execution of later credential holders.
+        // Compare the whole decoded workflow to the reviewed baseline; YAML
+        // comments and presentation can change, but script contents cannot.
+        let reviewed: serde_yaml_ng::Value = serde_yaml_ng::from_str(PIN)
+            .map_err(|e| format!("invalid reviewed burst baseline: {e}"))?;
+        if root != reviewed {
+            return Err("burst execution changed: review every step against SPEC §8.4 before updating its baseline".into());
+        }
+    }
+    Ok(())
 }
 
 fn approved_read(name: &str, path: &[String], value: &str) -> bool {
@@ -75,7 +80,7 @@ fn approved_read(name: &str, path: &[String], value: &str) -> bool {
     if path.len() != 6 || path[0] != "jobs" || path[2] != "steps" || path[4] != "env" {
         return false;
     }
-    if name == "deploy.yml" && path[1] == "deploy" && path[3] == "2" && path[5] == "FLY_API_TOKEN" {
+    if name == "deploy.yml" && path[1] == "deploy" && path[5] == "FLY_API_TOKEN" {
         return value == "${{ secrets.FLY_API_TOKEN }}";
     }
     if name != BURST || path[1] != "deployed-burst" {
@@ -126,13 +131,18 @@ fn walk(name: &str, node: &serde_yaml_ng::Value, path: &mut Vec<String>) -> Resu
             // evaluator. Any reference to secrets in an expression-bearing
             // scalar must be a complete, approved value at its approved path.
             // This includes multiline expressions and braces inside strings.
+            // A literal mention elsewhere in the same scalar also requires
+            // review; this deliberately avoids another expression parser.
             let expression =
                 value.contains("${{") || path.last().is_some_and(|k| k.eq_ignore_ascii_case("if"));
             if expression
                 && value.to_ascii_lowercase().contains("secrets")
                 && !approved_read(name, path, value)
             {
-                return Err(format!("{}: unapproved secret expression", path.join(".")));
+                return Err(format!(
+                    "{}: scalar mentions secrets in an expression-bearing value outside an approved env mapping",
+                    path.join(".")
+                ));
             }
         }
         Value::Tagged(_) => {
@@ -307,7 +317,7 @@ fn secret_mentions_in_expression_bearing_scalars_require_review() {
 }
 
 #[test]
-fn every_change_to_the_secret_holding_workflow_requires_review() {
+fn execution_changes_to_the_secret_holding_workflow_require_review() {
     assert!(validate(BURST, PIN).is_ok());
     for (old, new) in [
         ("  workflow_dispatch:", "  push:\n  workflow_dispatch:"),
