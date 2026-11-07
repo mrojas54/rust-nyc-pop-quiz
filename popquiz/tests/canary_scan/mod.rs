@@ -169,6 +169,7 @@ impl Server {
         };
         for q in [canary_question(), canary_question_dnc()] {
             let id = q["id"].as_str().unwrap().to_string();
+            let q = dated(q);
             let r = server
                 .request(
                     Method::PUT,
@@ -457,6 +458,15 @@ pub struct Route {
 // `any(`, three `DRIVEN` rows, one call in `stop` and the release check in
 // `walk_room`.
 
+/// `record` as `popquiz schedule` sends it: with the meetup date it was
+/// arranged for (SPEC §8.5, R1-a), today's in the default club's zone, by the
+/// clock the scan's room runs on.
+pub fn dated(mut record: Value) -> Value {
+    record["meetup_date"] =
+        room::used::meetup_date_in(std::time::SystemTime::now(), room::club::Zone::NewYork).into();
+    record
+}
+
 impl Server {
     /// AC-101 at every stop: the admin prefix refuses a missing or wrong
     /// token saying nothing, and what the right token reads carries no plant.
@@ -704,6 +714,8 @@ pub fn served_files(dir: &str) -> Vec<String> {
 /// neither this nor [`UNSCANNED`] fails [`assert_every_route_is_scanned`].
 pub const DRIVEN: &[(&str, &str)] = &[
     ("POST", "/rooms"),
+    // SPEC §8.5: the host phone's picker, at every stop.
+    ("GET", "/organizer/questions"),
     ("POST", "/join"),
     ("PUT", "/rooms/{id}/answer"),
     ("PUT", "/rooms/{id}/fit"),
@@ -1749,6 +1761,20 @@ impl<'s> Walk<'s> {
         self.server
             .admin_probe(&question, &at("the admin prefix"))
             .await;
+        // SPEC §8.5: the host phone's list of the club's questions.
+        let r = self
+            .server
+            .request(Method::GET, "/organizer/questions", Some(ORGANIZER), None)
+            .await;
+        assert_eq!(r.status, 200, "{}", at("GET /organizer/questions"));
+        check(
+            &mut self.seen,
+            Surface::Host,
+            phase,
+            &r.everything(),
+            None,
+            &at("GET /organizer/questions"),
+        );
 
         // Every frame every socket received since the last stop.
         for w in &mut self.watchers {
@@ -2194,7 +2220,7 @@ pub async fn walk_room(server: &Server, start: Start<'_>, options: Options) -> E
             Method::PUT,
             &format!("/admin/questions/{question}"),
             Some(&plants().admin),
-            Some(canary_question_named(&question)),
+            Some(dated(canary_question_named(&question))),
         )
         .await;
     assert_eq!(

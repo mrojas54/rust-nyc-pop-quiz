@@ -263,32 +263,32 @@ fn gap8_concurrent_creates_on_one_question_make_one_room() {
 /// for the windows no test can schedule:
 /// a release landing between the used check and the insert, and `schedule`
 /// replacing the record between its lookup and the insert. `create_for` takes
-/// `questions` then `rooms`, checks the hold and the ledger under both, and
-/// lets neither go before the room is in.
+/// `questions` then `rooms`, runs the one check (`shortlist::refusal`, which
+/// tests the hold and the ledger, SPEC §8.5) under both, and lets neither go
+/// before the room is in.
 #[test]
 fn gap8_create_for_checks_and_inserts_in_one_critical_section() {
     let src =
         std::fs::read_to_string(repo().join("popquiz/src/quiz_session/host/create.rs")).unwrap();
     let start = src.find("    fn create_for(").expect("create_for");
     let body = &src[start..start + src[start..].find("\n    }\n").expect("end of create_for")];
+    // Whitespace out, so rustfmt's line breaks do not move the needles.
+    let body: String = body.chars().filter(|c| !c.is_whitespace()).collect();
+    let body = body.as_str();
     let at = |needle: &str| {
         body.find(needle)
             .unwrap_or_else(|| panic!("create_for lost `{needle}`"))
     };
     let questions = at("lock(&self.questions)");
     let rooms = at("lock(&self.rooms)");
-    let hold = at(".holds(club, question_id, now)");
-    let ledger = at("self.used.contains(club, question_id)");
+    let check = at("refusal(&questions,&rooms,&self.used,club,question_id,&today,now");
     let insert = at("rooms.insert(");
     assert!(
         questions < rooms,
         "questions, then rooms (the order schedule takes)"
     );
-    assert!(
-        rooms < hold && rooms < ledger,
-        "both checks under the rooms lock"
-    );
-    assert!(hold < insert && ledger < insert);
+    assert!(rooms < check, "the check under the rooms lock");
+    assert!(check < insert);
     assert_eq!(
         body.matches("lock(&self.rooms)").count(),
         1,
@@ -304,11 +304,22 @@ fn gap8_create_for_checks_and_inserts_in_one_critical_section() {
         !before_insert.contains("drop(questions)"),
         "questions is held through the insert"
     );
-    assert_eq!(
-        body.matches("self.used.contains").count(),
-        1,
-        "the ledger is checked once, under the lock"
-    );
+    assert_eq!(body.matches("refusal(&questions").count(), 1, "one check");
+
+    // The check itself reads the hold and the ledger from what it is handed,
+    // and takes no lock of its own.
+    let src =
+        std::fs::read_to_string(repo().join("popquiz/src/quiz_session/host/shortlist.rs")).unwrap();
+    let start = src.find("fn refusal(").expect("shortlist::refusal");
+    let check = &src[start..start + src[start..].find("\n}\n").expect("end of refusal")];
+    let check: String = check.chars().filter(|c| !c.is_whitespace()).collect();
+    for needle in [
+        ".holds(club,question_id,now)",
+        "used.contains(club,question_id)",
+    ] {
+        assert_eq!(check.matches(needle).count(), 1, "refusal lost `{needle}`");
+    }
+    assert!(!check.contains("lock("), "the check takes no lock");
 }
 
 // --------------------------------------------------------------------------

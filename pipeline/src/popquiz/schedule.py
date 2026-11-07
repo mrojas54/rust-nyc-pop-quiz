@@ -543,13 +543,16 @@ def push(
     arranged: Question,
     room: str,
     token: str,
+    meetup_date: date,
     club: str = DEFAULT_CLUB,
     order: Sequence[int] | None = None,
 ) -> str:
     """`PUT` the arranged record to the room, for `club`: `/admin/questions/{id}`
     for the default club, `/admin/clubs/{club}/questions/{id}` for another (D-26).
     The record is the question arranged for that club's meetup date, so it is kept
-    per club and one club's push never replaces another's. `order` is
+    per club and one club's push never replaces another's. `meetup_date` is the
+    date it was arranged for, sent as `meetup_date`; the room requires it and
+    offers the record only on that date (SPEC §8.5). `order` is
     `bank_order(question, arranged)`, sent as `bank_order` so the room can check
     the affirmation against the bank's order; without it the room reads the
     options as already in that order. Returns `new` or `replaced`; raises
@@ -559,6 +562,7 @@ def push(
     path = f"/admin/questions/{arranged.id}" if club == DEFAULT_CLUB else f"/admin/clubs/{club}/questions/{arranged.id}"
     url = room_url(room, path)
     record = question_to_dict(arranged)
+    record["meetup_date"] = meetup_date.isoformat()
     if order is not None:
         record["bank_order"] = list(order)
     body = json.dumps(record, ensure_ascii=False).encode("utf-8")
@@ -827,7 +831,7 @@ def _schedule(args: argparse.Namespace) -> int:
 
     answer = "not pushed (--no-push)"
     if token is not None:
-        answer = f"scheduled: {push(arranged, args.room, token, args.club, bank_order(question, arranged))}"
+        answer = f"scheduled: {push(arranged, args.room, token, args.date, args.club, bank_order(question, arranged))}"
     try:
         page, sheet = fallback.write_fallback(
             arranged, Path(args.out) / f"{arranged.id}.html", home_link=home_link

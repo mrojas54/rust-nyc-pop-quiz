@@ -70,6 +70,39 @@ h3 { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600;
                 margin-left: -3px; }
 .beat-company h3 { color: var(--accent-hover); }
 
+/* Choosing the question (SPEC §8.5): one radio group, a row per question.
+   Each row is its radio's label, a touch target tall, its edge held at 3:1
+   like a button's (AC-84). The checked state is a dot inside the radio's
+   ring, both in the text colour; nothing else marks it (AC-40). A long topic
+   wraps inside its row and never pushes the page sideways (AC-33). */
+.host-pick { border: 0; margin: 0; padding: 0; min-width: 0;
+             display: flex; flex-direction: column; gap: 8px; }
+.host-pick-legend { font-family: var(--font-heading); font-size: var(--text-2xl);
+                    padding: 0; margin: 0 0 4px; }
+.host-pick-row { display: flex; align-items: center; gap: 6px; min-height: var(--touch-target);
+                 padding: 0 12px 0 0; background: var(--bg-input); color: var(--text-primary);
+                 border: var(--border-w) solid var(--text-muted); border-radius: var(--radius);
+                 font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+/* The radio is a target in its own right, 44 px square (AC-85), the row its
+   label around it. WebKit's native radio fills that whole square unchecked
+   and shrinks to a dot checked, so the radio is drawn here instead: the same
+   ring in both states, centred in the target, with a dot inside when checked.
+   Forced colours get the native control back, which they can repaint. */
+.host-pick-row input { flex: none; margin: 0; width: var(--touch-target); height: var(--touch-target);
+                       min-width: var(--touch-target); min-height: var(--touch-target);
+                       -webkit-appearance: none; appearance: none; border: 0; border-radius: 50%;
+                       background: radial-gradient(circle closest-side, transparent 0 9px,
+                                   var(--text-primary) 9px 11px, transparent 11px);
+                       cursor: pointer; }
+.host-pick-row input:checked { background: radial-gradient(circle closest-side,
+                                   var(--text-primary) 0 5px, transparent 5px 9px,
+                                   var(--text-primary) 9px 11px, transparent 11px); }
+@media (forced-colors: active) {
+  .host-pick-row input { -webkit-appearance: auto; appearance: auto; background: none; }
+}
+.host-pick-row span { min-width: 0; }
+.host-pick-note { margin: 0; }
+
 .host-status { margin: 0; min-height: 1em; }
 .host-status:empty { display: none; }
 

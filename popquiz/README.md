@@ -27,10 +27,12 @@ repository, a file, or a command anyone keeps:
 (`--bin room`: the crate has four binaries, and `cargo run` will not pick one.)
 The Discord application must list `http://localhost:3000/auth/discord/callback`
 as a redirect (Developer Portal → OAuth2 → Redirects; the port is the room's).
-Schedule a question over the pipeline channel (SPEC §8.3), then open
-`http://localhost:3000/host?question=<id>` and press *Sign in with Discord*.
-Discord asks once for `identify` and `guilds.members.read`, and sends you back
-to the host page signed in; press *Create a room*. The room asks Discord then,
+Schedule a question over the pipeline channel (SPEC §8.3) for today's date,
+then open `http://localhost:3000/host` (or `/host?question=<id>` to start with
+that one chosen) and press *Sign in with Discord*. Discord asks once for
+`identify` and `guilds.members.read`, and sends you back to the host page
+signed in, which lists the club's questions for today (SPEC §8.5); choose one
+and press *Create a room*. The room asks Discord then,
 and only then, whether your account holds the role. The host phone moves to
 `/host/{room_id}` and shows the wordmark, the room code, one primary action and
 the count. Open the wall at `/wall/{room_id}`, the same id as the host page's
@@ -230,14 +232,19 @@ is `CLUB_ALIASES` in `src/quiz_session/models/club.rs`, held equal to the pipeli
 | `POST /rooms` `{question_id, club?}` | *Create a room* for a club (default `rustnyc`; `nyc` reads as it; D-26) | the organizer session → `HostAuth::authorize_create` (Discord) |
 | `POST /rooms/{id}/put-on-screen`, `close-answers`, `show-split`, `walk-it`, `reveal`, `release`, `step-back`, `step-forward` | one per host action, plus `←`/`→` | the room's host session |
 | `POST /rooms/{id}/run-it-again` `{question_id}` | a **new** room; this one stays released | `authorize_create`, same organizer |
+| `GET /organizer/questions?club=<club>` | the host phone's picker (SPEC §8.5): `{"questions": [{id, topic}]}`, sorted by id, `Cache-Control: no-store`. Exactly the questions *Create a room* would accept now (`quiz_session/host/shortlist.rs`, the one check both call): scheduled for the club, arranged for today's meetup date in the club's zone, affirmed and accepted, not run by the club, held by no room. Id and topic only; nothing from the sealed module. Listing uses and arranges nothing (G-10) | the organizer session → `authorize_create`, the same club check as *Create a room* |
 | `GET /rooms/{id}/wall`, `/buzzer` | the public state query | none |
 | `GET /rooms/{id}/host` | the host's projection | the room's host session |
-| `GET /auth/discord?question=<id>` | T-10: `303` to Discord's consent screen; sets the state cookie | none |
-| `GET /auth/discord/callback?code&state` | T-10: `303 /host?question=<id>#<organizer session>`; a bad `state` is `400`, no body | the state cookie |
+| `GET /auth/discord?question=<id>` | T-10: `303` to Discord's consent screen; sets the state cookie. `question` may be empty or absent (the bare host page, §8.5); one that is present and not an id is `400` | none |
+| `GET /auth/discord/callback?code&state` | T-10: `303 /host?question=<id>#<organizer session>`, or `/host#<organizer session>` when the link named no question; a bad `state` is `400`, no body | the state cookie |
 
 A refusal is `409 {"reason": …}` in plain words; a missing or wrong credential
 is `401` with no body; an unknown room is `404`. *Create a room* adds `403
-{"refusal": "wrong_server" | "wrong_role", "reason": …}` and `503` (T-10). A host command on a room that
+{"refusal": "wrong_server" | "wrong_role", "reason": …}` and `503` (T-10), and
+so does `GET /organizer/questions`, which refuses nothing else. *Create a
+room* on a question arranged for another date is `409` *That question was
+scheduled for another date.* (§8.5); a record pushed before PQ-80, with no
+date, is not date-gated. A host command on a room that
 has ended but has not been swept yet is `409 {"refusal": "already_ended" |
 "closed_for_inactivity", "reason": …}` (T-11). Once it is swept, it is `404`.
 
@@ -249,7 +256,7 @@ routes, one credential. T-20 builds the laptop side (`popquiz schedule` and
 
 | Route | What | Answers |
 |---|---|---|
-| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes, plus `bank_order` from `popquiz schedule` (where each wall option sits in the bank; absent means the bank's own order). It goes through `answers::load_arranged` into the sealed module and nowhere else (AC-61); `bank_order` is never stored. | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400 {reason}` if the record does not load, its affirmation is malformed, `bank_order` is not an arrangement, or its `id` is not `{id}`. `409 {reason}` if the question is not affirmed for its text (unaffirmed, stale or unbound) or not accepted at review, has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
+| `PUT /admin/questions/{id}` (default club) · `PUT /admin/clubs/{club}/questions/{id}` | The question record, answer included, exactly the JSON `bank.py` writes, plus `bank_order` from `popquiz schedule` (where each wall option sits in the bank; absent means the bank's own order) and `meetup_date` (`YYYY-MM-DD`, required: the date `popquiz schedule --date` arranged it for; SPEC §8.5, PQ-80). It goes through `answers::load_arranged` into the sealed module and nowhere else (AC-61); `bank_order` is never stored, and `meetup_date` is stored beside the sealed record, outside it, so the picker and *Create a room* offer the question on that date only. | `201 {id, scheduled: "new"}`, or `200 {id, scheduled: "replaced"}` for a re-push. `400` with no body if `meetup_date` is missing or not `YYYY-MM-DD` (checked before the record is read). `400 {reason}` if the record does not load, its affirmation is malformed, `bank_order` is not an arrangement, or its `id` is not `{id}`. `409 {reason}` if the question is not affirmed for its text (unaffirmed, stale or unbound) or not accepted at review, has been run (G-10: never twice), or a room holds it. `413` for a body over 1 MiB. |
 | `GET /admin/used` | The used-question ledger, `[{club, question_id, used: {meetup_date, room_id, released_at, fit, affirmed_by}}]` (a question is used per club, D-26): `bank.py`'s `Used` per question. `fit` is `null` if no wall reported one (G-2). `affirmed_by` is the organizer whose affirmation the room ran it on. | `200` |
 
 **Only affirmed questions run (G-12, GAP-24, ADR-0005 item 9).** The room checks
@@ -1027,8 +1034,9 @@ from 1Password at `$POPQUIZ_OP_REF`, checks `GET /admin/used`, pushes the bank
 record and prints the host link. If the question is already in the ledger it stops
 and says so; only a restart clears that, and the recipe never restarts anything.
 It pushes the record in its stored order, so it is for demos, not a meetup
-(`just schedule` arranges the options for the meetup's date). Run it again after
-any restart or deploy.
+(`just schedule` arranges the options for the meetup's date). It dates the record
+tonight in New York, the club's zone, so host it the same night: on another date
+the room refuses it. Run it again after any restart or deploy.
 
 **A restart loses every room.** The room runs on a paid Fly org, a card with
 a spending cap. The machine runs until something stops or redeploys it. Rooms

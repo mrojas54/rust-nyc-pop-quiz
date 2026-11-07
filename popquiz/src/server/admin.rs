@@ -25,10 +25,10 @@
 //! - **Nothing here logs**, and [`AdminToken`] has no `Debug`, `Display` or
 //!   `Clone`, so the token cannot be formatted by accident.
 //! - **The answer enters the sealed module and nowhere else** (AC-61): the
-//!   body goes to [`answers::load_arranged`] whole, less the one key the
-//!   pipeline adds (`bank_order`, which is not a record field), and what comes
-//!   back is a `Scheduled`, which this module hands to [`AppState::schedule`]
-//!   unopened.
+//!   body goes to [`answers::load_arranged`] whole, less the two keys the
+//!   pipeline adds beside the record (`bank_order` and `meetup_date`), and
+//!   what comes back is a `Scheduled`, which this module hands to
+//!   [`AppState::schedule_dated`] unopened.
 //! - **Only an affirmed question is scheduled** (G-12, GAP-24). The room
 //!   checks the affirmation's digest itself, against the bank's option order
 //!   that `bank_order` gives; an unaffirmed, stale or unbound record is `409`
@@ -146,6 +146,23 @@ pub async fn serve(State(admin): State<Arc<Admin>>, request: Request) -> Respons
     }
 }
 
+/// `YYYY-MM-DD`, strictly: four digits, a month `01`–`12`, a day `01`–`31`.
+/// The pipeline's `--date` is the same shape, and the room compares it with
+/// [`crate::used::meetup_date_in`]'s, so nothing looser can ever match.
+fn is_meetup_date(d: &str) -> bool {
+    let b = d.as_bytes();
+    let digits = |r: std::ops::Range<usize>| b[r].iter().all(u8::is_ascii_digit);
+    let number = |r: std::ops::Range<usize>| d[r].parse::<u32>().unwrap_or(0);
+    b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && digits(0..4)
+        && digits(5..7)
+        && digits(8..10)
+        && (1..=12).contains(&number(5..7))
+        && (1..=31).contains(&number(8..10))
+}
+
 fn refused(status: StatusCode, reason: impl Into<String>) -> Response {
     (status, Json(serde_json::json!({ "reason": reason.into() }))).into_response()
 }
@@ -173,6 +190,17 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
             }
         },
     };
+    // R1-a (SPEC §8.5): the meetup date the record was arranged for rides
+    // beside it too. It is required; a body without a well-formed one is `400`
+    // before the record is read. No approved sentence names it, so it says
+    // nothing.
+    let Some(meetup_date) = record
+        .remove("meetup_date")
+        .and_then(|v| v.as_str().map(str::to_string))
+        .filter(|d| is_meetup_date(d))
+    else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
     let json = serde_json::Value::Object(record).to_string();
     let question = match answers::load_arranged(&json, bank_order.as_deref()) {
         Ok(q) => q,
@@ -184,7 +212,7 @@ async fn put_question(rooms: &AppState, club: &ClubSlug, id: &str, body: Body) -
             copy::admin_path_names_another(id, question.public().id()),
         );
     }
-    match rooms.schedule_for(club, question) {
+    match rooms.schedule_dated(club, question, meetup_date) {
         Ok(Scheduling::New) => (
             StatusCode::CREATED,
             Json(serde_json::json!({ "id": id, "scheduled": "new" })),

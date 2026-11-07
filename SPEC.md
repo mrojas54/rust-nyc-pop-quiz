@@ -617,6 +617,28 @@ only into an `env:` mapping; neither is echoed, put on a command line or written
 to a file. The functions that already check them still do: the burst adds a
 holder, not a path. A `test` keeps the workflow to this paragraph.
 
+### 8.5 Choosing the question on the host phone (PQ-80)
+
+A signed-in organizer can pick the night's question on the host phone instead
+of naming it in the host link. `GET /organizer/questions?club=‹club›` takes the
+organizer session and the same check as *Create a room*: the request names the
+club, and that club's role authorizes it (§8, AC-103). An unknown club is
+refused as a missing role is. It answers, with `Cache-Control: no-store`, with
+the questions scheduled for that club that the club can run today: affirmed,
+arranged for today's meetup date, not used by the club, and held by no room.
+Each is given as `id` and `topic` only. The organizer picks one and creates the
+room on it through `POST /rooms`, which applies the same checks again and
+refuses with the existing reasons if anything changed in between. The host phone
+schedules nothing: a question reaches the room only as §8.3 describes, arranged
+for the club's meetup date by `popquiz schedule` on the laptop, and the
+organizer may push several that way before the night. The record carries the
+date it was arranged for, and the room offers or creates on it only on that
+date. Listing and picking use nothing (G-10). The listing returns `id` and
+`topic` only; it adds no reader of the sealed module and arranges nothing. The
+room's existing projections and the reveal are unchanged. D-20 stands: the
+admin channel is still two routes and one token, and the organizer session
+does not open it.
+
 ---
 
 ## 9. Capacity and realtime (AC-41, AC-52…AC-55)
@@ -672,6 +694,7 @@ same homes.
 | Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
 | Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · End Pop Quiz · Run it again |
+| Host, choosing the question (§8.5) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *No question is ready for this club today.* · **Reload** · *Couldn't load the questions.* · refusal *That question was scheduled for another date.* |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |

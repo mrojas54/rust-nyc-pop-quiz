@@ -12,14 +12,21 @@
                                         the server reads club=nyc, its old
                                         name, as rustnyc (ADR-0005 item 8).
      /host?question=<id>#<organizer     the first screen, signed in: Discord's
-      session>                          callback lands here. *Create a room*
-                                        presents the organizer session as a
-                                        bearer; the room asks Discord whether
+      session>                          callback lands here. The page asks the
+                                        room for the questions this club can
+                                        run today (GET /organizer/questions,
+                                        id and topic only, SPEC §8.5) and shows
+                                        them as one radio group, the link's
+                                        question chosen when it is listed.
+                                        *Create a room* presents the organizer
+                                        session as a bearer with the one
+                                        picked; the room asks Discord whether
                                         its owner holds the host role (§8). A
                                         401 means the session is gone: the page
                                         forgets it and offers sign-in again.
                                         403 shows the room's reason (wrong
-                                        server, wrong role, AC-70).
+                                        server, wrong role, AC-70). ?question=
+                                        may be left out.
      /host/<room_id>#<host session>     one screen per phase. This address IS
                                         the resume link (rooms.rs builds
                                         host_resume_url this way): a refresh
@@ -29,8 +36,9 @@
                                         rotates, and a fragment never reaches a
                                         server log.
 
-   What the page reads: the host projection (GET /rooms/{id}/host) and the host
-   socket (/rooms/{id}/ws/host), nothing else. It never asks for the wall's or
+   What the page reads: the club's list (ids and topics), the host projection
+   (GET /rooms/{id}/host) and the host socket (/rooms/{id}/ws/host), nothing
+   else. It never asks for the wall's or
    the buzzer's payload, so it cannot preview an answer the room has not
    revealed (AC-47, G-3).
 
@@ -107,9 +115,9 @@
     return '<p class="host-status meta" role="status">' + (ui && ui.status ? esc(ui.status) : "") + "</p>";
   }
 
-  function primaryHtml(slug, ui) {
+  function primaryHtml(slug, ui, blocked) {
     return '<button type="button" class="btn btn-primary host-primary" data-primary="' + PQ.escapeAttr(slug) + '"' +
-      (ui && ui.busy ? " disabled" : "") + ">" + esc(actionLabel(slug)) + "</button>";
+      ((ui && ui.busy) || blocked ? " disabled" : "") + ">" + esc(actionLabel(slug)) + "</button>";
   }
 
   /* Every host screen's heading, whatever the phase: the design system's
@@ -188,6 +196,48 @@
       '<div class="stack">' + primaryHtml("create", ui) + statusHtml(ui) + "</div>";
   }
 
+  /* The first screen signed in (SPEC §8.5): the club's list, then *Create a
+     room* on the one picked. `pick`: {state, questions, chosen}, where state
+     is loading, ready, empty, failed or denied (a 403: the reason alone, in
+     the status line). A refusal from *Create a room* is `ui.status` and stays
+     above the list it was refused from. One radio per question, each named by
+     its own label so the whole row is the target; the checked state is the
+     radio's own mark, never a colour (AC-40). */
+  function renderPick(ui, pick) {
+    var html = titleHtml("idle") + '<div class="stack">' + statusHtml(ui);
+    var note = function (key) { return '<p class="host-pick-note">' + esc(PQ.t(key)) + "</p>"; };
+    var reload = '<button type="button" class="btn" data-reload>' + esc(PQ.t("host_pick_reload")) + "</button>";
+    if (pick.state === "loading") html += note("host_pick_loading");
+    else if (pick.state === "empty") html += note("host_pick_empty") + reload;
+    else if (pick.state === "failed") html += note("host_pick_load_failed") + reload;
+    else if (pick.state === "ready") {
+      html += '<fieldset class="host-pick"><legend class="host-pick-legend">' + esc(PQ.t("host_pick_legend")) + "</legend>";
+      pick.questions.forEach(function (q, i) {
+        html += '<label class="host-pick-row" for="host-pick-' + i + '"><input type="radio" id="host-pick-' + i +
+          '" name="question" value="' + PQ.escapeAttr(q.id) + '"' + (q.id === pick.chosen ? " checked" : "") + "><span>" +
+          esc(PQ.t("host_pick_choice", { id: q.id, topic: q.topic })) + "</span></label>";
+      });
+      html += "</fieldset>" + primaryHtml("create", ui, !offered(pick.questions, pick.chosen));
+    }
+    return html + "</div>";
+  }
+
+  function offered(questions, id) {
+    return id !== null && id !== undefined && (questions || []).some(function (q) { return q.id === id; });
+  }
+
+  /* The question chosen when the list arrives: the link's, when it is
+     listed; otherwise the only one, when only one is; otherwise none, and the
+     organizer picks. */
+  function preselect(questions, wanted) {
+    if (offered(questions, wanted)) return wanted;
+    return questions.length === 1 ? questions[0].id : null;
+  }
+
+  function questionsHref(club) {
+    return "/organizer/questions" + (club ? "?club=" + encodeURIComponent(club) : "");
+  }
+
   /* The first screen signed out (T-10): one way on, to Discord's consent
      screen through the room's /auth/discord, carrying the question. A link,
      not a button: it is a navigation, and it works with no script after this. */
@@ -243,18 +293,20 @@
     var where = parseLocation(win.location);
     var ui = { status: null, busy: false };
 
+    function read(res) {
+      return res.text().then(function (t) {
+        var json = null;
+        try { json = t ? JSON.parse(t) : null; } catch (e) { json = null; }
+        return { res: res, body: json };
+      });
+    }
+
     function post(url, bearer, body) {
       var headers = {};
       if (bearer) headers.Authorization = "Bearer " + bearer;
       if (body) headers["Content-Type"] = "application/json";
       return win.fetch(url, { method: "POST", headers: headers, body: body ? JSON.stringify(body) : undefined })
-        .then(function (res) {
-          return res.text().then(function (t) {
-            var json = null;
-            try { json = t ? JSON.parse(t) : null; } catch (e) { json = null; }
-            return { res: res, body: json };
-          });
-        });
+        .then(read);
     }
 
     /* AC-82: every paint replaces the screen, and the control that had the
@@ -269,13 +321,29 @@
     function keyOf(node) {
       if (!node || !node.getAttribute) return null;
       if (node.getAttribute("data-primary") !== null) return "primary";
+      if (node.getAttribute("data-reload") !== null) return "reload";
+      if (node.getAttribute("name") === "question") return "pick";
       var step = node.getAttribute("data-step");
       return step ? "step:" + step : null;
     }
 
+    /* The picker's landing place: the chosen question, or the first, or
+       Reload when the list has nothing to pick or did not load. */
+    function pickTarget() {
+      return el.querySelector('input[name="question"]:checked') || el.querySelector('input[name="question"]') ||
+        el.querySelector("[data-reload]");
+    }
+
+    /* A key whose control is gone hands over to the list once one is there:
+       Reload to the list it loaded, and *Create a room* to the list reloaded
+       after a refusal, when nothing is chosen, or to Reload when that list is
+       empty or failed. Never while a request is in flight; the key waits for
+       the control to come back. */
     function focusTarget(key) {
       if (!key || !el.querySelector) return null;
-      if (key === "primary") return el.querySelector("[data-primary]:not([disabled])");
+      if (key === "pick") return pickTarget();
+      if (key === "reload") return el.querySelector("[data-reload]") || pickTarget();
+      if (key === "primary") return el.querySelector("[data-primary]:not([disabled])") || (ui.busy ? null : pickTarget());
       var slug = key.slice(5);
       var other = slug === "step-back" ? "step-forward" : "step-back";
       return el.querySelector('[data-step="' + slug + '"]:not([disabled])') ||
@@ -315,32 +383,72 @@
     }
 
     if (where.mode === "create") {
+      var pick = { state: "loading", questions: [], chosen: null };
       var paintCreate = function () {
-        repaint(where.token ? renderCreate(ui) : renderSignIn(ui, where.question, where.club));
+        repaint(where.token ? renderPick(ui, pick) : renderSignIn(ui, where.question, where.club));
       };
+      // The organizer session is unknown or expired (T-10): sign in again,
+      // carrying the question and the club.
+      var signInAgain = function () {
+        where.token = null;
+        win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
+        ui.busy = false; ui.status = null; paintCreate();
+      };
+      // The club's list (SPEC §8.5). A refusal already on the screen stays.
+      var load = function () {
+        var wanted = pick.chosen !== null ? pick.chosen : where.question;
+        pick = { state: "loading", questions: [], chosen: null }; paintCreate();
+        win.fetch(questionsHref(where.club), { headers: { Authorization: "Bearer " + where.token } }).then(read)
+          .then(function (r) {
+            var qs = r.body && r.body.questions;
+            if (r.res.status === 200 && Array.isArray(qs)) {
+              pick = { state: qs.length ? "ready" : "empty", questions: qs, chosen: preselect(qs, wanted) };
+            } else if (r.res.status === 401) {
+              signInAgain();
+              return;
+            } else if (r.res.status === 403) {
+              pick = { state: "denied", questions: [], chosen: null };
+              ui.status = statusLine(r.res, r.body);
+            } else {
+              pick = { state: "failed", questions: [], chosen: null };
+            }
+            paintCreate();
+          }, function () {
+            pick = { state: "failed", questions: [], chosen: null }; paintCreate();
+          });
+      };
+      el.addEventListener("change", function (ev) {
+        var t = ev.target;
+        if (!t || t.name !== "question" || !t.checked || pick.state !== "ready") return;
+        pick.chosen = t.value;
+        // The browser has checked the radio already; only *Create a room*
+        // changes. Enabling it in place keeps the focused radio the same node
+        // while the arrow keys move through the group.
+        var b = el.querySelector && el.querySelector('[data-primary="create"]');
+        if (b && !ui.busy) b.disabled = false;
+        else paintCreate();
+      });
       el.addEventListener("click", function (ev) {
-        var b = ev.target.closest && ev.target.closest("[data-primary]");
-        if (!b || ui.busy) return;
+        if (!ev.target.closest || ui.busy || !where.token) return;
+        if (ev.target.closest("[data-reload]")) { ui.status = null; load(); return; }
+        var b = ev.target.closest("[data-primary]");
+        if (!b || !offered(pick.questions, pick.chosen)) return;
+        var question = pick.chosen;
         ui.busy = true; ui.status = null; paintCreate();
-        post("/rooms", where.token, roomBody(where.question, where.club)).then(function (r) {
+        post("/rooms", where.token, roomBody(question, where.club)).then(function (r) {
           if (r.res.status === 201 && r.body) {
-            storeSet(win, { token: where.token, question: where.question, club: where.club });
+            storeSet(win, { token: where.token, question: question, club: where.club });
             win.location.replace(r.body.host_resume_url || roomPath(r.body.id, r.body.host_session));
             return;
           }
-          if (r.res.status === 401) {
-            // The organizer session is unknown or expired (T-10): sign in again.
-            where.token = null;
-            win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
-            ui.busy = false; ui.status = null; paintCreate();
-            return;
-          }
-          ui.busy = false; ui.status = statusLine(r.res, r.body); paintCreate();
+          if (r.res.status === 401) { where.question = question; signInAgain(); return; }
+          // A refusal: say why, and show the list as it is now.
+          ui.busy = false; ui.status = statusLine(r.res, r.body); load();
         }, function (e) {
           ui.busy = false; ui.status = String(e && e.message || e); paintCreate();
         });
       });
-      paintCreate();
+      if (where.token) load(); else paintCreate();
       return;
     }
 
@@ -452,6 +560,9 @@
     isTerminalClose: isTerminalClose,
     render: render,
     renderCreate: renderCreate,
+    renderPick: renderPick,
+    preselect: preselect,
+    questionsHref: questionsHref,
     renderSignIn: renderSignIn,
     signInHref: signInHref,
     roomBody: roomBody,

@@ -78,11 +78,13 @@ const REASON_SINKS: &[&str] = &["refused"];
 /// Files outside `src/server/` and `src/connections/` whose refusals a route
 /// sends as its `reason`: the admin channel's `LoadError` and `RoomError`, and
 /// the host routes' `RoomError` (PQ-60 ruling A); the affirmation's refusal,
-/// the phase machine's and the ended room's (PQ-84, cleared "all").
+/// the phase machine's and the ended room's (PQ-84, cleared "all"); the one
+/// create check that `create.rs` and the host phone's list share (PQ-80).
 const REASON_SOURCES: &[&str] = &[
     "quiz_session/models/answers.rs",
     "quiz_session/state_manager.rs",
     "quiz_session/host/create.rs",
+    "quiz_session/host/shortlist.rs",
     "quiz_session/models/affirmation.rs",
     "quiz_session/models/phase.rs",
     "quiz_session/lifecycle.rs",

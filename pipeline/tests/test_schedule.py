@@ -779,9 +779,25 @@ def test_ac101_the_push_carries_the_bearer_and_exactly_the_arranged_record(affir
     # ADR-0005 item 9: beside the record, the bank order the room checks the
     # affirmation's digest in; slot k holds the bank's option bank_order[k].
     order = body.pop("bank_order")
+    # SPEC §8.5 (R1-a): and the meetup date it was arranged for.
+    assert body.pop("meetup_date") == NIGHT.isoformat()
     assert body == question_to_dict(expected)
     assert [question.options[i] for i in order] == list(expected.options)
     assert "scheduled: new" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("club", ["rustnyc", "la"])
+def test_r1a_the_push_carries_the_date_it_was_arranged_for(affirmed, room, tmp_path, club):
+    """SPEC §8.5: the room offers a pushed record only on the date it was
+    arranged for, so the push names that date, the `--date`, not today."""
+    fake = room((201, {"scheduled": "new"}), (201, {"scheduled": "new"}))
+    question = load_question(affirmed, "q3")
+    for day in (NIGHT, NIGHT + timedelta(days=28)):
+        assert schedule_q3(affirmed, tmp_path / f"out-{day}", day, "--club", club) == 0
+        body = json.loads(fake.requests[-1].data)
+        assert body["meetup_date"] == day.isoformat()
+        body.pop("meetup_date"), body.pop("bank_order")
+        assert body == question_to_dict(schedule.arrange(question, day))
 
 
 def test_ac101_a_re_push_reads_replaced(affirmed, room, tmp_path, capsys):
@@ -835,7 +851,7 @@ def test_ac101_the_token_appears_in_no_output_and_no_error(affirmed, room, tmp_p
         assert PLANT not in captured.out + captured.err
     room((500, b""))
     with pytest.raises(schedule.ScheduleError) as caught:
-        schedule.push(schedule.arrange(load_question(affirmed, "q3"), NIGHT), "https://room.test", PLANT)
+        schedule.push(schedule.arrange(load_question(affirmed, "q3"), NIGHT), "https://room.test", PLANT, NIGHT)
     assert PLANT not in str(caught.value) and PLANT not in repr(caught.value)
 
 

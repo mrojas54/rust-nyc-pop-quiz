@@ -88,7 +88,6 @@ fn refuse<T>(id: &str, why: impl std::fmt::Display) -> Result<T, LoadError> {
 pub struct Record {
     id: String,
     source: String,
-    #[allow(dead_code)]
     topic: String,
     #[allow(dead_code)]
     difficulty_requested: i64,
@@ -815,6 +814,7 @@ pub fn load_arranged(json: &str, bank_order: Option<&[usize]>) -> Result<Schedul
     Ok(Scheduled {
         public: PublicQuestion {
             id: id.clone(),
+            topic: record.topic.clone(),
             source: record.source.clone(),
             options,
             hint: record.hint.clone(),

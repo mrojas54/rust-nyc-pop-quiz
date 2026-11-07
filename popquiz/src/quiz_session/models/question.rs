@@ -74,6 +74,9 @@ pub struct TraceStep {
 #[derive(Debug)]
 pub struct PublicQuestion {
     pub(crate) id: String,
+    /// The bank's one-line topic: what the host phone's picker shows beside
+    /// the id (SPEC §8.5). Never on the wall or a buzzer.
+    pub(crate) topic: String,
     pub(crate) source: String,
     pub(crate) options: [String; 5],
     pub(crate) hint: String,
@@ -85,6 +88,10 @@ pub struct PublicQuestion {
 impl PublicQuestion {
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    pub fn topic(&self) -> &str {
+        &self.topic
     }
 
     pub fn source(&self) -> &str {

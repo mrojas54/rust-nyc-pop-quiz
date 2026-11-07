@@ -281,6 +281,7 @@ function hostPayload(phase, extra = {}) {
 
 // The host's status line shows what the room or the network said, verbatim.
 const REASON = 'Sentinel refusal reason text';
+const PICK = [{ id: 'q3', topic: 'Sentinel topic alpha' }, { id: 'q7', topic: 'Sentinel topic beta' }];
 
 function hostScreens() {
   const h = (name, html, payload) => ({ surface: 'host', name, html, said: [], vocab: vocabulary(payload || {}) });
@@ -288,6 +289,12 @@ function hostScreens() {
     h('sign in', H.renderSignIn({ status: null, busy: false }, 'q3')),
     h('create', H.renderCreate({ status: null, busy: false })),
     h('create, refused', H.renderCreate({ status: REASON, busy: false })),
+    // The club's list (SPEC §8.5): its ids and topics are the room's data.
+    h('pick, loading', H.renderPick({ status: null, busy: false }, { state: 'loading' })),
+    h('pick', H.renderPick({ status: null, busy: false }, { state: 'ready', questions: PICK, chosen: null }), { questions: PICK }),
+    h('pick, refused', H.renderPick({ status: REASON, busy: false }, { state: 'ready', questions: PICK, chosen: 'q7' }), { questions: PICK }),
+    h('pick, empty', H.renderPick({ status: null, busy: false }, { state: 'empty' })),
+    h('pick, failed', H.renderPick({ status: null, busy: false }, { state: 'failed' })),
     ...PHASES.map((ph) => h(ph, H.render(hostPayload(ph), { status: null, busy: false }), hostPayload(ph))),
     h('live, refused', H.render(hostPayload('live'), { status: REASON, busy: false }), hostPayload('live')),
     h('work, in flight', H.render(hostPayload('work'), { status: null, busy: true }), hostPayload('work')),
@@ -354,7 +361,7 @@ test('every screen was drawn: each surface, each phase', () => {
   // Exact, so a screen that drops out of the set is loud rather than quiet.
   const by = (s) => SCREENS.filter((x) => x.surface === s).length;
   assert.deepEqual({ wall: by('wall'), buzzer: by('buzzer'), host: by('host'), home: by('home') },
-    { wall: 33, buzzer: 23, host: 13, home: 19 });
+    { wall: 33, buzzer: 23, host: 18, home: 19 });
   // And each surface reaches every phase it has.
   const wallPhases = new Set(SCREENS.filter((x) => x.surface === 'wall').map((x) => x.name.replace(/^static /, '').replace(/[[ ].*$/, '')));
   for (const ph of PHASES) assert.ok(wallPhases.has(ph), `wall never drew ${ph}`);
@@ -506,7 +513,8 @@ test('no surface retypes a §11 string as a literal of its own', () => {
 
 const keysIn = (s) => [...String(s).matchAll(MARKER)].map((m) => m[1]);
 const CONTROL_KEYS = new Set([...Object.keys(REAL.COPY).filter((k) => k.startsWith('host_action_')),
-  'buzzer_join_button', 'buzzer_hint_action', 'buzzer_save_retry', 'proposed_trace_previous_step', 'proposed_trace_next_step']);
+  'buzzer_join_button', 'buzzer_hint_action', 'buzzer_save_retry', 'proposed_trace_previous_step', 'proposed_trace_next_step',
+  'host_pick_reload']);
 
 test('AC-98: every control is an action, an answer letter or a step — none asks anyone to speak', () => {
   // Controls are what a person can press. Each is named by a copy key from
@@ -521,6 +529,13 @@ test('AC-98: every control is an action, an answer letter or a step — none ask
       const label = n.attrs['aria-label'] || n.textContent;
       const keys = keysIn(label);
       const bare = label.replace(MARKER, '').trim();
+      if (n.tag === 'input' && n.attrs.type === 'radio' && n.attrs.name === 'question') {
+        // The picker's choices (SPEC §8.5): each named by its own <label>, the
+        // question's id and topic through host_pick_choice.
+        const l = [...root.walk()].find((m) => m.tag === 'label' && m.attrs.for === n.attrs.id);
+        assert.ok(l && keysIn(l.textContent).includes('host_pick_choice'), `${s.name}: a choice not named by host_pick_choice`);
+        continue;
+      }
       if (n.tag === 'input') { assert.equal(n.attrs.id, 'pq-code', `${s.name}: an unlabelled input`); continue; }
       if (keys.length) {
         for (const k of keys) { assert.ok(CONTROL_KEYS.has(k), `${s.surface} / ${s.name}: a control keyed ${k}`); seen.add(k); }
