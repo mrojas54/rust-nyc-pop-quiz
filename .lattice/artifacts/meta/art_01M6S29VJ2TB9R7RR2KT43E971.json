@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-06T18:35:27Z",
+  "created_by": "agent:delegator-pq80-reviewer",
+  "custom_fields": {},
+  "id": "art_01M6S29VJ2TB9R7RR2KT43E971",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6S29VJ2TB9R7RR2KT43E971.md",
+    "size_bytes": 1516
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Code review (Codex)",
+  "token_usage": null,
+  "type": "note"
+}

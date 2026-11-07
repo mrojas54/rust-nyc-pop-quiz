@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 9,
+  "comment_count": 11,
   "complexity": null,
   "created_at": "2026-10-28T20:51:11Z",
   "created_by": "agent:claude",
@@ -18,17 +18,32 @@
       "id": "art_01M6QZT01J23EVMSA1YCK3CR1Q",
       "role": "review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6S29VJ2TB9R7RR2KT43E971",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6T8PZDS25NRD0KSY0WTFQA2",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6TDJ3KM51N810WRCE1CZB4X",
+      "role": null,
+      "source_type": "artifact"
     }
   ],
   "id": "task_01M624FXP7ZGAJR2PR1KN9KRPV",
-  "last_event_id": "ev_01M6REMMHJK710XP2EN5QNFJ21",
-  "last_status_changed_at": "2026-11-06T12:51:48Z",
+  "last_event_id": "ev_01M6TDK2RE30E5HVYAZPA2FN1A",
+  "last_status_changed_at": "2026-11-07T07:11:26Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 1,
   "schema_version": 1,
   "short_id": "PQ-80",
-  "status": "in_progress",
+  "status": "review",
   "tags": [
     "feature",
     "room",
@@ -37,6 +52,6 @@
   ],
   "title": "Organizer schedules the question from the host page (browser scheduling)",
   "type": "task",
-  "updated_at": "2026-11-06T12:51:48Z",
+  "updated_at": "2026-11-07T07:11:58Z",
   "urgency": null
 }
