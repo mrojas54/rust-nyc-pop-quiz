@@ -746,13 +746,17 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
   PHASES.forEach((p, i) => mark('host', p, 'AC-83', `"${said[i]}"`));
 });
 
-// The screens before a room exists, booted for real: nothing is said on them.
-// Signed in, the first screen is the club's list (SPEC §8.5); the scripted
-// room lists the picker's two questions, the link names q7, and *Create a
-// room* is answered 200, which is no room, so it is refused.
-test('ac83_host: sign in, the pick and a refused create say nothing', async () => {
-  const cases = [['sign in', '', false], ['pick, chosen', '#FIXTURE-SESSION', false], ['pick, refused', '#FIXTURE-SESSION', true]];
-  for (const [name, hash, press] of cases) {
+// The screens before a room exists, booted for real. Signing in says nothing.
+// Signed in, the first screen is the club's list (SPEC §8.5): opening says
+// nothing, the list arriving says its legend (PQ-87). The scripted room lists
+// the picker's two questions, the link names q7, and *Create a room* is
+// answered 200, which is no room, so it is refused: the list is asked for
+// again, which says the loading line, then the legend once more.
+test('ac83_host: sign in says nothing; the pick and a refused create say each list state once', async () => {
+  const L = [C.host_pick_legend];
+  const cases = [['sign in', '', false, []], ['pick, chosen', '#FIXTURE-SESSION', false, L],
+    ['pick, refused', '#FIXTURE-SESSION', true, [...L, C.host_pick_loading, ...L]]];
+  for (const [name, hash, press, want] of cases) {
     const { win, el } = hostWindow('/host');
     win.location.hash = hash;
     win.location.search = '?question=q7';
@@ -771,9 +775,40 @@ test('ac83_host: sign in, the pick and a refused create say nothing', async () =
     const screen = hostScreens().find((s) => s.name === name);
     assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
     if (press) assert.match(el.textContent, /200/, `${name}: the refusal is on screen`);
-    assert.deepEqual(said, [], name);
-    mark('host', name, 'AC-83', `silent (booted, ${said.length})`);
+    assert.deepEqual(said, want, name);
+    mark('host', name, 'AC-83', said.length ? `"${said.join('", "')}"` : `silent (booted, ${said.length})`);
   }
+});
+
+// PQ-87: each of the list's states, reached on a booted page, says its own
+// line once (SPEC §10). The list comes back empty, then failed on Reload, then
+// with the questions on Reload again.
+test('ac83_host: the picker\'s loading, empty and failed states each say their line once', async () => {
+  const { win, el } = hostWindow('/host');
+  const replies = [
+    { ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: [] })) },
+    { ok: false, status: 503, statusText: 'Service Unavailable', text: () => Promise.resolve('') },
+    { ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: PICK })) },
+  ];
+  const fetch = win.fetch;
+  win.fetch = (url, init) => (url === '/organizer/questions' ? Promise.resolve(replies.shift()) : fetch(url, init));
+  const said = [];
+  hostEnv.PQ.announce = (t) => said.push(t);
+  H.boot(win);
+  assert.deepEqual(said, [], 'opening');
+  mark('host', 'pick, loading', 'AC-83', 'opening: silent');
+  const steps = [['pick, empty', C.host_pick_empty], ['pick, failed', C.host_pick_load_failed], ['pick', C.host_pick_legend]];
+  for (const [i, [name, line]] of steps.entries()) {
+    if (i > 0) {
+      click(el, el.querySelector('[data-reload]'));
+      assert.equal(said[said.length - 1], C.host_pick_loading, `${name}: Reload says the loading line`);
+    }
+    await settle(); await settle();
+    assert.equal(said[said.length - 1], line, name);
+    mark('host', name, 'AC-83', i > 0 ? `"${C.host_pick_loading}", "${line}"` : `"${line}"`);
+  }
+  assert.deepEqual(said, [C.host_pick_empty, C.host_pick_loading, C.host_pick_load_failed, C.host_pick_loading, C.host_pick_legend]);
+  mark('host', 'pick, loading', 'AC-83', `opening: silent; Reload: "${C.host_pick_loading}"`);
 });
 
 // AC-82 on the picker: *Create a room* refused, the list is asked for again,

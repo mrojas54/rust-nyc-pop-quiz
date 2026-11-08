@@ -242,3 +242,82 @@ test('a 401 on the list returns to Sign in with Discord, carrying the club', asy
   assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
   assert.ok(s.el.innerHTML.includes('href="/auth/discord?question=&amp;club=la"'), s.el.innerHTML);
 });
+
+// --------------------------------------------------------------------------
+// What a screen reader hears (SPEC §10, AC-83 pattern, PQ-87): each change of
+// the picker's state says its own line once through the live region. Opening
+// says nothing (the loading line is the page as it loads, read with it); the
+// list arriving says its legend, the one existing line that names it. A
+// repaint that leaves the state as it was says nothing again.
+// --------------------------------------------------------------------------
+
+function hearing() {
+  const said = [];
+  const was = PQ.announce;
+  PQ.announce = (t) => { said.push(t); return true; };
+  return { said, done: () => { PQ.announce = was; } };
+}
+
+test('announced: opening says nothing; the list arriving says Question, once', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host?club=la#tok', [{ status: 200, body: { questions: TWO } }]);
+    PQ.host.boot(s.win);
+    assert.deepEqual(h.said, [], 'opening');
+    await s.settle(); await s.settle();
+    assert.deepEqual(h.said, [C.host_pick_legend]);
+  } finally { h.done(); }
+});
+
+test('announced: an empty list says the readiness line', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: [] } }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.deepEqual(h.said, [C.host_pick_empty]);
+  } finally { h.done(); }
+});
+
+test('announced: a failed load (server or network) says the failure line', async () => {
+  for (const reply of [{ status: 503 }, { network: true }]) {
+    const h = hearing();
+    try {
+      const s = scripted('/host#tok', [reply]);
+      PQ.host.boot(s.win);
+      await s.settle(); await s.settle();
+      assert.deepEqual(h.said, [C.host_pick_load_failed], JSON.stringify(reply));
+    } finally { h.done(); }
+  }
+});
+
+test('announced: Reload says the loading line, then what the list came back as', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: [] } }, { status: 200, body: { questions: TWO } }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.press('data-reload');
+    assert.deepEqual(h.said, [C.host_pick_empty, C.host_pick_loading], 'Reload → loading');
+    await s.settle(); await s.settle();
+    assert.deepEqual(h.said, [C.host_pick_empty, C.host_pick_loading, C.host_pick_legend]);
+  } finally { h.done(); }
+});
+
+test('announced: a repaint that keeps the state (a pick, Create a room in flight) says nothing again', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [
+      { status: 200, body: { questions: TWO } },
+      { status: 201, body: { id: 'r1', host_session: 'hs', host_resume_url: '/host/r1#hs' } },
+    ]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q7');
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.ok(s.calls.some((c) => c.navigate === '/host/r1#hs'), 'on to the room');
+    assert.deepEqual(h.said, [C.host_pick_legend], 'the list, said once');
+  } finally { h.done(); }
+});
