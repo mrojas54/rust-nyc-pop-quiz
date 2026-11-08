@@ -402,13 +402,27 @@
          each failed press (PQ-89). It is said signed out too: a 401 on the
          list or on *Create a room* says the signed-out line as Sign in comes
          back (PQ-89). Only a response's own handler passes one, so opening
-         the page, signed in or out, still says nothing. */
+         the page, signed in or out, still says nothing.
+         PQ.announce writes 40 ms after the call, so a line said sooner than
+         that after another can collapse it. A list 401 can come back that
+         fast after Reload's loading line or a refused create's reason, so
+         the signed-out line (`hold`) waits until SAY_GAP after the line
+         before it: that one has been written and has stood a moment. */
       var shown = "loading";
-      var paintCreate = function (line) {
+      var SAY_GAP = 250;
+      var saidAt = null;
+      var clock = function () { return win.performance && win.performance.now ? win.performance.now() : Date.now(); };
+      var say = function (text, hold) {
+        var wait = hold && saidAt !== null ? saidAt + SAY_GAP - clock() : 0;
+        if (wait > 0) { win.setTimeout(function () { say(text); }, wait); return; }
+        saidAt = clock();
+        PQ.announce(text);
+      };
+      var paintCreate = function (line, hold) {
         if (line || (where.token && pick.state !== shown)) {
           shown = pick.state;
           var said = line || (shown === "denied" ? ui.status : PICK_SAID[shown] && PQ.t(PICK_SAID[shown]));
-          if (said) PQ.announce(said);
+          if (said) say(said, hold);
         }
         repaint(where.token ? renderPick(ui, pick) : renderSignIn(ui, where.question, where.club));
       };
@@ -417,7 +431,7 @@
       var signInAgain = function () {
         where.token = null;
         win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
-        ui.busy = false; ui.status = null; paintCreate(PQ.t("host_pick_signed_out"));
+        ui.busy = false; ui.status = null; paintCreate(PQ.t("host_pick_signed_out"), true);
       };
       // The club's list (SPEC §8.5). A refusal already on the screen stays;
       // `line` is said as the list starts loading (paintCreate).
