@@ -376,3 +376,164 @@ test('announced: a refused create says its reason in place of the loading line, 
     assert.deepEqual(h.said, [C.host_pick_legend, 'FIXTURE-REASON', C.host_pick_legend]);
   } finally { h.done(); }
 });
+
+// PQ-89: a *Create a room* that fails at the network leaves the list as it
+// was (still ready), so no state changes; what changes is the status line,
+// and that line, the error as drawn, is what is said. Each failed press is a
+// new attempt and says it again; a repaint in between says nothing.
+
+test('announced: a network error on create says the status line as drawn, once', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { network: true }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.ok(text(s.el.innerHTML).includes('offline'), s.el.innerHTML);
+    assert.equal(radios(s.el.innerHTML).length, 2, 'the list stays');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'offline']);
+  } finally { h.done(); }
+});
+
+test('announced: after a network error, a repaint that keeps the state and the line says nothing again', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { network: true }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    s.pick('q7');
+    s.pick('q3');
+    await s.settle();
+    assert.ok(text(s.el.innerHTML).includes('offline'), 'the line is still drawn');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'offline']);
+  } finally { h.done(); }
+});
+
+test('announced: a second press that fails at the network says it again', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { network: true }, { network: true }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.equal(s.calls.filter((c) => c.method === 'POST').length, 2, 'two attempts');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'offline', 'offline']);
+  } finally { h.done(); }
+});
+
+// PQ-89 (reopened on the client's ruling): a 401 sends the host back to Sign
+// in, and that says the client's line, verbatim, once. Opening the page signed
+// out still says nothing (PQ-87): the sign-in screen is the page as it loads.
+
+test('the signed-out line is the client\'s, verbatim', () => {
+  assert.equal(C.host_pick_signed_out, 'Recompiling, please sign in again');
+});
+
+// The page's clock and timers, held by the test: `t` is now, in ms, and
+// `run()` fires what is waiting, moving the clock to each one's time.
+function clocked(s) {
+  const c = { t: 0, timers: [] };
+  s.win.performance = { now: () => c.t };
+  s.win.setTimeout = (fn, ms) => { c.timers.push({ fn, at: c.t + ms, ms }); return c.timers.length; };
+  c.run = () => { for (const x of c.timers.splice(0)) { c.t = Math.max(c.t, x.at); x.fn(); } };
+  return c;
+}
+
+test('announced: a 401 on Create a room says the signed-out line once and shows Sign in', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { status: 401 }]);
+    const c = clocked(s);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    c.t += 1000;   // a person picks and presses a while after the list arrives
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
+    assert.deepEqual(h.said, [C.host_pick_legend, C.host_pick_signed_out]);
+    assert.ok(C.host_pick_signed_out, 'the line exists');
+  } finally { h.done(); }
+});
+
+test('announced: a 401 on the list says the signed-out line once and shows Sign in', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host?club=la#tok', [{ status: 401 }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
+    assert.deepEqual(h.said, [C.host_pick_signed_out]);
+    assert.ok(C.host_pick_signed_out, 'the line exists');
+  } finally { h.done(); }
+});
+
+// PQ-89 review pass 2: a line said within 40 ms of the one before it can
+// collapse that one (PQ.announce writes 40 ms after the call). A list 401 can
+// come back that fast, so the signed-out line waits until the line before it
+// has been written and has stood for a moment; then it is said.
+
+test('announced: a fast 401 after Reload holds the signed-out line until the loading line has been written', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: [] } }, { status: 401 }]);
+    const c = clocked(s);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    c.t += 1000;
+    s.press('data-reload');
+    assert.deepEqual(h.said, [C.host_pick_empty, C.host_pick_loading], 'Reload → loading');
+    c.t += 5;   // the 401 is back 5 ms later
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), 'Sign in is back at once');
+    assert.deepEqual(h.said, [C.host_pick_empty, C.host_pick_loading], 'held, not said over the loading line');
+    assert.equal(c.timers.length, 1, 'one held line');
+    assert.ok(c.timers[0].ms > 40, `held past the loading line's write (${c.timers[0].ms} ms)`);
+    c.run();
+    assert.deepEqual(h.said, [C.host_pick_empty, C.host_pick_loading, C.host_pick_signed_out]);
+  } finally { h.done(); }
+});
+
+test('announced: a fast list 401 after a refused create holds the signed-out line until the reason has been written', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [
+      { status: 200, body: { questions: TWO } },
+      { status: 409, body: { reason: 'FIXTURE-REASON' } },
+      { status: 401 },
+    ]);
+    const c = clocked(s);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    c.t += 1000;
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    for (let i = 0; i < 6; i++) await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), 'Sign in is back at once');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'FIXTURE-REASON'], 'held, not said over the reason');
+    assert.equal(c.timers.length, 1, 'one held line');
+    c.run();
+    assert.deepEqual(h.said, [C.host_pick_legend, 'FIXTURE-REASON', C.host_pick_signed_out]);
+  } finally { h.done(); }
+});
+
+test('announced: opening the page signed out says nothing', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host?question=q3', []);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
+    assert.deepEqual(h.said, []);
+    assert.equal(s.calls.length, 0, 'nothing was asked for');
+  } finally { h.done(); }
+});

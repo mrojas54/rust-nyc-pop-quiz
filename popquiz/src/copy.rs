@@ -91,6 +91,7 @@ pub const HOST_PICK_LOADING: &str = "Loading questions…";
 pub const HOST_PICK_EMPTY: &str = "No question is ready for this club today.";
 pub const HOST_PICK_RELOAD: &str = "Reload";
 pub const HOST_PICK_LOAD_FAILED: &str = "Couldn't load the questions.";
+pub const HOST_PICK_SIGNED_OUT: &str = "Recompiling, please sign in again";
 pub const WALL_REVEAL_NOBODY_ELSE: &str = "Nobody read it another way.";
 pub const HOST_REVEAL_NOBODY_ELSE: &str = "Why nobody said anything else";
 pub const HOST_REVEAL_READ_ALOUD: &str = "Read it aloud";
@@ -223,6 +224,7 @@ pub const ALL: &[(&str, &str)] = &[
     ("host_pick_empty", HOST_PICK_EMPTY),
     ("host_pick_reload", HOST_PICK_RELOAD),
     ("host_pick_load_failed", HOST_PICK_LOAD_FAILED),
+    ("host_pick_signed_out", HOST_PICK_SIGNED_OUT),
     ("wall_reveal_nobody_else", WALL_REVEAL_NOBODY_ELSE),
     ("host_reveal_nobody_else", HOST_REVEAL_NOBODY_ELSE),
     ("host_reveal_read_aloud", HOST_REVEAL_READ_ALOUD),
