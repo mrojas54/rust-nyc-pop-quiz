@@ -778,9 +778,12 @@ test('ac83_host: sign in says nothing; the pick and a refused create say each li
       : fetch(url, init));
     const said = [];
     hostEnv.PQ.announce = (t) => said.push(t);
+    let now = 0;
+    win.performance = { now: () => now };
     H.boot(win);
     await settle(); await settle();
     if (press) {
+      now += 1000;   // pressed a while after the list arrived, as a person would
       click(el, el.querySelector('[data-primary]'));
       for (let i = 0; i < 4; i++) await settle();
     }
