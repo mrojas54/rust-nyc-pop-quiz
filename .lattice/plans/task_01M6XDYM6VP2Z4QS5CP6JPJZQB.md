@@ -1,0 +1,15 @@
+# PQ-89: Announce a network error on Create a room to screen readers
+
+From PQ-88 (PR #139, merged f5fa38a): its DONE and PR body listed this as not done, out of scope.
+
+**Gap:** a network error on *Create a room* says nothing to screen readers. At f5fa38a, web/host/host.js:467-468 (the `post("/rooms", …)` rejection) sets `ui.busy = false; ui.status = String(e && e.message || e); paintCreate();`. `pick.state` is unchanged (still `ready`), so PQ-87's last-state-said guard in `paintCreate` (host.js:400-410) says nothing; the error is only drawn in `<p class="host-status" role="status">`, which repaint inserts with its text already in it (usually not announced; PQ-88 established this for the 403 case).
+
+**First:** confirm with evidence that it is silent today (host-pick.test.js `hearing()` read-back, or the c11 browser with POST /rooms failing at the network). If it is spoken, close with that evidence.
+
+**What would close it:** a rejected *Create a room* says the status line's own text (the error string already shown; no new copy, no new region) once through PQ.announce; a repaint that keeps the same state and status says nothing again; a second press that fails again says it again (it is a new attempt). Same treatment PQ-88 gave a refused create.
+
+**Out of scope:** the hosted-room page's error paths (host.js:501-571), the two-region double-read of the reason (PQ-88 contract note). List any further silent path found in DONE; do not fix it.
+
+**Criteria:** SPEC §10 (live region per state change), AC-83 pattern, SPEC §8.5. No AC change expected; if one is, stop and ask.
+
+**Harness:** just test (web: host-pick.test.js, a11y.test.js), just a11y.
