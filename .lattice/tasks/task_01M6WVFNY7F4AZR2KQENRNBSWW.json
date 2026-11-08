@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-11-08T05:53:15Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M6WVFNY7F4AZR2KQENRNBSWW",
-  "last_event_id": "ev_01M6WVFNY8C1KY1YEEM5VNNF35",
+  "last_event_id": "ev_01M6X0KFS6RVVHKFGZ8AS09Q60",
   "last_status_changed_at": "2026-11-08T05:53:15Z",
   "priority": "low",
   "relationships_out": [],
@@ -20,12 +20,11 @@
   "status": "backlog",
   "tags": [
     "follow-up",
-    "held",
     "web",
     "a11y"
   ],
   "title": "Announce the host picker's 403 reason to screen readers",
   "type": "task",
-  "updated_at": "2026-11-08T05:53:15Z",
+  "updated_at": "2026-11-08T07:22:43Z",
   "urgency": null
 }
