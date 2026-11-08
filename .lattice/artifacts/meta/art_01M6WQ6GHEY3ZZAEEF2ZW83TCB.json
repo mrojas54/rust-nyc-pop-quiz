@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-08T04:38:20Z",
+  "created_by": "agent:delegator-pq64",
+  "custom_fields": {},
+  "id": "art_01M6WQ6GHEY3ZZAEEF2ZW83TCB",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6WQ6GHEY3ZZAEEF2ZW83TCB.md",
+    "size_bytes": 6391
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "All five GAP-27 rows closed on 00c7753; M1-M9 bite; no code, no PR",
+  "tags": [],
+  "title": "Close report",
+  "token_usage": null,
+  "type": "note"
+}

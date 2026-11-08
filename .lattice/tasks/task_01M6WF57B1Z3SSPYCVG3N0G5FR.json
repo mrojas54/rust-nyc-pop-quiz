@@ -1,23 +1,39 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 5,
   "complexity": "low",
   "created_at": "2026-11-08T02:17:50Z",
   "created_by": "agent:orchestrator",
   "custom_fields": {},
   "description": "From PQ-80 (PR #136, merged ae4d8a0): the delegator's DONE listed it as a finding not acted on.\n\n**Gap:** the /host question picker (SPEC \u00a78.5) draws its loading, empty and failed notes (web/host/host.js:210-212, copy keys host_pick_loading, host_pick_empty, host_pick_load_failed) but never announces them. SPEC \u00a710 requires a polite live region per state change; the host page already announces phase changes through the shared PQ.announce region (web/shared/dom.js:43, host.js:476), the picker does not.\n\n**What would close it:** each picker state change (loading \u2192 list, loading \u2192 empty, loading \u2192 failed, Reload \u2192 loading) announces its existing copy line once through PQ.announce. No new copy, no new region, no layout change. RED first: a web test that fails on main because the announcement is missing; extend the a11y screens (just a11y) for the picker states.\n\n**Check while there:** the drawn 44 px radio's focus ring (594d5cd, never seen by eye, no Codex review).\n\n**Criteria:** SPEC \u00a710 (live region per state change), AC-83 pattern, SPEC \u00a78.5. No AC change expected; if one is, stop and ask.\n\n**Harness:** just test (web: host-pick.test.js, a11y.test.js), just a11y.\n\nHeld: released by the client by name. Re-verify the line numbers on the current main before planning.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-11-08T04:34:17Z",
+  "evidence_refs": [
+    {
+      "id": "art_01M6WJ4FE400DSBTX3D02GRJFZ",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6WJ4FHVWVGS7QCF1T1WS26X",
+      "role": "review",
+      "source_type": "artifact"
+    },
+    {
+      "id": "art_01M6WKJP751T6F2MRN97SX0MWD",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01M6WF57B1Z3SSPYCVG3N0G5FR",
-  "last_event_id": "ev_01M6WGH2ECTHPWBYRYN9JJZMPP",
-  "last_status_changed_at": "2026-11-08T02:17:50Z",
+  "last_event_id": "ev_01M6WPZ2AXCH6EH7AA4B24XJ1H",
+  "last_status_changed_at": "2026-11-08T04:34:17Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-87",
-  "status": "backlog",
+  "status": "done",
   "tags": [
     "follow-up",
     "web",
@@ -25,6 +41,6 @@
   ],
   "title": "Announce the host picker's loading, empty and failed states to screen readers",
   "type": "task",
-  "updated_at": "2026-11-08T02:41:46Z",
+  "updated_at": "2026-11-08T04:34:17Z",
   "urgency": null
 }

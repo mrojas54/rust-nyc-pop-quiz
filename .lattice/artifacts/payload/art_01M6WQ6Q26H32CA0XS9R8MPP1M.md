@@ -1,0 +1,1 @@
+just test on HEAD 00c7753 (sandbox off for loopback): green twice; cold 247.6s, warm 53.8s. cargo 406 passed 0 failed 4 ignored (39 binaries); web 330 pass 0 fail; pipeline 1286 passed 1 skipped; unittest 3 ok. Not run: just test-full, CI, Codex review (no code changed).

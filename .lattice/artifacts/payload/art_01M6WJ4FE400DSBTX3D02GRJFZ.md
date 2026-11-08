@@ -1,0 +1,1 @@
+PASS, no Critical/Major/Minor/NIT. Reviewed HEAD f90b62b4743b7687b2b19d39aca8f73ae96418ca (origin/main...HEAD), pass 1 of 2, codex exec read-only (codex review rejects --base with a prompt). Codex confirmed RED without the fix in memory: merge-base host.js gives 53 pass / 7 fail (5 picker tests + 2 a11y tests).
