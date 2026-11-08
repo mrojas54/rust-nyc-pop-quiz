@@ -223,18 +223,19 @@ skipped. A question the ledger names under a second room is refused for that
 record, and the run exits non-zero; so is a record already synced from the same
 room whose details differ from the ledger's. Running it twice changes nothing.
 
-**Verification checkpoint, 2026-11-08:** q3 and q4 have been re-verified on
-the current pin and have verifier-written files in `bank/recordings/`. Both pass
-`verify --check` and the scheduler's eligibility gate, including a fresh sandbox
-replay and local fallback generation. Their reviewed content and digest-bound
-organizer affirmations are unchanged.
+**Verification checkpoint, 2026-11-08:** q3, q4, q7 and q8 have current
+verification records and verifier-written files in `bank/recordings/`. Every
+question passes `verify --check` and the scheduler's eligibility gate, including
+a fresh sandbox replay and local fallback generation. Their reviewed content,
+digest-bound organizer affirmations and usage records are unchanged. q8 is
+accepted for its compiler-observed refusal; its program did not run natively or
+under Miri.
 
-q7 and q8 still have no verifier recording and are refused by scheduling until
-`just verify bank/questions/<id>.json` writes one. The reserve summary currently
-counts accepted, affirmed, unused questions without that recording check; its
-“ready” count is not a count of questions the scheduler will accept. Production
-scheduling still requires the actual meetup date and a successful push after the
-final deployment. The local check used `--no-push` and a validation date.
+The reserve summary counts accepted, affirmed, unused questions without checking
+their recordings; its “ready” count alone is not proof of scheduler eligibility.
+Production scheduling still requires the actual meetup date and a successful
+push after the final deployment. The recording-recovery checks used `--no-push`
+and a validation date, so no live room or question usage was changed.
 
 ## The bank record, in one paragraph
 
