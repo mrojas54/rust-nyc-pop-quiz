@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-08T01:23:41Z",
+  "created_by": "agent:orchestrator",
+  "custom_fields": {},
+  "id": "art_01M6WC234CECQ19NWZ7DW0FYGD",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01M6WC234CECQ19NWZ7DW0FYGD.md",
+    "size_bytes": 423
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #136 merged ae4d8a0 (head 594d5cd, base ccc9037) on the client's word. Same-minute gate 14:14:20Z: OPEN/MERGEABLE/CLEAN, just test + just test-full SUCCESS. Main CI + deploy success (gh-wait-runs.s",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}
