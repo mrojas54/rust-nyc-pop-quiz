@@ -1,6 +1,6 @@
 # Specification — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server); amended 2026-10-25 (F-15, a does-not-compile question resolves on an `error` row); amended 2026-11-08 (review fields named).** This is the
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server); amended 2026-10-25 (F-15, a does-not-compile question resolves on an `error` row); amended 2026-11-08 (review fields named; sign-in line added).** This is the
 build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
 `prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
 (`sequence/USER_STORIES.md`, AC-1…AC-102) so that an implementer who has never
@@ -694,7 +694,7 @@ same homes.
 | Host, phase labels (AC-49), announced through the live region, not shown | **before the question** · **question live** · **answers closed** · **the split** · **walking it through** · **the answer** · **released** |
 | Take it home, headings in order | **‹date›'s question** · **What happens** · **Why you might have read it as ‹X›** (one per incorrect option) · **What to remember** · **Walk it yourself** · **How we know** |
 | Host, actions | Create a room · Start · Close answers · Show the room its split · Trace · Reveal · End Pop Quiz · Run it again |
-| Host, choosing the question (§8.5) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *No question is ready for this club today.* · **Reload** · *Couldn't load the questions.* · refusal *That question was scheduled for another date.* |
+| Host, choosing the question (§8.5) | legend **Question** · each choice `‹id› · ‹topic›` · *Loading questions…* · *No question is ready for this club today.* · **Reload** · *Couldn't load the questions.* · refusal *That question was scheduled for another date.* · signed out (a 401 sends the host back to Sign in), announced through the live region *Recompiling, please sign in again* |
 | Wall + host, reveal, no incorrect votes | **Nobody read it another way.** (wall) · **Why nobody said anything else** — the host reads the `takeaway` beat only (host) |
 | Host, reveal | **Read it aloud** · What happens · Why ‹n› of us said ‹X› (the room's actual most-chosen incorrect option, §4.5) · What to remember |
 | Host, fit line (AC-100), in the host payload from `live` on, not shown | **fits the room** / **too long for this room — clipped at the bottom** / **too wide for this room — clipped at the right** / **too long and too wide for this room** |
