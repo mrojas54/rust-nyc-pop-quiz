@@ -39,3 +39,5 @@ Scratchpad python stub on a free port (checked with lsof) serving `web/`, answer
 `web/host/host.js` (paintCreate guard and comment; rejection branch); `web/test/host-pick.test.js`; `web/test/a11y.test.js`. Nothing under `web/shared/`, no copy change.
 
 ## Reset 2026-11-08 by agent:orchestrator
+
+## Reset 2026-11-08 by agent:delegator-pq89
