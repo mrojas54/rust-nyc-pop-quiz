@@ -396,10 +396,13 @@
          is said in place of the new state's own: a refused *Create a room*
          says its reason instead of the loading line, since two lines in one
          tick collapse into one (PQ.announce), and the list says its own when
-         it comes back. */
+         it comes back. A `line` is a press's answer, not a state, so it is
+         said even when the state stays: a *Create a room* that fails at the
+         network leaves the list ready and says its status line, again on
+         each failed press (PQ-89). Only a press's own handler passes one. */
       var shown = "loading";
       var paintCreate = function (line) {
-        if (where.token && pick.state !== shown) {
+        if (where.token && (line || pick.state !== shown)) {
           shown = pick.state;
           var said = line || (shown === "denied" ? ui.status : PICK_SAID[shown] && PQ.t(PICK_SAID[shown]));
           if (said) PQ.announce(said);
@@ -465,7 +468,7 @@
           // A refusal: say why, and show the list as it is now.
           ui.busy = false; ui.status = statusLine(r.res, r.body); load(ui.status);
         }, function (e) {
-          ui.busy = false; ui.status = String(e && e.message || e); paintCreate();
+          ui.busy = false; ui.status = String(e && e.message || e); paintCreate(ui.status);
         });
       });
       if (where.token) load(); else paintCreate();
