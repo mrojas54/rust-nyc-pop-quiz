@@ -321,3 +321,58 @@ test('announced: a repaint that keeps the state (a pick, Create a room in flight
     assert.deepEqual(h.said, [C.host_pick_legend], 'the list, said once');
   } finally { h.done(); }
 });
+
+// PQ-88: a 403 on the list, and a refused *Create a room*, say the status
+// line's own text, the room's reason, once. Nothing new is written for them.
+
+test('announced: a 403 on the list says the room\'s reason, once', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host?club=la#tok', [{ status: 403, body: { refusal: 'wrong_role', reason: C.host_denied_wrong_role } }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.deepEqual(h.said, [C.host_denied_wrong_role]);
+  } finally { h.done(); }
+});
+
+test('announced: a 403 with no reason says the status line as drawn', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 403 }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.ok(text(s.el.innerHTML).includes('403'), s.el.innerHTML);
+    assert.deepEqual(h.said, ['403']);
+  } finally { h.done(); }
+});
+
+test('announced: once denied, the page\'s own events say the reason no more', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 403, body: { reason: 'FIXTURE-REASON' } }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q7');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.deepEqual(h.said, ['FIXTURE-REASON'], 'said once');
+    assert.equal(s.calls.length, 1, 'nothing else was asked for');
+  } finally { h.done(); }
+});
+
+test('announced: a refused create says its reason in place of the loading line, then the list', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [
+      { status: 200, body: { questions: TWO } },
+      { status: 409, body: { reason: 'FIXTURE-REASON' } },
+      { status: 200, body: { questions: TWO.slice(1) } },
+    ]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    for (let i = 0; i < 6; i++) await s.settle();
+    assert.deepEqual(h.said, [C.host_pick_legend, 'FIXTURE-REASON', C.host_pick_legend]);
+  } finally { h.done(); }
+});

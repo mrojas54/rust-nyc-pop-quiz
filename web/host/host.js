@@ -392,12 +392,17 @@
          loading because opening says nothing, the loading line being the
          page as it loads. A repaint that keeps the state says nothing again.
          The list arriving says its legend, the one line that names it; a 403
-         says nothing new, its reason is the status line. */
+         says the status line, the room's reason (PQ-88). `line`, when given,
+         is said in place of the new state's own: a refused *Create a room*
+         says its reason instead of the loading line, since two lines in one
+         tick collapse into one (PQ.announce), and the list says its own when
+         it comes back. */
       var shown = "loading";
-      var paintCreate = function () {
+      var paintCreate = function (line) {
         if (where.token && pick.state !== shown) {
           shown = pick.state;
-          if (PICK_SAID[shown]) PQ.announce(PQ.t(PICK_SAID[shown]));
+          var said = line || (shown === "denied" ? ui.status : PICK_SAID[shown] && PQ.t(PICK_SAID[shown]));
+          if (said) PQ.announce(said);
         }
         repaint(where.token ? renderPick(ui, pick) : renderSignIn(ui, where.question, where.club));
       };
@@ -408,10 +413,11 @@
         win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
         ui.busy = false; ui.status = null; paintCreate();
       };
-      // The club's list (SPEC §8.5). A refusal already on the screen stays.
-      var load = function () {
+      // The club's list (SPEC §8.5). A refusal already on the screen stays;
+      // `line` is said as the list starts loading (paintCreate).
+      var load = function (line) {
         var wanted = pick.chosen !== null ? pick.chosen : where.question;
-        pick = { state: "loading", questions: [], chosen: null }; paintCreate();
+        pick = { state: "loading", questions: [], chosen: null }; paintCreate(line);
         win.fetch(questionsHref(where.club), { headers: { Authorization: "Bearer " + where.token } }).then(read)
           .then(function (r) {
             var qs = r.body && r.body.questions;
@@ -457,7 +463,7 @@
           }
           if (r.res.status === 401) { where.question = question; signInAgain(); return; }
           // A refusal: say why, and show the list as it is now.
-          ui.busy = false; ui.status = statusLine(r.res, r.body); load();
+          ui.busy = false; ui.status = statusLine(r.res, r.body); load(ui.status);
         }, function (e) {
           ui.busy = false; ui.status = String(e && e.message || e); paintCreate();
         });

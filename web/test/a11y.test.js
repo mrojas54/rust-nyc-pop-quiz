@@ -224,6 +224,7 @@ function hostScreens() {
     { name: 'pick, refused', phase: null, html: H.renderPick({ status: 'FIXTURE-REASON' }, { state: 'ready', questions: PICK.slice(1), chosen: 'q7' }) },
     { name: 'pick, empty', phase: null, html: H.renderPick({}, { state: 'empty' }) },
     { name: 'pick, failed', phase: null, html: H.renderPick({}, { state: 'failed' }) },
+    { name: 'pick, denied', phase: null, html: H.renderPick({ status: 'FIXTURE-REASON' }, { state: 'denied' }) },
     ...PHASES.map((ph) => ({ name: ph, phase: ph, html: H.render(hostPayload(ph), { status: null, busy: false }) })),
     { name: 'work, in flight', phase: 'work', html: H.render(hostPayload('work'), { status: null, busy: true }) },
     { name: 'reveal, first step', phase: 'reveal', html: H.render(hostPayload('reveal', { step: { at: 0, m: 6, note: 'N', can_back: false, can_forward: true } }), {}) },
@@ -751,11 +752,12 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
 // nothing, the list arriving says its legend (PQ-87). The scripted room lists
 // the picker's two questions, the link names q7, and *Create a room* is
 // answered 200, which is no room, so it is refused: the list is asked for
-// again, which says the loading line, then the legend once more.
+// again, which says the refusal's status line in place of the loading line
+// (two lines in one tick would collapse, PQ-88), then the legend once more.
 test('ac83_host: sign in says nothing; the pick and a refused create say each list state once', async () => {
   const L = [C.host_pick_legend];
   const cases = [['sign in', '', false, []], ['pick, chosen', '#FIXTURE-SESSION', false, L],
-    ['pick, refused', '#FIXTURE-SESSION', true, [...L, C.host_pick_loading, ...L]]];
+    ['pick, refused', '#FIXTURE-SESSION', true, [...L, '200', ...L]]];
   for (const [name, hash, press, want] of cases) {
     const { win, el } = hostWindow('/host');
     win.location.hash = hash;
@@ -809,6 +811,25 @@ test('ac83_host: the picker\'s loading, empty and failed states each say their l
   }
   assert.deepEqual(said, [C.host_pick_empty, C.host_pick_loading, C.host_pick_load_failed, C.host_pick_loading, C.host_pick_legend]);
   mark('host', 'pick, loading', 'AC-83', `opening: silent; Reload: "${C.host_pick_loading}"`);
+});
+
+// PQ-88: a 403 on the list is the reason alone on screen (SPEC §8.5), and the
+// change to it says that reason, the status line's own text, once.
+test('ac83_host: a 403 on the list says the room\'s reason once', async () => {
+  const { win, el } = hostWindow('/host');
+  const reason = C.host_denied_wrong_role;
+  const fetch = win.fetch;
+  win.fetch = (url, init) => (url === '/organizer/questions'
+    ? Promise.resolve({ ok: false, status: 403, statusText: 'Forbidden', text: () => Promise.resolve(JSON.stringify({ refusal: 'wrong_role', reason })) })
+    : fetch(url, init));
+  const said = [];
+  hostEnv.PQ.announce = (t) => said.push(t);
+  H.boot(win);
+  await settle(); await settle();
+  assert.ok(el.textContent.includes(reason), 'the reason is on screen');
+  assert.equal(el.querySelector('[data-primary],[data-reload]'), null, 'the reason alone');
+  assert.deepEqual(said, [reason]);
+  mark('host', 'pick, denied', 'AC-83', `"${said.join('", "')}"`);
 });
 
 // AC-82 on the picker: *Create a room* refused, the list is asked for again,
@@ -1161,11 +1182,16 @@ test('ac86_host: each phase is a different primary action; nothing moves', () =>
   for (const sc of SCREENS.host) {
     const doc = D.page(sc.html, SURFACES.host.chain);
     // The list's empty and failed screens act through Reload; while it loads
-    // there is nothing to act on yet (SPEC §8.5).
+    // there is nothing to act on yet, and a 403 is the reason alone (SPEC §8.5).
     const primary = doc.root.querySelector('[data-primary],[data-sign-in],[data-reload]');
     if (sc.name === 'pick, loading') {
       assert.equal(primary, null, `${sc.name}: no action until the list arrives`);
       mark('host', sc.name, 'AC-86', `no action yet, ${still('host', sc)}`);
+      continue;
+    }
+    if (sc.name === 'pick, denied') {
+      assert.equal(primary, null, `${sc.name}: the reason alone`);
+      mark('host', sc.name, 'AC-86', `the reason alone, ${still('host', sc)}`);
       continue;
     }
     assert.ok(primary && primary.textContent.trim(), `${sc.name}: one named action`);
