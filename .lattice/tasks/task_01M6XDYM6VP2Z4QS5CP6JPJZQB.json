@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-11-08T11:15:59Z",
   "created_by": "agent:orchestrator",
@@ -10,14 +10,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M6XDYM6VP2Z4QS5CP6JPJZQB",
-  "last_event_id": "ev_01M6XE1VVP7XHFKSWKMKPNNXBD",
-  "last_status_changed_at": "2026-11-08T11:15:59Z",
+  "last_event_id": "ev_01M6XE6XEPV9PJ7K9QDGD14V4X",
+  "last_status_changed_at": "2026-11-08T11:20:31Z",
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "PQ-89",
-  "status": "backlog",
+  "status": "in_planning",
   "tags": [
     "follow-up",
     "web",
@@ -25,6 +25,6 @@
   ],
   "title": "Announce a network error on Create a room to screen readers",
   "type": "task",
-  "updated_at": "2026-11-08T11:17:45Z",
+  "updated_at": "2026-11-08T11:20:31Z",
   "urgency": null
 }
