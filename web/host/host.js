@@ -222,6 +222,9 @@
     return html + "</div>";
   }
 
+  /* What each state of the list says when it is changed to (boot, below). */
+  var PICK_SAID = { loading: "host_pick_loading", ready: "host_pick_legend", empty: "host_pick_empty", failed: "host_pick_load_failed" };
+
   function offered(questions, id) {
     return id !== null && id !== undefined && (questions || []).some(function (q) { return q.id === id; });
   }
@@ -384,7 +387,18 @@
 
     if (where.mode === "create") {
       var pick = { state: "loading", questions: [], chosen: null };
+      /* SPEC §10 (the AC-83 pattern): each change of the list's state says
+         its own line once. `shown` is the state last said; it starts at
+         loading because opening says nothing, the loading line being the
+         page as it loads. A repaint that keeps the state says nothing again.
+         The list arriving says its legend, the one line that names it; a 403
+         says nothing new, its reason is the status line. */
+      var shown = "loading";
       var paintCreate = function () {
+        if (where.token && pick.state !== shown) {
+          shown = pick.state;
+          if (PICK_SAID[shown]) PQ.announce(PQ.t(PICK_SAID[shown]));
+        }
         repaint(where.token ? renderPick(ui, pick) : renderSignIn(ui, where.question, where.club));
       };
       // The organizer session is unknown or expired (T-10): sign in again,
