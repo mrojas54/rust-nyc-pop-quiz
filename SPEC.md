@@ -1,6 +1,6 @@
 # Specification — Rust NYC Pop Quiz
 
-**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server); amended 2026-10-25 (F-15, a does-not-compile question resolves on an `error` row).** This is the
+**Status: Stage 3 `tone-architect`, Phase 2. Written 2026-09-03; amended 2026-09-19 after the build stage's contract check of 2026-09-18 (D-16…D-25); amended 2026-10-09 (D-26, several clubs on one server); amended 2026-10-25 (F-15, a does-not-compile question resolves on an `error` row); amended 2026-11-08 (review fields named).** This is the
 build contract. It codifies the loved prototype (`prototypes/C-projector-first.html`,
 `prototypes/take-it-home.html`, `DESIGN.md`) and the criteria
 (`sequence/USER_STORIES.md`, AC-1…AC-102) so that an implementer who has never
@@ -88,7 +88,7 @@ reader is deleted; a field with no writer is a defect.
 | `explains` — `what`; `why_tempting` — **one short text per incorrect option** (why a reader would pick it); `takeaway` (AC-95, D-9) | generator / organizer edit | host phone (reveal), take-it-home, review |
 | `trace` — `{steps: [{lines, focus, note, values, pivot?}]}` — §5.3 defines the semantics; the last step is the one whose `values` names `stdout`, or `error` for a question that does not compile (F-15) | generator / organizer edit | wall (work, reveal), take-it-home |
 | `verified` — §3.2 | the verifier only | receipt, `bank-audit`, scheduling |
-| `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
+| `review` — `{status ∈ accepted|rejected|edited, reason, difficulty_judged, affirmed_by, affirmed_at, affirmed_digest?, quotes_checked?, near_duplicate_of?}` | the review surface | scheduling (G-12), generator (rejection reasons), `bank-audit` (AC-88) |
 | `used` — one record per club, `{club: {meetup_date, room_id, released_at, fit}}` (D-26), each where `fit` is the wall's verdict **at `reveal`**, the last refit of the night | the release transition only (G-10) | reserve count, scheduling (never twice), the organizer's ledger report (`popquiz sync`), which lists any room whose `fit` was not *fits* |
 
 The `explains` shape replaces the MVP's single `explanation` string; the MVP's
