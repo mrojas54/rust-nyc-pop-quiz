@@ -396,13 +396,16 @@
          is said in place of the new state's own: a refused *Create a room*
          says its reason instead of the loading line, since two lines in one
          tick collapse into one (PQ.announce), and the list says its own when
-         it comes back. A `line` is a press's answer, not a state, so it is
-         said even when the state stays: a *Create a room* that fails at the
-         network leaves the list ready and says its status line, again on
-         each failed press (PQ-89). Only a press's own handler passes one. */
+         it comes back. A `line` is a response's answer, not a state, so it
+         is said even when the state stays: a *Create a room* that fails at
+         the network leaves the list ready and says its status line, again on
+         each failed press (PQ-89). It is said signed out too: a 401 on the
+         list or on *Create a room* says the signed-out line as Sign in comes
+         back (PQ-89). Only a response's own handler passes one, so opening
+         the page, signed in or out, still says nothing. */
       var shown = "loading";
       var paintCreate = function (line) {
-        if (where.token && (line || pick.state !== shown)) {
+        if (line || (where.token && pick.state !== shown)) {
           shown = pick.state;
           var said = line || (shown === "denied" ? ui.status : PICK_SAID[shown] && PQ.t(PICK_SAID[shown]));
           if (said) PQ.announce(said);
@@ -410,11 +413,11 @@
         repaint(where.token ? renderPick(ui, pick) : renderSignIn(ui, where.question, where.club));
       };
       // The organizer session is unknown or expired (T-10): sign in again,
-      // carrying the question and the club.
+      // carrying the question and the club, and say why the screen changed.
       var signInAgain = function () {
         where.token = null;
         win.history.replaceState(null, "", "/host?question=" + encodeURIComponent(where.question || "") + clubQuery(where.club));
-        ui.busy = false; ui.status = null; paintCreate();
+        ui.busy = false; ui.status = null; paintCreate(PQ.t("host_pick_signed_out"));
       };
       // The club's list (SPEC §8.5). A refusal already on the screen stays;
       // `line` is said as the list starts loading (paintCreate).
