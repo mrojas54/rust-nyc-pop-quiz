@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-10-05T12:46:02Z",
   "created_by": "agent:orchestrator",
@@ -10,7 +10,7 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01M461K27TNGNBNJZAVSK7PHFQ",
-  "last_event_id": "ev_01M56R03H5MHVRGNWHF5FWSZW6",
+  "last_event_id": "ev_01M6WGH2ABRWR1B0C245BBV1HB",
   "last_status_changed_at": "2026-10-05T12:46:02Z",
   "priority": "low",
   "relationships_out": [],
@@ -20,11 +20,10 @@
   "status": "backlog",
   "tags": [
     "audit-gap",
-    "held",
     "cross-cutting"
   ],
   "title": "Persisted fields with no writer or no production reader",
   "type": "chore",
-  "updated_at": "2026-10-18T05:33:20Z",
+  "updated_at": "2026-11-08T02:41:46Z",
   "urgency": null
 }
