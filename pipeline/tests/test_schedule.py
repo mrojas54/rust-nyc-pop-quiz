@@ -22,10 +22,19 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
+from fixtures.verify.verify_cases import RECORDINGS, legacy_question, verify_bank
 
-from fixtures.verify.verify_cases import RECORDINGS, verify_bank
 from popquiz import audit, fallback, sandbox, schedule, verify
-from popquiz.bank import affirmation_digest, affirmation_state, correct_index, is_affirmed, load_question, normalized_output, question_from_dict, question_to_dict
+from popquiz.bank import (
+    affirmation_digest,
+    affirmation_state,
+    correct_index,
+    is_affirmed,
+    load_question,
+    normalized_output,
+    question_from_dict,
+    question_to_dict,
+)
 from popquiz.runner import StubRunner
 from popquiz.slot import slot_for_day
 
@@ -477,9 +486,11 @@ def test_ac6_a_record_verified_under_another_rustc_release_is_refused(bank):
 
 
 def legacy_bank(tmp_path) -> Path:
-    """The committed q3 as it is, legacy record and all, never re-verified, affirmed."""
+    """A migration-produced legacy q3, independent of the current bank."""
     (tmp_path / "legacy" / "questions").mkdir(parents=True)
-    shutil.copy(BANK / "questions" / "q3.json", tmp_path / "legacy" / "questions" / "q3.json")
+    (tmp_path / "legacy" / "questions" / "q3.json").write_text(
+        json.dumps(question_to_dict(legacy_question("q3")), indent=2) + "\n", encoding="utf-8"
+    )
     as_drafted(tmp_path / "legacy", "q3")
     affirm(tmp_path / "legacy", "q3")
     return tmp_path / "legacy"

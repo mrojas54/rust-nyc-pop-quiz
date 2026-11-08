@@ -223,13 +223,18 @@ skipped. A question the ledger names under a second room is refused for that
 record, and the run exits non-zero; so is a record already synced from the same
 room whose details differ from the ledger's. Running it twice changes nothing.
 
-**Today three committed questions can be scheduled.** q3, q4 and q7 are
-accepted and affirmed through `popquiz.review`, each affirmation bound to its
-text (PQ-23), and the reserve reads 3 ready (`docs/RUNBOOK.md`, *The reserve*,
-has the snapshot). q8 is accepted, with its walk-through trace, but not yet
-affirmed. It does not compile, so its last step names `error` with the
-compiler's code (ruling F-15, 2026-10-25). `schedule` refuses it until an
-organizer affirms it through `popquiz.review` (*Reviewing*, above).
+**Verification checkpoint, 2026-11-08:** q3 and q4 have been re-verified on
+the current pin and have verifier-written files in `bank/recordings/`. Both pass
+`verify --check` and the scheduler's eligibility gate, including a fresh sandbox
+replay and local fallback generation. Their reviewed content and digest-bound
+organizer affirmations are unchanged.
+
+q7 and q8 still have no verifier recording and are refused by scheduling until
+`just verify bank/questions/<id>.json` writes one. The reserve summary currently
+counts accepted, affirmed, unused questions without that recording check; its
+“ready” count is not a count of questions the scheduler will accept. Production
+scheduling still requires the actual meetup date and a successful push after the
+final deployment. The local check used `--no-push` and a validation date.
 
 ## The bank record, in one paragraph
 

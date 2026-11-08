@@ -13,10 +13,10 @@ The migration is where the four records came from, not what they all are now.
 PR #36 re-authored q4, q7 and q8 for the wall's 29-character rule (D-15): q4's and
 q7's programs changed, and the pinned verifier wrote their new records (D-16); q8
 kept its program and changed only options, and the pinned verifier has since
-replaced its legacy record whole too. So q3 is checked byte for byte against a
-fresh run - all but what an organizer wrote in its `review` block, which is the
-review surface's to write, not the migration's (F-52) - and q4, q7 and q8 against
-the verifier and the pin, with q8's error codes still the ones the migration carried.
+replaced its legacy record whole too. q3 has now been re-verified without
+re-authoring: its current file is compared with migration plus recorded verifier
+replay, except for organizer-written review fields. Legacy-only cases use fresh
+migration output, so current bank verification never removes legacy coverage.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ import pathlib
 import shutil
 
 import pytest
+from fixtures.verify.verify_cases import RECORDINGS, legacy_question, question_for
 
-from fixtures.verify.verify_cases import RECORDINGS, question_for
 from popquiz import bank, dedupe, migrate_mvp, sandbox, verify
 from popquiz.bank import (
     Explains,
@@ -63,11 +63,10 @@ MVP = REPO / "mvp" / "2026-08-12"
 BANK = REPO / "bank"
 MIGRATION_SOURCE = HERE.parent / "src" / "popquiz" / "migrate_mvp.py"
 
-# The records whose `verified` block is still the one the migration wrote.
-STILL_LEGACY = ("q3",)
-# Re-authored after migration, and re-verified by the pinned verifier: q4 and q7
-# with new programs, q8 with its program's tokens unchanged.
-REVERIFIED = ("q4", "q7", "q8")
+# Migration examples used to retain legacy coverage after bank re-verification.
+LEGACY_CASES = ("q3",)
+# Every committed record has been re-verified; q3 retains its original source.
+REVERIFIED = ("q3", "q4", "q7", "q8")
 
 BATCH = json.loads((MVP / "verified.json").read_text(encoding="utf-8"))
 CONTENT = json.loads((MVP / "content.json").read_text(encoding="utf-8"))
@@ -136,7 +135,16 @@ def test_the_committed_record_is_what_a_fresh_run_writes(
     the migration's, so it is the one part a fresh run is not asked to reproduce.
     """
     migrate(MVP, tmp_path)
-    fresh = (tmp_path / "questions" / "q3.json").read_text(encoding="utf-8")
+    migrated = load_question(tmp_path, "q3")
+    current = load_question(BANK, "q3")
+    assert current.verified is not None and current.verified.verified_at is not None
+    verified_at = current.verified.verified_at
+    verdict = verify.verify(
+        migrated, StubRunner(BANK / "recordings"), expect="ran",
+        now=lambda: verified_at,
+    )
+    assert verdict.accepted
+    fresh = json.dumps(question_to_dict(verify.with_record(migrated, verdict)), indent=2, ensure_ascii=False) + "\n"
     landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
     assert _is_the_migrations_but_for_the_organizer(fresh, landed), (
         "q3.json on disk is not what the migration writes"
@@ -196,7 +204,7 @@ def test_q8_was_re_verified_and_its_record_replaced_whole(tmp_path: pathlib.Path
 
 
 @pytest.mark.parametrize("qid", REVERIFIED)
-def test_a_reauthored_record_was_written_by_the_pinned_verifier(qid: str) -> None:
+def test_a_reverified_record_was_written_by_the_pinned_verifier(qid: str) -> None:
     """AC-6, AC-7, D-16. A re-authored question is re-verified, and only `verify`
     writes the record: not legacy, carrying `verified_at` and `verifier_version`,
     current against the pin, and passing the build's provenance check."""
@@ -206,8 +214,9 @@ def test_a_reauthored_record_was_written_by_the_pinned_verifier(qid: str) -> Non
     question = verify.check_provenance(data)
     assert question.verified.verified_at and question.verified.verifier_version
     assert not verify.is_stale(question.verified, sandbox.read_pin())
-    assert "Re-authored" in question.review.reason
-    assert "pinned verifier" in question.review.reason
+    if qid != "q3":  # q3 was re-verified without re-authoring its content.
+        assert "Re-authored" in question.review.reason
+        assert "pinned verifier" in question.review.reason
 
 
 def _bank_with_a_grown_history(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -250,8 +259,8 @@ def test_a_rerun_over_a_partial_bank_writes_only_what_is_missing(
     assert migrate(MVP, bank_dir) == [missing]
     after = {p: p.read_bytes() for p in bank_dir.rglob("*.json")}
     rewritten = after.pop(missing).decode("utf-8")
-    landed = (BANK / "questions" / "q3.json").read_text(encoding="utf-8")
-    assert _is_the_migrations_but_for_the_organizer(rewritten, landed)
+    expected = json.dumps(question_to_dict(legacy_question("q3")), indent=2, ensure_ascii=False) + "\n"
+    assert rewritten == expected
     assert not load_question(bank_dir, "q3").review.affirmed()
     assert after == before
 
@@ -322,28 +331,30 @@ def test_only_the_four_questions_that_fit_the_wall_were_migrated() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("qid", STILL_LEGACY)
+@pytest.mark.parametrize("qid", LEGACY_CASES)
 def test_no_legacy_record_holds_a_field_the_mvp_never_recorded(
-    qid: str, committed: dict
+    qid: str
 ) -> None:
     """D-16, G-2, AC-87. The absent keys are the whole proof that nothing was
     back-filled, which is why this asserts on the written JSON and not on the
     dataclass - a `None` attribute and an absent key look the same in Python and are
     completely different on disk."""
-    written = question_to_dict(committed[qid])["verified"]
+    written = question_to_dict(legacy_question(qid))["verified"]
     assert written["legacy"] is True
     for absent in NEVER_BACK_FILLED:
         assert absent not in written, f"{qid}: {absent} was back-filled"
 
 
-@pytest.mark.parametrize("qid", STILL_LEGACY)
+@pytest.mark.parametrize("qid", LEGACY_CASES)
 def test_a_legacy_compiler_string_is_the_version_line_not_a_vv(
-    qid: str, committed: dict
+    qid: str
 ) -> None:
     """AC-6, D-16: `verify.py` recorded `rustc --version` and pinned nothing. A `-Vv`
     reconstructed from it would be a hand-written fact about a toolchain nobody
     interrogated."""
-    rustc = committed[qid].verified.rustc
+    verified = legacy_question(qid).verified
+    assert verified is not None
+    rustc = verified.rustc
     assert rustc == BATCH["rustc"]
     assert "\n" not in rustc
     for token in VV_ONLY:
@@ -369,15 +380,16 @@ def test_q8_carries_its_error_codes_renamed_and_nothing_that_ran() -> None:
         assert absent not in written
 
 
-@pytest.mark.parametrize("qid", [q for q in STILL_LEGACY if q != "q8"])
+@pytest.mark.parametrize("qid", [q for q in LEGACY_CASES if q != "q8"])
 def test_a_compiling_question_carries_the_runs_and_miri_the_mvp_recorded(
-    qid: str, committed: dict
+    qid: str
 ) -> None:
     """D-16: `runs` as a count plus byte-identical, and a Miri result with no
     version, no borrow models and no seeds - the August pass ran outside the repo and
     recorded none of them."""
     mvp = MVP_BY_ID[qid]
-    verified = committed[qid].verified
+    verified = legacy_question(qid).verified
+    assert verified is not None
 
     assert verified.runs is not None
     assert verified.runs.count == mvp["runs"]
@@ -484,7 +496,7 @@ def test_the_correct_option_is_the_machines_output(qid: str) -> None:
     also held to the batch's output."""
     question = load_question(BANK, qid)
     _assert_replay_agrees(question)
-    if qid in STILL_LEGACY:
+    if qid in LEGACY_CASES:
         assert question.verified.stdout == MVP_BY_ID[qid]["answer"]
 
 

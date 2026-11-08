@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,10 +66,21 @@ def source_sha256(program: str) -> str:
     return hashlib.sha256(source_of(program).encode("utf-8")).hexdigest()
 
 
+def legacy_question(qid: str) -> Question:
+    """An actual migration result, independent of later bank re-verification."""
+    from popquiz.migrate_mvp import build_question
+
+    mvp = BANK.parent / "mvp" / "2026-08-12"
+    batch = json.loads((mvp / "verified.json").read_text(encoding="utf-8"))
+    content = json.loads((mvp / "content.json").read_text(encoding="utf-8"))
+    question = next(q for q in batch["questions"] if q["id"] == qid)
+    return build_question(batch, question, content[qid])
+
+
 def question_for(program: str) -> Question:
     """The candidate `verify` is handed. A bank program is the bank question,
-    legacy record and all, so an accepted verdict can be shown to replace that
-    record whole. Any other program gets a placeholder question: `verify` reads
+    with its current record. Legacy-specific cases use `legacy_question`, so
+    refreshing the bank does not remove their legacy coverage. Any other program gets a placeholder question: `verify` reads
     only its id and source."""
     where = programs()[program]
     if where.startswith("bank:"):
