@@ -16,15 +16,16 @@ import json
 import pathlib
 
 import pytest
-
 from fixtures.verify.verify_cases import (
     RECORDINGS,
     Case,
+    legacy_question,
     load_cases,
     programs,
     question_for,
     source_sha256,
 )
+
 from popquiz import bank, receipt, sandbox, verify
 from popquiz.bank import BORROW_MODELS, Option, Verified
 from popquiz.runner import RunStep, StubRunner
@@ -248,7 +249,7 @@ def test_declared_ub_is_recorded_under_both_models_and_derives_the_ub_option() -
 
 def test_an_accepted_record_replaces_a_legacy_one_whole() -> None:
     """D-16: never merged, so no legacy field survives and none is back-filled."""
-    before = question_for("q3")
+    before = legacy_question("q3")
     assert before.verified is not None and before.verified.legacy
     verdict = _verify("q3", "ran")
 
@@ -518,7 +519,7 @@ def test_a_does_not_compile_record_is_not_stale_on_miri_alone() -> None:
 
 
 def test_a_legacy_record_is_exempt_from_the_stale_check() -> None:
-    v = question_for("q3").verified
+    v = legacy_question("q3").verified
     assert v is not None and v.legacy
     assert not verify.is_stale(v, dataclasses.replace(_pin(), release="0.0.0"))
 

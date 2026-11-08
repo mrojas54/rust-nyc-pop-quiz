@@ -57,6 +57,17 @@ fn record(bank: &Path) -> serde_json::Value {
 
 #[test]
 fn review_walks_accept_affirm_edit_and_reaffirm_through_the_cli() {
+    let bank_snapshot = || {
+        fs::read_dir(repo().join("bank/questions"))
+            .unwrap()
+            .map(|entry| {
+                let path = entry.unwrap().path();
+                let bytes = fs::read(&path).unwrap();
+                (path, bytes)
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let before = bank_snapshot();
     std::env::remove_var("POPQUIZ_ORGANIZER");
     let bank = temp_bank();
     assert!(!bank.starts_with(repo().join("bank")));
@@ -123,12 +134,7 @@ fn review_walks_accept_affirm_edit_and_reaffirm_through_the_cli() {
     std::env::remove_var("VISUAL");
     fs::remove_dir_all(&bank).unwrap();
 
-    let status = std::process::Command::new("git")
-        .args(["status", "--porcelain", "bank/questions/"])
-        .current_dir(repo())
-        .output()
-        .unwrap();
-    assert!(status.stdout.is_empty(), "the real bank changed");
+    assert_eq!(bank_snapshot(), before, "the real bank changed");
 }
 
 #[test]
