@@ -96,6 +96,7 @@ Runs are driven by the `lattice-orchestrator` skill on the Lattice board
 | [`sequence/research/`](sequence/research/) | The dossier: problem & people, Discord seam, economics, generation & verification, realtime substrate, attendees. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | **How to run the segment on the built room**: schedule, host, sync. |
 | [`mvp/README.md`](mvp/README.md) | The retired hand-run projector deck. Still read for *The shape*; its practice-run and field-notes templates are still used. |
+| [`LESSONS.md`](LESSONS.md) | What the build run learned the hard way: guardrail scanners, the guard tests a brief must clear, contract amendments. Read before writing a ticket brief or a guardrail test. |
 | [`docs/adr/`](docs/adr/) | Architecture decision records, with diagrams. ADR-0001: several clubs share one room server (D-26). ADR-0002…0004: the room source grouped by who uses it, the sealed read kept small, and the guardrail scans walking the tree. |
 
 ## Standing of `PRD.md`
@@ -178,14 +179,24 @@ the `answer-history.json` record.
 - **`EPERM` binding a loopback port is the tool sandbox, not the code.** Room
   tests and the canary bind real sockets. Rerun that recipe with the sandbox
   off (or `sandbox.network.allowLocalBinding: true`) instead of asking Michelle
-  to paste output.
+  to paste output. The same holds for the organizer's PTY test ("out of pty
+  devices") and for `xcrun`: `just test` as a whole runs with the sandbox off.
+  Output a sandbox-off shell writes to `$TMPDIR` lands in a different directory
+  than the sandboxed shell reads, so write logs and review output to the
+  session scratchpad.
 - **Known flakes.** `just test-full` has failed in the 200-participant load
   suites (`test-transport-full`: `popquiz/tests/transport_full.rs`;
   `harness-full`: `popquiz/tests/harness_full.rs`) while `just test` stayed green,
   and the AC-12 containment suite (`just test-sandbox`) has flaked in CI. When
   one of those is the only failure: name it, rerun that recipe once, and rely
   on CI's `just test-full` job rather than chasing it locally. Anything else is
-  a real failure until shown otherwise.
+  a real failure until shown otherwise. On macOS the 200-participant failure
+  ("163 of 200 joined", connection reset) is the listen backlog,
+  `kern.ipc.somaxconn=128`, not the room.
+- **Codex review: `codex exec`, not `codex review --base`.** `codex review
+  --base` refuses a custom prompt (exit 2, no review). Run
+  `codex exec -s read-only -C <worktree> -o <scratchpad>/<file> -` with the
+  prompt on stdin, and record the reviewed HEAD sha with the verdict.
 - **`AGENTS.md` is a byte copy of `CLAUDE.md`**, held equal by
   `web/test/agents-sync.test.js` (a regular file, never a symlink). After
   editing `CLAUDE.md`, run `cp CLAUDE.md AGENTS.md`, or `just test` fails on
