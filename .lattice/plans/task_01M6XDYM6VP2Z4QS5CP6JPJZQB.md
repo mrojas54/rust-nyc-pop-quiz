@@ -13,3 +13,27 @@ From PQ-88 (PR #139, merged f5fa38a): its DONE and PR body listed this as not do
 **Criteria:** SPEC §10 (live region per state change), AC-83 pattern, SPEC §8.5. No AC change expected; if one is, stop and ask.
 
 **Harness:** just test (web: host-pick.test.js, a11y.test.js), just a11y.
+
+# Plan (delegator, 2026-11-08)
+
+## Evidence: silent today
+At f5fa38a, four new tests in `web/test/host-pick.test.js` and the extended `ac83_host` pre-room test in `web/test/a11y.test.js` fail (`node --test web/test/host-pick.test.js web/test/a11y.test.js`: 68 tests, 64 pass, 4 fail). Each `hearing()` read-back after a POST /rooms that rejects at the network holds only `['Question']`: the legend said when the list arrived, and nothing for the failure. The error text (`offline` / `FIXTURE-NETWORK`) is on screen in the status line. So: not spoken; code needed.
+
+## What is said, and when
+- A *Create a room* rejected at the network says the status line's own text, `String(e && e.message || e)`, once, through `PQ.announce`. No new copy, no new region.
+- A repaint that keeps the state and the line (a pick, re-picking) says nothing again.
+- A second press that fails again says it again: each press is a new attempt.
+
+## How it sits with PQ-87's guard and PQ-88's `paintCreate(line)`
+One change in `paintCreate`: a `line`, when given, is always said (and `shown` still takes the state). Today `line` is said only when the state changes. The one existing caller, `load(line)` after a refused create, always changes the state (ready → loading), so what it says is unchanged. The rejection branch becomes `paintCreate(ui.status)`. With no `line`, PQ-87's last-state-said guard is exactly as before, so a repaint says nothing. The guard decides when a *state* is said; `line` is an event (a response to a press), said once per press because only the press's own response handler passes it. No other call site passes `line`, so no other transition's speech changes. Considered and rejected: tracking the last status said (it would silence a second identical failure, which must be said), and calling `PQ.announce` directly in the handler (a second path around the one place that decides what the picker says).
+
+## Tests (RED at f5fa38a, GREEN after)
+- host-pick: a network error on create says the status line as drawn, once (`[legend, 'offline']`, the list stays); after it, re-picks say nothing again; a second failed press says it again (`[legend, 'offline', 'offline']`, two POSTs).
+- a11y: new `pick, create failed` host screen (renderPick with the error status, list ready), so it runs through the AC-82…AC-86 matrix; the `ac83_host` pre-room test gains that case, booted for real, POST rejecting with `FIXTURE-NETWORK`; its matrix cell prints `"Question", "FIXTURE-NETWORK"`.
+- Every PQ-87/PQ-88 announcement test stays unchanged and green.
+
+## Rendered check
+Scratchpad python stub on a free port (checked with lsof) serving `web/`, answering GET /organizer/questions with two placeholder questions and closing the connection without a response on POST /rooms. c11 browser at `/host#FIXTURE`: pick, press *Create a room*, read the live region (`.sr-only[role=status]`) and the status line back with `browser eval`; press again and read again. Screen-reader speech itself is out of reach and will be said so.
+
+## Files
+`web/host/host.js` (paintCreate guard and comment; rejection branch); `web/test/host-pick.test.js`; `web/test/a11y.test.js`. Nothing under `web/shared/`, no copy change.
