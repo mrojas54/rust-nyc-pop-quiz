@@ -429,3 +429,50 @@ test('announced: a second press that fails at the network says it again', async 
     assert.deepEqual(h.said, [C.host_pick_legend, 'offline', 'offline']);
   } finally { h.done(); }
 });
+
+// PQ-89 (reopened on the client's ruling): a 401 sends the host back to Sign
+// in, and that says the client's line, verbatim, once. Opening the page signed
+// out still says nothing (PQ-87): the sign-in screen is the page as it loads.
+
+test('the signed-out line is the client\'s, verbatim', () => {
+  assert.equal(C.host_pick_signed_out, 'Recompiling, please sign in again');
+});
+
+test('announced: a 401 on Create a room says the signed-out line once and shows Sign in', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { status: 401 }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
+    assert.deepEqual(h.said, [C.host_pick_legend, C.host_pick_signed_out]);
+    assert.ok(C.host_pick_signed_out, 'the line exists');
+  } finally { h.done(); }
+});
+
+test('announced: a 401 on the list says the signed-out line once and shows Sign in', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host?club=la#tok', [{ status: 401 }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
+    assert.deepEqual(h.said, [C.host_pick_signed_out]);
+    assert.ok(C.host_pick_signed_out, 'the line exists');
+  } finally { h.done(); }
+});
+
+test('announced: opening the page signed out says nothing', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host?question=q3', []);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    assert.ok(s.el.innerHTML.includes('data-sign-in'), s.el.innerHTML);
+    assert.deepEqual(h.said, []);
+    assert.equal(s.calls.length, 0, 'nothing was asked for');
+  } finally { h.done(); }
+});

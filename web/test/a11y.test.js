@@ -216,6 +216,7 @@ const PICK = [
 function hostScreens() {
   return [
     { name: 'sign in', phase: null, html: H.renderSignIn({ status: null, busy: false }, 'q3') },
+    { name: 'sign in, after a 401', phase: null, html: H.renderSignIn({ status: null, busy: false }, 'q7') },
     { name: 'create', phase: null, html: H.renderCreate({ status: null, busy: false }) },
     { name: 'create, refused', phase: null, html: H.renderCreate({ status: 'FIXTURE-REASON', busy: false }) },
     { name: 'pick, loading', phase: null, html: H.renderPick({}, { state: 'loading' }) },
@@ -756,12 +757,15 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
 // again, which says the refusal's status line in place of the loading line
 // (two lines in one tick would collapse, PQ-88), then the legend once more.
 // A create that fails at the network keeps the list as it was and says the
-// error as the status line draws it, once (PQ-89).
+// error as the status line draws it, once (PQ-89). A 401 on create sends the
+// host back to Sign in and says the signed-out line, once (PQ-89, reopened).
 test('ac83_host: sign in says nothing; the pick and a refused create say each list state once', async () => {
   const L = [C.host_pick_legend];
   const cases = [['sign in', '', false, []], ['pick, chosen', '#FIXTURE-SESSION', false, L],
     ['pick, refused', '#FIXTURE-SESSION', true, [...L, '200', ...L]],
-    ['pick, create failed', '#FIXTURE-SESSION', true, [...L, 'FIXTURE-NETWORK']]];
+    ['pick, create failed', '#FIXTURE-SESSION', true, [...L, 'FIXTURE-NETWORK']],
+    ['sign in, after a 401', '#FIXTURE-SESSION', true, [...L, 'Recompiling, please sign in again']]];
+  const onScreen = { 'pick, refused': /200/, 'pick, create failed': /FIXTURE-NETWORK/ };
   for (const [name, hash, press, want] of cases) {
     const { win, el } = hostWindow('/host');
     win.location.hash = hash;
@@ -770,6 +774,7 @@ test('ac83_host: sign in says nothing; the pick and a refused create say each li
     win.fetch = (url, init) => (url === '/organizer/questions'
       ? Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: name === 'pick, refused' ? PICK.slice(1) : PICK })) })
       : name === 'pick, create failed' ? Promise.reject(new Error('FIXTURE-NETWORK'))
+      : name === 'sign in, after a 401' ? Promise.resolve({ ok: false, status: 401, text: () => Promise.resolve('') })
       : fetch(url, init));
     const said = [];
     hostEnv.PQ.announce = (t) => said.push(t);
@@ -781,7 +786,7 @@ test('ac83_host: sign in says nothing; the pick and a refused create say each li
     }
     const screen = hostScreens().find((s) => s.name === name);
     assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
-    if (press) assert.match(el.textContent, name === 'pick, create failed' ? /FIXTURE-NETWORK/ : /200/, `${name}: the refusal is on screen`);
+    if (onScreen[name]) assert.match(el.textContent, onScreen[name], `${name}: the refusal is on screen`);
     assert.deepEqual(said, want, name);
     mark('host', name, 'AC-83', said.length ? `"${said.join('", "')}"` : `silent (booted, ${said.length})`);
   }
