@@ -376,3 +376,56 @@ test('announced: a refused create says its reason in place of the loading line, 
     assert.deepEqual(h.said, [C.host_pick_legend, 'FIXTURE-REASON', C.host_pick_legend]);
   } finally { h.done(); }
 });
+
+// PQ-89: a *Create a room* that fails at the network leaves the list as it
+// was (still ready), so no state changes; what changes is the status line,
+// and that line, the error as drawn, is what is said. Each failed press is a
+// new attempt and says it again; a repaint in between says nothing.
+
+test('announced: a network error on create says the status line as drawn, once', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { network: true }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.ok(text(s.el.innerHTML).includes('offline'), s.el.innerHTML);
+    assert.equal(radios(s.el.innerHTML).length, 2, 'the list stays');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'offline']);
+  } finally { h.done(); }
+});
+
+test('announced: after a network error, a repaint that keeps the state and the line says nothing again', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { network: true }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    s.pick('q7');
+    s.pick('q3');
+    await s.settle();
+    assert.ok(text(s.el.innerHTML).includes('offline'), 'the line is still drawn');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'offline']);
+  } finally { h.done(); }
+});
+
+test('announced: a second press that fails at the network says it again', async () => {
+  const h = hearing();
+  try {
+    const s = scripted('/host#tok', [{ status: 200, body: { questions: TWO } }, { network: true }, { network: true }]);
+    PQ.host.boot(s.win);
+    await s.settle(); await s.settle();
+    s.pick('q3');
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    s.press('data-primary', 'create');
+    await s.settle(); await s.settle();
+    assert.equal(s.calls.filter((c) => c.method === 'POST').length, 2, 'two attempts');
+    assert.deepEqual(h.said, [C.host_pick_legend, 'offline', 'offline']);
+  } finally { h.done(); }
+});

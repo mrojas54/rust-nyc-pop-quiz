@@ -222,6 +222,7 @@ function hostScreens() {
     { name: 'pick', phase: null, html: H.renderPick({}, { state: 'ready', questions: PICK, chosen: null }) },
     { name: 'pick, chosen', phase: null, html: H.renderPick({}, { state: 'ready', questions: PICK, chosen: 'q7' }) },
     { name: 'pick, refused', phase: null, html: H.renderPick({ status: 'FIXTURE-REASON' }, { state: 'ready', questions: PICK.slice(1), chosen: 'q7' }) },
+    { name: 'pick, create failed', phase: null, html: H.renderPick({ status: 'FIXTURE-NETWORK' }, { state: 'ready', questions: PICK, chosen: 'q7' }) },
     { name: 'pick, empty', phase: null, html: H.renderPick({}, { state: 'empty' }) },
     { name: 'pick, failed', phase: null, html: H.renderPick({}, { state: 'failed' }) },
     { name: 'pick, denied', phase: null, html: H.renderPick({ status: 'FIXTURE-REASON' }, { state: 'denied' }) },
@@ -754,10 +755,13 @@ test('ac83_host: each of the seven phase labels is said, the first on opening th
 // answered 200, which is no room, so it is refused: the list is asked for
 // again, which says the refusal's status line in place of the loading line
 // (two lines in one tick would collapse, PQ-88), then the legend once more.
+// A create that fails at the network keeps the list as it was and says the
+// error as the status line draws it, once (PQ-89).
 test('ac83_host: sign in says nothing; the pick and a refused create say each list state once', async () => {
   const L = [C.host_pick_legend];
   const cases = [['sign in', '', false, []], ['pick, chosen', '#FIXTURE-SESSION', false, L],
-    ['pick, refused', '#FIXTURE-SESSION', true, [...L, '200', ...L]]];
+    ['pick, refused', '#FIXTURE-SESSION', true, [...L, '200', ...L]],
+    ['pick, create failed', '#FIXTURE-SESSION', true, [...L, 'FIXTURE-NETWORK']]];
   for (const [name, hash, press, want] of cases) {
     const { win, el } = hostWindow('/host');
     win.location.hash = hash;
@@ -765,6 +769,7 @@ test('ac83_host: sign in says nothing; the pick and a refused create say each li
     const fetch = win.fetch;
     win.fetch = (url, init) => (url === '/organizer/questions'
       ? Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ questions: name === 'pick, refused' ? PICK.slice(1) : PICK })) })
+      : name === 'pick, create failed' ? Promise.reject(new Error('FIXTURE-NETWORK'))
       : fetch(url, init));
     const said = [];
     hostEnv.PQ.announce = (t) => said.push(t);
@@ -776,7 +781,7 @@ test('ac83_host: sign in says nothing; the pick and a refused create say each li
     }
     const screen = hostScreens().find((s) => s.name === name);
     assert.equal(el.querySelector('[data-sign-in]') !== null, screen.html.includes('data-sign-in'), `${name}: the screen booted`);
-    if (press) assert.match(el.textContent, /200/, `${name}: the refusal is on screen`);
+    if (press) assert.match(el.textContent, name === 'pick, create failed' ? /FIXTURE-NETWORK/ : /200/, `${name}: the refusal is on screen`);
     assert.deepEqual(said, want, name);
     mark('host', name, 'AC-83', said.length ? `"${said.join('", "')}"` : `silent (booted, ${said.length})`);
   }
