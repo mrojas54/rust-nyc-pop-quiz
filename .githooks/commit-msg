@@ -8,6 +8,8 @@
 # body, and nothing else. What follows the colon is free text: this project ends
 # subjects with phase and ticket markers, `(RED)` or `(PQ-52 GREEN)`.
 #
+# Comment lines: stripped only where Git strips them. See the cleanup note below.
+#
 # Exempt, because git or a reviewer writes them: Merge ..., Revert "...", and
 # fixup! / squash! / amend! subjects that an autosquash rebase folds away.
 #
@@ -18,8 +20,30 @@
 msg_file=$1
 [ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
 
-# Git's editor template adds `#` lines, and the message may start with blank lines.
-message=$(grep -v '^#' "$msg_file" | sed '/./,$!d')
+# Check the message Git will store, not the file as it stands. Git cleans the
+# file after this hook runs. Cleanup `strip` removes comment lines; `whitespace`
+# and `verbatim` keep them, so there a `#` line is message text. The default is
+# `strip` when an editor was opened and `whitespace` when not (-m, -F), and
+# commit.cleanup overrides it. Git runs this hook with GIT_EDITOR=: when no
+# editor was used. `git commit --cleanup=<mode>` is not visible here, so it is
+# checked as if it had not been given; `verbatim` is read like `whitespace`.
+cleanup=$(git config --get commit.cleanup 2>/dev/null || true)
+case $cleanup in
+  strip) strip_comments=1 ;;
+  verbatim | whitespace | scissors) strip_comments=0 ;;
+  *) if [ "${GIT_EDITOR:-}" = ":" ]; then strip_comments=0; else strip_comments=1; fi ;;
+esac
+
+if [ "$strip_comments" = 1 ]; then
+  comment=$(git config --get core.commentString 2>/dev/null || git config --get core.commentChar 2>/dev/null || true)
+  case $comment in "" | auto) comment='#' ;; esac
+  body=$(COMMENT=$comment awk 'index($0, ENVIRON["COMMENT"]) != 1' "$msg_file")
+else
+  body=$(cat "$msg_file")
+fi
+
+# The message may start with blank lines.
+message=$(printf '%s\n' "$body" | sed '/./,$!d')
 subject=$(printf '%s\n' "$message" | sed -n '1p')
 second=$(printf '%s\n' "$message" | sed -n '2p')
 
