@@ -72,7 +72,11 @@ A subject states what the commit does and what was verified, no more. Do not wri
 
 ## The hook
 
-`.githooks/commit-msg` is opt-in and local. Turn it on in a clone with `just hooks`; it refuses to replace a `core.hooksPath` you already set. It rejects a subject that is not `type(scope): description` and a body that does not follow a blank line.
+`.githooks/commit-msg` is opt-in and local. Turn it on in a clone with `just hooks`. It rejects a subject that is not `type(scope): description` and a body that does not follow a blank line.
+
+`core.hooksPath` replaces Git's hook directory instead of adding to it, so `just hooks` refuses, changes nothing and prints how to chain the check when it would switch off hooks already running: a `core.hooksPath` you set, or an executable hook in `.git/hooks` (for a linked worktree, the shared one). Call `.githooks/commit-msg "$1"` from your own `commit-msg` hook and keep its exit status.
+
+A line starting with `#` is a comment only where Git strips it. Git strips comment lines when an editor opens, and keeps them for `git commit -m` and `-F`, so there `#123 fix key reference` is the subject and is refused. `commit.cleanup` and `core.commentChar` are honored. `git commit --cleanup=<mode>` is not visible to a hook and is read as if it had not been given.
 
 Exempt: `Merge ...`, `Revert "..."`, and `fixup!`, `squash!`, `amend!` subjects. Skip once with `git commit --no-verify`; turn it off with `git config --unset core.hooksPath`.
 
@@ -84,6 +88,7 @@ Of 728 non-merge commits before this hook, 90 follow the convention. Do not rewr
 
 ```
 bash .githooks/commit-msg.test.sh
+bash .githooks/install.test.sh
 ```
 
-The fixtures run the hook on message files and through `git commit` in a throwaway repository.
+The fixtures run the hook on message files and through real `git commit` (with `-m` and with an editor) in a throwaway repository, and run the installer against repositories that already have hooks, including a linked worktree.
