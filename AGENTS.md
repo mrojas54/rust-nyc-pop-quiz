@@ -209,6 +209,11 @@ the `answer-history.json` record.
   `server/main.rs`, and every directory module is `<folder>/mod.rs`, never a
   `<folder>.rs` beside its folder. Every other file is a noun named for what
   it holds.
+- **Commit subjects are Conventional Commits**, `type(scope): description`, with
+  the phase and ticket marker last: `test(fallback): ... (PQ-52 RED)`. Read
+  `.agents/skills/conventional-commits/SKILL.md` before writing one. `just hooks`
+  turns on the opt-in `commit-msg` hook that checks it; history before the hook
+  is mixed, so do not rewrite it.
 - **Room commands take `--room <url>`.** `just schedule` and `just sync` need
   it (`--no-push` replaces it on `schedule` when the room is down). `just
   --list` shows these recipes only as `*ARGS`, so read the required arguments
