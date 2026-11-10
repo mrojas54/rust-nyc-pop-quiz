@@ -46,6 +46,13 @@ setup:
     cd popquiz && cargo fetch --locked
     cd prototypes/organizer-tui && cargo fetch --locked
 
+# Skip once with `git commit --no-verify`; turn off with `git config --unset core.hooksPath`.
+# Opt-in and local to this clone. Refuses, and says how to keep them, when that
+# would switch off a core.hooksPath you set or hooks already in .git/hooks.
+# Turn on the commit-msg hook: subjects must be Conventional Commits.
+hooks:
+    sh .githooks/install.sh
+
 # The inner loop. No network, no Docker, no pinned toolchain, no Miri.
 # EVALUATION.md budgets this at 60 s wall-clock; a slower default suite is a defect.
 [parallel]

@@ -39,6 +39,5 @@ target/
 
 # Local agent state
 .claude/settings.local.json
-
-# Riptide artifacts (cloud-synced)
-.humanlayer/tasks/
+.claude/settings.local.json.bak-*
+.claude/plans/

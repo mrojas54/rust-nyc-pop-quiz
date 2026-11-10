@@ -1,0 +1,89 @@
+#!/bin/sh
+# commit-msg: the subject must be a Conventional Commit, `type(scope): description`.
+#
+# Opt-in and local: `just hooks` points core.hooksPath at this directory. Git
+# does not version that setting, so a fresh clone runs no hooks until it is set.
+#
+# It checks the shape of the front of the subject and the blank line before a
+# body, and nothing else. What follows the colon is free text: this project ends
+# subjects with phase and ticket markers, `(RED)` or `(PQ-52 GREEN)`.
+#
+# Comment lines: stripped only where Git strips them. See the cleanup note below.
+#
+# Exempt, because git or a reviewer writes them: Merge ..., Revert "...", and
+# fixup! / squash! / amend! subjects that an autosquash rebase folds away.
+#
+# Skip once with `git commit --no-verify`. Fixture tests:
+#   bash .githooks/commit-msg.test.sh
+# See .agents/skills/conventional-commits/SKILL.md.
+
+msg_file=$1
+[ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
+
+# Check the message Git will store, not the file as it stands. Git cleans the
+# file after this hook runs. Cleanup `strip` removes comment lines; `whitespace`
+# and `verbatim` keep them, so there a `#` line is message text. The default is
+# `strip` when an editor was opened and `whitespace` when not (-m, -F), and
+# commit.cleanup overrides it. Git runs this hook with GIT_EDITOR=: when no
+# editor was used. `git commit --cleanup=<mode>` is not visible here, so it is
+# checked as if it had not been given; `verbatim` is read like `whitespace`.
+cleanup=$(git config --get commit.cleanup 2>/dev/null || true)
+case $cleanup in
+  strip) strip_comments=1 ;;
+  verbatim | whitespace | scissors) strip_comments=0 ;;
+  *) if [ "${GIT_EDITOR:-}" = ":" ]; then strip_comments=0; else strip_comments=1; fi ;;
+esac
+
+if [ "$strip_comments" = 1 ]; then
+  comment=$(git config --get core.commentString 2>/dev/null || git config --get core.commentChar 2>/dev/null || true)
+  case $comment in "" | auto) comment='#' ;; esac
+  body=$(COMMENT=$comment awk 'index($0, ENVIRON["COMMENT"]) != 1' "$msg_file")
+else
+  body=$(cat "$msg_file")
+fi
+
+# The message may start with blank lines.
+message=$(printf '%s\n' "$body" | sed '/./,$!d')
+subject=$(printf '%s\n' "$message" | sed -n '1p')
+second=$(printf '%s\n' "$message" | sed -n '2p')
+
+# An empty message is git's to refuse, not ours.
+[ -n "$subject" ] || exit 0
+
+case $subject in
+  "Merge "* | 'Revert "'* | "fixup! "* | "squash! "* | "amend! "*) exit 0 ;;
+esac
+
+types='feat|fix|docs|test|chore|refactor|ci|build|perf|style|revert'
+pattern="^($types)(\\([A-Za-z0-9._/-]+\\))?!?: [^[:space:]]"
+
+if ! printf '%s\n' "$subject" | grep -Eq "$pattern"; then
+  cat >&2 <<EOF
+commit-msg: the subject is not a Conventional Commit.
+
+  $subject
+
+Expected  type(scope): description
+  type    one of: feat fix docs test chore refactor ci build perf style revert
+  scope   optional, no spaces: fix(organizer-tui): ...
+  !       before the colon marks a breaking change: feat(room)!: ...
+  Then a colon, one space, and the description. Phase and ticket markers go at
+  the end of the description: test(fallback): ... (PQ-52 RED)
+
+Skip once with: git commit --no-verify
+Guide: .agents/skills/conventional-commits/SKILL.md
+EOF
+  exit 1
+fi
+
+if [ -n "$second" ]; then
+  cat >&2 <<EOF
+commit-msg: leave a blank line between the subject and the body.
+
+  $subject
+  $second
+EOF
+  exit 1
+fi
+
+exit 0
