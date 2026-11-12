@@ -53,6 +53,30 @@ setup:
 hooks:
     sh .githooks/install.sh
 
+# The dispatch gate. Run in a worktree before a ticket starts; the orchestrator
+# runs `just preflight --fix --json` and launches nothing unless it exits 0.
+# Checks signing (a signed probe commit, kept out of the repo), gh auth, plan
+# windows and codeburn, the codex range-review form, gtimeout, a fresh worktree
+# (pipeline/.venv missing -> `just setup`), and that the sandbox can write the
+# repo's objects and refs, the worktree, the handoff dir and .lattice/orchestration.
+# --fix installs coreutils and runs `just setup` (both need the network).
+# The script lives in the dotfiles: ~/.claude/scripts/workflow-preflight.sh.
+preflight *ARGS:
+    #!/usr/bin/env bash
+    gate="${WORKFLOW_PREFLIGHT:-$HOME/.claude/scripts/workflow-preflight.sh}"
+    [ -f "$gate" ] || { echo "preflight: $gate is missing; pull the dotfiles (mrojas54/dotfiles)" >&2; exit 1; }
+    extra=(); [ -d .lattice/orchestration ] && extra=(--write-path "{{justfile_directory()}}/.lattice/orchestration")
+    exec bash "$gate" --repo "{{justfile_directory()}}" --setup-cmd "just setup" \
+      --setup-marker pipeline/.venv --handoff-dir "$HOME/.claude/handoffs" "${extra[@]}" {{ARGS}}
+
+# Wait for PR checks on the exact head you pushed (default: HEAD), then report.
+# Never green on zero checks or on a head the PR has moved off. Uses the network.
+ci-wait PR *ARGS:
+    #!/usr/bin/env bash
+    cw="${CI_WAIT:-$HOME/.claude/scripts/ci-wait.sh}"
+    [ -f "$cw" ] || { echo "ci-wait: $cw is missing; pull the dotfiles (mrojas54/dotfiles)" >&2; exit 1; }
+    exec bash "$cw" {{PR}} --repo mrojas54/rust-nyc-pop-quiz {{ARGS}}
+
 # The inner loop. No network, no Docker, no pinned toolchain, no Miri.
 # EVALUATION.md budgets this at 60 s wall-clock; a slower default suite is a defect.
 [parallel]
