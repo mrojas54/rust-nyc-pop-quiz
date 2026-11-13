@@ -331,7 +331,7 @@ tonight's question is never reachable by anyone else.*
 
 | ID | Criterion |
 |---|---|
-| **AC-101** | **The room server accepts a scheduled question — answer included — and returns its used-question record only over an authenticated admin channel used by the organizer's pipeline.** No participant, wall or host route serves those routes or accepts that credential; a missing or wrong credential is refused with no information about what is stored; the credential is never in the repository, a payload, a page or a log. *Minted 2026-09-19, `tone-architect`: the build plan's laptop-to-server push (D-E) named no credential and no owner, and every other credential path in the corpus (AC-64…AC-70) is Discord's.* |
+| **AC-101** | **The room server accepts a scheduled question — answer included — and returns its used-question record only over an authenticated admin channel used by the organizer's pipeline.** No participant, wall or host route serves those routes or accepts that credential; a missing or wrong credential is refused with no information about what is stored; the credential is never in the repository, a payload, a page or a log. *Minted 2026-09-19, `tone-architect`: the build plan's laptop-to-server push (D-E) named no credential and no owner, and every other credential path in the corpus (AC-64…AC-70) is Discord's.* *Amended 2026-11-13, see Amendments and ADR-0006: the same channel also returns bank records and a backup. The text above is unchanged.* |
 
 ---
 
@@ -743,6 +743,12 @@ than say *verified*. The three sentence strings became a step list.
 | **AC-43** | Text unchanged; the proof row now tests a step list. | The list claims only steps the record holds. |
 | **AC-71** | **Amended.** The statement that verification covers the answer and not the explanation moves to the take-it-home page. Original kept in the row. | The wall receipt no longer carries a sentence about the explanation. |
 | **AC-87** | **Amended a third time.** The wall names no machine; take-it-home shows the target, or *not recorded* for a legacy record. Original kept in the row. | A list of steps taken has no determinism claim to scope. |
+
+### 2026-11-13 — AC-101 amended for the private question store (ADR-0006)
+
+| ID | Change | Why |
+|---|---|---|
+| **AC-101** | **Text unchanged; scope read wider.** The authenticated admin channel also returns bank records and a backup of the store, and accepts bank saves, verifier records and voids, behind the same credential and the same refusals. | Unreleased questions leave the public repo for a store only the room opens, and the pipeline reaches it through this channel. The credential now opens the whole bank. Proposed in ADR-0006; takes effect as each step of that plan lands. |
 
 ---
 

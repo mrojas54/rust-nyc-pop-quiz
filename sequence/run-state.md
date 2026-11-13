@@ -1871,3 +1871,13 @@ marker was unstyled. `.provenance.machine` is defined in
 `prototypes/_shared/tokens.css:282`, and the heading text differs from the
 human marker's. Stopped at a pass in round 2 of the three allowed.
 
+
+### Private question store contract, step 0.0, 2026-11-13
+
+ADR-0006 (`docs/adr/0006-private-question-store.md`) records the goal, the
+non-goals and steps 0.0 to 4.0 with an acceptance check each: unreleased
+questions move to SQLite on a Fly volume behind the admin API. Queen chose the
+store on 2026-11-12 and approved starting 0.0 on 2026-11-13. Docs only. Amended
+by dated note: AC-101 (the admin channel also returns bank records and a
+backup), G-10 (void note, wording proposed), SPEC §8.3. No AC id changes
+meaning. Nothing is built; steps 1.0 to 4.0 each need her word.

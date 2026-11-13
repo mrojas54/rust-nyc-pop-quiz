@@ -64,7 +64,7 @@ code (`mvp/tools/`), the audit ticket audits that code too.
 | **G-7** | The receipt claims exactly what verification proved. (AC-43, AC-71, AC-87) | The receipt lines are generated from the `verified` record by one function, and a line renders only if the record holds its step (§7.5). | String test; HC-2 reads it. |
 | **G-8** | Neither source nor trace is rendered on a participant device. (AC-32) | Participant payloads have no source field; `canary`. | `canary` in `test`. |
 | **G-9** | Every credential path is enumerated and checked by one function: hosting by role **ID** in `roles`, checked at room creation against the role of the **club** the organizer names (D-26); the pipeline channel by one admin token (§8.3); and the M1 stand-in (§8.2), which exists only behind a build feature. Nothing else authorizes anything. (AC-64, AC-65, AC-69, AC-101) | One auth function per path; the Administrator test; the Discord-down test; a build without the stand-in feature accepts no stand-in token (§8.2); a route-table test that the admin routes are served to the token check alone (§8.3). | Auth audit ticket, covering all three paths. |
-| **G-10** | A question is *used* when a room is **released**, not when a deck is built. It is used **for the club whose room released it**: a question is never run twice for one club, and two clubs may each run it once (D-26). (AC-92, AC-105) | The used-question record's only writer is the release transition. Building writes nothing. | Audit and retire `build_deck.py`'s write to `answer-history.json`. |
+| **G-10** | A question is *used* when a room is **released**, not when a deck is built. It is used **for the club whose room released it**: a question is never run twice for one club, and two clubs may each run it once (D-26). (AC-92, AC-105) *Void note, 2026-11-13, proposed in ADR-0006: an authenticated admin action may mark one used record void, with a reason. A void record stays, no longer counts as a run for its club, and is not what `/last` shows. The release transition is still the only writer of new used records; a void only marks an existing one. Wording is settled by the step 1.0 PR.* | The used-question record's only writer is the release transition. Building writes nothing. | Audit and retire `build_deck.py`'s write to `answer-history.json`. |
 | **G-11** | No answer-category distribution is published anywhere an attendee can read. (AC-25) | `bank-audit` scans participant-facing artifacts; organizer docs carry the tells. | Ticket for the scan. |
 | **G-12** | Every question scheduled has an organizer's affirmation of its explanation. (AC-72, AC-95) | Scheduling refuses unaffirmed questions; affirmation records who and when. | Gate test. |
 
@@ -582,6 +582,8 @@ operator. HC-0 runs on the stand-in; AC-64's live Discord proof is T-10's exit
 criterion and gates **HC-1**, never HC-0.
 
 ### 8.3 The pipeline channel (D-20, AC-101)
+
+*Amended 2026-11-13 (ADR-0006, proposed): once the private question store is built, this channel also reads and saves bank records and returns a backup of the store, behind the same bearer check. The two routes below are the channel until step 1.0 and 3.0 of that plan land.*
 
 The laptop reaches the room server through exactly two admin routes
 (`PUT` has two spellings, D-26): `PUT /admin/questions/{id}`, or
