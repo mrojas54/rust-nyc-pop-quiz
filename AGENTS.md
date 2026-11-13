@@ -84,8 +84,11 @@ Runs are driven by the `lattice-orchestrator` skill on the Lattice board
   Run it in the ticket's worktree on each dispatch tick, right before
   `c11 new-panel`. Spawn only on exit 0. On exit 1, spawn nothing for that
   ticket and post ONE escalation in chat listing the JSON's `human` array (each
-  item's `check`, `detail` and `fix`), then re-banner it every tick until it
-  clears. `--fix` has already run what is safe (`just setup` in a fresh
+  item's `check`, `detail` and `fix`). Once that is the only remaining action,
+  follow "Waiting for Michelle": finish independent authorized work, save one
+  checkpoint, cancel this run's wake timers and end the turn. Do not re-banner
+  or re-run the gate on a timer; re-run it after she responds or explicitly
+  asks you to keep watching. `--fix` has already run what is safe (`just setup` in a fresh
   worktree, `brew install coreutils`); a failure with `who: "agent"` that
   survives `--fix` is the orchestrator's to fix, not the operator's. A locked
   1Password vault is the usual human item: say "1Password looks locked. Please
