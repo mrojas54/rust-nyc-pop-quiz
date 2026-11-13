@@ -80,6 +80,23 @@ Runs are driven by the `lattice-orchestrator` skill on the Lattice board
   `c11 list-panels` for another delegator on the same files (panel 44 was once
   editing the same ADR at the same time). If one is, coordinate through the
   board rather than editing over it.
+- **Dispatch gate: `just preflight --fix --json` before every delegator spawn.**
+  Run it in the ticket's worktree on each dispatch tick, right before
+  `c11 new-panel`. Spawn only on exit 0. On exit 1, spawn nothing for that
+  ticket and post ONE escalation in chat listing the JSON's `human` array (each
+  item's `check`, `detail` and `fix`). Once that is the only remaining action,
+  follow "Waiting for Michelle": finish independent authorized work, save one
+  checkpoint, cancel this run's wake timers and end the turn. Do not re-banner
+  or re-run the gate on a timer; re-run it after she responds or explicitly
+  asks you to keep watching. `--fix` has already run what is safe (`just setup` in a fresh
+  worktree, `brew install coreutils`); a failure with `who: "agent"` that
+  survives `--fix` is the orchestrator's to fix, not the operator's. A locked
+  1Password vault is the usual human item: say "1Password looks locked. Please
+  unlock it and say go." and re-run the gate after the go.
+- **CI: `just ci-wait <PR>` before calling a PR green.** It reads
+  `gh pr checks` and asserts the PR head equals the sha you pushed, before and
+  after each poll; zero checks is never green. Don't report CI state from a
+  background notification or from memory.
 
 ## Read these first
 
