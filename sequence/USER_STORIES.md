@@ -113,7 +113,7 @@ day, because the segment dies the first time it does.*
 | **AC-77** | A meetup can run entirely from reserve with **zero generation that day**, using no network beyond serving the room. |
 | **AC-103** | **A club hosts only with its own role.** The room serves several clubs from one Discord server. An organizer names a club when they create a room, and hosting requires the role ID configured for *that* club (AC-65 stands: the role ID in `roles`). The role of another club grants nothing, and an unknown club is refused exactly as a missing role is, so the refusal does not reveal which clubs exist. *Minted 2026-10-09, D-26.* |
 | **AC-104** | **Two clubs can run the same question.** The question bank is shared. Two clubs may hold a room on the same question at the same time, and one club's room never shows another's wall, answers or take-it-home page. *Minted 2026-10-09, D-26.* |
-| **AC-105** | **Never twice is per club.** A question is *used* for a club when that club's room releases it (G-10). It is refused to that club thereafter and stays available to every other club. *Minted 2026-10-09, D-26.* |
+| **AC-105** | **Never twice is per club.** A question is *used* for a club when that club's room releases it (G-10). It is refused to that club thereafter and stays available to every other club. *Minted 2026-10-09, D-26.* *Amended 2026-11-13, see Amendments and ADR-0006: one exception, a void. The text above is unchanged.* |
 | **AC-102** | **If the room cannot run, the segment still can.** The wall's views for the scheduled question are available as one file that opens on the organizer's laptop with no network, is stepped from the keyboard in the room's phase order, and obeys the same rules as the room's wall: no answer, receipt, ✓ or colour before the views that may show them (AC-97, AC-99). It comes with a plain-text host sheet of the explanation beats and each step's words, so the host has something to read when there is no host phone (AC-39). *Minted 2026-09-19, `tone-architect`, from the static fallback that `SPEC.md` §12 specified and no criterion covered — AC-77's spirit, made testable.* |
 
 ---
@@ -748,6 +748,7 @@ than say *verified*. The three sentence strings became a step list.
 
 | ID | Change | Why |
 |---|---|---|
+| **AC-105** | **Text unchanged; one exception read in.** An authenticated admin action may mark a club's used record void, with a reason. A void record stays and no longer counts as a run for that club, so the question is no longer refused to it; without a void the rule holds as written. | Once the ledger survives a deploy, nothing clears it, so a rehearsal such as `just demo` or a mistaken release (q3 on 2026-08-12) has no other way back. Proposed in ADR-0006 with the G-10 void note; takes effect when step 1.0 lands. |
 | **AC-101** | **Text unchanged; scope read wider.** The authenticated admin channel also returns bank records and a backup of the store, and accepts bank saves, verifier records and voids, behind the same credential and the same refusals. | Unreleased questions leave the public repo for a store only the room opens, and the pipeline reaches it through this channel. The credential now opens the whole bank. Proposed in ADR-0006; takes effect as each step of that plan lands. |
 
 ---

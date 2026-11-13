@@ -3,7 +3,7 @@
 **Status:** Proposed (Queen approved starting step 0.0 on 2026-11-13; this ADR becomes Accepted when she merges it)
 **Date:** 2026-11-13
 **Deciders:** Queen chose the store on 2026-11-12, the mock datastore on 2026-11-10 and `/last/{club}` staying public on 2026-11-13; Claude wrote this record
-**Contract:** amends AC-101 and G-10 by dated note (see "Contract changes"). AC-23, AC-56, AC-57, AC-61, AC-7 and G-4 are unchanged.
+**Contract:** amends AC-101, AC-105 and G-10 by dated note (see "Contract changes"). AC-23, AC-56, AC-57, AC-61, AC-7 and G-4 are unchanged.
 
 ## Goal
 
@@ -56,6 +56,7 @@ Steps run in order. Each is one thread, one pull request, one visible outcome. Q
 ## Contract changes
 
 - **AC-101** keeps its text. A dated note says the admin channel also returns bank records and a backup, and accepts bank saves, verifier records and voids. Everything else in AC-101 holds: the same credential, no other route accepts it, a wrong credential reveals nothing, and the credential is never in the repository, a payload, a page or a log. The token now opens the whole bank, so it matters more than before.
+- **AC-105** keeps its text. A dated note reads in the same void as one exception: a voided row no longer counts as a run, so the question is no longer refused to that club. Without a void the rule holds as written.
 - **G-10** keeps its text. A dated note adds the void: a used row can be marked void with a reason by an authenticated admin action. A void row stays and no longer counts as a run for the club. The release transition is still the only writer of new `used` rows, and a void only marks an existing one. Wording is proposed and is settled by the step 1.0 PR.
 
 ## Consequences
